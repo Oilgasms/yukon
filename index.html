@@ -329,7 +329,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v68';
+  var BUILD = 'v69';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -500,6 +500,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     if (key === 'cinema') return openCinema();
     if (key === 'fox') return town.hearts();
     if (key === 'railway' && town.toot) { town.toot(); return; }
+    if (key === 'pub' && town.getBeer) { town.getBeer(); return; }
     if (key === 'church') town.ringBell();
     if (/^dog:/.test(key)) town.bark(key.slice(4));
     else if (key === 'dogs') town.st.dogs.order.forEach(function (n, i) { setTimeout(function () { town.bark(n, true); }, i * 250); });

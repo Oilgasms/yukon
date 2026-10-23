@@ -80,7 +80,7 @@
     eagle: ['#4a3420', '#e8b934', '#f4f2ec'], owl: ['#8a6e4e', '#e8b934', '#b89a72'],
     brick: ['#a8483a', '#b5553f', '#9a4034'], logwood: ['#8a5a34', '#74492a'], shingle: '#4e3d34', whitewood: '#f3efe6',
     fox: ['#d9682a', '#f4efe6', '#2a2420'], coon: ['#8d8883', '#2b2826', '#efece6'], glass: ['#c8372d', '#2f6fc0', '#e8b934', '#3f8a3f', '#7a4fb0', '#d9682a'],
-    fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
+    fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], beer: ['#e3a02c', '#fbf6e8', '#d9e6e8'], smoke: '#d6d3cc', leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
   };
   var CASTLE_MILESTONES = [
     [20, 'gatehouse', 'Gatehouse'], [40, 'banners', 'Wall banners'], [60, 'moat', 'Moat and drawbridge'],
@@ -7908,6 +7908,7 @@
       var run = K.shift || (this.stick && Math.hypot(this.stick.x, this.stick.y) > 0.92);
       var sp = (run ? 6.4 : 3.3) * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1);
       var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
+      if (pl.tipsy && now < pl.tipsy) { var wob = Math.sin(now / 380) * 0.55, cw = Math.cos(wob), sw = Math.sin(wob), ox = dx; dx = ox * cw - dz * sw; dz = ox * sw + dz * cw; }
       var tryMove = function (ddx, ddz) {
         var nx = P.x + ddx, nz = P.z + ddz;
         if (!stuck && !self.walkable(nx, nz, P.y + 0.3, aloft)) return false;
@@ -8081,7 +8082,32 @@
     pl.seat = seat; pl.seatT = 0; pl.from = { x: P.x, y: P.y, z: P.z }; pl.fishT = 0; pl.fishAt = 6 + Math.random() * 7;
     pl.air = 0; pl.vy = 0;
   };
+  Town.prototype.smokeStep = function (pl, dt, now) {
+    if (pl.carry && pl.carry.kind === 'beer') return; // one vice at a time
+    if (!pl.cig) {
+      if (pl.seatT < 2.5) return;
+      var cg = new T.Group(); cg.position.set(0.05, 0.0, -0.01); cg.rotation.y = 0.5; pl.mouth.add(cg);
+      this.part(cg, this.geo.cyl6, this.mat('swan', 0), 0.012, 0.11, 0.012, 0, 0, 0.05).rotation.x = Math.PI / 2;
+      this.part(cg, this.geo.cyl6, this.mat('woodLight'), 0.013, 0.03, 0.013, 0, 0, 0.005).rotation.x = Math.PI / 2;
+      var ember = this.part(cg, this.geo.cyl6, this.mat('fire'), 0.014, 0.015, 0.014, 0, 0, 0.11); ember.rotation.x = Math.PI / 2;
+      pl.cig = { g: cg, ember: ember, next: now + 1500 };
+      this.say('*flick*', pl.g, 1.0, 0.8);
+      return;
+    }
+    var C = pl.cig, wp = new T.Vector3();
+    // Draw, glow, then breathe out a big cloud.
+    var drag = now > C.next - 600 && now < C.next;
+    C.ember.scale.set(drag ? 0.022 : 0.014, 0.015, drag ? 0.022 : 0.014);
+    pl.sipping = drag;
+    if (now > C.next) {
+      C.next = now + 2800 + Math.random() * 2200;
+      pl.mouth.getWorldPosition(wp);
+      this.puff(wp.x, wp.y + 0.05, wp.z, 5, 'smoke', 0.06);
+      if (Math.random() < 0.25) this.say(['*puff*', 'ahh.', 'long day', 'this town, man'][Math.floor(Math.random() * 4)], pl.g, 1.1, 1.3);
+    } else if (Math.random() < dt * 1.5) { C.ember.getWorldPosition(wp); this.puff(wp.x, wp.y + 0.02, wp.z, 1, 'smoke', 0.01); }
+  };
   Town.prototype.leaveSeat = function (pl) {
+    if (pl.cig) { var wp = new T.Vector3(); pl.cig.ember.getWorldPosition(wp); pl.mouth.remove(pl.cig.g); pl.cig = null; pl.sipping = false; this.puff(wp.x, wp.y, wp.z, 3, 'dust'); }
     pl.seat = null; pl.idle = 0; pl.seatAt = performance.now() + 2500; pl.vy = 2.2;
   };
   // Hop across onto the seat, then sit; on the end of a dock, now and then a fish jumps.
@@ -8095,6 +8121,8 @@
     while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
     g.rotation.y += d * Math.min(1, dt * 10);
     pl.idle = Math.min(20, (pl.idle || 0) + dt);
+    // On a bench or a chair, after a moment: a cigarette.
+    if (!seat.low && t >= 1) this.smokeStep(pl, dt, now);
     // Sitting bolt upright (on the edge of a dock, with its legs swinging).
     this.applyPose(pl, this.sitPose(now / 1000, seat.low ? 'ledge' : 'sit'), dt, now / 1000, false);
     g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
@@ -8202,6 +8230,7 @@
       case 'paddle': noise('lowpass', 700, 0.6, 0.06, 0.12, t); break;
       case 'chitter': for (var ch = 0; ch < 5; ch++) tone('square', 1500 + Math.random() * 900, 1100, 0.035, 0.004, 0.035, t + ch * 0.055, 3500); break;
       case 'hiss': noise('highpass', 3500, 0.5, 0.12, 0.45, t); break;
+      case 'glug': [0, 0.16, 0.32].forEach(function (d) { tone('sine', 220, 150, 0.12, 0.01, 0.1, t + d, 900); }); break;
       case 'nom': [0, 0.14, 0.28].forEach(function (d) { noise('bandpass', 900, 1.2, 0.08, 0.05, t + d); }); break;
       case 'scrabble': noise('highpass', 2500, 0.6, 0.06, 0.04, t); break;
       case 'found': tone('square', 660, null, 0.05, 0.005, 0.08, t, 2500); tone('square', 990, null, 0.05, 0.005, 0.14, t + 0.09, 2500); break;
@@ -8275,9 +8304,9 @@
   // Sitting bolt upright on its haunches, front paws up by its chest, looking about.
   Town.prototype.sitPose = function (t, kind) {
     var look = Math.sin(t * 0.45) + Math.sin(t * 0.83), w = Math.sin(t * 11);
-    var p = { pitch: -1.05, by: 0.34, hx: 0.85, hy: Math.abs(look) > 1.1 ? Math.sign(look) * 0.7 : 0, tailX: 1.35, tailY: Math.sin(t * 1.6) * 0.35,
-      front: { y: 0.36, z: 0.15 }, legs: [-0.35, -0.35, 1.35, 1.35] };
-    if (kind === 'wash') { p.legs = [-0.9 + w * 0.35, -0.9 - w * 0.35, 1.35, 1.35]; p.hx = 1.15; p.hy = 0; }
+    var p = { pitch: -1.42, by: 0.36, bz: -0.1, hx: 1.3, hy: Math.abs(look) > 1.1 ? Math.sign(look) * 0.7 : 0, tailX: 1.75, tailY: Math.sin(t * 1.6) * 0.35,
+      front: { y: 0.44, z: 0.04 }, legs: [-0.25, -0.25, 1.45, 1.45] };
+    if (kind === 'wash') { p.legs = [-0.9 + w * 0.35, -0.9 - w * 0.35, 1.45, 1.45]; p.hx = 1.6; p.hy = 0; }
     if (kind === 'ledge') { p.legs = [-0.35, -0.35, 1.35 + Math.sin(t * 3) * 0.2, 1.35 + Math.sin(t * 3 + 1.4) * 0.2]; }
     return p;
   };
@@ -8286,8 +8315,11 @@
     p = p || {};
     body.rotation.x += ((p.pitch || 0) - body.rotation.x) * k;
     body.position.y += ((p.by || 0.3) - body.position.y) * k;
-    body.rotation.z += ((p.breathe ? 0.08 * Math.sin(t * 1.3) : 0) - body.rotation.z) * k;
-    head.rotation.x += ((p.hx || 0) - head.rotation.x) * k;
+    body.position.z += ((p.bz || 0) - body.position.z) * k;
+    // A bit unsteady after a pint.
+    if (pl.tipsy && performance.now() < pl.tipsy) p.sway = Math.sin(t * 2.3) * 0.16;
+    body.rotation.z += ((p.breathe ? 0.08 * Math.sin(t * 1.3) : 0) + (p.sway || 0) - body.rotation.z) * k;
+    head.rotation.x += ((p.hx || 0) - (pl.sipping ? 0.8 : 0) - head.rotation.x) * k;
     head.rotation.y += ((p.hy || 0) - head.rotation.y) * Math.min(1, dt * 4);
     pl.tail.rotation.x += ((p.tailX != null ? p.tailX : 0.4) - pl.tail.rotation.x) * k;
     if (p.tailY != null) pl.tail.rotation.y += (p.tailY - pl.tail.rotation.y) * k;
@@ -8401,15 +8433,40 @@
     }
   };
   // Hold the find in its mouth; sit still for a bit and it gets eaten (washed first, by water).
-  Town.prototype.carryItem = function (pl) {
+  Town.prototype.carryItem = function (pl, kind) {
     if (pl.carry) pl.mouth.remove(pl.carry.m);
+    if (kind === 'beer') {
+      // A proper pint: amber glass, a head of foam, a handle.
+      var mug = new T.Group(); pl.mouth.add(mug); mug.position.set(0, -0.06, 0.04); mug.scale.setScalar(1.7);
+      this.part(mug, this.geo.cyl, this.mat('beer', 0), 0.06, 0.14, 0.06, 0, 0, 0);
+      this.part(mug, this.geo.cyl, this.mat('beer', 1), 0.065, 0.04, 0.065, 0, 0.085, 0);
+      this.part(mug, this.geo.box, this.mat('beer', 2), 0.025, 0.08, 0.02, 0.075, 0, 0);
+      pl.carry = { m: mug, eat: 0, kind: 'beer', sips: 0 };
+      return;
+    }
     var m = this.mesh(Math.random() < 0.5 ? this.geo.box : this.geo.ball, this.mat(['flag', 'woodLight', 'balloon', 'leaf', 'brick'][Math.floor(Math.random() * 5)], Math.floor(Math.random() * 4)), pl.mouth);
     m.scale.set(0.09, 0.06, 0.12); m.rotation.y = Math.random();
     pl.carry = { m: m, eat: 0 };
   };
   Town.prototype.stepCarry = function (pl, dt, now, moving) {
     var c = pl.carry;
+    if (pl.tipsy && now < pl.tipsy && now > (pl.hicAt || 0)) { pl.hicAt = now + 5000 + Math.random() * 6000; this.say('*hic*', pl.g, 0.9, 0.9); }
     if (!c) return;
+    if (c.kind === 'beer') {
+      // Sit down with it and it goes down in big glugs; then the hiccups.
+      pl.sipping = false;
+      if (moving || pl.swim || pl.dig || (pl.idle || 0) < 1.5) return;
+      c.eat += dt;
+      var ph = c.eat % 1.8;
+      pl.sipping = ph > 1.1;
+      if (pl.sipping && !c.glugged) { c.glugged = true; this.sfx('glug'); c.sips++; c.m.children[0].scale.y = 0.14 * (1 - c.sips / 5); c.m.children[1].position.y = 0.085 - 0.13 * c.sips / 5 * 0.5; }
+      if (!pl.sipping) c.glugged = false;
+      if (c.sips >= 4 && !pl.sipping) {
+        pl.mouth.remove(c.m); pl.carry = null; pl.tipsy = now + 45000; pl.hicAt = now + 1500;
+        this.say(['ahhh', '*BURRRP*', 'another!', 'that hit the spot'][Math.floor(Math.random() * 4)], pl.g, 1.0, 1.5);
+      }
+      return;
+    }
     if (moving || pl.swim || pl.dig || (pl.idle || 0) < 3.5) { c.eat = Math.max(0, c.eat - dt); return; }
     c.eat += dt;
     pl.head.rotation.x += Math.sin(now / 90) * 0.04;
@@ -8417,6 +8474,16 @@
     var k = Math.max(0.05, 1 - c.eat / 4);
     c.m.scale.set(0.09 * k, 0.06 * k, 0.12 * k);
     if (c.eat > 4) { pl.mouth.remove(c.m); pl.carry = null; this.say(['nom nom nom', '*munch*', 'delicious', 'gourmet', '*burp*'][Math.floor(Math.random() * 5)], pl.g, 1.0, 1.4); }
+  };
+  // Up to the bar for a pint.
+  Town.prototype.getBeer = function () {
+    var pl = this.player;
+    if (!pl) return false;
+    if (pl.carry && pl.carry.kind === 'beer') { this.say('still got one', pl.g, 1.0, 1.2); return true; }
+    this.carryItem(pl, 'beer');
+    this.say(['one pint please', 'pint of the usual', 'put it on my tab'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.6);
+    this.sfx('found');
+    return true;
   };
   Town.prototype.stepCans = function (dt, now) {
     var C = this.st.cans, busy = false, self = this, P = this.player && this.explore ? this.player.g.position : null;
@@ -8493,7 +8560,7 @@
       }
       return;
     }
-    var mat = kind === 'trash' ? this.mat(['flag', 'woodLight', 'plaster', 'leaf', 'balloon'][Math.floor(Math.random() * 5)], Math.floor(Math.random() * 4)) : kind === 'snow' || kind === 'splash' || kind === 'steam' ? this.mat('swan', 0) : kind === 'dust' ? this.mat('path') : kind === 'needle' ? this.mat('pine', 0) : kind === 'birchleaf' ? this.mat('birchleaf') : this.mat('leaf', Math.floor(Math.random() * 3));
+    var mat = kind === 'smoke' ? this.mat('smoke') : kind === 'trash' ? this.mat(['flag', 'woodLight', 'plaster', 'leaf', 'balloon'][Math.floor(Math.random() * 5)], Math.floor(Math.random() * 4)) : kind === 'snow' || kind === 'splash' || kind === 'steam' ? this.mat('swan', 0) : kind === 'dust' ? this.mat('path') : kind === 'needle' ? this.mat('pine', 0) : kind === 'birchleaf' ? this.mat('birchleaf') : this.mat('leaf', Math.floor(Math.random() * 3));
     spread = spread || 0.3;
     for (var i = 0; i < n && F.bits.length < 90; i++) {
       var m = new T.Mesh(this.geo.box, mat);
@@ -8501,10 +8568,11 @@
       m.scale.set(sz, kind === 'dust' || kind === 'snow' ? sz : 0.015, kind === 'needle' ? sz * 0.4 : sz);
       m.position.set(x + (Math.random() - 0.5) * spread * 2, y + (Math.random() - 0.5) * spread, z + (Math.random() - 0.5) * spread * 2);
       F.group.add(m);
-      var burst = kind === 'dust' || kind === 'splash' || kind === 'steam' || kind === 'trash';
+      var burst = kind === 'dust' || kind === 'splash' || kind === 'steam' || kind === 'trash' || kind === 'smoke';
       if (kind === 'trash') { m.scale.set(0.06, 0.02, 0.05); }
       if (kind === 'steam') m.scale.setScalar(0.14 + Math.random() * 0.08);
-      F.bits.push({ m: m, kind: kind, life: kind === 'dust' ? 0.5 : kind === 'splash' ? 0.6 : kind === 'steam' ? 1.2 : 1.6 + Math.random() * 0.9, t: 0, vx: (Math.random() - 0.5) * (burst ? 1.6 : 0.5), vy: kind === 'trash' ? 1.8 + Math.random() : kind === 'splash' ? 1.4 + Math.random() : kind === 'steam' ? 0.9 + Math.random() * 0.4 : kind === 'dust' ? 0.6 + Math.random() * 0.5 : -0.25 - Math.random() * 0.3, vz: (Math.random() - 0.5) * (burst ? 1.6 : 0.5), ph: Math.random() * 6 });
+      if (kind === 'smoke') m.scale.setScalar(0.04 + Math.random() * 0.03);
+      F.bits.push({ m: m, kind: kind, life: kind === 'smoke' ? 1.6 : kind === 'dust' ? 0.5 : kind === 'splash' ? 0.6 : kind === 'steam' ? 1.2 : 1.6 + Math.random() * 0.9, t: 0, vx: (Math.random() - 0.5) * (burst ? 1.6 : 0.5), vy: kind === 'smoke' ? 0.35 + Math.random() * 0.2 : kind === 'trash' ? 1.8 + Math.random() : kind === 'splash' ? 1.4 + Math.random() : kind === 'steam' ? 0.9 + Math.random() * 0.4 : kind === 'dust' ? 0.6 + Math.random() * 0.5 : -0.25 - Math.random() * 0.3, vz: (Math.random() - 0.5) * (burst ? 1.6 : 0.5), ph: Math.random() * 6 });
     }
     this.needsRender = true;
   };
@@ -8575,6 +8643,7 @@
         else if (b.kind === 'trash') { b.vy -= 7 * dt; m.rotation.x += dt * 9; }
         else if (b.kind === 'ripple') { m.scale.x += dt * 0.5; m.scale.z += dt * 0.5; m.position.y = b.fixedY; if (b.t > b.life) { F.group.remove(m); return false; } return true; }
         else if (b.kind === 'steam') { b.vy *= 1 - dt; m.scale.multiplyScalar(1 + dt * 0.8); }
+        else if (b.kind === 'smoke') { b.vx *= 1 - dt * 2; b.vz *= 1 - dt * 2; m.scale.multiplyScalar(1 + dt * 1.4); m.rotation.y += dt; if (b.t > b.life) { F.group.remove(m); return false; } }
         else { m.rotation.x += dt * 3; m.rotation.z += dt * 2; b.vx += Math.sin(b.t * 4 + b.ph) * dt * 0.8; }
         m.position.x += b.vx * dt; m.position.y += b.vy * dt; m.position.z += b.vz * dt;
         var gy = b.kind === 'splash' ? -1e9 : groundY(m.position.x, m.position.z);
