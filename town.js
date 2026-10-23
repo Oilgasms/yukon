@@ -128,6 +128,10 @@
   // Extra castles start here once the first one's towers can't grow any taller: each sits on a raised hill.
   var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(42, 80), { lift: 4.5 }), Object.assign(polar(302, 84), { lift: 4 }), Object.assign(polar(135, 88), { lift: 4 }), Object.assign(polar(250, 86), { lift: 4.5 })];
   var MAX_LAYERS = 36;
+  // How fast the castles rise. The first castle's towers may climb a layer every MAIN_CAP_EVERY
+  // lifting sessions; each session builds CASTLE_PACE.mainBailey of its halls and turrets, and
+  // CASTLE_PACE.steps pieces at the castles on the hills.
+  var MAIN_CAP_EVERY = 6, CASTLE_PACE = { steps: 6, capEvery: 2, mainBailey: 2 };
   var LANE_STONES = 140;
   var BALLOON_KM = 30;
   var SPORT_SLOTS = [[66, 20], [90, 19.5], [78, 26], [54, 26.5], [104, 25], [118, 19.5], [94, 31.5], [64, 32]];
@@ -135,10 +139,12 @@
   var HOCKEY = polar(132, 27);
   // The sheep pasture: one sheep for every 100 km ridden.
   var PASTURE = polar(282, 74), PASTURE_R = 6.3;
-  // The church, built chapter by chapter as the Bible is read, just past the end of the south street.
-  var CHURCH = polar(254, 56);
-  // The library, built from the books you read, out past the river beyond the forest.
-  var LIBRARY = polar(6, 67);
+  // The church, built chapter by chapter as the Bible is read, at the end of the south street.
+  var CHURCH_AT = [256, 45], CHURCH = polar(CHURCH_AT[0], CHURCH_AT[1]);
+  // Where the church first stood: kept for the houses on Chapel Lane.
+  var CHAPEL_LANE = polar(254, 56);
+  // The library, built from the books you read, just over the river beyond the forest.
+  var LIBRARY_AT = [16, 48], LIBRARY = polar(LIBRARY_AT[0], LIBRARY_AT[1]);
   // The dragon's cave, a little past the library.
   var HOARD = polar(18, 84);
   var SNOW = { c: polar(97, 58), R: 17, H: 19, runs: 42 };
@@ -196,7 +202,7 @@
       var fg = polar(FARM.angle, FARM.r + 3.2);
       if (Math.hypot(p.x - fg.x, p.z - fg.z) < size + 5) return false;
       if (Math.hypot(p.x - STATUE.x, p.z - STATUE.z) < size + 3) return false;
-      if (Math.hypot(p.x - PASTURE.x, p.z - PASTURE.z) < size + PASTURE_R + 3 || Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < size + 11) return false;
+      if (Math.hypot(p.x - PASTURE.x, p.z - PASTURE.z) < size + PASTURE_R + 3 || Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < size + 11 || Math.hypot(p.x - CHAPEL_LANE.x, p.z - CHAPEL_LANE.z) < size + 9) return false;
       if (riverDist(p.x, p.z) < size + (canyonDepth(p.x, p.z) > 0.2 ? 13 : 3)) return false;
       if (Math.hypot(p.x, p.z) * Math.cos((angleOf(p.x, p.z) - 320) * D2R) > 80 - size) return false; // clear of the beach
       return !CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - p.x, c.z - p.z) < size + 21; });
@@ -236,8 +242,9 @@
     bezierPath(polar(254, 18.8), polar(260, 20.2), polar(266, 20.6), polar(271, 20.2)),
     bezierPath(polar(198, 25), polar(194, 22.5), polar(192, 20.5), polar(190, 18.2)),
     bezierPath(polar(212, 36.5), polar(206, 39), polar(200, 41.5), polar(193, 42.5)),
-    bezierPath(polar(257, 37), polar(259, 40), polar(259, 43.5), polar(256, 47)),
-    bezierPath(polar(226, 43.5), polar(230, 46.5), polar(236, 49), polar(242, 50.5))
+    bezierPath(polar(226, 43.5), polar(230, 46.5), polar(236, 49), polar(242, 50.5)),
+    // Chapel Lane, out to where the church first stood.
+    bezierPath(polar(242, 50.5), polar(247, 55), polar(254, 57.5), polar(261, 56))
   ];
   function FIELDS_NEAR(p) { return typeof FIELDS !== 'undefined' && FIELDS && FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 3.5; }); }
   var HOUSE_SLOTS = (function () {
@@ -252,6 +259,7 @@
           var p = { x: street[i].x + nx * side * rowDef[0], z: street[i].z + nz * side * rowDef[0] };
           if (Math.hypot(p.x, p.z) < 17.5) return;
           if (Math.hypot(p.x - PUB.x, p.z - PUB.z) < 4.8 || Math.hypot(p.x - SQUARE.x, p.z - SQUARE.z) < 4.6) return;
+          if (Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < 9.5 || Math.hypot(p.x - LIBRARY.x, p.z - LIBRARY.z) < 11) return;
           if (Math.hypot(p.x - DOG_PEN.c.x, p.z - DOG_PEN.c.z) < 7.5 || Math.hypot(p.x - POND.x, p.z - POND.z) < 7.5 || Math.hypot(p.x - OFFICE.x, p.z - OFFICE.z) < 5.5) return;
           if (STREETS.some(function (st) { return st.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 2.3; }); })) return;
           if (hash.near(p.x, p.z, 3.9)) return;
@@ -528,8 +536,8 @@
     out.push({ kind: 'path', pts: trail(SQUARE, polar(angleOf(POND.x, POND.z) + 4, Math.hypot(POND.x, POND.z) - 5.5), 1) });
     SPORT_SLOTS.forEach(function (sl, i) { var p = polar(sl[0], sl[1] - 2.2); out.push({ kind: 'path', pts: fromRing(p, i % 2 ? 0.8 : -0.8), sport: i }); });
     out.push({ kind: 'path', pts: fromRing(polar(132, 27 - 2.6), 0.6) });
-    out.push({ kind: 'path', pts: fromRing(polar(6, 67 - 4.2), 1.5) });
-    out.push({ kind: 'path', pts: trail(polar(257, 37.5), { x: CHURCH.x - CHURCH.x / 56 * 9.5, z: CHURCH.z - CHURCH.z / 56 * 9.5 }, 0.5) });
+    out.push({ kind: 'path', pts: fromRing(polar(LIBRARY_AT[0], LIBRARY_AT[1] - 4.2), 1.5) });
+    out.push({ kind: 'path', pts: trail(polar(257, 37.5), polar(CHURCH_AT[0], CHURCH_AT[1] - 6.8), 0.5) });
     // Farm tracks: the drove road runs out from the ring road down the middle of the farmland,
     // reaching each band when its first field opens; each field's gate joins the track along
     // the inside of its band, at the nearest gate or the drove road.
@@ -553,7 +561,7 @@
   // The library path climbs from its bridge up to the library: grade the ground along it into an
   // even ramp, so it doesn't break into steps over the ridge in between.
   var LIB_GRADE = (function () {
-    var lib = polar(6, 67 - 4.2), path = PATHS.filter(function (pa) { var e = pa.pts[pa.pts.length - 1]; return Math.hypot(e.x - lib.x, e.z - lib.z) < 0.5; })[0];
+    var lib = polar(LIBRARY_AT[0], LIBRARY_AT[1] - 4.2), path = PATHS.filter(function (pa) { var e = pa.pts[pa.pts.length - 1]; return Math.hypot(e.x - lib.x, e.z - lib.z) < 0.5; })[0];
     if (!path) return null;
     var pts = path.pts, k = 0;
     while (k < pts.length && riverDist(pts[k].x, pts[k].z) > RIVER_HALF + 1.2) k++;   // up to the river
@@ -1464,10 +1472,10 @@
   Town.prototype.towerTop = function (tw) { return 0.14 + tw.n * COURSE_H; };
 
   // A tower can only get so far ahead of the castle as a whole: the limit rises by one layer for
-  // every 9 lifting sessions. Sessions past it build the outer bailey instead: halls and turrets on
+  // every MAIN_CAP_EVERY lifting sessions. Sessions past it build the outer bailey instead: halls and turrets on
   // either side of that tower, inner row first, then the outer row. When its bailey is complete,
   // the tower goes back to rising.
-  Town.prototype.towerCap = function () { return 8 + Math.floor(this.st.lifts / 9); };
+  Town.prototype.towerCap = function () { return 8 + Math.floor(this.st.lifts / MAIN_CAP_EVERY); };
   Town.prototype.liftSession = function (key, delay) {
     var tw = this.liftSessionInner(key, delay), site = tw.castle ? tw.castle.site : null;
     // The raccoon roams round whichever castle the latest session built on.
@@ -1475,23 +1483,42 @@
     else this.placeCritter('raccoon', 0, 0, 15.2, 17.5);
     return tw;
   };
+  // The first castle's halls and turrets go up CASTLE_PACE.mainBailey pieces per session.
+  Town.prototype.mainBailey = function (key, delay) {
+    var did = 0;
+    while (did < CASTLE_PACE.mainBailey && this.baileyStep(key, delay + did * 250)) did++;
+    return did > 0;
+  };
   Town.prototype.liftSessionInner = function (key, delay) {
     var tw = this.st.towers[key];
     if (tw.n < MAX_LAYERS) {
-      if (key !== 'full' && tw.n >= this.towerCap() && this.baileyStep(key, delay)) return tw;
+      if (key !== 'full' && tw.n >= this.towerCap() && this.mainBailey(key, delay)) return tw;
       this.addCourse(key, delay);
       return tw;
     }
     // At full height: finish the bailey first, then build in the next castle with room.
-    if (key !== 'full' && this.baileyStep(key, delay)) return tw;
+    if (key !== 'full' && this.mainBailey(key, delay)) return tw;
+    function open(tw) { return tw.n < MAX_LAYERS || !tw.bailey || tw.bailey.done < tw.bailey.plan.length; }
     for (var ci = 1; ci < CASTLE_SITES.length; ci++) {
-      var C = this.ensureCastle(ci, delay), t2 = C.towers[key], k2 = key;
-      // A new castle rises evenly: a session tops up whichever tower is lagging furthest behind.
-      for (var k in C.towers) if (k !== 'full' && C.towers[k].n < t2.n - 4) { t2 = C.towers[k]; k2 = k; }
-      // Like the first castle, towers can't race ahead: past the limit, sessions build the bailey.
-      var built = t2.n >= Math.min(MAX_LAYERS, 8 + Math.floor(C.lifts / 9)) && this.baileyStep(k2, delay, C);
-      if (!built && t2.n < MAX_LAYERS) { this.addCourse(k2, delay, t2, C); built = true; }
-      if (built) { C.lifts++; this.styleMilestones(C, delay); t2.castle = C; return t2; }
+      var C = this.ensureCastle(ci, delay), t2 = C.towers[key], k2 = key, did = 0;
+      // The castles on the hills go up faster than the first: each session builds several pieces.
+      for (var step = 0; step < CASTLE_PACE.steps; step++) {
+        // A new castle rises evenly: the session's own tower first, unless another is lagging
+        // well behind; later pieces go to whichever unfinished tower is lowest.
+        var pickK = step || !open(C.towers[key]) ? null : key;
+        for (var k in C.towers) {
+          if (k === 'full' || !open(C.towers[k])) continue;
+          if (!pickK || C.towers[k].n < C.towers[pickK].n - (step ? 0 : 4)) pickK = k;
+        }
+        if (!pickK) break;
+        k2 = pickK; t2 = C.towers[k2];
+        // Like the first castle, towers can't race ahead: past the limit, sessions build the bailey.
+        var built = t2.n >= Math.min(MAX_LAYERS, 8 + Math.floor(C.lifts / CASTLE_PACE.capEvery)) && this.baileyStep(k2, delay + step * 250, C);
+        if (!built && t2.n < MAX_LAYERS) { this.addCourse(k2, delay + step * 250, t2, C); built = true; }
+        if (!built) break;
+        did++; t2.castle = C;
+      }
+      if (did) { C.lifts++; this.styleMilestones(C, delay); return t2; }
     }
     // Every castle's tower is full: the session is still counted, but nothing grows taller.
     t2.over = (t2.over || 0) + 1;
