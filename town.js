@@ -793,8 +793,9 @@
     root.addEventListener('keydown', function (e) {
       if (/input|textarea|select/i.test((e.target && e.target.tagName) || '')) return;
       var k = e.key.toLowerCase();
-      if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(k) >= 0) {
-        keyOwner.keys[k] = true; keyOwner.controls.autoRotate = false; keyOwner.fit.auto = false; e.preventDefault();
+      if (keyOwner.explore && (k === 'e' || k === ' ' || k === 'enter')) { if (!e.repeat) keyOwner.interact(); e.preventDefault(); return; }
+      if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].indexOf(k) >= 0) {
+        keyOwner.keys[k] = true; keyOwner.controls.autoRotate = false; keyOwner.fit.auto = false; if (k !== 'shift') e.preventDefault();
       }
     });
     root.addEventListener('keyup', function (e) { keyOwner.keys[e.key.toLowerCase()] = false; });
@@ -919,7 +920,7 @@
     this.sun.color.set(p.sun); this.sun.intensity = p.sunI;
     this.sun.position.set(this.dark ? -60 : 52, this.dark ? 32 : 60, this.dark ? 36 : 20);
     // Distant fields fade into the horizon colour of the sky behind the page.
-    var HAZE = { day: { spring: '#e6f6dc', summer: '#d9f1fb', fall: '#f6d9ab', winter: '#eef4f8' }, dusk: { spring: '#3f4a66', summer: '#4b3560', fall: '#5e3a48', winter: '#3a4466' } };
+    var HAZE = { day: { spring: '#efeedb', summer: '#f1ead6', fall: '#f6d9ab', winter: '#f1efea' }, dusk: { spring: '#3f4a66', summer: '#4b3560', fall: '#5e3a48', winter: '#3a4466' } };
     var haze = HAZE[this.dark ? 'dusk' : 'day'][this.season];
     // The time of day shifts the light: low warm sun at golden hour, cool moonlight at night.
     var ph = this.phase || (this.dark ? 'dusk' : 'day');
@@ -927,6 +928,8 @@
     else if (ph === 'dawn') { this.sun.color.set('#ffb3a0'); this.sun.position.set(-58, 20, 30); haze = '#c99aa8'; }
     else if (ph === 'night') { this.sun.color.set('#9fb4ff'); this.sun.intensity = p.sunI * 0.4; this.hemi.intensity = p.hemiI * 0.62; this.hemi.color.set('#5a6aa8'); haze = '#1c2440'; }
     if (this.scene && this.scene.fog) this.scene.fog.color.set(haze);
+    if (this.flowers) this.flowers.visible = this.season !== 'winter';
+    this.sunBase = this.sun.position.clone();
     if (this.st && this.st.hike) this.updateSnow();
   };
   Town.prototype.setTheme = function (dark) { this.dark = dark; this.phase = dark ? 'dusk' : 'day'; this.applyPalette(); };
@@ -1123,7 +1126,53 @@
     [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c) { self.lamp(Q.x + c[0] * (Q.hx - 0.35), Q.z + c[1] * (Q.hz - 0.35), base); });
     ts.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     base.add(ts);
+    this.buildMeadows(base);
     this.buildSnowMountain(base);
+  };
+
+  // Meadows: clumps of grass tufts and patches of wildflowers across the open countryside, kept
+  // off the paths, plots, fields and water. Instanced, so there can be thousands.
+  Town.prototype.buildMeadows = function (base) {
+    if (this.soft) return;
+    var r = rng(9191), tufts = [], blooms = [[], [], [], []];
+    function open(x, z) {
+      var d = Math.hypot(x, z);
+      if (d < 16 || d > 96) return false;
+      if (coastSd(x, z) > -2 || lakeDist(x, z) < 1 || riverDist(x, z) < RIVER_HALF + 1.6 || streamDist(x, z) < 1.3) return false;
+      if (nearPath(x, z, 1.4) || inTownSquare(x, z, 2)) return false;
+      if (HOUSE_SLOTS.some(function (h) { return Math.abs(h.x - x) < 3 && Math.abs(h.z - z) < 3; })) return false;
+      if (FIELDS.some(function (f) { return Math.hypot(f.x - x, f.z - z) < f.size + 1; })) return false;
+      if (CASTLE_SITES.some(function (c, ci) { return Math.hypot(c.x - x, c.z - z) < (ci ? 20 : 15); })) return false;
+      var spots = [[CHURCH, 12.5], [LIBRARY, 12], [CINEMA, 6], [JO_PLOT, 8], [PUB, 5], [SQUARE, 5], [OFFICE, 6], [SNOW.c, SNOW.R + 2], [GLACIER, GLACIER.R + 2]];
+      return !spots.some(function (q) { return Math.hypot(q[0].x - x, q[0].z - z) < q[1]; });
+    }
+    for (var i = 0; i < 26000 && tufts.length < 7000; i++) {
+      var x = (r() - 0.5) * 190, z = (r() - 0.5) * 190;
+      if (!open(x, z)) continue;
+      var n = noise2(x * 1.7, z * 1.7);
+      if (n < -0.2) continue; // bare patches between the clumps
+      var y = groundY(x, z);
+      for (var c = 0; c < 3; c++) tufts.push([x + (r() - 0.5) * 0.6, y, z + (r() - 0.5) * 0.6, 0.6 + r() * 0.6, r() * 6.28]);
+      if (n > 0.35) for (var f = 0; f < 5; f++) blooms[Math.floor(r() * 4)].push([x + (r() - 0.5) * 1.6, y, z + (r() - 0.5) * 1.6]);
+    }
+    var m4 = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler(), v = new T.Vector3(), sc = new T.Vector3();
+    var tuftMesh = new T.InstancedMesh(this.geo.cone4, this.mat('grassDeep'), tufts.length);
+    tufts.forEach(function (t, k) {
+      q.setFromEuler(e.set((r() - 0.5) * 0.4, t[4], (r() - 0.5) * 0.4));
+      tuftMesh.setMatrixAt(k, m4.compose(v.set(t[0], t[1] + 0.12 * t[3], t[2]), q, sc.set(0.09 * t[3], 0.26 * t[3], 0.09 * t[3])));
+    });
+    tuftMesh.receiveShadow = true;
+    base.add(tuftMesh);
+    var flowers = new T.Group(), mats = [this.mat('flag', 1), this.mat('balloon', 3), this.mat('plaster', 0), this.mat('flag', 0)];
+    blooms.forEach(function (list, bi) {
+      if (!list.length) return;
+      var im = new T.InstancedMesh(this.geo.ball, mats[bi], list.length);
+      list.forEach(function (b, k) { im.setMatrixAt(k, m4.compose(v.set(b[0], b[1] + 0.16, b[2]), q.identity(), sc.set(0.07, 0.06, 0.07))); });
+      flowers.add(im);
+    }, this);
+    base.add(flowers);
+    this.flowers = flowers;
+    flowers.visible = this.season !== 'winter';
   };
 
   // How far down the ski hill the snow reaches in each season (fraction of height left bare below it).
@@ -7196,6 +7245,7 @@
         return { title: 'The library', lines: ['Click for your bookshelf: covers, ratings and reviews.', plural(LB.books.length, 'book') + ' · ' + fmtN(LB.pages) + ' pages' + (real.length < LB.books.length ? ' (' + (LB.books.length - real.length) + ' projected)' : ''),
           nextL ? 'Next: ' + nextL[1].toLowerCase() + ' at ' + fmtN(nextL[0]) + ' pages.' : 'The library is complete.'] };
       case 'raccoon': return { title: 'The raccoon', lines: ['That\u2019s you. You follow whichever castle is being built.'] };
+      case 'square': return { title: 'The town square', lines: ['The library, the picture house and the Slow Pour all open onto it.', 'Have a seat by the fountain.'] };
       case 'rink': return { title: 'The hockey rink', lines: ['Kept clear for your winter hockey. Your first game floods the rink.', 'Write "hockey" in a Morning or Evening cell, or log it in Strava.'] };
       case 'castle':
         if (p[1]) {
@@ -7379,7 +7429,7 @@
     if (this.decorDirty && this.today && now > (this.decorAt || 0)) { this.decorAt = now + 1000; this.decorate(); }
     if (this.fitDirty) this.updateFit();
     var moved = false;
-    if (this.fit.auto) {
+    if (this.fit.auto && !this.explore) {
       var cam = this.camera, f = this.fit;
       var nz = cam.zoom + (f.zoom - cam.zoom) * 0.06;
       if (Math.abs(nz - cam.zoom) > 0.0005) { cam.zoom = nz; cam.updateProjectionMatrix(); moved = true; }
@@ -7398,8 +7448,9 @@
         b.group.position.set(Math.cos(b.angle) * b.radius, b.height + Math.sin(now / 1500 + b.bob) * 0.4, Math.sin(b.angle) * b.radius);
       });
     }
+    if (this.explore) { if (this.stepPlayer(dt, now)) moved = true; }
     // Keyboard: WASD or arrows move across the ground, Q and E turn.
-    var K = this.keys, mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0), mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0);
+    var K = this.explore ? {} : this.keys, mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0), mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0);
     var turn = (K.e ? 1 : 0) - (K.q ? 1 : 0);
     if (mx || mz || turn) {
       var cam2 = this.camera, tgt = this.controls.target;
@@ -7426,8 +7477,158 @@
     this.renderer.render(this.scene, this.camera);
   };
 
+  // ---- explore: walk the town as the raccoon ---------------------------------
+  // A Stardew-style follow camera on a raccoon you steer with WASD or the arrows (or a joystick on
+  // a phone); Shift runs, E looks at whatever's nearby. Buildings, trees, water and the sea are in
+  // the way; paths and bridges are fine.
+  var SOLID_SKIP = /^(raccoon|fox|dog|dogs|wild:|prflag|endpr|balloon|sheep|railway|commute|bike|farm|field|path|hike|snow|lift|sky|weather|walk)/;
+  Town.prototype.setExplore = function (on) {
+    this.explore = !!on;
+    var c = this.controls;
+    if (on) {
+      if (!this.player) {
+        var pc = this.critter('raccoon');
+        this.picks = this.picks.filter(function (m) { return pc.g.getObjectById(m.id) == null; });
+        pc.g.traverse(function (m) { if (m.isMesh) m.userData.pick = null; });
+        this.world.remove(pc.g); this.scene.add(pc.g);
+        pc.g.position.set(TOWN_SQ.x + 1.6, 0, TOWN_SQ.z + 2.2);
+        pc.g.rotation.y = Math.PI;
+        pc.g.scale.setScalar(1.6);
+        this.player = pc;
+      }
+      this.player.g.visible = true;
+      var P = this.player.g.position;
+      P.y = surfaceY(P.x, P.z);
+      this.fit.auto = false; c.autoRotate = false; c.enablePan = false;
+      c.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.DOLLY, RIGHT: T.MOUSE.ROTATE };
+      c.touches = { ONE: T.TOUCH.ROTATE, TWO: T.TOUCH.DOLLY_ROTATE };
+      c.maxZoom = 7;
+      var off = new T.Vector3(1, 1.05, 1).normalize().multiplyScalar(40);
+      c.target.set(P.x, P.y + 0.6, P.z);
+      this.camera.position.copy(c.target).add(off);
+      this.camera.zoom = 3.4; this.camera.updateProjectionMatrix();
+      this.solidAt = 0;
+    } else {
+      if (this.player) this.player.g.visible = false;
+      var sc3 = this.sun.shadow.camera;
+      sc3.left = -75; sc3.right = 75; sc3.top = 75; sc3.bottom = -75; sc3.updateProjectionMatrix();
+      this.sun.target.position.set(0, 0, 0);
+      if (this.sunBase) this.sun.position.copy(this.sunBase);
+      c.enablePan = true; c.maxZoom = 4;
+      c.mouseButtons = { LEFT: T.MOUSE.PAN, MIDDLE: T.MOUSE.DOLLY, RIGHT: T.MOUSE.ROTATE };
+      c.touches = { ONE: T.TOUCH.PAN, TWO: T.TOUCH.DOLLY_ROTATE };
+      this.recenter();
+    }
+    var coon = this.st.critters && this.st.critters.raccoon;
+    if (coon) coon.g.visible = !on;
+    this.near = null;
+    if (this.onNear) this.onNear(null);
+    this.needsRender = true;
+  };
+  // Footprints of everything solid: the ground-level parts of buildings, walls, trunks and so on,
+  // bucketed into a grid. Rebuilt every few seconds while things are still being built.
+  Town.prototype.buildSolids = function () {
+    var grid = {}, list = [];
+    this.picks.forEach(function (m) {
+      var k = m.userData.pick;
+      if (!k || SOLID_SKIP.test(k)) return;
+      for (var q = m; q; q = q.parent) if (!q.visible && !q.userData.inBatch) return;
+      m.updateWorldMatrix(true, false);
+      var b = new T.Box3().setFromObject(m);
+      if (!isFinite(b.min.x) || b.max.y - b.min.y < 0.35) return;
+      var gy = groundY((b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2);
+      if (b.min.y > gy + 0.9) return; // roofs, canopies, things up in the air
+      var o = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z, k: k };
+      list.push(o);
+      for (var gx = Math.floor(o.x0 / 4); gx <= Math.floor(o.x1 / 4); gx++) for (var gz = Math.floor(o.z0 / 4); gz <= Math.floor(o.z1 / 4); gz++) (grid[gx + ',' + gz] = grid[gx + ',' + gz] || []).push(o);
+    });
+    // The town square's fountain and trough, and the old square's well, aren't clickable but are in the way.
+    var Q = TOWN_SQ, wellX = SQUARE.x + 1.2, wellZ = SQUARE.z + 0.6;
+    [{ x0: Q.x - 1.1, x1: Q.x + 1.1, z0: Q.z - 1.1, z1: Q.z + 1.1, k: 'square' }, { x0: Q.x - 0.55, x1: Q.x + 0.55, z0: Q.z - Q.hz + 1.4, z1: Q.z - Q.hz + 1.9, k: 'square' },
+     { x0: wellX - 0.5, x1: wellX + 0.5, z0: wellZ - 0.5, z1: wellZ + 0.5, k: null }].forEach(function (o) {
+      list.push(o);
+      for (var gx = Math.floor(o.x0 / 4); gx <= Math.floor(o.x1 / 4); gx++) for (var gz = Math.floor(o.z0 / 4); gz <= Math.floor(o.z1 / 4); gz++) (grid[gx + ',' + gz] = grid[gx + ',' + gz] || []).push(o);
+    });
+    this.solids = { grid: grid, list: list };
+  };
+  Town.prototype.walkable = function (x, z) {
+    var r = 0.22;
+    if (Math.hypot(x, z) > 118) return false;
+    if (coastSd(x, z) > -0.6 || lakeDist(x, z) < -0.4) return false;
+    if (TARNS.some(function (t) { return Math.hypot(x - t.x, z - t.z) < t.R; })) return false;
+    // The river: only on a bridge (a path, road or the commuter lane crossing it).
+    if (riverDist(x, z) < RIVER_HALF + 0.2 && !nearPath(x, z, 1.1) && !LANE.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 0.9; })) return false;
+    var cell = this.solids && this.solids.grid[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
+    if (cell) for (var i = 0; i < cell.length; i++) { var o = cell[i]; if (x > o.x0 - r && x < o.x1 + r && z > o.z0 - r && z < o.z1 + r) return false; }
+    return true;
+  };
+  Town.prototype.stepPlayer = function (dt, now) {
+    var pl = this.player;
+    if (!pl) return false;
+    if (!this.solids || now > this.solidAt) { this.buildSolids(); this.solidAt = now + (this.anims.length ? 1500 : 6000); }
+    var roam = this.st.critters && this.st.critters.raccoon; if (roam && roam.g.visible) roam.g.visible = false; // you are the raccoon now
+    var K = this.keys, g = pl.g, P = g.position, c = this.controls, cam = this.camera;
+    var mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0) + (this.stick ? this.stick.x : 0);
+    var mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0) + (this.stick ? -this.stick.y : 0);
+    var len = Math.hypot(mx, mz), moving = len > 0.15;
+    if (moving) {
+      if (len > 1) { mx /= len; mz /= len; }
+      var fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
+      var right = new T.Vector3(-fwd.z, 0, fwd.x);
+      var run = K.shift || (this.stick && Math.hypot(this.stick.x, this.stick.y) > 0.92);
+      var sp = (run ? 6.2 : 3.2) * dt;
+      var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
+      // Slide along whatever's in the way.
+      if (this.walkable(P.x + dx, P.z + dz)) { P.x += dx; P.z += dz; }
+      else if (this.walkable(P.x + dx, P.z)) P.x += dx;
+      else if (this.walkable(P.x, P.z + dz)) P.z += dz;
+      var face = Math.atan2(dx, dz), d = face - g.rotation.y;
+      while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+      g.rotation.y += d * Math.min(1, dt * 14);
+      pl.phase += dt * (run ? 20 : 13);
+      pl.legs.forEach(function (l, i) { l.rotation.x = Math.sin(pl.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.7; });
+      pl.tail.rotation.y = Math.sin(pl.phase * 0.5) * 0.3;
+    } else {
+      pl.legs.forEach(function (l) { l.rotation.x *= 0.8; });
+      pl.tail.rotation.y = Math.sin(now / 350) * 0.35;
+    }
+    var y = surfaceY(P.x, P.z);
+    P.y += (y - P.y) * Math.min(1, dt * 18);
+    // Sharper shadows close up: the sun's shadow box follows you about.
+    if (this.sunBase && !this.soft) {
+      var sun = this.sun, sc2 = sun.shadow.camera;
+      if (sc2.right !== 34) { sc2.left = -34; sc2.right = 34; sc2.top = 34; sc2.bottom = -34; sc2.updateProjectionMatrix(); if (!sun.target.parent) this.scene.add(sun.target); }
+      sun.target.position.set(P.x, 0, P.z);
+      sun.position.set(P.x + this.sunBase.x, this.sunBase.y, P.z + this.sunBase.z);
+    }
+    // The camera keeps its angle and drifts after you.
+    var tx = P.x, ty = P.y + 0.6, tz = P.z, k = Math.min(1, dt * 6);
+    var mvx = (tx - c.target.x) * k, mvy = (ty - c.target.y) * k, mvz = (tz - c.target.z) * k;
+    c.target.x += mvx; c.target.y += mvy; c.target.z += mvz;
+    cam.position.x += mvx; cam.position.y += mvy; cam.position.z += mvz;
+    // What's close enough to look at.
+    if (now > (this.nearAt || 0)) {
+      this.nearAt = now + 200;
+      var best = null, bd = 2.6, list = this.solids ? this.solids.list : [];
+      for (var i = 0; i < list.length; i++) {
+        var o = list[i], ddx = Math.max(o.x0 - P.x, 0, P.x - o.x1), ddz = Math.max(o.z0 - P.z, 0, P.z - o.z1), dd = Math.hypot(ddx, ddz);
+        if (o.k && dd < bd) { bd = dd; best = o.k; }
+      }
+      if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
+    }
+    return moving || Math.abs(mvx) + Math.abs(mvz) > 0.001;
+  };
+  Town.prototype.interact = function () { if (this.near && this.onInteract) this.onInteract(this.near); };
+  Town.prototype.playerScreen = function () {
+    if (!this.player) return null;
+    var v = this.player.g.position.clone(); v.y += 1.2; v.project(this.camera);
+    var r = this.canvas.getBoundingClientRect();
+    return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
+  };
+
   // Back to the starting view: town in the middle, framed to fit.
   Town.prototype.recenter = function () {
+    if (this.explore) { this.setExplore(true); return; }
     var c = this.controls, cam = this.camera;
     c.target.set(0, this.fit.y, 0);
     cam.position.set(34, 30 + this.fit.y, 34);

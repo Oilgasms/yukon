@@ -47,7 +47,7 @@ body {
 #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 #scene:active { cursor: grabbing; }
 .hud {
-  position: fixed; inset: 0; pointer-events: none;
+  position: fixed; inset: 0; pointer-events: none; z-index: 2;
   padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr auto; gap: 12px;
 }
@@ -151,6 +151,24 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   .timeline { grid-column: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+/* A soft warm vignette round the edges of the world. */
+.vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1; background: radial-gradient(ellipse at 50% 46%, rgba(0, 0, 0, 0) 58%, rgba(70, 40, 10, 0.16) 82%, rgba(50, 28, 8, 0.32) 100%); }
+/* Walking as the raccoon: what's nearby, a joystick on touch screens, and the controls hint. */
+.near {
+  position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  padding: 6px 12px; font-family: var(--display); font-weight: 600; font-size: 14px; z-index: 4; pointer-events: auto; cursor: pointer; white-space: nowrap;
+}
+.near kbd { font-family: var(--display); border: 2px solid var(--line); border-radius: 5px; padding: 0 6px; margin-right: 6px; background: var(--bg); }
+.stick {
+  position: fixed; left: calc(22px + env(safe-area-inset-left, 0px)); bottom: calc(170px + env(safe-area-inset-bottom, 0px)); width: 116px; height: 116px; border-radius: 50%;
+  background: rgba(255, 248, 230, 0.35); border: 3px solid rgba(90, 60, 30, 0.45); z-index: 4; touch-action: none;
+}
+.stick i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255, 248, 230, 0.9); border: 3px solid rgba(90, 60, 30, 0.6); }
+.act {
+  position: fixed; right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(190px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; border-radius: 50%;
+  font-family: var(--display); font-weight: 700; font-size: 15px; z-index: 4; touch-action: manipulation;
+}
+@media (max-width: 640px) { .tl-top { flex-wrap: wrap; row-gap: 6px; } }
 /* Secret unlocked card */
 .secret-card {
   position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
@@ -203,7 +221,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .secrets li button { font: inherit; color: var(--ink); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
 </style>
 
-<canvas id="scene" aria-label="Your town, built from your workouts. Drag to orbit, scroll or pinch to zoom."></canvas>
+<canvas id="scene" aria-label="Your town, built from your workouts. Walk around as the raccoon with WASD or the arrow keys (Shift runs, E looks, M for the map), or drag to look around and scroll or pinch to zoom."></canvas>
 
 <div class="hud">
   <section class="card title" id="title-card">
@@ -266,6 +284,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Scrub through your workouts">
       <button class="btn" id="future" type="button" aria-pressed="false">+2 years</button>
       <button class="btn" id="future5" type="button" aria-pressed="false">+5 years</button>
+      <button class="btn" id="explore" type="button" aria-pressed="true">Map view</button>
       <button class="btn" id="recenter" type="button">Recenter</button>
       <button class="btn" id="pixel" type="button" aria-pressed="true">Pixel</button>
       <button class="btn" id="motion" type="button" aria-pressed="true">Motion</button>
@@ -274,7 +293,11 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     <div class="phases" id="phases"></div>
   </section>
 </div>
+<div class="vignette" aria-hidden="true"></div>
 <div class="card tip" id="tip" hidden></div>
+<div class="card near" id="near" hidden></div>
+<div class="stick" id="stick" hidden><i></i></div>
+<button class="card act" id="act" type="button" hidden>Look</button>
 <section class="card shelf" id="shelf" role="dialog" aria-label="Bookshelf" hidden>
   <button class="close" type="button" id="shelf-close" aria-label="Close the bookshelf">&times;</button>
   <h2 id="shelf-title">The Yukon Library</h2>
@@ -303,7 +326,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v61';
+  var BUILD = 'v62';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -457,6 +480,75 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   });
   new MutationObserver(syncTheme).observe(document.body, { attributes: true, attributeFilter: ['data-season'] });
   addEventListener('resize', function () { town.resize(); });
+  // Walking about as the raccoon: the default view. M (or the Map view button) swaps to the overview.
+  var coarse = matchMedia('(pointer: coarse)').matches, EXPLORE_KEY = 'fittertown:explore', tipTimer = null;
+  function nearName(key) { var info = key && town.info(key); return info ? info.title : ''; }
+  town.onNear = function (key) {
+    var n = $('near'), name = nearName(key);
+    if (!name) { n.hidden = true; $('act').disabled = true; return; }
+    n.innerHTML = '';
+    if (!coarse) { var kb = document.createElement('kbd'); kb.textContent = 'E'; n.append(kb); }
+    n.append(document.createTextNode((coarse ? 'Tap to look at ' : '') + name));
+    n.hidden = false; $('act').disabled = false;
+  };
+  town.onInteract = function (key) {
+    if (key === 'library' && town.st.library.books.length) return openShelf();
+    if (key === 'cinema') return openCinema();
+    if (key === 'fox') return town.hearts();
+    var p = town.playerScreen();
+    if (!p) return;
+    showInfo(key, p.x, p.y);
+    clearTimeout(tipTimer); tipTimer = setTimeout(function () { $('tip').hidden = true; }, 5000);
+  };
+  $('near').addEventListener('click', function () { town.interact(); });
+  $('act').addEventListener('click', function () { town.interact(); });
+  function syncExplore() {
+    var on = !!town.explore;
+    $('explore').textContent = on ? 'Map view' : 'Walk around';
+    $('explore').setAttribute('aria-pressed', String(on));
+    $('stick').hidden = $('act').hidden = !(on && coarse);
+    if (!on) { $('near').hidden = true; $('tip').hidden = true; }
+    placeTouch();
+  }
+  // Keep the joystick, Look button and hint just above the timeline, however tall it is.
+  function placeTouch() {
+    var top = $('timeline-card').getBoundingClientRect().top, base = Math.max(16, innerHeight - top + 14);
+    $('stick').style.bottom = base + 'px'; $('act').style.bottom = (base + 26) + 'px';
+    $('near').style.bottom = (coarse && town.explore ? base + 132 : base + 10) + 'px';
+  }
+  addEventListener('resize', placeTouch);
+  $('timeline-min').addEventListener('click', function () { setTimeout(placeTouch, 0); });
+  var tucked = false;
+  function setExplore(on) {
+    town.setExplore(on); syncExplore(); lsSet(EXPLORE_KEY, on ? '' : 'map');
+    // Walking about, tuck the title panel and the ledger away (they're one tap from coming back).
+    if (on && !tucked) { tucked = true; setTimeout(function () { if (!$('title-card').classList.contains('min')) $('title-min').click(); $('ledger').open = false; }, 0); }
+    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 E to look \u00b7 M for the map'); }
+  }
+  $('explore').addEventListener('click', function () { setExplore(!town.explore); });
+  // M swaps views, after a moment, so typing a word that starts with M (mellon...) doesn't.
+  var mTimer = null;
+  addEventListener('keydown', function (e) {
+    if (/input|textarea|select/i.test((e.target && e.target.tagName) || '') || e.repeat) return;
+    clearTimeout(mTimer);
+    if (e.key === 'm' || e.key === 'M') mTimer = setTimeout(function () { setExplore(!town.explore); }, 450);
+  });
+  // The joystick: drag from the circle; the farther out, the faster (all the way out runs).
+  (function () {
+    var st = $('stick'), knob = st.querySelector('i'), id = null;
+    function move(e) {
+      var r = st.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, R = r.width / 2;
+      var dx = (e.clientX - cx) / R, dy = (e.clientY - cy) / R, l = Math.hypot(dx, dy);
+      if (l > 1) { dx /= l; dy /= l; }
+      town.stick = { x: dx, y: dy };
+      knob.style.transform = 'translate(' + dx * R * 0.6 + 'px,' + dy * R * 0.6 + 'px)';
+    }
+    function end() { id = null; town.stick = null; knob.style.transform = ''; }
+    st.addEventListener('pointerdown', function (e) { id = e.pointerId; try { st.setPointerCapture(id); } catch (err) {} move(e); e.preventDefault(); });
+    st.addEventListener('pointermove', function (e) { if (e.pointerId === id) move(e); });
+    st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
+  })();
+  if (!town.soft && lsGet(EXPLORE_KEY) !== 'map') setExplore(true); else syncExplore();
   town.onWeather = function (label) { $('weather-now').textContent = label === 'clear' ? '' : '\u00b7 ' + label; };
   town.onSecret = function (def, ev) { queueSecret(def, ev && ev.projected); };
   // Pixel-art rendering is on by default; the button switches to a smooth render.
@@ -721,8 +813,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 
   // ---- hover / tap info ----
   var tip = $('tip');
-  function showTip(x, y) {
-    var key = town.pick(x, y);
+  function showTip(x, y) { showInfo(town.pick(x, y), x, y); }
+  function showInfo(key, x, y) {
     var info = key && town.info(key);
     if (!info) { tip.hidden = true; return; }
     tip.innerHTML = '';
