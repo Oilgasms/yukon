@@ -72,6 +72,7 @@
     // Jo's Japanese garden house.
     jpTile: ['#4a5058', '#3c4148'], jpTimber: '#3b2c24', jpPlaster: '#f4f0e6', bamboo: ['#b9b45a', '#9d9a48'], maple: ['#c8402c', '#de5a2e'],
     sakura: ['#f4b6c8', '#f9d3de'], azalea: ['#e0609a', '#c84a86'], koi: ['#f07a2a', '#f4f0e6'], moss: '#5f8f3a', gravel: '#ece6d8',
+    glacier: ['#d8eef6', '#aed8ea'],
     wpGreen: '#2f6b45', wpYellow: '#e6bf3c', wpBlack: '#26262b', wpRed: '#a8372b', wpCream: '#efe4c4',
     hare: ['#9b7f62', '#5a4636', '#e8dfd2'], deer: ['#a8754a', '#5a3c26', '#efe6d8'], moose: ['#5a3a24', '#2e1e14', '#d8c49a'], caribou: ['#8a7a66', '#4a3e32', '#eeeae2'],
     wolf: ['#8d8a86', '#4a4744', '#e2ded8'], lynx: ['#b9a688', '#3a3028', '#e8e0d0'], bear: ['#7a5232', '#3a2616', '#a87a50'], salmon: ['#d9604a', '#a8402c'],
@@ -144,9 +145,15 @@
   var HOCKEY = polar(132, 27);
   // The sheep pasture: one sheep for every 100 km ridden.
   var PASTURE = polar(282, 74), PASTURE_R = 6.3;
-  // The church, built chapter by chapter as the Bible is read, at the end of the south street.
-  var CHURCH_AT = [256, 47.5], CHURCH = polar(CHURCH_AT[0], CHURCH_AT[1]);
-  // Where the church first stood: kept for the houses on Chapel Lane.
+  // The church, built chapter by chapter as the Bible is read, on top of Church Hill past the end
+  // of the south street, with a path winding up to it.
+  // The glacier the river comes out of: a snow-capped mountain just past the river's head.
+  var GLACIER = (function () {
+    var S = RIVER[0], q = RIVER[8], l = Math.hypot(S.x - q.x, S.z - q.z), u = { x: (S.x - q.x) / l, z: (S.z - q.z) / l };
+    return { S: S, u: u, x: S.x + u.x * 7, z: S.z + u.z * 7, R: 8, H: 15 };
+  })();
+  var CHURCH_AT = [256, 60], CHURCH = polar(CHURCH_AT[0], CHURCH_AT[1]), CHURCH_HILL = { r: 15, h: 3.4 };
+  // Kept clear of fields below the hill.
   var CHAPEL_LANE = polar(254, 56);
   // The town square: a little Dawson City style square of packed earth and boardwalks in the low
   // ground west of the Slow Pour, joined to the old village square at its corner. The pub, the
@@ -252,12 +259,11 @@
     bezierPath(polar(198, 25), polar(194, 22.5), polar(192, 20.5), polar(190, 18.2)),
     bezierPath(polar(212, 36.5), polar(206, 39), polar(200, 41.5), polar(193, 42.5)),
     // Chapel Lane, off the end of the south street past the church to where it first stood.
-    bezierPath(polar(257, 37), polar(263, 42), polar(262, 52), polar(256, 58)),
     // Market Lane, west from the end of the west street.
     bezierPath(polar(212, 36.5), { x: -40, z: 20.5 }, { x: -48, z: 19.5 }, { x: -55, z: 24 }),
     // Library Lane, south from the square's corner past the library, then round to Chapel Lane.
     bezierPath({ x: -22.8, z: 31 }, { x: -29, z: 38 }, { x: -33, z: 48 }, { x: -31, z: 56 }),
-    bezierPath({ x: -31, z: 56 }, { x: -26, z: 60 }, { x: -19, z: 59.5 }, polar(256, 58))
+    bezierPath({ x: -31, z: 56 }, { x: -29, z: 59 }, { x: -27, z: 61 }, { x: -24, z: 62 })
   ];
   function FIELDS_NEAR(p) { return typeof FIELDS !== 'undefined' && FIELDS && FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 3.5; }); }
   var HOUSE_SLOTS = (function () {
@@ -376,6 +382,12 @@
   LAKE.y = rawHeight(LAKE.c.x, LAKE.c.z);
   function lakeEdge(a) { return LAKE.R * (1 + 0.18 * Math.sin(3 * a + 1) + 0.1 * Math.sin(5 * a)); }
   function lakeDist(x, z) { var dx = x - LAKE.c.x, dz = z - LAKE.c.z; return Math.hypot(dx, dz) - lakeEdge(Math.atan2(dz, dx)); }
+  // The swimming spot on the lake's near shore (local +z runs out over the water).
+  var SWIM = (function () {
+    var a = Math.atan2(-LAKE.c.z, -LAKE.c.x) + 0.35, e = lakeEdge(a);
+    return { x: LAKE.c.x + Math.cos(a) * (e + 1.2), z: LAKE.c.z + Math.sin(a) * (e + 1.2), rot: Math.atan2(-Math.cos(a), -Math.sin(a)) };
+  })();
+  function swimWorld(x, z) { var c = Math.cos(SWIM.rot), s = Math.sin(SWIM.rot); return { x: SWIM.x + x * c + z * s, z: SWIM.z - x * s + z * c }; }
   // A stream runs out of the lake and away into the hills.
   var STREAM_HALF = 0.8;
   var STREAM = (function () {
@@ -399,10 +411,20 @@
   })();
   function fallRidge(x, z) {
     var dx = x - FALL.x, dz = z - FALL.z, t = dx * FALL.ux + dz * FALL.uz, lat = -dx * FALL.uz + dz * FALL.ux;
-    if (t < -3 || t > 32 || Math.abs(lat) > 10) return null;
-    return { t: t, w: (1 - smooth(3.5, 9, Math.abs(lat - Math.sin(Math.max(0, t) * 0.22) * 1.6))) * smooth(-2.5, 0.5, t) * (1 - smooth(22, 31, t)), target: LAKE.y + 5.3 + 0.1 * Math.max(0, t) };
+    if (t < -3 || t > 40 || Math.abs(lat) > 10) return null;
+    return { t: t, w: (1 - smooth(3.5, 9, Math.abs(lat - Math.sin(Math.max(0, t) * 0.22) * 1.6))) * smooth(-2.5, 0.5, t) * (1 - smooth(31, 39, t)), target: LAKE.y + 5.3 + 0.1 * Math.min(29, Math.max(0, t)) };
   }
   var STREAM_GRID = (function () { var g = {}; STREAM.concat(FALL_STREAM).forEach(function (p) { var k = Math.floor(p.x / 6) + ',' + Math.floor(p.z / 6); (g[k] = g[k] || []).push(p); }); return g; })();
+  // Little tarns: a reedy pond where the lake's stream ends, and a spring-fed pool among rocks at
+  // the top of the waterfall's stream. landY scoops out their beds.
+  var TARNS = [];
+  (function () {
+    function tarn(p, R, kind) { var t = { x: p.x, z: p.z, R: R, kind: kind }; t.y = landY(p.x, p.z) + (kind === 'spring' ? 0.15 : -0.15); TARNS.push(t); }
+    var e = STREAM[STREAM.length - 1], e1 = STREAM[STREAM.length - 6], el = Math.hypot(e.x - e1.x, e.z - e1.z) || 1;
+    tarn({ x: e.x + (e.x - e1.x) / el * 3.6, z: e.z + (e.z - e1.z) / el * 3.6 }, 4.2, 'reeds');
+    var f = FALL_STREAM[FALL_STREAM.length - 1];
+    tarn({ x: f.x + FALL.ux * 2.4, z: f.z + FALL.uz * 2.4 }, 2.6, 'spring');
+  })();
   function streamDist(x, z) {
     var best = 1e9, cx = Math.floor(x / 6), cz = Math.floor(z / 6);
     for (var i = -1; i <= 1; i++) for (var j = -1; j <= 1; j++) {
@@ -427,6 +449,14 @@
     }
     var hl = headland(x, z);
     if (hl > h) h = hl;
+    for (var ti = 0; TARNS && ti < TARNS.length; ti++) {
+      var tn = TARNS[ti], td = Math.hypot(x - tn.x, z - tn.z);
+      if (td < tn.R) h = tn.y - 0.15 - 0.6 * (1 - td / tn.R);
+      else if (td < tn.R + 2.5) h += (tn.y + 0.25 - h) * (1 - smooth(tn.R, tn.R + 2.5, td));
+    }
+    // Church Hill.
+    var chd = Math.hypot(x - CHURCH.x, z - CHURCH.z);
+    if (chd < CHURCH_HILL.r) h += CHURCH_HILL.h * (0.5 + 0.5 * Math.cos(Math.PI * chd / CHURCH_HILL.r));
     // The mountain bike hill.
     if (MTB_HILL) {
       var md = Math.hypot(x - MTB_HILL.x, z - MTB_HILL.z);
@@ -456,12 +486,21 @@
   PADS.push({ x: LIBRARY.x, z: LIBRARY.z, rIn: 8, rOut: 12, h: SQ_Y + 0.05 });
   PADS.push({ x: CINEMA.x, z: CINEMA.z, rIn: 4.6, rOut: 7.5, h: SQ_Y + 0.05 });
   PADS.push({ x: TOWN_SQ.x, z: TOWN_SQ.z, rIn: 7.2, rOut: 8, h: SQ_Y }); // and the square itself stays dead level
-  pad(PUB, 3, 4.4); pad(SQUARE, 3.6, 5.2); pad(STATUE, 1.5, 2.6); pad(POND, 5, 6.8); pad(OFFICE, 4.6, 6.2);
+  pad(PUB, 3, 4.4); pad(SQUARE, 3.6, 5.2); pad(STATUE, 1.5, 2.6); pad(POND, 7.6, 11); // Jo's whole garden, fence and all, sits level
+  // Level spots for the sauna, the changing hut and the bathhouse, with the shore easing up behind.
+  [[-4.2, -3.2, 1.9, 3.6], [4.2, -7.0, 1.3, 2.8], [0, -4.6, 2.8, 4.8]].forEach(function (b) { pad(swimWorld(b[0], b[1]), b[2], b[3]); }); pad(OFFICE, 4.6, 6.2);
   pad(DOG_PEN.c, 4.3, 5.8);
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
   CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: rawHeight(c.x, c.z) + c.lift }); });
-  PADS.forEach(function (p) { if (p.h == null) p.h = rawHeight(p.x, p.z); });
+  // Each level spot takes the ground as it already stands there (the land, shaped by the spots
+  // levelled before it), so nothing ends up perched on a pillar or sunk in a pit.
+  PADS.forEach(function (p, i) {
+    if (p.h != null) return;
+    var h = landY(p.x, p.z);
+    for (var k = 0; k < i; k++) { var q = PADS[k], d = Math.hypot(p.x - q.x, p.z - q.z); if (d < q.rOut) h += (q.h - h) * (1 - smooth(q.rIn, q.rOut, d)); }
+    p.h = h;
+  });
   // Where roads and paths sit: on the ground, or on a bridge deck over the river.
   // Roads crossing the river ride up onto a deck just above the water, ramping down to the banks.
   function surfaceY(x, z) {
@@ -560,7 +599,7 @@
     out.push({ kind: 'path', pts: fromRing(polar(132, 27 - 2.6), 0.6) });
     out.push({ kind: 'path', pts: trail({ x: TOWN_SQ.x - TOWN_SQ.hx, z: LIBRARY.z }, frontOf(LIBRARY, 4.2), 0.2) });
     out.push({ kind: 'path', pts: trail({ x: CINEMA.x, z: TOWN_SQ.z + TOWN_SQ.hz }, frontOf(CINEMA, 2.4), 0.2) });
-    out.push({ kind: 'path', pts: trail(polar(257, 37.5), polar(CHURCH_AT[0], CHURCH_AT[1] - 6.8), 0.5) });
+    out.push({ kind: 'path', pts: trail(polar(257, 37.5), polar(CHURCH_AT[0], CHURCH_AT[1] - 6.8), 1.6) });
     // Farm tracks: the drove road runs out from the ring road down the middle of the farmland,
     // reaching each band when its first field opens; each field's gate joins the track along
     // the inside of its band, at the nearest gate or the drove road.
@@ -2206,6 +2245,39 @@
       P(base, this.geo.blob, this.mat('rock'), 0.4 + fr2() * 0.4, 0.3, 0.4 + fr2() * 0.3, bx2, groundY(bx2, bz2) + 0.1, bz2);
     }
 
+    // The tarns: still water in a scooped bed, reeds and cattails round the pond, rocks round the spring.
+    TARNS.forEach(function (t, k) {
+      P(base, self.geo.cyl, self.mat('water'), t.R + 0.2, 0.06, t.R + 0.2, t.x, t.y, t.z);
+      var n = t.kind === 'reeds' ? 22 : 9, tr = rng(700 + k);
+      for (var i = 0; i < n; i++) {
+        var a = i / n * Math.PI * 2 + tr() * 0.3, d = t.R + 0.1 + tr() * 0.6, x = t.x + Math.cos(a) * d, z = t.z + Math.sin(a) * d, y = groundY(x, z);
+        if (t.kind === 'reeds') {
+          P(base, self.geo.cyl6, self.mat('houseplant', i % 3), 0.03, 0.9 + tr() * 0.5, 0.03, x, y + 0.5, z);
+          if (i % 3 === 0) P(base, self.geo.cyl6, self.mat('trunk'), 0.06, 0.22, 0.06, x, y + 1.0, z);
+        } else P(base, self.geo.blob, self.mat('rock'), 0.4 + tr() * 0.4, 0.3 + tr() * 0.3, 0.4 + tr() * 0.3, x, y + 0.15, z);
+      }
+      if (t.kind === 'reeds') [[0.4, -0.6], [-1.2, 0.9], [1.5, 1.1]].forEach(function (l) { P(base, self.geo.cyl, self.mat('houseplant', 3), 0.35, 0.02, 0.35, t.x + l[0], t.y + 0.04, t.z + l[1]); });
+    });
+
+    // The glacier: a snow-capped mountain with a tongue of ice coming down to the river's head.
+    var G = GLACIER, gy = groundY(G.x, G.z), capGeo = this.geo.mtnCap || (this.geo.mtnCap = mountainGeometry(0.55, 1));
+    var mtn = new T.Mesh(this.geo.mountain, this.mat('rock')); mtn.scale.set(G.R, G.H, G.R); mtn.position.set(G.x, gy - 0.5, G.z); base.add(mtn);
+    var cap = new T.Mesh(capGeo, this.mat('snow')); cap.scale.set(G.R * 1.02, G.H * 1.01, G.R * 1.02); cap.position.set(G.x, gy - 0.5, G.z); base.add(cap);
+    var wy = riverLevel(0), rot = Math.atan2(G.u.x, G.u.z);
+    for (var gi = 0; gi < 6; gi++) {
+      var t = gi / 5, gx = G.S.x + (G.x - G.S.x) * t * 0.85, gz = G.S.z + (G.z - G.S.z) * t * 0.85;
+      var tongue = P(base, this.geo.blob, this.mat('glacier', gi % 2), 2.6 - t * 0.6, 0.9 + t * 0.6, 2.4, gx, wy + 0.2 + t * 6.5, gz);
+      tongue.rotation.y = rot;
+    }
+    for (var ci = 0; ci < 6; ci++) {
+      var cx = G.S.x + (ci % 3 - 1) * 1.2 - G.u.x * (0.5 + ci * 0.4), cz = G.S.z - G.u.z * (0.5 + ci * 0.4) + (ci % 2 - 0.5) * 1.1;
+      P(base, this.geo.box, this.mat('glacier', ci % 2), 0.4, 0.3, 0.35, cx, wy + 0.12, cz).rotation.y = ci;
+    }
+    [[-2.6, 1.5], [2.4, 2.2], [-1.4, 3.6], [1.6, 4.2]].forEach(function (sr) {
+      var sx = G.S.x + G.u.x * sr[1] - G.u.z * sr[0], sz = G.S.z + G.u.z * sr[1] + G.u.x * sr[0];
+      P(base, self.geo.cone4, self.mat('glacier', 1), 0.6, 1.4 + sr[1] * 0.4, 0.6, sx, wy + 1.2 + sr[1] * 0.9, sz);
+    });
+
     // The canyon: boulders along its walls, and a rope bridge across.
     var rocks = [], rr = rng(4141);
     RIVER.forEach(function (q, i) {
@@ -3340,10 +3412,6 @@
   // Swims build a swimming spot on the lake's near shore, a step for each total distance.
   var SWIM_STEPS = [[0.01, 'A swimming dock and ladder'], [8, 'Lane buoys'], [20, 'A wood-fired sauna'], [40, 'A diving tower'], [65, 'A floating raft'],
     [100, 'A changing hut and towels'], [150, 'A lakeside bathhouse'], [220, 'Lanterns along the dock'], [300, 'The lido pavilion']];
-  var SWIM = (function () {
-    var a = Math.atan2(-LAKE.c.z, -LAKE.c.x) + 0.35, e = lakeEdge(a);
-    return { x: LAKE.c.x + Math.cos(a) * (e + 1.2), z: LAKE.c.z + Math.sin(a) * (e + 1.2), rot: Math.atan2(-Math.cos(a), -Math.sin(a)) };
-  })();
   // Local (x, z) at the swimming spot, where +z runs out over the water, to world ground height.
   function swimGround(x, z) {
     var c = Math.cos(SWIM.rot), s = Math.sin(SWIM.rot);
@@ -3401,7 +3469,7 @@
           break;
         }
         case 5: {
-          var ch = onLand(new T.Group(), 3.4, -2.6); ch.rotation.y = -0.3;
+          var ch = onLand(new T.Group(), 4.2, -7.0); ch.rotation.y = -0.3;
           self.part(ch, self.geo.box, self.mat('whitewood'), 1.4, 1.5, 1.0, 0, 0.75, 0, pick);
           self.part(ch, self.geo.box, self.mat('roof', 1), 1.6, 0.1, 1.2, 0, 1.55, 0, pick);
           self.part(ch, self.geo.box, self.mat('trunk'), 0.5, 1.0, 0.04, 0, 0.5, 0.51, pick);
@@ -3959,7 +4027,10 @@
   // timber trestles over low ground and the bay, and tunnels through four rocky hills.
   var RAIL_R = 112, RAIL_STEP = 0.5;
   // The line swings out over the water round the lighthouse headland.
-  function railR(a) { var d = angleDiff(a, 338); return RAIL_R + (d < 15 ? 17 * Math.pow(Math.cos(d / 15 * Math.PI / 2), 2) : 0); }
+  function railR(a) {
+    var d = angleDiff(a, 338), d2 = angleDiff(a, 70); // the lighthouse headland, and the glacier's foot
+    return RAIL_R + (d < 15 ? 17 * Math.pow(Math.cos(d / 15 * Math.PI / 2), 2) : 0) + (d2 < 10 ? 6 * Math.pow(Math.cos(d2 / 10 * Math.PI / 2), 2) : 0);
+  }
   var RAIL_TUNNELS = [15, 100, 262], TUNNEL_HALF = 3.8; // hill centres, and the portals' angle either side
   var STATION_NAMES = ['Whitehorse', 'Carcross', 'Bennett', 'Fraser', 'Skagway'];
   function inTunnel(a, pad) { return RAIL_TUNNELS.some(function (t) { return angleDiff(a, t) < TUNNEL_HALF + (pad || 0); }); }
@@ -4337,6 +4408,7 @@
     if (WILD && WILD.hash.near(p.x, p.z, rad + 0.9)) return false;
     if (CINEMA && Math.hypot(CINEMA.x - p.x, CINEMA.z - p.z) < rad + 5) return false;
     if (inTownSquare(p.x, p.z, rad + 2)) return false;
+    if (Math.hypot(GLACIER.x - p.x, GLACIER.z - p.z) < rad + GLACIER.R + 3 || TARNS.some(function (t) { return Math.hypot(t.x - p.x, t.z - p.z) < rad + t.R + 2; })) return false;
     if (MTB_LANE) for (var mk = 0; mk < MTB_LANE.pts.length; mk += 3) if (Math.hypot(MTB_LANE.pts[mk].x - p.x, MTB_LANE.pts[mk].z - p.z) < rad + 1.5) return false;
     return true;
   }
@@ -5347,15 +5419,27 @@
 
   // Each commute lays one cobble on the lane out to the office; once it arrives,
   // commutes park bikes there and every 20 more add a floor.
-  Town.prototype.addCommute = function (km, delay) {
+  // Which weekdays of a week (keyed by its Monday) had a commute.
+  function weekOf(date) {
+    var d = new Date(date + 'T12:00:00Z'), wd = (d.getUTCDay() + 6) % 7; // Monday 0 ... Sunday 6
+    return { key: new Date(d.getTime() - wd * 86400000).toISOString().slice(0, 10), wd: wd };
+  }
+  Town.prototype.addCommute = function (km, delay, date) {
     var s = this.st.commute, k = s.n, self = this;
     s.n++; s.km += km || 10;
+    // Commuting every day Monday to Friday turns that Friday's cobble gold.
+    var gold = false;
+    if (date) {
+      var w = weekOf(date), days = (s.weeks = s.weeks || {})[w.key] = s.weeks[w.key] || {};
+      days[w.wd] = true;
+      if (w.wd === 4 && days[0] && days[1] && days[2] && days[3] && !days.gold) { gold = days.gold = true; s.golden = (s.golden || 0) + 1; }
+    }
     if (k < LANE_STONES) {
       var p = LANE[k], y = surfaceY(p.x, p.z), onBridge = riverDist(p.x, p.z) < RIVER_HALF + 1.1;
       // Each cobble tilts with the ground between its neighbours, so the lane reads as one smooth ribbon.
       var pa = LANE[Math.max(0, k - 1)], pb = LANE[Math.min(LANE_STONES - 1, k + 1)];
       var tilt = onBridge ? 0 : Math.atan2(surfaceY(pb.x, pb.z) - surfaceY(pa.x, pa.z), Math.hypot(pb.x - pa.x, pb.z - pa.z) || 1);
-      var t = this.part(this.world, this.geo.box, onBridge ? this.mat('stone', 2) : this.mat('cobble'), LANE.spacing * 1.04, onBridge ? 0.3 : 0.12, onBridge ? 1.7 : 1.15, p.x, 0, p.z, 'commute');
+      var t = this.part(this.world, this.geo.box, gold ? this.mat('gold') : onBridge ? this.mat('stone', 2) : this.mat('cobble'), LANE.spacing * 1.04, onBridge ? 0.3 : 0.12, onBridge ? 1.7 : 1.15, p.x, 0, p.z, 'commute');
       t.rotation.order = 'YZX';
       t.rotation.z = tilt;
       if (onBridge && k % 2 === 0) [-1, 1].forEach(function (sd) {
@@ -6919,7 +7003,7 @@
       case 'run': this.addRun(ev, delay); mark('run'); break;
       case 'snowboard': this.addSnowboard(ev, delay); mark('snow'); break;
       case 'bike': s.bike.km += ev.km; s.bike.sessions++; var c0 = s.bike.crops.length; this.addBike(ev, delay); this.endurancePRs('ride', ev, s.bike.crops[c0] || s.bike.crops[s.bike.crops.length - 1], delay); this.markBatch(); this.updateSheep(ev, delay); mark('bike'); break;
-      case 'commute': this.addCommute(ev.km, delay); mark('commute'); break;
+      case 'commute': this.addCommute(ev.km, delay, ev.date); mark('commute'); break;
       case 'row': s.row.km += ev.km; s.row.sessions++; this.addRow(delay); mark('row'); break;
       case 'swim': this.addSwim(ev, delay); mark('swim'); break;
       case 'xcski': this.addNordic(ev, delay); mark('nordic'); break;
@@ -7120,7 +7204,7 @@
         var c = s.commute;
         return { title: 'The commuter lane', lines: [plural(c.n, 'commute') + ' · ' + km(c.km),
           c.n < LANE_STONES ? 'Lane ' + Math.round(c.n / LANE_STONES * 100) + '% built: ' + (LANE_STONES - c.n) + ' more cobbles to reach the office.' : (c.stage >= OFFICE_STAGES.length ? 'Lane complete and the institute is finished: ' + OFFICE_STAGES.join(', ').toLowerCase() + '.' : 'Lane complete. The office grows grander: next, ' + OFFICE_STAGES[c.stage].toLowerCase() + ' in ' + (officeStageAt(c.stage) - (c.n - LANE_STONES)) + ' more commutes.'),
-          'One cobble per Strava ride tagged Commute.', tail] };
+          'One cobble per Strava ride tagged Commute; commute every weekday and Friday\u2019s cobble is gold' + (c.golden ? ' (' + plural(c.golden, 'golden week') + ' so far).' : '.'), tail] };
       case 'harbour':
       case 'row':
         var RH = s.row, nh = HARBOUR_STEPS.filter(function (x) { return RH.km < x[0]; })[0], hb = HARBOUR_STEPS.filter(function (x) { return RH.km >= x[0]; }).map(function (x) { return x[1].toLowerCase(); });
