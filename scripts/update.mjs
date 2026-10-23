@@ -13,10 +13,12 @@ const SHEETS = {
 const STRAVA_SINCE = '2026-06-22'; // the Monday Phase 2 began
 const LETTERBOXD_USER = 'oilgasms';
 
+// What each source did on the last run, saved as data/status.json (no secrets in it).
 let failed = 0;
+const status = { ran: new Date().toISOString() };
 async function step(name, fn) {
-  try { console.log(`${name}: ${await fn()}`); }
-  catch (e) { failed++; console.error(`${name}: FAILED - ${e.message}`); }
+  try { status[name] = await fn(); console.log(`${name}: ${status[name]}`); }
+  catch (e) { failed++; status[name] = 'FAILED - ' + e.message; console.error(`${name}: ${status[name]}`); }
 }
 
 // Google Sheets: needs each sheet shared as "Anyone with the link can view".
@@ -53,7 +55,7 @@ async function saveToken(secret, token) {
 }
 async function strava() {
   const { STRAVA_CLIENT_ID: id, STRAVA_CLIENT_SECRET: secret, STRAVA_CODE: code } = process.env;
-  if (!id || !secret) return 'skipped (no Strava secrets set)';
+  if (!id || !secret) return `skipped (secrets missing: ${[!id && 'STRAVA_CLIENT_ID', !secret && 'STRAVA_CLIENT_SECRET'].filter(Boolean).join(', ')})`;
   const refresh = process.env.STRAVA_REFRESH_TOKEN || await readToken(secret);
   if (!refresh && !code) return 'skipped (add the STRAVA_CODE secret to connect)';
   const grant = refresh ? { grant_type: 'refresh_token', refresh_token: refresh } : { grant_type: 'authorization_code', code: code.replace(/^.*[?&]code=([^&]+).*$/, '$1') };
@@ -113,4 +115,5 @@ async function letterboxd() {
 await step('Google Sheets', sheets);
 await step('Strava', strava);
 await step('Letterboxd', letterboxd);
+await writeFile(new URL('status.json', DATA), JSON.stringify(status, null, 2) + '\n');
 if (failed === 3) process.exit(1);
