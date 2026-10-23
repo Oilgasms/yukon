@@ -326,7 +326,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v64';
+  var BUILD = 'v65';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -753,6 +753,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       if (events[i].date) { season = Town.seasonOf(events[i].date); from = events[i]; break; }
     }
     town.setSeason(season);
+    // Party secrets stand for a week after a big group workout, as of the day being shown.
+    if (town.setViewDate) town.setViewDate(!future && n >= events.length ? new Date().toLocaleDateString('en-CA') : from && from.date);
     document.body.setAttribute('data-season', season);
     $('season').hidden = !events.length;
     $('season-name').textContent = SEASON_NAMES[season];

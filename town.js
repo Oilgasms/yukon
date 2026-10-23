@@ -97,7 +97,7 @@
   var HOUSEHOLDS = { katie: 'Katie & Joel', joel: 'Katie & Joel', rae: 'Rae & Shane', shane: 'Rae & Shane',
     reuben: 'Reuben & Kaitlyn', reuban: 'Reuben & Kaitlyn', kaitlyn: 'Reuben & Kaitlyn',
     alex: 'Alex & Hayli', hayli: 'Alex & Hayli', hayley: 'Alex & Hayli',
-    paul: 'Paul & Sam', sam: 'Paul & Sam', mark: 'Mark & Erin', erin: 'Mark & Erin' };
+    rueben: 'Reuben & Kaitlyn', paul: 'Paul & Sam', sam: 'Paul & Sam', mark: 'Mark & Erin', erin: 'Mark & Erin' };
   var DOG_COLORS = { Minto: ['#ece6d8', '#3a3530'], Blue: ['#7f93a8', '#e8e4dc'], Millie: ['#c99552', '#f1e2c8'] };
 
   var RING_ROAD = 14.4;    // cobbled road around the castle grounds
@@ -4450,7 +4450,8 @@
     { id: 'marathon', title: 'The Marathon Gate', hint: 'Run 42.2 km in one go.', text: 'A marathon! A golden laurel gate now stands in the forest.' },
     { id: 'hobbit', title: 'The Hobbit Hole', hint: 'Move a million pounds.', text: 'A million pounds lifted! Someone has dug a cosy hole in the hillside, with a round green door.' },
     { id: 'yeti', title: 'The Yeti', hint: 'Ten snow days in one winter.', text: 'Ten snow days in one season! A friendly yeti has moved in by the ski lodge.' },
-    { id: 'maypole', title: 'The Maypole', hint: 'Work out with five friends at once.', text: 'Five friends in one workout! There’s a maypole on the village square.' },
+    { id: 'maypole', title: 'The Maypole', hint: 'Work out with five friends at once.', text: 'Five friends in one workout! A maypole goes up on the village square, and it comes back for a week after every big group workout.' },
+    { id: 'feast', title: 'The Long Table', hint: 'Work out with the whole crew: eleven friends at once.', text: 'All twelve of you in one workout! A long table is laid on the town square under strings of lights, with a seat for everyone, for a week after every whole-crew workout.' },
     { id: 'zamboni', title: 'The Zamboni', hint: 'Play ten hockey games.', text: 'Ten hockey games! The rink has its own Zamboni.' },
     { id: 'windmill', title: 'The Windmill', hint: 'Work out seven days in a row.', text: 'A seven-day streak! A windmill now turns at the edge of the farmland.' },
     { id: 'swans', title: 'The Swans', hint: 'Row 100 km.', text: '100 km rowed and paddled! A family of swans has settled on the lake behind the mountains.' },
@@ -4460,6 +4461,8 @@
     { id: 'sub20', title: 'The Golden Runner', hint: 'Run 5 km in 20 minutes (on Strava).', big: true,
       text: 'A SUB-20 5K! The whole town is setting off fireworks, and a giant golden runner now strides over the forest. This one is a big deal.' }
   ];
+  var PARTY = { maypole: 5, feast: 11 }; // friends needed in one workout
+  var PARTY_DAYS = 7;
   var SECRET_BY_ID = {};
   SECRETS.forEach(function (x) { SECRET_BY_ID[x.id] = x; });
   var WORKOUT_KINDS = { lift: 1, run: 1, bike: 1, commute: 1, row: 1, hike: 1, stairs: 1, walk: 1, sport: 1, mobility: 1, snowboard: 1, swim: 1, xcski: 1, mtb: 1 };
@@ -4509,7 +4512,14 @@
     if (ev.kind === 'run' && ev.km >= 42) hit('marathon');
     if (s.tonnage >= 1e6) hit('hobbit');
     if (Object.keys(s.snow.seasons).some(function (k) { return s.snow.seasons[k].days >= 10; })) hit('yeti');
-    if (ev.friends && ev.friends.length >= 5) hit('maypole');
+    // Party secrets: earned once, but only standing for a week after each big group workout.
+    var nf = ev.friends ? ev.friends.length : 0;
+    Object.keys(PARTY).forEach(function (id) {
+      if (nf < PARTY[id]) return;
+      (s.party = s.party || {})[id] = ev.date || s.lastDate || null;
+      hit(id);
+    });
+    this.updateParty();
     if (s.sports.Hockey && s.sports.Hockey.n >= 10) hit('zamboni');
     if (s.streaks >= 1) hit('windmill');
     if (s.row.km >= 100) hit('swans');
@@ -4657,6 +4667,15 @@
     var H = this.hedges;
     if (H) { for (var i in H.saved) H.mesh.setMatrixAt(+i, H.saved[i]); H.saved = {}; H.mesh.instanceMatrix.needsUpdate = true; }
     (this.oaks || []).forEach(function (t) { t.visible = true; });
+  };
+  // The date the town is showing: today, or the last dated workout when scrubbed back in time.
+  Town.prototype.setViewDate = function (iso) { this.viewDate = iso || null; this.updateParty(); };
+  Town.prototype.updateParty = function () {
+    var s = this.st, view = this.viewDate || s.lastDate, objs = s.partyObjs || {};
+    for (var id in objs) {
+      var d = s.party && s.party[id], on = !!d && !!view && (new Date(view + 'T12:00:00') - new Date(d + 'T12:00:00')) / 86400000 <= PARTY_DAYS;
+      if (objs[id].visible !== on) { objs[id].visible = on; this.needsRender = true; this.solidAt = 0; }
+    }
   };
   Town.prototype.unlockSecret = function (id, quiet) {
     var s = this.st;
@@ -4847,6 +4866,7 @@
       }
       case 'maypole': {
         place({ x: SQUARE.x + (PUB.x - SQUARE.x) * -0.45, z: SQUARE.z + (PUB.z - SQUARE.z) * -0.45 });
+        (this.st.partyObjs = this.st.partyObjs || {}).maypole = g;
         P(this.geo.cyl6, this.mat('woodLight'), 0.08, 4.0, 0.08, 0, 2.0, 0);
         P(this.geo.torus, this.mat('hedge'), 0.35, 0.35, 0.35, 0, 3.9, 0).rotation.x = Math.PI / 2;
         P(this.geo.ball, this.mat('gold'), 0.12, 0.12, 0.12, 0, 4.1, 0);
@@ -4856,6 +4876,50 @@
           rib.rotation.order = 'YXZ'; rib.rotation.y = -ra + Math.PI / 2; rib.rotation.z = Math.atan2(1.6, 3.6);
           P(this.geo.cyl6, this.mat('wood'), 0.04, 0.3, 0.04, ex, 0.15, ez);
         }
+        break;
+      }
+      case 'feast': {
+        // A long table down the town square with a seat for all twelve, lights strung overhead.
+        var Q = TOWN_SQ;
+        pos = { x: Q.x, z: Q.z + 2.0 };
+        g.position.set(pos.x, groundY(Q.x, Q.z) + 0.1, pos.z);
+        (this.st.partyObjs = this.st.partyObjs || {}).feast = g;
+        P(this.geo.box, this.mat('wood'), 5.0, 0.08, 0.9, 0, 0.62, 0);
+        P(this.geo.box, this.mat('canvas', 0), 5.1, 0.02, 0.6, 0, 0.67, 0);
+        [-2.3, 2.3].forEach(function (x) { [-0.35, 0.35].forEach(function (z) { P(self.geo.box, self.mat('wood'), 0.08, 0.6, 0.08, x, 0.3, z); }); });
+        // Twelve chairs: five down each side and one at each end.
+        var seats = [];
+        for (var sc = 0; sc < 5; sc++) { seats.push([-2.0 + sc, -0.7, 0]); seats.push([-2.0 + sc, 0.7, Math.PI]); }
+        seats.push([-2.85, 0, Math.PI / 2]); seats.push([2.85, 0, -Math.PI / 2]);
+        seats.forEach(function (c, ci) {
+          var ch = new T.Group(); ch.position.set(c[0], 0, c[1]); ch.rotation.y = c[2]; g.add(ch);
+          P(self.geo.box, self.mat('woodLight'), 0.36, 0.05, 0.34, 0, 0.38, 0, ch);
+          P(self.geo.box, self.mat('woodLight'), 0.36, 0.42, 0.05, 0, 0.6, -0.16, ch);
+          [[-0.15, -0.14], [0.15, -0.14], [-0.15, 0.14], [0.15, 0.14]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.04, 0.38, 0.04, l[0], 0.19, l[1], ch); });
+          P(self.geo.box, self.mat('flag', ci), 0.3, 0.04, 0.28, 0, 0.42, 0.02, ch); // a cushion each
+        });
+        // Places set: a plate and a mug at every seat, then bread, pies and candles down the middle.
+        seats.forEach(function (c) {
+          var px = c[0] * (Math.abs(c[0]) > 2.5 ? 0.8 : 1), pz = c[1] * 0.45;
+          P(self.geo.cyl, self.mat('swan', 0), 0.12, 0.02, 0.12, px, 0.69, pz);
+          P(self.geo.cyl6, self.mat('woodLight'), 0.04, 0.09, 0.04, px + 0.16, 0.73, pz);
+        });
+        [-1.6, 0, 1.6].forEach(function (x) { P(self.geo.blob, self.mat('woodLight'), 0.22, 0.1, 0.12, x - 0.4, 0.73, 0); P(self.geo.cyl, self.mat('brick', 0), 0.16, 0.06, 0.16, x + 0.35, 0.71, 0); });
+        [-2.2, -0.8, 0.8, 2.2].forEach(function (x) { P(self.geo.cyl6, self.mat('plaster', 0), 0.03, 0.18, 0.03, x, 0.78, 0); P(self.geo.ball, self.mat('lantern'), 0.04, 0.06, 0.04, x, 0.9, 0); });
+        // Strings of lights from corner to corner of the square.
+        var top = 2.5, cz = Q.hz - 0.35, cx = Q.hx - 0.35;
+        [[-cx, -cz - 2.0, cx, cz - 2.0], [cx, -cz - 2.0, -cx, cz - 2.0], [-cx, cz - 2.0, cx, cz - 2.0]].forEach(function (L) {
+          var prev = null, up = new T.Vector3(0, 1, 0);
+          for (var b = 0; b <= 24; b++) {
+            var t = b / 24, q = new T.Vector3(L[0] + (L[2] - L[0]) * t, top - Math.sin(t * Math.PI) * 0.5, L[1] + (L[3] - L[1]) * t);
+            if (b > 0 && b < 24) P(self.geo.ball, self.mat(b % 3 ? 'lantern' : 'flag', b), 0.05, 0.07, 0.05, q.x, q.y - 0.06, q.z);
+            if (prev) {
+              var dv = q.clone().sub(prev), wire = P(self.geo.cyl6, self.mat('stoneDark'), 0.012, dv.length(), 0.012, (q.x + prev.x) / 2, (q.y + prev.y) / 2, (q.z + prev.z) / 2);
+              wire.quaternion.setFromUnitVectors(up, dv.normalize());
+            }
+            prev = q;
+          }
+        });
         break;
       }
       case 'zamboni': {
@@ -7148,6 +7212,7 @@
     delay = delay || 0;
     var s = this.st, self = this;
     var mark = function (k) { s.last[k] = ev; };
+    if (ev.date && (!s.lastDate || ev.date > s.lastDate)) s.lastDate = ev.date;
     if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie') s.sessions++;
     switch (ev.kind) {
       case 'lift':
@@ -7582,7 +7647,7 @@
         this.picks = this.picks.filter(function (m) { return pc.g.getObjectById(m.id) == null; });
         pc.g.traverse(function (m) { if (m.isMesh) m.userData.pick = null; });
         this.world.remove(pc.g); this.scene.add(pc.g);
-        pc.g.position.set(TOWN_SQ.x + 1.6, 0, TOWN_SQ.z + 2.2);
+        pc.g.position.set(TOWN_SQ.x + 2.4, 0, TOWN_SQ.z - 0.6);
         pc.g.rotation.y = Math.PI;
         pc.g.scale.setScalar(1.6);
         this.player = pc;

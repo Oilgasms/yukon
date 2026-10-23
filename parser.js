@@ -63,7 +63,7 @@
   // Sheets left out of the town entirely.
   var EXCLUDE = /^phase\s*1\b/i;
 
-  var NOT_NAMES = /^(kids|fam|family|friends|boys|the|my|everyone|people|bike|paddleboard|run|walk|and)$/i;
+  var NOT_NAMES = /^(kids|fam|family|friends|boys|the|my|everyone|everybody|people|bike|paddleboard|run|walk|and)$/i;
   // Dogs get their own pen rather than a house.
   var DOGS = { minto: 'Minto', blue: 'Blue', millie: 'Millie' };
   function dogsIn(text) {
@@ -91,11 +91,14 @@
   }
 
   function friendsIn(text) {
+    // "w/ Everyone - AlexHayli, Katie Joel": everyone is the whole crew, Jo included.
+    text = text.replace(/\b(everyone|everybody)\s*[-\u2013\u2014:]\s*/i, '$1, ');
     var m = text.match(/(?:\bw\/|\bw\.|\bwith\b)\s*([^()\-:\d]+)/i);
     if (!m) return [];
     var chunk = m[1].split(/\b(?:in|to|at|for|from|on)\b/i)[0];
-    var out = [];
-    chunk.split(/[,&+\s]+/).forEach(function (tok) {
+    var out = /\b(everyone|everybody)\b/i.test(chunk) ? ['Jo'] : [];
+    // Couples written together, like "AlexHayli", are two people.
+    chunk.replace(/\b([A-Z][a-z]+)(?=[A-Z][a-z])/g, function (w) { return /^(mc|mac|de|di|da|la|le|van|von|st)$/i.test(w) ? w : w + ' '; }).split(/[,&+\s]+/).forEach(function (tok) {
       tok = tok.replace(/[^A-Za-z']/g, '');
       if (!tok || NOT_NAMES.test(tok) || DOGS[tok.toLowerCase()]) return;
       if (!/^[A-Z]/.test(tok) && !/^(mom|dad)$/i.test(tok)) return;
