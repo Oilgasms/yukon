@@ -268,6 +268,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn" id="future5" type="button" aria-pressed="false">+5 years</button>
       <button class="btn" id="recenter" type="button">Recenter</button>
       <button class="btn" id="pixel" type="button" aria-pressed="true">Pixel</button>
+      <button class="btn" id="motion" type="button" aria-pressed="true">Motion</button>
     </div>
     <div class="caption" id="caption">&nbsp;</div>
     <div class="phases" id="phases"></div>
@@ -302,14 +303,16 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v54';
+  var BUILD = 'v55';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
   var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   var SERVER = 'Google Drive', TOOL = 'download_file_content';
   var SEEN_KEY = 'fittertown:seen';
-  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Follows the computer's "reduce motion" setting (Windows: Animation effects) unless the Motion button says otherwise.
+  var MOTION_KEY = 'fittertown:motion', reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  try { var mPref = localStorage.getItem(MOTION_KEY); if (mPref) reduced = mPref === '0'; } catch (e) {}
   var $ = function (id) { return document.getElementById(id); };
 
   // Start the 3D view, falling back to a lighter renderer on a fresh canvas if the first try is refused.
@@ -465,6 +468,14 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     try { localStorage.setItem(PIXEL_KEY, pixelOn ? '1' : '0'); } catch (e) {}
     town.setPixel(pixelOn);
     syncPixelButton();
+  });
+  function syncMotionButton() { $('motion').setAttribute('aria-pressed', String(!reduced)); $('motion').textContent = reduced ? 'Motion: off' : 'Motion: on'; }
+  syncMotionButton();
+  $('motion').addEventListener('click', function () {
+    reduced = !reduced;
+    try { localStorage.setItem(MOTION_KEY, reduced ? '0' : '1'); } catch (e) {}
+    town.setMotion(!reduced);
+    syncMotionButton();
   });
   if (innerWidth < 640) $('ledger').open = false;
 

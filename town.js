@@ -1264,6 +1264,12 @@
     if (this.onWeather) this.onWeather(this.weatherLock !== undefined && this.weatherLabel ? this.weatherLabel : w ? w.label : 'clear');
     this.needsRender = true;
   };
+  // Motion off freezes the ambient animation (walkers, weather, the slow spin); builds still play.
+  Town.prototype.setMotion = function (on) {
+    this.reduced = !on;
+    this.controls.autoRotate = on && !this.soft;
+    this.needsRender = true;
+  };
   Town.prototype.stepWeather = function (dt, now) {
     if (this.reduced || this.soft) return;
     this.weatherClock -= dt;
