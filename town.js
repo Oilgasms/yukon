@@ -80,7 +80,7 @@
     eagle: ['#4a3420', '#e8b934', '#f4f2ec'], owl: ['#8a6e4e', '#e8b934', '#b89a72'],
     brick: ['#a8483a', '#b5553f', '#9a4034'], logwood: ['#8a5a34', '#74492a'], shingle: '#4e3d34', whitewood: '#f3efe6',
     fox: ['#d9682a', '#f4efe6', '#2a2420'], coon: ['#8d8883', '#2b2826', '#efece6'], glass: ['#c8372d', '#2f6fc0', '#e8b934', '#3f8a3f', '#7a4fb0', '#d9682a'],
-    fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], mouse: ['#9c928a', '#8a6a4e', '#c8b49a', '#e8a3a3'], paper: ['#f2efe6', '#4a4a4a'], beer: ['#e3a02c', '#fbf6e8', '#d9e6e8'], smoke: '#d6d3cc', leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
+    fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], otter: ['#6b4a2e', '#cdb08a', '#2e2219'], orca: ['#16161a', '#f2f2ef', '#9c9ca3'], mouse: ['#9c928a', '#8a6a4e', '#c8b49a', '#e8a3a3'], paper: ['#f2efe6', '#4a4a4a'], beer: ['#e3a02c', '#fbf6e8', '#d9e6e8'], smoke: '#d6d3cc', leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
   };
   var CASTLE_MILESTONES = [
     [20, 'gatehouse', 'Gatehouse'], [40, 'banners', 'Wall banners'], [60, 'moat', 'Moat and drawbridge'],
@@ -3151,6 +3151,8 @@
     { key: 'bear', title: 'A grizzly bear', goal: 300, unit: 'lifting sessions', metric: function (s) { return s.lifts; }, text: 'Strong as a bear: a grizzly fishes for salmon in the river all summer and sleeps through the winter.' },
     { key: 'wolves', title: 'A wolf pack', goal: 150, unit: 'runs', metric: function (s) { return s.forest.runs; }, text: 'A wolf pack roams the edge of the wilderness at night.' },
     { key: 'hoard', title: 'A dragon on its hoard', goal: 50000, unit: 'pages read', metric: function (s) { return s.library.pages; }, text: 'Fifty thousand pages! In a cave out past the river, a great old dragon sleeps on a hoard of books and gold. Mind the smoke.' },
+    { key: 'otters', title: 'River otters', goal: 5, unit: 'workouts with Jo', metric: function (s) { return s.friends.Jo ? s.friends.Jo.n : 0; }, text: 'A pair of river otters has moved onto the lake. They float on their backs holding paws so they don\u2019t drift apart, just like you two.' },
+    { key: 'orcas', title: 'A killer whale pod', goal: 25, unit: 'workouts with friends', metric: function (s) { var n = 0; for (var k in s.friends) n += s.friends[k].n; return n; }, text: 'Twenty-five workouts with the crew! A pod of killer whales now cruises off the coast. Keep watching: every so often one breaches.' },
     { key: 'ent', title: 'An Ent', goal: 1, unit: 'half marathon (a sequoia)', metric: function (s) { return s.forest.kinds.sequoia || 0; }, text: 'One of the old sequoias has woken up! Now and then it goes for a slow walk round the forest.' }
   ];
   WILDLIFE.forEach(function (w) { w.need = function (s) { return w.metric(s) >= w.goal; }; w.how = w.goal + ' ' + w.unit; });
@@ -3288,6 +3290,60 @@
         var back = STREAM[si - 3];
         bv.g.position.set(back.x, groundY(back.x, back.z) + 0.22, back.z);
         add(Object.assign({ type: 'swimline', a: STREAM[si - 6], b: STREAM[si - 1], ph: 0, dam: dam }, bv));
+        break;
+      }
+      case 'otters': {
+        // Two otters floating belly-up, paws joined, near the lake shore.
+        var oa = Math.atan2(LAKE.c.z, LAKE.c.x) + 2.2, oc = { x: LAKE.c.x + Math.cos(oa) * LAKE.R * 0.55, z: LAKE.c.z + Math.sin(oa) * LAKE.R * 0.55 };
+        var pair = new T.Group(), pk = 'wild:otters', ot = [];
+        [-1, 1].forEach(function (sd, i) {
+          var o = new T.Group(); o.position.set(sd * 0.17, 0, 0); pair.add(o);
+          var P = function (geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || o, geo, mat, sx, sy, sz, x, y, z, pk); };
+          var fur = self.mat('otter', 0), pale = self.mat('otter', 1), dk = self.mat('otter', 2);
+          P(self.geo.box, fur, 0.15, 0.1, 0.44, 0, 0, 0);
+          P(self.geo.box, pale, 0.11, 0.02, 0.3, 0, 0.055, 0.05);                       // pale belly, facing the sky
+          var hd = new T.Group(); hd.position.set(0, 0.04, 0.27); o.add(hd);
+          P(self.geo.box, fur, 0.13, 0.1, 0.12, 0, 0, 0, hd);
+          P(self.geo.box, pale, 0.09, 0.05, 0.06, 0, 0.03, 0.06, hd);                   // whiskery muzzle
+          P(self.geo.box, dk, 0.035, 0.025, 0.02, 0, 0.05, 0.09, hd);
+          [-1, 1].forEach(function (e) { P(self.geo.box, dk, 0.02, 0.02, 0.02, e * 0.04, 0.055, 0.03, hd); P(self.geo.box, fur, 0.03, 0.03, 0.02, e * 0.06, 0.04, -0.04, hd); });
+          // Paws on the chest, and the inside paw reaching across to hold the other's.
+          P(self.geo.box, dk, 0.03, 0.03, 0.05, -sd * 0.04, 0.07, 0.15);
+          var hold = P(self.geo.box, dk, 0.1, 0.025, 0.035, -sd * 0.11, 0.05, 0.12); hold.rotation.y = sd * 0.2;
+          P(self.geo.box, dk, 0.04, 0.03, 0.06, sd * 0.05, 0.03, -0.22); P(self.geo.box, dk, 0.04, 0.03, 0.06, -sd * 0.05, 0.03, -0.22);
+          var tl = P(self.geo.box, fur, 0.07, 0.05, 0.22, 0, 0, -0.32); tl.scale.x = 0.06;
+          var shell = P(self.geo.ball, self.mat('stone', 2), 0.035, 0.02, 0.035, 0, 0.08, 0.06); shell.visible = false;
+          ot.push({ g: o, head: hd, shell: shell });
+        });
+        pair.scale.setScalar(1.3);
+        add({ type: 'otters', g: pair, otters: ot, c: oc, y: LAKE.y + 0.1, summer: true, ph: 0 });
+        break;
+      }
+      case 'orcas': {
+        // Out past the coast: a big bull with a tall fin, a cow and a calf.
+        var sea = { x: COAST_N.x * 119 + COAST_T.x * 6, z: COAST_N.z * 119 + COAST_T.z * 6 };
+        var pod = [];
+        [[1.25, 1.0, 0], [1.0, 0.55, 2.6], [0.62, 0.4, 1.3]].forEach(function (o, i) {
+          var g = new T.Group(), pk2 = 'wild:orcas';
+          var P = function (geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || g, geo, mat, sx, sy, sz, x, y, z, pk2); };
+          var blk = self.mat('orca', 0), wht = self.mat('orca', 1), gry = self.mat('orca', 2);
+          P(self.geo.box, blk, 0.5, 0.48, 1.3, 0, 0, 0);
+          P(self.geo.box, blk, 0.42, 0.4, 0.4, 0, -0.02, 0.8);                           // the head
+          P(self.geo.box, blk, 0.3, 0.3, 0.5, 0, 0.0, -0.85);                            // tail stock
+          P(self.geo.box, wht, 0.36, 0.06, 1.0, 0, -0.24, 0.25);                         // white belly
+          [-1, 1].forEach(function (sd) {
+            P(self.geo.box, wht, 0.02, 0.1, 0.22, sd * 0.215, 0.1, 0.78);                 // eye patches
+            P(self.geo.box, gry, 0.02, 0.08, 0.3, sd * 0.255, 0.18, -0.35);               // the grey saddle
+            var fin = P(self.geo.box, blk, 0.4, 0.04, 0.2, sd * 0.38, -0.18, 0.45); fin.rotation.z = sd * -0.4; fin.rotation.y = sd * 0.3;
+            var fl = P(self.geo.box, blk, 0.42, 0.04, 0.2, sd * 0.2, 0, -1.15); fl.rotation.y = sd * 0.5;  // flukes
+          });
+          var dorsal = P(self.geo.cone4, blk, 0.13, o[1], 0.28, 0, 0.24 + o[1] / 2, -0.05); dorsal.rotation.x = i === 0 ? 0 : -0.25;
+          g.scale.setScalar(o[0]);
+          self.world.add(g);
+          pod.push({ g: g, off: o[2], big: o[0] });
+        });
+        var host = new T.Group();
+        add({ type: 'orcas', g: host, pod: pod, c: sea, R: 5, sp: 1 / 14000, breachAt: 0 });
         break;
       }
       case 'ducks':
@@ -3467,6 +3523,47 @@
         g.position.set(a.c.x + Math.cos(an) * a.R, a.y + Math.sin(now / 2100 + a.ph) * 0.6, a.c.z + Math.sin(an) * a.R);
         g.rotation.y = -an; g.rotation.z = a.soar ? 0.25 : 0.12;
         a.wings.forEach(function (w) { w.rotation.z = w.userData.sd * Math.sin(now / a.flap + a.ph) * (a.soar ? 0.15 : 0.6); });
+      } else if (a.type === 'otters') {
+        // Drifting in a slow circle, bobbing; now and then one rolls under and comes up with a snack.
+        var oan = now / 26000;
+        g.position.set(a.c.x + Math.cos(oan) * 1.6, a.y + Math.sin(now / 700) * 0.03, a.c.z + Math.sin(oan) * 1.6);
+        g.rotation.y = -oan + Math.sin(now / 5000) * 0.4;
+        var cyc2 = (now / 1000) % 30;
+        a.otters.forEach(function (o, i) {
+          o.g.rotation.z = 0; o.g.position.y = 0; o.g.visible = true;
+          if (i === 1 && cyc2 > 20 && cyc2 < 23) {
+            // Dive: roll over and vanish, then bob back up.
+            var u = (cyc2 - 20) / 3;
+            o.g.rotation.z = Math.min(1, u * 3) * Math.PI; o.g.position.y = -Math.sin(u * Math.PI) * 0.4; o.g.visible = u < 0.2 || u > 0.8;
+            o.shell.visible = false;
+          } else if (i === 1 && cyc2 >= 23 && cyc2 < 29) {
+            // Cracking the shellfish on its belly.
+            o.shell.visible = true; o.head.rotation.x = -0.3 + Math.sin(now / 110) * 0.15;
+          } else { o.shell.visible = false; o.head.rotation.x = Math.sin(now / 1500 + i) * 0.12; }
+        });
+      } else if (a.type === 'orcas') {
+        // Cruising in a loop: backs and fins breaking the surface, blowing as they come up.
+        var pan = now * a.sp;
+        a.pod.forEach(function (o, i) {
+          var ang = pan - i * 0.22, lx = a.c.x + Math.cos(ang) * (a.R + i * 0.6), lz = a.c.z + Math.sin(ang) * (a.R + i * 0.6);
+          var bob = Math.sin(now / 2400 + o.off), og = o.g;
+          og.visible = true;
+          og.position.set(lx, SEA_Y - 0.36 * o.big + bob * 0.3 * o.big, lz);
+          og.rotation.set(-Math.cos(now / 2400 + o.off) * 0.18, -ang, 0);
+          if (bob > 0.95 && now > (o.blowAt || 0)) { o.blowAt = now + 2000; self.puff(lx + Math.sin(-ang) * 0.6 * o.big, SEA_Y + 0.3, lz + Math.cos(-ang) * 0.6 * o.big, 10, 'steam', 0.12); }
+        });
+        // A breach: the big one launches clean out of the water and crashes back.
+        if (!a.breach && now > a.breachAt) { a.breachAt = now + 22000 + Math.random() * 20000; if (a.breachAt - now > 0) a.breach = { t: 0, who: a.pod[Math.floor(Math.random() * 2)] }; }
+        if (a.breach) {
+          var B = a.breach, bo = B.who.g;
+          B.t += dt;
+          var bu = B.t / 1.6;
+          if (bu === bu && bu <= 1) {
+            if (!B.x) { B.x = bo.position.x; B.z = bo.position.z; B.ry = bo.rotation.y; self.puff(B.x, SEA_Y + 0.1, B.z, 14, 'splash', 0.6); }
+            bo.position.set(B.x + Math.sin(B.ry) * bu * 2.4, SEA_Y - 0.4 + Math.sin(bu * Math.PI) * 3.2, B.z + Math.cos(B.ry) * bu * 2.4);
+            bo.rotation.set(-1.2 + bu * 2.0, B.ry, bu * 1.4);
+          } else { self.puff(bo.position.x, SEA_Y + 0.1, bo.position.z, 22, 'splash', 0.9); a.breach = null; }
+        }
       } else if (a.type === 'float') {
         a.ang += a.sp * dt * 6;
         var lr = LAKE.R * a.rr;
