@@ -152,7 +152,7 @@
     var S = RIVER[0], q = RIVER[8], l = Math.hypot(S.x - q.x, S.z - q.z), u = { x: (S.x - q.x) / l, z: (S.z - q.z) / l };
     return { S: S, u: u, x: S.x + u.x * 7, z: S.z + u.z * 7, R: 8, H: 15 };
   })();
-  var CHURCH_AT = [256, 60], CHURCH = polar(CHURCH_AT[0], CHURCH_AT[1]), CHURCH_HILL = { r: 15, h: 3.4 };
+  var CHURCH_AT = [256, 60], CHURCH = polar(CHURCH_AT[0], CHURCH_AT[1]), CHURCH_HILL = { r: 22, h: 3.4 };
   // Kept clear of fields below the hill.
   var CHAPEL_LANE = polar(254, 56);
   // The town square: a little Dawson City style square of packed earth and boardwalks in the low
@@ -262,7 +262,7 @@
     // Market Lane, west from the end of the west street.
     bezierPath(polar(212, 36.5), { x: -40, z: 20.5 }, { x: -48, z: 19.5 }, { x: -55, z: 24 }),
     // Library Lane, south from the square's corner past the library, then round to Chapel Lane.
-    bezierPath({ x: -22.8, z: 31 }, { x: -29, z: 38 }, { x: -33, z: 48 }, { x: -31, z: 56 }),
+    bezierPath({ x: -22.6, z: 31.2 }, { x: -23.5, z: 38 }, { x: -30, z: 46 }, { x: -31, z: 56 }),
     bezierPath({ x: -31, z: 56 }, { x: -29, z: 59 }, { x: -27, z: 61 }, { x: -24, z: 62 })
   ];
   function FIELDS_NEAR(p) { return typeof FIELDS !== 'undefined' && FIELDS && FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 3.5; }); }
@@ -278,7 +278,7 @@
           var p = { x: street[i].x + nx * side * rowDef[0], z: street[i].z + nz * side * rowDef[0] };
           if (Math.hypot(p.x, p.z) < 17.5) return;
           if (Math.hypot(p.x - PUB.x, p.z - PUB.z) < 4.8 || Math.hypot(p.x - SQUARE.x, p.z - SQUARE.z) < 4.6) return;
-          if (Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < 9.5 || Math.hypot(p.x - LIBRARY.x, p.z - LIBRARY.z) < 11.5 || Math.hypot(p.x - CINEMA.x, p.z - CINEMA.z) < 7) return;
+          if (Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < 13 || Math.hypot(p.x - LIBRARY.x, p.z - LIBRARY.z) < 11.5 || Math.hypot(p.x - CINEMA.x, p.z - CINEMA.z) < 7) return;
           if (inTownSquare(p.x, p.z, 2.6)) return;
           if (Math.hypot(p.x - DOG_PEN.c.x, p.z - DOG_PEN.c.z) < 7.5 || Math.hypot(p.x - POND.x, p.z - POND.z) < 7.5 || Math.hypot(p.x - OFFICE.x, p.z - OFFICE.z) < 5.5) return;
           if (STREETS.some(function (st) { return st.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 2.3; }); })) return;
@@ -477,22 +477,25 @@
   SPORT_SLOTS.forEach(function (sl) { pad(polar(sl[0], sl[1]), 2.6, 3.9); });
   pad(HOCKEY, 3.0, 4.4);
   pad(PASTURE, PASTURE_R + 0.5, PASTURE_R + 3);
-  pad(CHURCH, 6.5, 9);
+  pad(CHURCH, 11.8, 15.5);
   // The square sits at the lowest ground under it and the land eases up all round; it goes first
   // so the houses and the pub keep their own ground. The library and cinema are cut in at street level.
   var SQ_Y = (function () { var lo = 1e9; for (var x = -TOWN_SQ.hx; x <= TOWN_SQ.hx; x += 1) for (var z = -TOWN_SQ.hz; z <= TOWN_SQ.hz; z += 1) lo = Math.min(lo, landY(TOWN_SQ.x + x, TOWN_SQ.z + z)); return lo - 0.1; })();
   PADS.unshift({ x: TOWN_SQ.x, z: TOWN_SQ.z, rIn: 7.4, rOut: 19, h: SQ_Y });
-  PADS.forEach(function (p) { if (p.x === PUB.x && p.z === PUB.z) p.h = SQ_Y + 0.05; }); // the pub fronts the square at street level
-  PADS.push({ x: LIBRARY.x, z: LIBRARY.z, rIn: 8, rOut: 12, h: SQ_Y + 0.05 });
+  // The whole library footprint (wings, cloisters and courtyard behind) sits level with the square.
+  [-4, 4].forEach(function (dz) { PADS.push({ x: LIBRARY.x - 3.45, z: LIBRARY.z + dz, rIn: 8.4, rOut: 11.5, h: SQ_Y + 0.05 }); });
   PADS.push({ x: CINEMA.x, z: CINEMA.z, rIn: 4.6, rOut: 7.5, h: SQ_Y + 0.05 });
   PADS.push({ x: TOWN_SQ.x, z: TOWN_SQ.z, rIn: 7.2, rOut: 8, h: SQ_Y }); // and the square itself stays dead level
   pad(PUB, 3, 4.4); pad(SQUARE, 3.6, 5.2); pad(STATUE, 1.5, 2.6); pad(POND, 7.6, 11); // Jo's whole garden, fence and all, sits level
-  // Level spots for the sauna, the changing hut and the bathhouse, with the shore easing up behind.
-  [[-4.2, -3.2, 1.9, 3.6], [4.2, -7.0, 1.3, 2.8], [0, -4.6, 2.8, 4.8]].forEach(function (b) { pad(swimWorld(b[0], b[1]), b[2], b[3]); }); pad(OFFICE, 4.6, 6.2);
+  // Level spots for the sauna, the changing hut and the bathhouse down at the water's level, with the
+  // shore easing up behind them.
+  [[-4.2, -3.2, 2.0, 4.2], [-3.4, -7.6, 1.5, 3.8], [0, -4.6, 2.9, 5.4]].forEach(function (b) { var w = swimWorld(b[0], b[1]); PADS.push({ x: w.x, z: w.z, rIn: b[2], rOut: b[3], h: LAKE.y + 0.55 }); }); // at the lake's level, like the dock pad(OFFICE, 4.6, 6.2);
   pad(DOG_PEN.c, 4.3, 5.8);
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
   CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: rawHeight(c.x, c.z) + c.lift }); });
+  // The pub fronts the square at street level, and Jo's garden next to the library is level with it too.
+  PADS.forEach(function (p) { if ((p.x === PUB.x && p.z === PUB.z) || (p.x === POND.x && p.z === POND.z)) p.h = SQ_Y + 0.05; });
   // Each level spot takes the ground as it already stands there (the land, shaped by the spots
   // levelled before it), so nothing ends up perched on a pillar or sunk in a pit.
   PADS.forEach(function (p, i) {
@@ -3469,7 +3472,7 @@
           break;
         }
         case 5: {
-          var ch = onLand(new T.Group(), 4.2, -7.0); ch.rotation.y = -0.3;
+          var ch = onLand(new T.Group(), -3.4, -7.6); ch.rotation.y = -0.3;
           self.part(ch, self.geo.box, self.mat('whitewood'), 1.4, 1.5, 1.0, 0, 0.75, 0, pick);
           self.part(ch, self.geo.box, self.mat('roof', 1), 1.6, 0.1, 1.2, 0, 1.55, 0, pick);
           self.part(ch, self.geo.box, self.mat('trunk'), 0.5, 1.0, 0.04, 0, 0.5, 0.51, pick);
@@ -4384,7 +4387,8 @@
   // A clear patch of ground near a preferred spot: away from houses, fields, the forest,
   // paths, water and everything else already planned.
   // Is this patch of ground free of everything planned on the map?
-  function groundClear(p, rad) {
+  // loose: ignore ground only reserved for future forest and wild trees.
+  function groundClear(p, rad, loose) {
     var d = Math.hypot(p.x, p.z);
     if (d > 96 || d < 17) return false;
     var rdd = riverDist(p.x, p.z);
@@ -4394,7 +4398,7 @@
     if (coastSd(p.x, p.z) > -(rad + 9) || lakeDist(p.x, p.z) < rad + 6 || streamDist(p.x, p.z) < rad + 2) return false;
     if (HOUSE_SLOTS.some(function (h) { return Math.hypot(h.x - p.x, h.z - p.z) < rad + 2.6; })) return false;
     if (FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + rad + 1; })) return false;
-    if (FOREST.hash ? FOREST.hash.near(p.x, p.z, rad + 0.9) : FOREST.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < rad + 0.9; })) return false;
+    if (!loose && FOREST.hash ? FOREST.hash.near(p.x, p.z, rad + 0.9) : !loose && FOREST.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < rad + 0.9; })) return false;
     if (SPORT_SLOTS.some(function (sl) { var q = polar(sl[0], sl[1]); return Math.hypot(q.x - p.x, q.z - p.z) < rad + 4; })) return false;
     if (CASTLE_SITES.some(function (c, ci) { return Math.hypot(c.x - p.x, c.z - p.z) < rad + (ci ? 21 : 15); })) return false;
     if (PEAKS.some(function (k) { return Math.hypot(k.x - p.x, k.z - p.z) < rad + k.h * 0.9 + 2; })) return false;
@@ -4405,7 +4409,7 @@
     if (Math.hypot(CHURCH.x - p.x, CHURCH.z - p.z) < rad + 10 || Math.hypot(LIBRARY.x - p.x, LIBRARY.z - p.z) < rad + 13 || Math.hypot(HOARD.x - p.x, HOARD.z - p.z) < rad + 9) return false;
     for (var k = 0; k < LANE.length; k += 3) if (Math.hypot(LANE[k].x - p.x, LANE[k].z - p.z) < rad + 1.5) return false;
     if (MTB_HILL && Math.hypot(MTB_HILL.x - p.x, MTB_HILL.z - p.z) < rad + MTB_HILL.r + 6) return false;
-    if (WILD && WILD.hash.near(p.x, p.z, rad + 0.9)) return false;
+    if (!loose && WILD && WILD.hash.near(p.x, p.z, rad + 0.9)) return false;
     if (CINEMA && Math.hypot(CINEMA.x - p.x, CINEMA.z - p.z) < rad + 5) return false;
     if (inTownSquare(p.x, p.z, rad + 2)) return false;
     if (Math.hypot(GLACIER.x - p.x, GLACIER.z - p.z) < rad + GLACIER.R + 3 || TARNS.some(function (t) { return Math.hypot(t.x - p.x, t.z - p.z) < rad + t.R + 2; })) return false;
@@ -4477,9 +4481,10 @@
     return pts.sort(function (a, b) { return a.order - b.order; });
   })();
   Town.prototype.secretSpot = function (angle, r, rad) {
-    var taken = this.st.secretPos;
+    var taken = this.st.secretPos, friends = this.st.friends;
     function clear(p) {
       if (!groundClear(p, rad)) return false;
+      for (var fk in friends) { var fg = friends[fk].group; if (fg && Math.hypot(fg.position.x - p.x, fg.position.z - p.z) < rad + 3.5) return false; }
       for (var id in taken) if (taken[id] && Math.hypot(taken[id].x - p.x, taken[id].z - p.z) < rad + 5) return false;
       return true;
     }
@@ -4489,6 +4494,8 @@
         if (clear(p)) return p;
       }
     }
+    // Nothing near the hoped-for spot: take the nearest clear ground anywhere instead.
+    for (var r2 = 20; r2 < 96; r2 += 3) for (var a2 = 0; a2 < 360; a2 += 4) { var q = polar(angle + a2, r2); if (clear(q)) return q; }
     return polar(angle, r);
   };
   // Secrets that aren't earned by workouts (typed in, say); the page remembers them and
@@ -6192,13 +6199,14 @@
       f = this.st.friends[name] = { n: 0, idx: idx, built: {}, floors: 0 };
       // Jo has her own cottage on the village green; everyone else takes the next house plot.
       var jo = isJo(name), slot = jo ? -1 : (this.st.slotNext = (this.st.slotNext || 0) + 1) - 1;
-      var p = jo ? JO_PLOT : slot < HOUSE_SLOTS.length ? HOUSE_SLOTS[slot] : polar(186 + ((slot - HOUSE_SLOTS.length) * 13) % 92, 30);
+      var p = jo ? JO_PLOT : slot < HOUSE_SLOTS.length ? HOUSE_SLOTS[slot] : this.overflowSpot(), noSpot = !p;
+      if (noSpot) p = polar(186 + ((slot - HOUSE_SLOTS.length) * 13) % 92, 30);
       var g = new T.Group();
       g.position.set(p.x, groundY(p.x, p.z), p.z);
       g.rotation.y = p.face != null ? p.face : Math.atan2(p.x, p.z) + Math.PI;
       this.world.add(g);
       f.group = g; f.jo = jo;
-      f.tent = !jo && slot >= HOUSE_SLOTS.length;
+      f.tent = noSpot; // a tent only if there's truly nowhere left
       if (jo && this.greenGazebo) this.greenGazebo.visible = false;
       if (!f.tent && p.si != null) { this.growStreet(p.si, p.ti + 5, delay); this.driveway(p, delay + 200); }
       f.roofMat = /^jo$/i.test(name) ? this.mat('roofJo') : this.mat('roof', idx);
@@ -6212,6 +6220,24 @@
     f.n++;
     if (f.jo) this.growCottage(f, name, delay);
     else if (!f.tent) this.growHouse(f, name, delay);
+  };
+  // Once the street plots are all taken, more houses go on open ground near the village, clear of
+  // everything else and of each other, facing the square.
+  Town.prototype.overflowSpot = function () {
+    var used = Object.keys(this.st.friends).map(function (k) { return this.st.friends[k].group; }, this).filter(Boolean);
+    for (var pass = 0; pass < 3; pass++) for (var r = 18; r < 92; r += 2.5) for (var k = 0; k < 72; k++) {
+      var a = 180 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 5, p = polar(a, r);
+      if (Math.hypot(p.x - JO_PLOT.x, p.z - JO_PLOT.z) < 9 || !groundClear(p, 2.6, pass > 0)) continue;
+      if (used.some(function (g2) { return Math.hypot(g2.position.x - p.x, g2.position.z - p.z) < 5.5; })) continue;
+      var taken = this.st.secretPos, near = false;
+      for (var id in taken) if (taken[id] && Math.hypot(taken[id].x - p.x, taken[id].z - p.z) < 8) near = true;
+      if (near) continue;
+      var hs = [[-2, -2], [2, -2], [2, 2], [-2, 2]].map(function (c) { return groundY(p.x + c[0], p.z + c[1]); });
+      if (Math.max.apply(null, hs) - Math.min.apply(null, hs) > (pass < 2 ? 0.45 : 0.9)) continue; // fairly level ground
+      p.face = Math.atan2(SQUARE.x - p.x, SQUARE.z - p.z);
+      return p;
+    }
+    return null;
   };
   var FH = 0.85;
   Town.prototype.growHouse = function (f, name, delay) {
