@@ -216,11 +216,12 @@
     var cols = null, weekDate = null, found = false;
     rows.forEach(function (r, ri) {
       r = r.map(cell);
-      var morningIdx = r.findIndex(function (c) { return /^morning/i.test(c); });
-      if (morningIdx >= 0) {
+      // A header row has a cell that is just "Morning" (not a workout like "Morning bike w/ Mark").
+      var morningIdx = r.findIndex(function (c) { return /^morning\s*$/i.test(c); });
+      if (morningIdx >= 0 && DAYS.indexOf((r[0] || '').toLowerCase()) < 0) {
         cols = {
           am: morningIdx,
-          pm: r.findIndex(function (c) { return /^evening/i.test(c); }),
+          pm: r.findIndex(function (c) { return /^evening\s*$/i.test(c); }),
           notes: r.findIndex(function (c) { return /^notes/i.test(c); }),
           drinks: r.findIndex(function (c) { return /drinks|beers/i.test(c); }),
           commute: r.findIndex(function (c) { return /^(bike|commute)$/i.test(c); }),

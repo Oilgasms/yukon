@@ -94,7 +94,10 @@
     [120, 'Garden lanterns'], [135, 'Gilded weathervane']
   ];
   // Couples share one house.
-  var HOUSEHOLDS = { katie: 'Katie & Joel', joel: 'Katie & Joel', rae: 'Rae & Shane', shane: 'Rae & Shane' };
+  var HOUSEHOLDS = { katie: 'Katie & Joel', joel: 'Katie & Joel', rae: 'Rae & Shane', shane: 'Rae & Shane',
+    reuben: 'Reuben & Kaitlyn', reuban: 'Reuben & Kaitlyn', kaitlyn: 'Reuben & Kaitlyn',
+    alex: 'Alex & Hayli', hayli: 'Alex & Hayli', hayley: 'Alex & Hayli',
+    paul: 'Paul & Sam', sam: 'Paul & Sam', mark: 'Mark & Erin', erin: 'Mark & Erin' };
   var DOG_COLORS = { Minto: ['#ece6d8', '#3a3530'], Blue: ['#7f93a8', '#e8e4dc'], Millie: ['#c99552', '#f1e2c8'] };
 
   var RING_ROAD = 14.4;    // cobbled road around the castle grounds
