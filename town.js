@@ -804,7 +804,8 @@
     root.addEventListener('keydown', function (e) {
       if (/input|textarea|select/i.test((e.target && e.target.tagName) || '')) return;
       var k = e.key.toLowerCase();
-      if (keyOwner.explore && (k === 'e' || k === ' ' || k === 'enter')) { if (!e.repeat) keyOwner.interact(); e.preventDefault(); return; }
+      if (keyOwner.explore && k === ' ') { if (!e.repeat) keyOwner.jump(); e.preventDefault(); return; }
+      if (keyOwner.explore && (k === 'e' || k === 'enter')) { if (!e.repeat) keyOwner.interact(); e.preventDefault(); return; }
       if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].indexOf(k) >= 0) {
         keyOwner.keys[k] = true; keyOwner.controls.autoRotate = false; keyOwner.fit.auto = false; if (k !== 'shift') e.preventDefault();
       }
@@ -1058,6 +1059,7 @@
       hedge.castShadow = true; hedge.receiveShadow = true;
       base.add(hedge);
       this.hedges = { mesh: hedge, spots: spots, saved: {} };
+      spots.forEach(function (sp, i) { this.addBrush(hedge, i, sp[0], sp[1], 0.8); }, this);
     }
     // Lone oaks dotted over the fields.
     for (i = 0; i < 90; i++) {
@@ -1174,11 +1176,13 @@
     });
     tuftMesh.receiveShadow = true;
     base.add(tuftMesh);
+    var self = this;
+    tufts.forEach(function (t, k) { self.addBrush(tuftMesh, k, t[0], t[2], 0.45); });
     var flowers = new T.Group(), mats = [this.mat('flag', 1), this.mat('balloon', 3), this.mat('plaster', 0), this.mat('flag', 0)];
     blooms.forEach(function (list, bi) {
       if (!list.length) return;
       var im = new T.InstancedMesh(this.geo.ball, mats[bi], list.length);
-      list.forEach(function (b, k) { im.setMatrixAt(k, m4.compose(v.set(b[0], b[1] + 0.16, b[2]), q.identity(), sc.set(0.07, 0.06, 0.07))); });
+      list.forEach(function (b, k) { im.setMatrixAt(k, m4.compose(v.set(b[0], b[1] + 0.16, b[2]), q.identity(), sc.set(0.07, 0.06, 0.07))); this.addBrush(im, k, b[0], b[2], 0.45); }, this);
       flowers.add(im);
     }, this);
     base.add(flowers);
@@ -2992,7 +2996,7 @@
     });
     g.scale.setScalar(fox ? 1.4 : 1.3);
     this.world.add(g);
-    return { g: g, legs: legs, tail: tail, kind: kind, cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: fox ? 3 : 7, speed: fox ? 1.1 : 0.75 };
+    return { g: g, body: body, head: head, legs: legs, tail: tail, kind: kind, cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: fox ? 3 : 7, speed: fox ? 1.1 : 0.75 };
   };
   Town.prototype.placeCritter = function (key, cx, cz, rIn, rOut) {
     var c = this.st.critters[key] || (this.st.critters[key] = this.critter(key === 'fox' ? 'fox' : 'raccoon'));
@@ -5493,6 +5497,9 @@
       part(this.geo.cone6, this.mat('pine', 1), 0.45, 1.1, 0.45, 0, 8.4, 0);
     }
     this.world.add(g);
+    // Remember where the crown is, so brushing past shakes a few leaves (or snow) loose.
+    var crown = { spruce: 1.6 * s, bigspruce: 2.6, birch: 1.6 * s, maple: 1.4 * s, bigoak: 2.1 }[kind] || 5.6;
+    (this.st.treeSpots = this.st.treeSpots || []).push({ x: p.x, z: p.z, y: g.position.y + crown * (size || 1), r: (kind === 'bigoak' || kind === 'bigspruce' ? 1.1 : 0.7) * (size || 1), conifer: /spruce|^seq/.test(kind) || !{ birch: 1, maple: 1, bigoak: 1 }[kind], kind: kind, k: k, at: 0 });
     if (size) { g.scale.setScalar(this.instant ? size : 0.01); this.animScale(g, size, delay); }
     else this.pop(g, delay);
     return g;
@@ -7007,12 +7014,15 @@
     var D = this.st.dogs, W = DOG_PEN.w - 1.2, Dd = DOG_PEN.d - 1.6;
     D.order.forEach(function (name, k) {
       var g = D.list[name], body = g.group, t = now / 1000 + k * 1.7;
-      g.tail.rotation.y = Math.sin(t * (g.wait > 0 ? 9 : 14)) * 0.6;
+      if (g.wag > 0) g.wag -= dt;
+      g.tail.rotation.y = Math.sin(t * (g.wag > 0 ? 30 : g.wait > 0 ? 9 : 14)) * 0.6;
+      var hopY = 0;
+      if (g.hop > 0) { g.hop -= dt; hopY = Math.sin(Math.max(0, g.hop) / 0.45 * Math.PI) * 0.35; }
       if (g.wait > 0) {
         g.wait -= dt;
         // Sitting or sniffing: head dips, legs still.
         body.rotation.z = g.mood === 'sit' ? 0.25 : 0;
-        body.position.y = g.mood === 'sniff' ? Math.abs(Math.sin(t * 6)) * 0.02 : 0;
+        body.position.y = (g.mood === 'sniff' ? Math.abs(Math.sin(t * 6)) * 0.02 : 0) + hopY;
         g.legs.forEach(function (l) { l.rotation.z = 0; });
         return;
       }
@@ -7030,7 +7040,7 @@
       var step = Math.min(dist, (g.speed || 1.1) * dt);
       g.x += dx / dist * step; g.z += dz / dist * step;
       var gait = t * (g.speed > 2 ? 22 : 13);
-      body.position.set(g.x, Math.abs(Math.sin(gait)) * (g.speed > 2 ? 0.12 : 0.05), g.z);
+      body.position.set(g.x, Math.abs(Math.sin(gait)) * (g.speed > 2 ? 0.12 : 0.05) + hopY, g.z);
       body.rotation.y = -Math.atan2(dz, dx);
       g.legs.forEach(function (l, i) { l.rotation.z = Math.sin(gait + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * 0.6; });
       // Nudge a toy when arriving at it.
@@ -7605,6 +7615,7 @@
       });
     }
     if (this.explore) { if (this.stepPlayer(dt, now)) moved = true; }
+    if (this.stepFx(dt, now)) moved = true;
     // Keyboard: WASD or arrows move across the ground, Q and E turn.
     var K = this.explore ? {} : this.keys, mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0), mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0);
     var turn = (K.e ? 1 : 0) - (K.q ? 1 : 0);
@@ -7654,7 +7665,7 @@
       }
       this.player.g.visible = true;
       var P = this.player.g.position;
-      P.y = surfaceY(P.x, P.z);
+      P.y = surfaceY(P.x, P.z); this.player.gy = null; this.player.air = 0; this.player.vy = 0; this.player.idle = 0;
       this.fit.auto = false; c.autoRotate = false; c.enablePan = false;
       c.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.DOLLY, RIGHT: T.MOUSE.ROTATE };
       c.touches = { ONE: T.TOUCH.ROTATE, TWO: T.TOUCH.DOLLY_ROTATE };
@@ -7694,7 +7705,7 @@
       if (!isFinite(b.min.x) || b.max.y - b.min.y < 0.35) return;
       var gy = groundY((b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2);
       if (b.min.y > gy + 0.9) return; // roofs, canopies, things up in the air
-      var o = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z, k: k };
+      var o = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z, k: k, top: b.max.y };
       // An upright box turned at an angle (a stretch of wall, a door): test its real footprint,
       // not the square around it, or every diagonal wall would block its gate.
       var gp = m.geometry.parameters;
@@ -7717,7 +7728,8 @@
     });
     this.solids = { grid: grid, list: list };
   };
-  Town.prototype.walkable = function (x, z) {
+  // feet: how high the raccoon's feet are mid-jump; anything lower than that can be hopped over.
+  Town.prototype.walkable = function (x, z, feet) {
     var r = 0.22;
     if (Math.hypot(x, z) > 118) return false;
     if (coastSd(x, z) > -0.6 || lakeDist(x, z) < -0.4) return false;
@@ -7727,7 +7739,7 @@
     var cell = this.solids && this.solids.grid[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
     if (cell) for (var i = 0; i < cell.length; i++) {
       var o = cell[i];
-      if (!(x > o.x0 - r && x < o.x1 + r && z > o.z0 - r && z < o.z1 + r)) continue;
+      if (!(x > o.x0 - r && x < o.x1 + r && z > o.z0 - r && z < o.z1 + r) || (feet != null && o.top < feet)) continue;
       if (o.circ) { if (Math.hypot(x - o.circ.cx, z - o.circ.cz) < o.circ.r + r) return false; continue; }
       if (!o.obb) return false;
       var B = o.obb, dx = x - B.cx, dz = z - B.cz, s = (dx * B.ux + dz * B.uz) / B.uu, t = (dx * B.vx + dz * B.vz) / B.vv;
@@ -7744,6 +7756,13 @@
     var mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0) + (this.stick ? this.stick.x : 0);
     var mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0) + (this.stick ? -this.stick.y : 0);
     var len = Math.hypot(mx, mz), moving = len > 0.15;
+    // Jumping: up and over anything low (fences, hedges, benches), with a squash on landing.
+    pl.air = pl.air || 0; pl.vy = pl.vy || 0;
+    if (pl.air > 0 || pl.vy > 0) {
+      pl.vy -= 17 * dt; pl.air += pl.vy * dt;
+      if (pl.air <= 0) { pl.air = 0; pl.vy = 0; pl.squash = 0.18; this.puff(P.x, P.y, P.z, 5, 'dust'); }
+    }
+    var feet = pl.air > 0.05 ? P.y : null, stuck = !this.walkable(P.x, P.z);
     if (moving) {
       if (len > 1) { mx /= len; mz /= len; }
       var fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
@@ -7752,21 +7771,24 @@
       var sp = (run ? 6.2 : 3.2) * dt;
       var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
       // Slide along whatever's in the way.
-      if (this.walkable(P.x + dx, P.z + dz)) { P.x += dx; P.z += dz; }
-      else if (this.walkable(P.x + dx, P.z)) P.x += dx;
-      else if (this.walkable(P.x, P.z + dz)) P.z += dz;
+      // (After landing on top of something, walk off it freely.)
+      if (stuck || this.walkable(P.x + dx, P.z + dz, feet)) { P.x += dx; P.z += dz; }
+      else if (this.walkable(P.x + dx, P.z, feet)) P.x += dx;
+      else if (this.walkable(P.x, P.z + dz, feet)) P.z += dz;
       var face = Math.atan2(dx, dz), d = face - g.rotation.y;
       while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 14);
       pl.phase += dt * (run ? 20 : 13);
-      pl.legs.forEach(function (l, i) { l.rotation.x = Math.sin(pl.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.7; });
+      if (!pl.air) pl.legs.forEach(function (l, i) { l.rotation.x = Math.sin(pl.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.7; });
       pl.tail.rotation.y = Math.sin(pl.phase * 0.5) * 0.3;
-    } else {
-      pl.legs.forEach(function (l) { l.rotation.x *= 0.8; });
-      pl.tail.rotation.y = Math.sin(now / 350) * 0.35;
+      this.brushPast(P.x, P.z, dx / dt, dz / dt, now);
+      if (this.season === 'winter' && !pl.air) this.pawprint(pl, P, g.rotation.y);
     }
-    var y = surfaceY(P.x, P.z);
-    P.y += (y - P.y) * Math.min(1, dt * 18);
+    if (moving || pl.air) pl.idle = 0; else pl.idle = (pl.idle || 0) + dt;
+    this.posePlayer(pl, dt, now, moving);
+    pl.gy = pl.gy == null ? P.y : pl.gy;
+    pl.gy += (surfaceY(P.x, P.z) - pl.gy) * Math.min(1, dt * 18);
+    P.y = pl.gy + pl.air;
     // Sharper shadows close up: the sun's shadow box follows you about.
     if (this.sunBase && !this.soft) {
       var sun = this.sun, sc2 = sun.shadow.camera;
@@ -7789,9 +7811,211 @@
       }
       if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
     }
-    return moving || Math.abs(mvx) + Math.abs(mvz) > 0.001;
+    return moving || pl.air > 0 || pl.idle < 60 || Math.abs(mvx) + Math.abs(mvz) > 0.001;
   };
   Town.prototype.interact = function () { if (this.near && this.onInteract) this.onInteract(this.near); };
+  Town.prototype.jump = function () {
+    var pl = this.player;
+    if (!pl || pl.air > 0.02) return;
+    if (pl.idle > 25) { pl.idle = 0; this.say('!', pl.g, 1.3, 0.8); } // woken up
+    pl.vy = 4.8; pl.air = 0.001; pl.idle = 0;
+  };
+  // The raccoon's body language: legs tucked mid-jump, a squash on landing, and when left alone
+  // it sits, looks about, washes its paws if there's water close by, and in the end curls up asleep.
+  Town.prototype.posePlayer = function (pl, dt, now, moving) {
+    var body = pl.body, head = pl.head, t = now / 1000, idle = pl.idle || 0, P = pl.g.position;
+    var k = Math.min(1, dt * 8), pitch = 0, by = 0.3, hx = 0, hy = 0, tailY = null, legPose = null;
+    if (pl.air > 0) {
+      pitch = pl.vy > 0 ? -0.35 : 0.2;
+      legPose = [0.9, 0.9, -0.9, -0.9];
+    } else if (!moving && idle > 25) {
+      // Asleep: curled up low, head down, tail wrapped round, and the odd Zzz.
+      by = 0.16; hx = 0.35; hy = 0.5; tailY = 1.3;
+      legPose = [1.4, 1.4, -1.4, -1.4];
+      body.rotation.z += (0.08 * Math.sin(t * 1.3) - body.rotation.z) * k; // breathing
+      if (now > (pl.zzzAt || 0)) { pl.zzzAt = now + 2600; this.say('z z Z', pl.g, 0.9, 2.4, true); }
+    } else if (!moving && idle > 5) {
+      if (pl.water == null || now > (pl.waterAt || 0)) {
+        pl.waterAt = now + 1000;
+        pl.water = lakeDist(P.x, P.z) < 2.2 || riverDist(P.x, P.z) < RIVER_HALF + 1.6 || streamDist(P.x, P.z) < 1.6 || coastSd(P.x, P.z) > -2.4 || TARNS.some(function (q) { return Math.hypot(P.x - q.x, P.z - q.z) < q.R + 1.6; });
+      }
+      // Sitting up on its haunches.
+      pitch = -0.5; by = 0.36;
+      if (pl.water) {
+        // Washing its paws in the water, the way raccoons do.
+        var w = Math.sin(t * 11);
+        legPose = [-1.0 + w * 0.35, -1.0 - w * 0.35, 0.5, 0.5];
+        hx = 0.35;
+      } else {
+        legPose = [-0.4, -0.4, 0.5, 0.5];
+        // Looking about now and then.
+        var look = Math.sin(t * 0.45) + Math.sin(t * 0.83);
+        hy = Math.abs(look) > 1.1 ? Math.sign(look) * 0.7 : 0;
+        hx = -0.15;
+      }
+    } else if (!moving) {
+      pl.legs.forEach(function (l) { l.rotation.x *= 0.8; });
+      pl.tail.rotation.y = Math.sin(now / 350) * 0.35;
+    }
+    if (idle <= 25) body.rotation.z += (0 - body.rotation.z) * k;
+    if (legPose) pl.legs.forEach(function (l, i) { l.rotation.x += (legPose[i] - l.rotation.x) * k; });
+    if (tailY != null) pl.tail.rotation.y += (tailY - pl.tail.rotation.y) * k;
+    body.rotation.x += (pitch - body.rotation.x) * k;
+    body.position.y += (by - body.position.y) * k;
+    head.rotation.x += (hx - head.rotation.x) * k;
+    head.rotation.y += (hy - head.rotation.y) * Math.min(1, dt * 4);
+    // Squash and stretch.
+    var sq = 1;
+    if (pl.squash > 0) { pl.squash -= dt; sq = 1 - Math.sin(Math.max(0, pl.squash) / 0.18 * Math.PI) * 0.22; }
+    else if (pl.air > 0) sq = 1.08;
+    pl.g.scale.set(1.6 / Math.sqrt(sq), 1.6 * sq, 1.6 / Math.sqrt(sq));
+  };
+
+  // ---- little effects: rustling plants, falling leaves, speech bubbles, pawprints ------------
+  // Grass tufts, flowers and hedges are instanced; each is filed in a grid so the ones you brush
+  // past can be found and given a wobble.
+  Town.prototype.addBrush = function (mesh, i, x, z, r) {
+    var B = this.brush || (this.brush = { cells: {}, wob: [] }), key = Math.floor(x / 2) + ',' + Math.floor(z / 2);
+    (B.cells[key] = B.cells[key] || []).push({ mesh: mesh, i: i, x: x, z: z, r: r, at: 0 });
+  };
+  Town.prototype.brushPast = function (x, z, vx, vz, now) {
+    var B = this.brush, self = this;
+    if (B) for (var gx = Math.floor(x / 2) - 1; gx <= Math.floor(x / 2) + 1; gx++) for (var gz = Math.floor(z / 2) - 1; gz <= Math.floor(z / 2) + 1; gz++) {
+      var cell = B.cells[gx + ',' + gz];
+      if (cell) cell.forEach(function (b) {
+        if (now < b.at || Math.hypot(b.x - x, b.z - z) > b.r || !b.mesh.visible || (b.mesh.parent && !b.mesh.parent.visible)) return;
+        b.at = now + 900;
+        var base = new T.Matrix4(); b.mesh.getMatrixAt(b.i, base);
+        var sp = Math.hypot(vx, vz) || 1;
+        // Lean away from the raccoon, along its path.
+        B.wob.push({ b: b, base: base, t: 0, ax: vz / sp, az: -vx / sp, big: b.r > 0.6 });
+        if (b.r > 0.6 && Math.random() < 0.5) self.puff(b.x, groundY(b.x, b.z) + 0.6, b.z, 3, 'leaf');
+      });
+    }
+    // Trees: shake a few leaves, needles or snow out of the crown.
+    var trees = this.st.treeSpots || [];
+    for (var i = 0; i < trees.length; i++) {
+      var tr = trees[i];
+      if (now < tr.at || Math.abs(tr.x - x) > 1.6 || Math.abs(tr.z - z) > 1.6 || Math.hypot(tr.x - x, tr.z - z) > tr.r + 0.5) continue;
+      tr.at = now + 2500;
+      var snowy = this.season === 'winter' && tr.conifer;
+      this.puff(tr.x, tr.y, tr.z, snowy ? 14 : 8, snowy ? 'snow' : tr.conifer ? 'needle' : tr.kind === 'birch' ? 'birchleaf' : 'leaf', tr.r);
+    }
+  };
+  // A handful of little bits: falling leaves, puffs of dust, snow off the branches.
+  Town.prototype.puff = function (x, y, z, n, kind, spread) {
+    if (this.soft) return;
+    var F = this.fx || (this.fx = { bits: [], group: null }), self = this;
+    if (!F.group) { F.group = new T.Group(); this.scene.add(F.group); }
+    var mat = kind === 'snow' ? this.mat('swan', 0) : kind === 'dust' ? this.mat('path') : kind === 'needle' ? this.mat('pine', 0) : kind === 'birchleaf' ? this.mat('birchleaf') : this.mat('leaf', Math.floor(Math.random() * 3));
+    spread = spread || 0.3;
+    for (var i = 0; i < n && F.bits.length < 90; i++) {
+      var m = new T.Mesh(this.geo.box, mat);
+      var sz = kind === 'dust' ? 0.07 : kind === 'snow' ? 0.06 : 0.08;
+      m.scale.set(sz, kind === 'dust' || kind === 'snow' ? sz : 0.015, kind === 'needle' ? sz * 0.4 : sz);
+      m.position.set(x + (Math.random() - 0.5) * spread * 2, y + (Math.random() - 0.5) * spread, z + (Math.random() - 0.5) * spread * 2);
+      F.group.add(m);
+      F.bits.push({ m: m, kind: kind, life: kind === 'dust' ? 0.5 : 1.6 + Math.random() * 0.9, t: 0, vx: (Math.random() - 0.5) * (kind === 'dust' ? 1.6 : 0.5), vy: kind === 'dust' ? 0.6 + Math.random() * 0.5 : -0.25 - Math.random() * 0.3, vz: (Math.random() - 0.5) * (kind === 'dust' ? 1.6 : 0.5), ph: Math.random() * 6 });
+    }
+    this.needsRender = true;
+  };
+  // A little speech bubble over something: Woof!, z z Z, !
+  Town.prototype.say = function (text, obj, yOff, dur, drift) {
+    if (this.soft) return;
+    var F = this.fx || (this.fx = { bits: [], group: null }), bubbles = F.bubbles || (F.bubbles = []);
+    var cv = document.createElement('canvas'); cv.width = 160; cv.height = 72;
+    var c = cv.getContext('2d');
+    c.font = '700 34px "Trebuchet MS", sans-serif';
+    var w = Math.min(150, c.measureText(text).width + 28);
+    c.fillStyle = 'rgba(255, 250, 238, 0.96)'; c.strokeStyle = '#5a3c1e'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(80 - w / 2 + 14, 6); c.arcTo(80 + w / 2, 6, 80 + w / 2, 56, 14); c.arcTo(80 + w / 2, 56, 80 - w / 2, 56, 14);
+    c.lineTo(90, 56); c.lineTo(80, 68); c.lineTo(72, 56); c.arcTo(80 - w / 2, 56, 80 - w / 2, 6, 14); c.arcTo(80 - w / 2, 6, 80 + w / 2, 6, 14); c.closePath();
+    c.fill(); c.stroke();
+    c.fillStyle = '#3b2716'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, 80, 32);
+    var tex = new T.CanvasTexture(cv); tex.magFilter = T.NearestFilter;
+    var sp = new T.Sprite(new T.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    sp.scale.set(1.2, 0.54, 1); sp.renderOrder = 10;
+    this.scene.add(sp);
+    bubbles.push({ sp: sp, obj: obj, y: yOff, t: 0, dur: dur, drift: drift });
+    this.needsRender = true;
+  };
+  // Pawprints in the snow, fading as the snow fills them in.
+  Town.prototype.pawprint = function (pl, P, rot) {
+    var last = pl.lastPrint;
+    if (last && Math.hypot(last.x - P.x, last.z - P.z) < 0.32) return;
+    pl.lastPrint = { x: P.x, z: P.z };
+    var F = this.fx || (this.fx = { bits: [], group: null }), prints = F.prints || (F.prints = []);
+    if (!F.group) { F.group = new T.Group(); this.scene.add(F.group); }
+    pl.printSide = -(pl.printSide || 1);
+    var m = new T.Mesh(this.geo.box, F.printMat || (F.printMat = new T.MeshBasicMaterial({ color: '#a9b8cc' })));
+    var sx = Math.cos(rot) * 0.1 * pl.printSide, sz = -Math.sin(rot) * 0.1 * pl.printSide;
+    m.scale.set(0.11, 0.01, 0.14); m.rotation.y = rot;
+    m.position.set(P.x + sx, surfaceY(P.x + sx, P.z + sz) + 0.02, P.z + sz);
+    F.group.add(m);
+    prints.push({ m: m, t: 0 });
+    if (prints.length > 60) { var old = prints.shift(); F.group.remove(old.m); }
+  };
+  Town.prototype.stepFx = function (dt, now) {
+    var busy = false, B = this.brush, F = this.fx;
+    if (B && B.wob.length) {
+      busy = true;
+      var m4 = new T.Matrix4(), rot = new T.Matrix4(), tr = new T.Matrix4(), back = new T.Matrix4(), axis = new T.Vector3(), dirty = [];
+      B.wob = B.wob.filter(function (w) {
+        w.t += dt;
+        var done = w.t > 0.9, e = w.base.elements, ang = done ? 0 : Math.sin(w.t * 16) * Math.exp(-w.t * 4.5) * (w.big ? 0.22 : 0.5);
+        // Tip about the plant's foot.
+        var footY = e[13] - e[5] * (w.big ? 0.5 : 0.45);
+        axis.set(w.ax, 0, w.az).normalize();
+        tr.makeTranslation(e[12], footY, e[14]); back.makeTranslation(-e[12], -footY, -e[14]); rot.makeRotationAxis(axis, ang);
+        m4.copy(tr).multiply(rot).multiply(back).multiply(w.base);
+        w.b.mesh.setMatrixAt(w.b.i, m4);
+        if (dirty.indexOf(w.b.mesh) < 0) dirty.push(w.b.mesh);
+        return !done;
+      });
+      dirty.forEach(function (m) { m.instanceMatrix.needsUpdate = true; });
+    }
+    if (F) {
+      if (F.bits.length) busy = true;
+      F.bits = F.bits.filter(function (b) {
+        b.t += dt;
+        var m = b.m;
+        if (b.kind === 'dust') { b.vy -= 2 * dt; m.scale.multiplyScalar(1 - dt * 1.5); }
+        else { m.rotation.x += dt * 3; m.rotation.z += dt * 2; b.vx += Math.sin(b.t * 4 + b.ph) * dt * 0.8; }
+        m.position.x += b.vx * dt; m.position.y += b.vy * dt; m.position.z += b.vz * dt;
+        var gy = groundY(m.position.x, m.position.z);
+        if (m.position.y < gy + 0.02) { m.position.y = gy + 0.02; b.vx = b.vz = b.vy = 0; }
+        if (b.t > b.life + 1.2) { F.group.remove(m); return false; }
+        if (b.t > b.life) m.scale.multiplyScalar(1 - dt * 2);
+        return true;
+      });
+      var cam = this.camera;
+      F.bubbles = (F.bubbles || []).filter(function (bb) {
+        bb.t += dt; busy = true;
+        var p = new T.Vector3(); bb.obj.getWorldPosition(p);
+        bb.sp.position.set(p.x + (bb.drift ? bb.t * 0.25 : 0), p.y + bb.y + (bb.drift ? bb.t * 0.35 : Math.min(bb.t, 0.15)), p.z);
+        var s = Math.min(1, bb.t / 0.12) * (bb.t > bb.dur - 0.25 ? Math.max(0, (bb.dur - bb.t) / 0.25) : 1);
+        // Same size on screen however far you're zoomed in.
+        var z = 3.4 / Math.max(0.5, cam.zoom);
+        bb.sp.scale.set(1.2 * s * z, 0.54 * s * z, 1);
+        if (bb.t >= bb.dur) { bb.sp.parent.remove(bb.sp); bb.sp.material.map.dispose(); bb.sp.material.dispose(); return false; }
+        return true;
+      });
+      (F.prints || []).forEach(function (pr) { pr.t += dt; if (pr.t > 8) { var k = Math.max(0.01, 1 - (pr.t - 8) / 6); pr.m.scale.set(0.11 * k, 0.01, 0.14 * k); } });
+      F.prints = (F.prints || []).filter(function (pr) { if (pr.t > 14) { F.group.remove(pr.m); return false; } return true; });
+    }
+    return busy;
+  };
+  // Woof! A dog barks and hops; now and then another answers.
+  var BARKS = ['Woof!', 'Arf!', 'Bork!', 'Ruff!', 'Yip!'];
+  Town.prototype.bark = function (name, answer) {
+    var D = this.st.dogs, g = D && D.list[name];
+    if (!g) return;
+    g.hop = 0.45; g.wag = 1.5;
+    this.say(BARKS[Math.floor(Math.random() * BARKS.length)], g.group, 1.25, 1.3);
+    var others = D.order.filter(function (n) { return n !== name; });
+    if (!answer && others.length && Math.random() < 0.6) { var self = this, o = others[Math.floor(Math.random() * others.length)]; setTimeout(function () { self.bark(o, true); }, 380 + Math.random() * 300); }
+    this.needsRender = true;
+  };
   Town.prototype.playerScreen = function () {
     if (!this.player) return null;
     var v = this.player.g.position.clone(); v.y += 1.2; v.project(this.camera);

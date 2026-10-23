@@ -168,6 +168,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   position: fixed; right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(190px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; border-radius: 50%;
   font-family: var(--display); font-weight: 700; font-size: 15px; z-index: 4; touch-action: manipulation;
 }
+.act.jump { right: calc(98px + env(safe-area-inset-right, 0px)); }
 @media (max-width: 640px) { .tl-top { flex-wrap: wrap; row-gap: 6px; } }
 /* Secret unlocked card */
 .secret-card {
@@ -298,6 +299,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <div class="card near" id="near" hidden></div>
 <div class="stick" id="stick" hidden><i></i></div>
 <button class="card act" id="act" type="button" hidden>Look</button>
+<button class="card act jump" id="jump" type="button" hidden>Jump</button>
 <section class="card shelf" id="shelf" role="dialog" aria-label="Bookshelf" hidden>
   <button class="close" type="button" id="shelf-close" aria-label="Close the bookshelf">&times;</button>
   <h2 id="shelf-title">The Yukon Library</h2>
@@ -326,7 +328,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v65';
+  var BUILD = 'v66';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -495,6 +497,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     if (key === 'library' && town.st.library.books.length) return openShelf();
     if (key === 'cinema') return openCinema();
     if (key === 'fox') return town.hearts();
+    if (/^dog:/.test(key)) town.bark(key.slice(4));
+    else if (key === 'dogs') town.st.dogs.order.forEach(function (n, i) { setTimeout(function () { town.bark(n, true); }, i * 250); });
     var p = town.playerScreen();
     if (!p) return;
     showInfo(key, p.x, p.y);
@@ -502,18 +506,19 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   };
   $('near').addEventListener('click', function () { town.interact(); });
   $('act').addEventListener('click', function () { town.interact(); });
+  $('jump').addEventListener('pointerdown', function (e) { e.preventDefault(); town.jump(); });
   function syncExplore() {
     var on = !!town.explore;
     $('explore').textContent = on ? 'Map view' : 'Walk around';
     $('explore').setAttribute('aria-pressed', String(on));
-    $('stick').hidden = $('act').hidden = !(on && coarse);
+    $('stick').hidden = $('act').hidden = $('jump').hidden = !(on && coarse);
     if (!on) { $('near').hidden = true; $('tip').hidden = true; }
     placeTouch();
   }
   // Keep the joystick, Look button and hint just above the timeline, however tall it is.
   function placeTouch() {
     var top = $('timeline-card').getBoundingClientRect().top, base = Math.max(16, innerHeight - top + 14);
-    $('stick').style.bottom = base + 'px'; $('act').style.bottom = (base + 26) + 'px';
+    $('stick').style.bottom = base + 'px'; $('act').style.bottom = (base + 62) + 'px'; $('jump').style.bottom = (base + 2) + 'px';
     $('near').style.bottom = (coarse && town.explore ? base + 132 : base + 10) + 'px';
   }
   addEventListener('resize', placeTouch);
@@ -523,7 +528,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     town.setExplore(on); syncExplore(); lsSet(EXPLORE_KEY, on ? '' : 'map');
     // Walking about, tuck the title panel and the ledger away (they're one tap from coming back).
     if (on && !tucked) { tucked = true; setTimeout(function () { if (!$('title-card').classList.contains('min')) $('title-min').click(); $('ledger').open = false; }, 0); }
-    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 E to look \u00b7 M for the map'); }
+    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 Space to jump \u00b7 E to look \u00b7 M for the map'); }
   }
   $('explore').addEventListener('click', function () { setExplore(!town.explore); });
   // M swaps views, after a moment, so typing a word that starts with M (mellon...) doesn't.
@@ -929,6 +934,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   $('scene').addEventListener('click', function (e) {
     var k = town && town.pick(e.clientX, e.clientY);
     if (k === 'fox') town.hearts();
+    else if (k && /^dog:/.test(k)) town.bark(k.slice(4));
     else if (k === 'library' && town.st.library.books.length) openShelf();
     else if (k === 'cinema') openCinema();
   });
