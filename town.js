@@ -80,7 +80,7 @@
     eagle: ['#4a3420', '#e8b934', '#f4f2ec'], owl: ['#8a6e4e', '#e8b934', '#b89a72'],
     brick: ['#a8483a', '#b5553f', '#9a4034'], logwood: ['#8a5a34', '#74492a'], shingle: '#4e3d34', whitewood: '#f3efe6',
     fox: ['#d9682a', '#f4efe6', '#2a2420'], coon: ['#8d8883', '#2b2826', '#efece6'], glass: ['#c8372d', '#2f6fc0', '#e8b934', '#3f8a3f', '#7a4fb0', '#d9682a'],
-    fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], beer: ['#e3a02c', '#fbf6e8', '#d9e6e8'], smoke: '#d6d3cc', leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
+    fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], mouse: ['#9c928a', '#8a6a4e', '#c8b49a', '#e8a3a3'], paper: ['#f2efe6', '#4a4a4a'], beer: ['#e3a02c', '#fbf6e8', '#d9e6e8'], smoke: '#d6d3cc', leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
   };
   var CASTLE_MILESTONES = [
     [20, 'gatehouse', 'Gatehouse'], [40, 'banners', 'Wall banners'], [60, 'moat', 'Moat and drawbridge'],
@@ -2995,9 +2995,23 @@
     P(this.geo.box, dark, 0.05, 0.05, 0.05, 0, -0.02, 0.24, head);
     [-0.08, 0.08].forEach(function (x) { P(self.geo.cone4, fox ? m : dark, 0.05, 0.12, 0.04, x, 0.15, -0.02, head); });
     if (!fox) { P(this.geo.box, dark, 0.26, 0.06, 0.05, 0, 0.02, 0.1, head); P(this.geo.box, light, 0.1, 0.05, 0.05, 0, 0.08, 0.1, head); }
+    if (!fox) {
+      // Scruff: white brows, puffed-out cheek ruffs, a tuft on top, ragged fur down the back and sides.
+      [-1, 1].forEach(function (sd) {
+        P(self.geo.box, light, 0.07, 0.025, 0.03, sd * 0.07, 0.065, 0.1, head).rotation.z = sd * -0.25;
+        var ruff = P(self.geo.box, light, 0.07, 0.09, 0.09, sd * 0.135, -0.04, 0.02, head); ruff.rotation.z = sd * 0.5; ruff.rotation.y = sd * 0.3;
+        P(self.geo.box, m, 0.05, 0.06, 0.06, sd * 0.15, 0.0, -0.05, head).rotation.z = sd * 0.7;
+        [-0.15, 0.02, 0.17].forEach(function (z, i) { var tf = P(self.geo.box, i % 2 ? dark : m, 0.05, 0.07, 0.08, sd * 0.13, -0.06 + i * 0.02, z, body); tf.rotation.z = sd * (0.5 + i * 0.15); tf.rotation.x = i * 0.3; });
+      });
+      [[-0.02, 0.11, 0.0, 0.3], [0.03, 0.12, -0.12, -0.4], [-0.03, 0.12, -0.22, 0.5], [0.02, 0.11, 0.12, -0.2]].forEach(function (t, i) {
+        var tf = P(self.geo.box, i % 2 ? dark : m, 0.08, 0.06, 0.07, t[0], t[1], t[2], body); tf.rotation.z = t[3]; tf.rotation.x = t[3] * 0.6;
+      });
+      var tuft = P(this.geo.cone4, m, 0.05, 0.08, 0.04, 0.02, 0.13, -0.02, head); tuft.rotation.z = -0.4;
+      P(this.geo.box, light, 0.2, 0.06, 0.32, 0, -0.12, 0.02, body); // pale belly
+    }
     var tail = new T.Group(); tail.position.set(0, 0.05, -0.28); body.add(tail);
     if (fox) { P(this.geo.box, m, 0.13, 0.13, 0.4, 0, 0.03, -0.2, tail); P(this.geo.box, light, 0.12, 0.12, 0.1, 0, 0.03, -0.42, tail); }
-    else for (var r = 0; r < 4; r++) P(this.geo.box, r % 2 ? dark : m, 0.13, 0.13, 0.1, 0, 0.02, -0.06 - r * 0.1, tail);
+    else for (var r = 0; r < 6; r++) { var ts = 0.15 - Math.abs(r - 2) * 0.012; P(this.geo.box, r % 2 ? dark : m, ts, ts, 0.09, 0, 0.02 + r * 0.004, -0.05 - r * 0.085, tail).rotation.z = r * 0.35; }
     tail.rotation.x = 0.4;
     var legs = [[-0.09, 0.18], [0.09, 0.18], [-0.09, -0.18], [0.09, -0.18]].map(function (l) {
       var hip = new T.Group(); hip.position.set(l[0], 0.2, l[1]); g.add(hip);
@@ -3163,13 +3177,25 @@
     P(this.geo.box, o.headMat ? this.mat(o.mat, o.headMat) : m, W * 0.75, H * 0.65, H * 0.7, 0, 0, 0, head);
     P(this.geo.box, light, W * 0.4, H * 0.3, H * 0.4, 0, -H * 0.12, H * 0.45, head);
     P(this.geo.box, dark, W * 0.16, W * 0.16, 0.04, 0, -H * 0.05, H * 0.66, head);
+    // Eyes, ears, a heavier set of shoulders, a ruff at the chest and a few tufts down the back.
+    var eye = this.mat('swan', 2), hw = W * 0.375;
+    [-1, 1].forEach(function (sd) {
+      P(self.geo.box, eye, 0.035, 0.035, 0.03, sd * hw * 0.85, H * 0.1, H * 0.28, head);
+      P(self.geo.box, self.mat('swan', 0), 0.012, 0.012, 0.01, sd * hw * 0.85 + sd * 0.005, H * 0.12, H * 0.3, head);
+      if (!o.noEars) { var ear = P(self.geo.cone4, m, W * 0.13, H * 0.32, W * 0.08, sd * hw * 0.75, H * 0.38, -H * 0.15, head); ear.rotation.z = sd * -0.35; }
+    });
+    P(this.geo.box, m, W * 1.08, H * 1.08, Lg * 0.42, 0, H * 0.04, Lg * 0.22, body);
+    P(this.geo.box, light, W * 0.6, H * 0.4, 0.08, 0, -H * 0.25, Lg / 2 + 0.02, body);
+    for (var tf = 0; tf < 4; tf++) { var tb = P(this.geo.box, tf % 2 ? m : dark, W * 0.22, H * 0.16, Lg * 0.12, (tf % 2 - 0.5) * W * 0.2, H * 0.52, Lg * (0.25 - tf * 0.17), body); tb.rotation.z = (tf % 2 ? 0.4 : -0.4); }
     if (o.extra) o.extra(P, head, body, dark, light, m);
     var tail = new T.Group(); tail.position.set(0, H * 0.2, -Lg / 2); body.add(tail);
     P(this.geo.box, o.tailMat != null ? this.mat(o.mat, o.tailMat) : m, W * 0.2, W * 0.2, o.tail || 0.15, 0, 0, -(o.tail || 0.15) / 2, tail);
+    P(this.geo.box, o.tailMat != null ? this.mat(o.mat, o.tailMat) : m, W * 0.28, W * 0.28, (o.tail || 0.15) * 0.35, 0, 0, -(o.tail || 0.15) * 0.85, tail); // a tuft at the tip
     tail.rotation.x = o.tailUp || 0.3;
     var legs = [[-1, 1], [1, 1], [-1, -1], [1, -1]].map(function (l) {
       var hip = new T.Group(); hip.position.set(l[0] * W * 0.32, L, l[1] * Lg * 0.36); g.add(hip);
       P(self.geo.box, dark, W * 0.2, L, W * 0.2, 0, -L / 2, 0, hip);
+      P(self.geo.box, self.mat('swan', 2), W * 0.23, L * 0.12, W * 0.23, 0, -L + L * 0.06, 0, hip); // hooves and paws
       return hip;
     });
     g.scale.setScalar(o.scale || 1);
@@ -6500,7 +6526,7 @@
       g.position.set(p.x, groundY(p.x, p.z), p.z);
       g.rotation.y = p.face != null ? p.face : Math.atan2(p.x, p.z) + Math.PI;
       this.world.add(g);
-      f.group = g; f.jo = jo;
+      f.group = g; f.jo = jo; f.spot = p;
       f.tent = noSpot; // a tent only if there's truly nowhere left
       if (jo && this.greenGazebo) this.greenGazebo.visible = false;
       if (!f.tent && p.si != null) { this.growStreet(p.si, p.ti + 5, delay); this.driveway(p, delay + 200); }
@@ -7040,7 +7066,14 @@
       this.part(body, this.geo.box, m1, 0.14, 0.1, 0.14, 0.52, 0.56, 0, pk);
       this.part(body, this.geo.box, m0, 0.06, 0.12, 0.08, 0.32, 0.79, 0.09, pk);
       this.part(body, this.geo.box, m0, 0.06, 0.12, 0.08, 0.32, 0.79, -0.09, pk);
-      var tail = this.part(body, this.geo.box, m0, 0.22, 0.05, 0.05, -0.38, 0.6, 0, pk); tail.rotation.z = 0.7;
+      var tail = this.part(body, this.geo.box, m0, 0.22, 0.07, 0.07, -0.38, 0.6, 0, pk); tail.rotation.z = 0.7;
+      this.part(tail, this.geo.box, m1, 0.5, 1.3, 1.3, -0.45, 0, 0, pk);
+      [-1, 1].forEach(function (sd) {
+        self.part(body, self.geo.box, self.mat('swan', 2), 0.03, 0.04, 0.03, 0.5, 0.66, sd * 0.08, pk);           // eyes
+      });
+      this.part(body, this.geo.box, this.mat('swan', 2), 0.05, 0.05, 0.06, 0.6, 0.57, 0, pk);                  // nose
+      this.part(body, this.geo.box, this.mat('flag', name.length), 0.08, 0.05, 0.28, 0.27, 0.5, 0, pk);         // collar
+      this.part(body, this.geo.cyl, this.mat('gold'), 0.03, 0.01, 0.03, 0.31, 0.44, 0, pk).rotation.z = Math.PI / 2; // tag
       var legs = [[0.2, 0.1], [0.2, -0.1], [-0.2, 0.1], [-0.2, -0.1]].map(function (l) {
         // Legs pivot at the hip so they can swing.
         var hip = new T.Group(); hip.position.set(l[0], 0.3, l[1]); body.add(hip);
@@ -7091,6 +7124,176 @@
       D.pen.add(j);
       this.pop(j, delay + 300);
     }
+  };
+  // ---- townsfolk: mice in their Sunday best -------------------------------------------------
+  // They live in your friends' houses, stroll the streets, pop in on each other, sit on the
+  // square's benches with the paper, greet you (and each other), and are all home by dark.
+  var MOUSE_NAMES = ['Mrs. Whiskers', 'Mr. Pemberton', 'Old Tom', 'Mabel', 'Bramble', 'Fennimore', 'Clementine', 'Bartholomew', 'Primrose', 'Wilfred', 'Hazel', 'Rupert'];
+  var HELLOS = ['hello!', 'top of the morning!', 'lovely day for it', 'afternoon, raccoon', 'mind the bins, dear', 'oh! you startled me', 'you\u2019re new around here', 'cheerio!', 'good day to you', 'how do?'];
+  var MOUSE_CHAT = ['morning!', 'how do', 'lovely weather', 'did you hear?', 'give my best to the missus', 'quite right', 'see you at the pub'];
+  // Walk the street network from one street point to another: up each street to where it
+  // branches off its parent, across, and back down.
+  function streetChain(si, ti) {
+    var out = [{ si: si, ti: ti }], guard = 0;
+    while (STREET_PARENT[si] && guard++ < 12) { var par = STREET_PARENT[si]; out.push({ si: par.j, ti: par.k, from: si }); si = par.j; ti = par.k; }
+    return out;
+  }
+  function streetRoute(a, b) {
+    var ca = streetChain(a.si, a.ti), cb = streetChain(b.si, b.ti), pts = [];
+    function along(si, t0, t1) { var st = STREETS[si], d = t1 >= t0 ? 1 : -1; for (var t = t0; d > 0 ? t <= t1 : t >= t1; t += d * 2) pts.push(st[t]); pts.push(st[t1]); }
+    var ib = -1, ia;
+    for (ia = 0; ia < ca.length; ia++) { ib = -1; for (var j = 0; j < cb.length; j++) if (cb[j].si === ca[ia].si) { ib = j; break; } if (ib >= 0) break; }
+    if (ib < 0) return [STREETS[a.si][a.ti], STREETS[b.si][b.ti]];
+    for (var i = 0; i < ia; i++) along(ca[i].si, ca[i].ti, 0);
+    along(ca[ia].si, ca[ia].ti, cb[ib].ti);
+    for (i = ib - 1; i >= 0; i--) along(cb[i].si, 0, cb[i].ti);
+    return pts;
+  }
+  var SQ_STREET = (function () { var best = null, bd = 1e9; STREETS.forEach(function (st, si) { st.forEach(function (q, ti) { var d = Math.hypot(q.x - TOWN_SQ.x, q.z - TOWN_SQ.z); if (d < bd) { bd = d; best = { si: si, ti: ti }; } }); }); return best; })();
+  Town.prototype.makeMouse = function (k) {
+    var g = new T.Group(), self = this, name = MOUSE_NAMES[k % MOUSE_NAMES.length], pick = 'folk:' + name;
+    function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, pick); }
+    var fur = this.mat('mouse', k % 3), pink = this.mat('mouse', 3), cloth = this.mat('flag', k), dark = this.mat('swan', 2), lady = k % 2 === 0;
+    var body = new T.Group(); body.position.y = 0.13; g.add(body);
+    // Clothes: a dress for some, a waistcoat and trousers for others.
+    if (lady) { P(body, this.geo.cone, cloth, 0.11, 0.2, 0.11, 0, 0.06, 0); P(body, this.geo.box, this.mat('swan', 0), 0.1, 0.03, 0.07, 0, 0.12, 0.02); }
+    else { P(body, this.geo.box, fur, 0.13, 0.17, 0.1, 0, 0.07, 0); P(body, this.geo.box, cloth, 0.135, 0.11, 0.105, 0, 0.1, 0); P(body, this.geo.box, this.mat('gold'), 0.015, 0.015, 0.01, 0.03, 0.09, 0.055); }
+    var head = new T.Group(); head.position.set(0, 0.23, 0.01); body.add(head);
+    P(head, this.geo.box, fur, 0.12, 0.1, 0.11, 0, 0, 0);
+    P(head, this.geo.cone4, fur, 0.05, 0.09, 0.05, 0, -0.015, 0.09).rotation.x = Math.PI / 2;
+    P(head, this.geo.ball, pink, 0.018, 0.018, 0.018, 0, -0.015, 0.135);
+    [-1, 1].forEach(function (sd) {
+      var ear = P(head, self.geo.cyl, fur, 0.055, 0.015, 0.055, sd * 0.065, 0.075, -0.01); ear.rotation.x = Math.PI / 2;
+      var inner = P(head, self.geo.cyl, pink, 0.038, 0.016, 0.038, sd * 0.065, 0.075, -0.003); inner.rotation.x = Math.PI / 2;
+      P(head, self.geo.box, dark, 0.02, 0.022, 0.01, sd * 0.032, 0.015, 0.055);
+      [0.01, -0.01].forEach(function (wy) { var wh = P(head, self.geo.box, dark, 0.07, 0.003, 0.003, sd * 0.05, -0.02 + wy, 0.1); wh.rotation.y = sd * 0.3; });
+    });
+    // Hats: a bowler or a bonnet with a flower.
+    if (!lady && k % 4 === 1) { P(head, this.geo.cyl, dark, 0.06, 0.05, 0.06, 0, 0.08, 0); P(head, this.geo.cyl, dark, 0.085, 0.008, 0.085, 0, 0.056, 0); }
+    if (lady && k % 4 === 2) { var bn = P(head, this.geo.ball, this.mat('canvas', 0), 0.075, 0.05, 0.075, 0, 0.05, -0.015); P(head, this.geo.ball, this.mat('flag', 0), 0.018, 0.018, 0.018, 0.05, 0.07, 0.02); }
+    var arms = [-1, 1].map(function (sd) { var a = new T.Group(); a.position.set(sd * 0.075, 0.16, 0); body.add(a); P(a, self.geo.box, lady ? fur : cloth, 0.03, 0.1, 0.03, 0, -0.05, 0); P(a, self.geo.box, pink, 0.028, 0.02, 0.028, 0, -0.105, 0); return a; });
+    var legs = [-1, 1].map(function (sd) { var l = new T.Group(); l.position.set(sd * 0.035, 0.13, 0); g.add(l); P(l, self.geo.box, lady ? fur : self.mat('stoneDark'), 0.035, 0.12, 0.035, 0, -0.06, 0); P(l, self.geo.box, pink, 0.04, 0.015, 0.06, 0, -0.123, 0.012); return l; });
+    // A long pink tail.
+    var tail = new T.Group(); tail.position.set(0, 0.06, -0.05); body.add(tail);
+    for (var tsg = 0; tsg < 4; tsg++) { var ts = P(tail, this.geo.box, pink, 0.012, 0.012, 0.08, 0, -tsg * 0.012, -0.04 - tsg * 0.075); ts.rotation.x = tsg * 0.15; }
+    // The newspaper, kept folded away until they sit down.
+    var paper = new T.Group(); paper.position.set(0, 0.17, 0.09); body.add(paper); paper.visible = false;
+    P(paper, this.geo.box, this.mat('paper', 0), 0.2, 0.15, 0.006, 0, 0, 0);
+    for (var ln = 0; ln < 4; ln++) P(paper, this.geo.box, this.mat('paper', 1), ln ? 0.15 : 0.17, ln ? 0.006 : 0.018, 0.008, 0, 0.05 - ln * 0.025, 0.001);
+    g.scale.setScalar(1.15);
+    this.world.add(g);
+    return { g: g, body: body, head: head, arms: arms, legs: legs, tail: tail, paper: paper, name: name, phase: k, k: k };
+  };
+  Town.prototype.stepMice = function (dt, now) {
+    var s = this.st, self = this;
+    if (this.soft) return;
+    if (!s.folk || (now > (this.folkAt || 0) && s.folk.length < 10)) {
+      // A mouse for each house on a street (up to ten); new houses get theirs as they go up.
+      this.folkAt = now + 3000;
+      var have = (s.folk || []).map(function (m) { return m.house; });
+      var homes = Object.keys(s.friends).map(function (k) { return s.friends[k]; }).filter(function (f) { return f.group && !f.tent && !f.jo && f.spot && f.spot.si != null && have.indexOf(f) < 0; });
+      s.folk = (s.folk || []).concat(homes.slice(0, 10 - (s.folk || []).length).map(function (f, k0) {
+        var k = have.length + k0;
+        var m = self.makeMouse(k), sp = f.spot, fx = Math.sin(sp.face), fz = Math.cos(sp.face);
+        m.home = { door: { x: sp.x + fx * 1.0, z: sp.z + fz * 1.0 }, si: sp.si, ti: sp.ti };
+        m.homeName = Object.keys(s.friends).filter(function (n) { return s.friends[n] === f; })[0];
+        m.state = 'inside'; m.wait = 1 + k * 2.5 + Math.random() * 3; m.g.visible = false;
+        m.g.position.set(m.home.door.x, groundY(m.home.door.x, m.home.door.z), m.home.door.z);
+        m.house = f;
+        return m;
+      }));
+    }
+    var folk = s.folk, night = this.dark, P = this.explore && this.player ? this.player.g.position : null;
+    folk.forEach(function (m) {
+      var g = m.g;
+      if (m.state === 'inside') {
+        g.visible = false;
+        m.wait -= dt;
+        if (m.wait <= 0 && !night) { m.state = 'idle'; g.visible = true; g.position.set(m.home.door.x, groundY(m.home.door.x, m.home.door.z), m.home.door.z); self.pop(g, 0); }
+        return;
+      }
+      // Greet the raccoon (once in a while), then carry on.
+      if (P && m.state !== 'sit' && now > (m.helloAt || 0) && Math.hypot(P.x - g.position.x, P.z - g.position.z) < 1.8) {
+        m.helloAt = now + 25000; m.greet = 1.8;
+        var pl = self.player, line = pl.tipsy && now < pl.tipsy ? 'someone\u2019s had a few' : pl.carry && pl.carry.kind === 'beer' ? 'bit early for that, isn\u2019t it?' : pl.cig ? 'filthy habit, that' : night ? 'evening!' : HELLOS[Math.floor(Math.random() * HELLOS.length)];
+        self.say(line, g, 0.65, 2.0);
+      }
+      if (m.greet > 0) {
+        m.greet -= dt;
+        if (P) { var gy = Math.atan2(P.x - g.position.x, P.z - g.position.z), dg = gy - g.rotation.y; while (dg > Math.PI) dg -= Math.PI * 2; while (dg < -Math.PI) dg += Math.PI * 2; g.rotation.y += dg * Math.min(1, dt * 8); }
+        m.arms[1].rotation.x = -2.6 + Math.sin(now / 90) * 0.4; m.arms[1].rotation.z = 0.3;                          // a wave
+        m.legs.forEach(function (l) { l.rotation.x *= 0.8; });
+        return;
+      }
+      m.arms[1].rotation.z = 0;
+      if (m.state === 'sit') {
+        // On the bench with the paper: turning a page now and then, glancing up.
+        m.wait -= dt;
+        m.paper.rotation.y = Math.sin(now / 1800 + m.k) * 0.15; m.head.rotation.x = 0.25 + Math.sin(now / 2500 + m.k) * 0.1;
+        if (Math.floor(now / 4000 + m.k) % 5 === 0) m.paper.rotation.z = Math.sin(now / 120) * 0.08; else m.paper.rotation.z = 0;
+        if (m.wait <= 0 || night) {
+          m.state = 'idle'; m.paper.visible = false; m.seat.taken = null; m.seat = null; m.body.position.y = 0.13; m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; }); m.head.rotation.x = 0;
+        }
+        return;
+      }
+      if (m.state === 'idle') {
+        // Decide where to next: a neighbour's, a bench on the square, or home (always home by dark).
+        var r = Math.random(), dest, route, from = m.at || { si: m.home.si, ti: m.home.ti };
+        if (night) dest = { kind: 'home' };
+        else if (r < 0.35) { var bench = (self.seats || []).filter(function (q) { return !q.taken && inTownSquare(q.x, q.z, 1); })[Math.floor(Math.random() * 4)]; dest = bench ? { kind: 'bench', seat: bench } : { kind: 'home' }; }
+        else if (r < 0.75) { var other = folk[Math.floor(Math.random() * folk.length)]; dest = { kind: 'visit', who: other }; }
+        else dest = { kind: 'home' };
+        var to = dest.kind === 'bench' ? SQ_STREET : dest.kind === 'visit' ? { si: dest.who.home.si, ti: dest.who.home.ti } : { si: m.home.si, ti: m.home.ti };
+        var start = from.door || (m.at ? null : m.home.door);
+        route = (m.state === 'idle' && g.position ? [{ x: g.position.x, z: g.position.z }] : []).concat(streetRoute(from, to));
+        var end = dest.kind === 'bench' ? dest.seat : dest.kind === 'visit' ? dest.who.home.door : m.home.door;
+        route.push({ x: end.x, z: end.z });
+        if (dest.kind === 'bench') { dest.seat.taken = m; }
+        m.route = route; m.ri = 1; m.dest = dest; m.state = 'walk'; m.at = to;
+        return;
+      }
+      if (m.state === 'walk') {
+        var tgt = m.route[m.ri];
+        if (!tgt) { arrive(m); return; }
+        var dx = tgt.x - g.position.x, dz = tgt.z - g.position.z, d = Math.hypot(dx, dz);
+        if (d < 0.08) { m.ri++; return; }
+        var sp = Math.min(d, dt * 0.95);
+        g.position.x += dx / d * sp; g.position.z += dz / d * sp; g.position.y = groundY(g.position.x, g.position.z);
+        var want = Math.atan2(dx, dz), dr = want - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 7);
+        m.phase += dt * 11;
+        m.legs.forEach(function (l, i) { l.rotation.x = Math.sin(m.phase + i * Math.PI) * 0.6; });
+        m.arms.forEach(function (a, i) { a.rotation.x = Math.sin(m.phase + (1 - i) * Math.PI) * 0.4; });
+        m.body.position.y = 0.13 + Math.abs(Math.sin(m.phase)) * 0.015;
+        m.tail.rotation.y = Math.sin(m.phase * 0.5) * 0.3;
+        // Passing a neighbour in the street: a word or two.
+        folk.forEach(function (o) {
+          if (o === m || o.state !== 'walk' || now < (m.chatAt || 0) || now < (o.chatAt || 0)) return;
+          if (Math.hypot(o.g.position.x - g.position.x, o.g.position.z - g.position.z) < 1.0) {
+            m.chatAt = o.chatAt = now + 30000;
+            self.say(MOUSE_CHAT[Math.floor(Math.random() * MOUSE_CHAT.length)], g, 0.65, 1.6);
+            setTimeout(function () { self.say(MOUSE_CHAT[Math.floor(Math.random() * MOUSE_CHAT.length)], o.g, 0.65, 1.6); }, 900);
+          }
+        });
+      }
+    });
+    function arrive(m) {
+      var D = m.dest;
+      m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; });
+      if (D.kind === 'bench') {
+        // Sit, open the paper.
+        var q = D.seat;
+        m.g.position.set(q.x, q.y - 0.12, q.z); m.g.rotation.y = q.rot;
+        m.body.position.y = 0.06; m.legs.forEach(function (l) { l.rotation.x = -1.4; });
+        m.arms.forEach(function (a, i) { a.rotation.x = -1.2; a.rotation.z = (i ? -1 : 1) * 0.35; });
+        m.paper.visible = true; m.seat = q; m.state = 'sit'; m.wait = 15 + Math.random() * 20;
+      } else {
+        // In the door, for a cup of tea (or bed).
+        m.state = 'inside'; m.wait = night ? 5 : 8 + Math.random() * 18;
+        if (D.kind === 'visit' && !night) self.say(Math.random() < 0.5 ? 'yoo-hoo!' : '*knock knock*', m.g, 0.65, 1.2);
+        if (D.kind === 'home') m.at = null;
+      }
+    }
+    this.needsRender = true;
   };
   // Dogs trot around the pen with moving legs and wagging tails: they sniff, sit, nose their
   // toys and now and then break into zoomies.
@@ -7497,6 +7700,10 @@
         return { title: 'The church', lines: [fmtN(BB.chapters) + ' of 1,189 chapters read (' + (BB.chapters / BIBLE_TOTAL * 100).toFixed(1) + '%) · ' + plural(BB.books.length, 'book') + ' of 66 finished.',
           'Every chapter builds; every finished book lights a stained-glass window.' + (BB.books.length ? ' Lit so far: ' + BB.books.map(function (bi) { return BIBLE[bi][0]; }).join(', ') + '.' : ''),
           nextC ? 'Next: ' + nextC[1].toLowerCase() + ' at ' + fmtN(nextC[0]) + ' chapters.' : 'The church is complete.', s.last.church ? 'Last: ' + s.last.church.day + ' · ' + s.last.church.label : ''] };
+      case 'folk': {
+        var mo = (this.st.folk || []).filter(function (q) { return q.name === p[1]; })[0];
+        return mo ? { title: mo.name, lines: ['Lives at the ' + mo.homeName + ' house.', mo.state === 'sit' ? 'Reading the paper.' : mo.state === 'inside' ? 'Popped indoors.' : 'Out and about.'] } : null;
+      }
       case 'fox': return { title: 'Jo the fox', lines: ['Jo, mostly round her house, sometimes off exploring.'] };
       case 'library':
         var LB = s.library, nextL = LIBRARY_STAGES.filter(function (x) { return LB.pages < x[0]; })[0];
@@ -7702,7 +7909,7 @@
       this.stepWeather(dt, now);
       if (!this.reduced) this.stepSky(dt, now);
       else if (this.beam) this.beam.visible = false;
-      if (!this.reduced) { this.walkDogs(dt, now); this.moveChairs(now); this.animateSecrets(dt, now); }
+      if (!this.reduced) { this.walkDogs(dt, now); this.stepMice(dt, now); this.moveChairs(now); this.animateSecrets(dt, now); }
       if (!this.reduced) this.st.bike.balloons.forEach(function (b) {
         b.angle += b.speed * dt;
         b.group.position.set(Math.cos(b.angle) * b.radius, b.height + Math.sin(now / 1500 + b.bob) * 0.4, Math.sin(b.angle) * b.radius);
@@ -7742,7 +7949,7 @@
   // A Stardew-style follow camera on a raccoon you steer with WASD or the arrows (or a joystick on
   // a phone); Shift runs, E looks at whatever's nearby. Buildings, trees, water and the sea are in
   // the way; paths and bridges are fine.
-  var SOLID_SKIP = /^(raccoon|fox|dog|dogs|wild:|prflag|endpr|balloon|sheep|railway|commute|bike|farm|field|path|hike|snow|lift|sky|weather|walk)/;
+  var SOLID_SKIP = /^(folk|raccoon|fox|dog|dogs|wild:|prflag|endpr|balloon|sheep|railway|commute|bike|farm|field|path|hike|snow|lift|sky|weather|walk)/;
   Town.prototype.setExplore = function (on) {
     this.explore = !!on;
     var c = this.controls;
@@ -8018,6 +8225,10 @@
     return Math.abs(mvx) + Math.abs(mvy) + Math.abs(mvz) > 0.001;
   };
   Town.prototype.interact = function () {
+    var pl = this.player, pub = this.st.pub;
+    // Holding a pint: E is a swig. Near the pub: E orders one, whatever else is closer.
+    if (pl && pl.carry && pl.carry.kind === 'beer') { this.swig(pl); return; }
+    if (pl && pub && Math.hypot(pub.position.x - pl.g.position.x, pub.position.z - pl.g.position.z) < 4.5) { this.getBeer(); return; }
     if (this.near && this.onInteract) { this.onInteract(this.near); return; }
     // Nothing to look at: have a little chitter to yourself.
     var pl = this.player;
@@ -8072,7 +8283,7 @@
     var list = (this.seats || []).concat(this.st.seats || []), objs = this.st.partyObjs || {}, best = null, bd = 1.0;
     for (var i = 0; i < list.length; i++) {
       var q = list[i], d = Math.hypot(q.x - x, q.z - z);
-      if (q.party && !(objs[q.party] && objs[q.party].visible)) continue;
+      if ((q.party && !(objs[q.party] && objs[q.party].visible)) || q.taken) continue;
       if (d < (q.wall ? 1.1 : bd)) { bd = d; best = q; }
     }
     return best;
@@ -8102,9 +8313,9 @@
     if (now > C.next) {
       C.next = now + 2800 + Math.random() * 2200;
       pl.mouth.getWorldPosition(wp);
-      this.puff(wp.x, wp.y + 0.05, wp.z, 5, 'smoke', 0.06);
+      this.puff(wp.x, wp.y + 0.03, wp.z, 9, 'smoke', 0.03);
       if (Math.random() < 0.25) this.say(['*puff*', 'ahh.', 'long day', 'this town, man'][Math.floor(Math.random() * 4)], pl.g, 1.1, 1.3);
-    } else if (Math.random() < dt * 1.5) { C.ember.getWorldPosition(wp); this.puff(wp.x, wp.y + 0.02, wp.z, 1, 'smoke', 0.01); }
+    } else if (Math.random() < dt * 5) { C.ember.getWorldPosition(wp); this.puff(wp.x, wp.y + 0.02, wp.z, 1, 'smoke', 0.004); }
   };
   Town.prototype.leaveSeat = function (pl) {
     if (pl.cig) { var wp = new T.Vector3(); pl.cig.ember.getWorldPosition(wp); pl.mouth.remove(pl.cig.g); pl.cig = null; pl.sipping = false; this.puff(wp.x, wp.y, wp.z, 3, 'dust'); }
@@ -8455,11 +8666,12 @@
     if (c.kind === 'beer') {
       // Sit down with it and it goes down in big glugs; then the hiccups.
       pl.sipping = false;
-      if (moving || pl.swim || pl.dig || (pl.idle || 0) < 1.5) return;
+      var forced = c.forced && now < c.forced;
+      if (!forced && (moving || pl.swim || pl.dig || (pl.idle || 0) < 0.8)) return;
       c.eat += dt;
       var ph = c.eat % 1.8;
       pl.sipping = ph > 1.1;
-      if (pl.sipping && !c.glugged) { c.glugged = true; this.sfx('glug'); c.sips++; c.m.children[0].scale.y = 0.14 * (1 - c.sips / 5); c.m.children[1].position.y = 0.085 - 0.13 * c.sips / 5 * 0.5; }
+      if (pl.sipping && !c.glugged) { c.glugged = true; this.sfx('glug'); c.sips++; this.say(c.sips < 4 ? '*glug*' : '*GLUG*', pl.g, 1.15, 0.7); c.m.children[0].scale.y = 0.14 * (1 - c.sips / 5); c.m.children[1].position.y = 0.085 - 0.13 * c.sips / 5 * 0.5; }
       if (!pl.sipping) c.glugged = false;
       if (c.sips >= 4 && !pl.sipping) {
         pl.mouth.remove(c.m); pl.carry = null; pl.tipsy = now + 45000; pl.hicAt = now + 1500;
@@ -8475,11 +8687,16 @@
     c.m.scale.set(0.09 * k, 0.06 * k, 0.12 * k);
     if (c.eat > 4) { pl.mouth.remove(c.m); pl.carry = null; this.say(['nom nom nom', '*munch*', 'delicious', 'gourmet', '*burp*'][Math.floor(Math.random() * 5)], pl.g, 1.0, 1.4); }
   };
+  Town.prototype.swig = function (pl) {
+    var c = pl.carry;
+    if (!c || c.kind !== 'beer') return;
+    c.eat = 1.1; c.glugged = false; pl.idle = Math.max(pl.idle || 0, 1.6); c.forced = performance.now() + 700;
+  };
   // Up to the bar for a pint.
   Town.prototype.getBeer = function () {
     var pl = this.player;
     if (!pl) return false;
-    if (pl.carry && pl.carry.kind === 'beer') { this.say('still got one', pl.g, 1.0, 1.2); return true; }
+    if (pl.carry && pl.carry.kind === 'beer') { this.swig(pl); return true; }
     this.carryItem(pl, 'beer');
     this.say(['one pint please', 'pint of the usual', 'put it on my tab'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.6);
     this.sfx('found');
@@ -8560,7 +8777,20 @@
       }
       return;
     }
-    var mat = kind === 'smoke' ? this.mat('smoke') : kind === 'trash' ? this.mat(['flag', 'woodLight', 'plaster', 'leaf', 'balloon'][Math.floor(Math.random() * 5)], Math.floor(Math.random() * 4)) : kind === 'snow' || kind === 'splash' || kind === 'steam' ? this.mat('swan', 0) : kind === 'dust' ? this.mat('path') : kind === 'needle' ? this.mat('pine', 0) : kind === 'birchleaf' ? this.mat('birchleaf') : this.mat('leaf', Math.floor(Math.random() * 3));
+    if (kind === 'smoke') {
+      // Thin curls of smoke: each wisp fades on its own.
+      for (var si = 0; si < n && F.bits.length < 110; si++) {
+        var sm = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ color: '#e4e1da', transparent: true, opacity: 0.55, depthWrite: false }));
+        var sw = 0.012 + Math.random() * 0.012;
+        sm.scale.set(sw, sw * 2.5, sw);
+        sm.position.set(x + (Math.random() - 0.5) * (spread || 0.02), y, z + (Math.random() - 0.5) * (spread || 0.02));
+        F.group.add(sm);
+        F.bits.push({ m: sm, kind: 'smoke', life: 1.8 + Math.random() * 0.8, t: -si * 0.07, vx: (Math.random() - 0.5) * 0.08, vy: 0.22 + Math.random() * 0.12, vz: (Math.random() - 0.5) * 0.08, ph: Math.random() * 6 });
+      }
+      this.needsRender = true;
+      return;
+    }
+    var mat = kind === 'trash' ? this.mat(['flag', 'woodLight', 'plaster', 'leaf', 'balloon'][Math.floor(Math.random() * 5)], Math.floor(Math.random() * 4)) : kind === 'snow' || kind === 'splash' || kind === 'steam' ? this.mat('swan', 0) : kind === 'dust' ? this.mat('path') : kind === 'needle' ? this.mat('pine', 0) : kind === 'birchleaf' ? this.mat('birchleaf') : this.mat('leaf', Math.floor(Math.random() * 3));
     spread = spread || 0.3;
     for (var i = 0; i < n && F.bits.length < 90; i++) {
       var m = new T.Mesh(this.geo.box, mat);
@@ -8643,7 +8873,18 @@
         else if (b.kind === 'trash') { b.vy -= 7 * dt; m.rotation.x += dt * 9; }
         else if (b.kind === 'ripple') { m.scale.x += dt * 0.5; m.scale.z += dt * 0.5; m.position.y = b.fixedY; if (b.t > b.life) { F.group.remove(m); return false; } return true; }
         else if (b.kind === 'steam') { b.vy *= 1 - dt; m.scale.multiplyScalar(1 + dt * 0.8); }
-        else if (b.kind === 'smoke') { b.vx *= 1 - dt * 2; b.vz *= 1 - dt * 2; m.scale.multiplyScalar(1 + dt * 1.4); m.rotation.y += dt; if (b.t > b.life) { F.group.remove(m); return false; } }
+        else if (b.kind === 'smoke') {
+          if (b.t < 0) { m.visible = false; return true; }
+          m.visible = true;
+          // Curling up and drifting, stretching thin, fading out.
+          m.position.x += Math.sin(b.t * 3.1 + b.ph) * dt * 0.12; m.position.z += Math.cos(b.t * 2.3 + b.ph) * dt * 0.12;
+          m.rotation.z = Math.sin(b.t * 2 + b.ph) * 0.6; m.rotation.y += dt * 0.8;
+          m.scale.x *= 1 + dt * 0.5; m.scale.z *= 1 + dt * 0.5; m.scale.y *= 1 + dt * 0.9;
+          m.material.opacity = Math.max(0, 0.55 * (1 - b.t / b.life));
+          m.position.x += b.vx * dt; m.position.y += b.vy * dt; m.position.z += b.vz * dt;
+          if (b.t > b.life) { F.group.remove(m); m.material.dispose(); return false; }
+          return true;
+        }
         else { m.rotation.x += dt * 3; m.rotation.z += dt * 2; b.vx += Math.sin(b.t * 4 + b.ph) * dt * 0.8; }
         m.position.x += b.vx * dt; m.position.y += b.vy * dt; m.position.z += b.vz * dt;
         var gy = b.kind === 'splash' ? -1e9 : groundY(m.position.x, m.position.z);
