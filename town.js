@@ -148,9 +148,15 @@
   var CHURCH_AT = [256, 47.5], CHURCH = polar(CHURCH_AT[0], CHURCH_AT[1]);
   // Where the church first stood: kept for the houses on Chapel Lane.
   var CHAPEL_LANE = polar(254, 56);
-  // The library, built from the books you read, just over the river beyond the forest.
-  var LIBRARY_AT = [16, 48], LIBRARY = polar(LIBRARY_AT[0], LIBRARY_AT[1]);
-  // The dragon's cave, a little past the library.
+  // The town square: a cobbled market square west of the Slow Pour (which fronts it), joined to
+  // the old village square at its corner. The library stands on its west side and the cinema on
+  // its south side, both facing in.
+  var TOWN_SQ = { x: -20, z: 27, hx: 8, hz: 6.5 };
+  function inTownSquare(x, z, m) { return Math.abs(x - TOWN_SQ.x) < TOWN_SQ.hx + (m || 0) && Math.abs(z - TOWN_SQ.z) < TOWN_SQ.hz + (m || 0); }
+  function facingSquare(p) { return Math.atan2(TOWN_SQ.x - p.x, TOWN_SQ.z - p.z); }
+  function frontOf(p, d) { var a = facingSquare(p); return { x: p.x + Math.sin(a) * d, z: p.z + Math.cos(a) * d }; }
+  var LIBRARY = { x: -37, z: 29 }, CINEMA = { x: -20, z: 40.5 };
+  // The dragon's cave, out past the river.
   var HOARD = polar(18, 84);
   var SNOW = { c: polar(97, 58), R: 17, H: 19, runs: 42 };
   var RIDGE = { a: 176, r: 57 };
@@ -208,6 +214,7 @@
       if (Math.hypot(p.x - fg.x, p.z - fg.z) < size + 5) return false;
       if (Math.hypot(p.x - STATUE.x, p.z - STATUE.z) < size + 3) return false;
       if (Math.hypot(p.x - PASTURE.x, p.z - PASTURE.z) < size + PASTURE_R + 3 || Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < size + 11 || Math.hypot(p.x - CHAPEL_LANE.x, p.z - CHAPEL_LANE.z) < size + 9) return false;
+      if (inTownSquare(p.x, p.z, size + 4) || Math.hypot(p.x - LIBRARY.x, p.z - LIBRARY.z) < size + 12) return false;
       if (riverDist(p.x, p.z) < size + (canyonDepth(p.x, p.z) > 0.2 ? 13 : 3)) return false;
       if (Math.hypot(p.x, p.z) * Math.cos((angleOf(p.x, p.z) - 320) * D2R) > 80 - size) return false; // clear of the beach
       return !CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - p.x, c.z - p.z) < size + 21; });
@@ -239,17 +246,18 @@
     bezierPath(polar(262, RING_ROAD), polar(258, 18), polar(246, 21), SQUARE),
     bezierPath(SQUARE, polar(228, 28), polar(218, 31), polar(212, 36.5)),
     bezierPath(SQUARE, polar(248, 29), polar(255, 32), polar(257, 37)),
-    bezierPath(SQUARE, polar(236, 28), polar(234, 30), polar(232, 31.5)),
     // Lanes branching off the side streets as the village fills.
     bezierPath(polar(222, 29.6), polar(214, 27.5), polar(206, 26.5), polar(198, 25)),
-    bezierPath(polar(252, 31.2), polar(246, 34.5), polar(242, 37.5), polar(240, 41)),
-    bezierPath(polar(212, 36.5), polar(216, 39.5), polar(221, 41.5), polar(226, 43.5)),
     bezierPath(polar(254, 18.8), polar(260, 20.2), polar(266, 20.6), polar(271, 20.2)),
     bezierPath(polar(198, 25), polar(194, 22.5), polar(192, 20.5), polar(190, 18.2)),
     bezierPath(polar(212, 36.5), polar(206, 39), polar(200, 41.5), polar(193, 42.5)),
-    bezierPath(polar(226, 43.5), polar(230, 46.5), polar(236, 49), polar(242, 50.5)),
-    // Chapel Lane, out to where the church first stood.
-    bezierPath(polar(242, 50.5), polar(247, 55), polar(254, 57.5), polar(261, 56))
+    // Chapel Lane, off the end of the south street past the church to where it first stood.
+    bezierPath(polar(257, 37), polar(263, 42), polar(262, 52), polar(256, 58)),
+    // Market Lane, west from the end of the west street.
+    bezierPath(polar(212, 36.5), { x: -40, z: 20.5 }, { x: -48, z: 19.5 }, { x: -55, z: 24 }),
+    // Library Lane, south from the square's corner past the library, then round to Chapel Lane.
+    bezierPath({ x: -28.3, z: 33.8 }, { x: -31, z: 41 }, { x: -33, z: 48 }, { x: -31, z: 56 }),
+    bezierPath({ x: -31, z: 56 }, { x: -26, z: 60 }, { x: -19, z: 59.5 }, polar(256, 58))
   ];
   function FIELDS_NEAR(p) { return typeof FIELDS !== 'undefined' && FIELDS && FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 3.5; }); }
   var HOUSE_SLOTS = (function () {
@@ -264,7 +272,8 @@
           var p = { x: street[i].x + nx * side * rowDef[0], z: street[i].z + nz * side * rowDef[0] };
           if (Math.hypot(p.x, p.z) < 17.5) return;
           if (Math.hypot(p.x - PUB.x, p.z - PUB.z) < 4.8 || Math.hypot(p.x - SQUARE.x, p.z - SQUARE.z) < 4.6) return;
-          if (Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < 9.5 || Math.hypot(p.x - LIBRARY.x, p.z - LIBRARY.z) < 11) return;
+          if (Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < 9.5 || Math.hypot(p.x - LIBRARY.x, p.z - LIBRARY.z) < 11.5 || Math.hypot(p.x - CINEMA.x, p.z - CINEMA.z) < 7) return;
+          if (inTownSquare(p.x, p.z, 2.6)) return;
           if (Math.hypot(p.x - DOG_PEN.c.x, p.z - DOG_PEN.c.z) < 7.5 || Math.hypot(p.x - POND.x, p.z - POND.z) < 7.5 || Math.hypot(p.x - OFFICE.x, p.z - OFFICE.z) < 5.5) return;
           if (STREETS.some(function (st) { return st.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 2.3; }); })) return;
           if (hash.near(p.x, p.z, 3.9)) return;
@@ -439,7 +448,7 @@
   pad(HOCKEY, 3.0, 4.4);
   pad(PASTURE, PASTURE_R + 0.5, PASTURE_R + 3);
   pad(CHURCH, 6.5, 9);
-  pad(LIBRARY, 8, 11);
+  pad(LIBRARY, 8, 11); pad(TOWN_SQ, 10.6, 17); pad(CINEMA, 4.5, 6.5);
   pad(PUB, 3, 4.4); pad(SQUARE, 3.6, 5.2); pad(STATUE, 1.5, 2.6); pad(POND, 5, 6.8); pad(OFFICE, 4.6, 6.2);
   pad(DOG_PEN.c, 4.3, 5.8);
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
@@ -542,7 +551,8 @@
     out.push({ kind: 'path', pts: trail(SQUARE, polar(angleOf(POND.x, POND.z) + 4, Math.hypot(POND.x, POND.z) - 5.5), 1) });
     SPORT_SLOTS.forEach(function (sl, i) { var p = polar(sl[0], sl[1] - 2.2); out.push({ kind: 'path', pts: fromRing(p, i % 2 ? 0.8 : -0.8), sport: i }); });
     out.push({ kind: 'path', pts: fromRing(polar(132, 27 - 2.6), 0.6) });
-    out.push({ kind: 'path', pts: fromRing(polar(LIBRARY_AT[0], LIBRARY_AT[1] - 4.2), 1.5) });
+    out.push({ kind: 'path', pts: trail({ x: TOWN_SQ.x - TOWN_SQ.hx, z: LIBRARY.z }, frontOf(LIBRARY, 4.2), 0.2) });
+    out.push({ kind: 'path', pts: trail({ x: CINEMA.x, z: TOWN_SQ.z + TOWN_SQ.hz }, frontOf(CINEMA, 2.4), 0.2) });
     out.push({ kind: 'path', pts: trail(polar(257, 37.5), polar(CHURCH_AT[0], CHURCH_AT[1] - 6.8), 0.5) });
     // Farm tracks: the drove road runs out from the ring road down the middle of the farmland,
     // reaching each band when its first field opens; each field's gate joins the track along
@@ -567,7 +577,7 @@
   // The library path climbs from its bridge up to the library: grade the ground along it into an
   // even ramp, so it doesn't break into steps over the ridge in between.
   var LIB_GRADE = (function () {
-    var lib = polar(LIBRARY_AT[0], LIBRARY_AT[1] - 4.2), path = PATHS.filter(function (pa) { var e = pa.pts[pa.pts.length - 1]; return Math.hypot(e.x - lib.x, e.z - lib.z) < 0.5; })[0];
+    var lib = frontOf(LIBRARY, 4.2), path = PATHS.filter(function (pa) { var e = pa.pts[pa.pts.length - 1]; return Math.hypot(e.x - lib.x, e.z - lib.z) < 0.5; })[0];
     if (!path) return null;
     var pts = path.pts, k = 0;
     while (k < pts.length && riverDist(pts[k].x, pts[k].z) > RIVER_HALF + 1.2) k++;   // up to the river
@@ -946,7 +956,7 @@
       if (r < 31 || r > 100) return false;
       if (inFarmland(x, z) || inRidge(x, z) || inSector(x, z, 332, 82, 0, 55)) return false;
       if (Math.hypot(x - SNOW.c.x, z - SNOW.c.z) < SNOW.R + 3 || riverDist(x, z) < (canyonDepth(x, z) > 0 ? 12 : 3.2)) return false;
-      if (coastSd(x, z) > -8 || lakeDist(x, z) < 3 || streamDist(x, z) < 2.2 || Math.hypot(x - PASTURE.x, z - PASTURE.z) < PASTURE_R + 2.5 || Math.hypot(x - CHURCH.x, z - CHURCH.z) < 10 || Math.hypot(x - LIBRARY.x, z - LIBRARY.z) < 13) return false;
+      if (coastSd(x, z) > -8 || lakeDist(x, z) < 3 || streamDist(x, z) < 2.2 || Math.hypot(x - PASTURE.x, z - PASTURE.z) < PASTURE_R + 2.5 || Math.hypot(x - CHURCH.x, z - CHURCH.z) < 10 || Math.hypot(x - LIBRARY.x, z - LIBRARY.z) < 13 || inTownSquare(x, z, 3)) return false;
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 20.5; })) return false;
       if (nearPath(x, z, 1.6)) return false;
       if (HOUSE_SLOTS.some(function (h) { return Math.hypot(h.x - x, h.z - z) < 3.2; })) return false;
@@ -1029,6 +1039,38 @@
     [-1, 1].forEach(function (s2) { var b = new T.Mesh(self.geo.box, self.mat('wood')); b.scale.set(1.0, 0.12, 0.3); b.position.set(-1.1 + s2 * 1.7, 0.35, -0.6); b.rotation.y = Math.PI / 2; sq.add(b); });
     sq.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     base.add(sq);
+
+    // The town square: cobbles with a stone kerb, a fountain, lamps, benches and corner trees.
+    var ts = new T.Group(), Q = TOWN_SQ, W = Q.hx * 2, D = Q.hz * 2;
+    ts.position.set(Q.x, groundY(Q.x, Q.z), Q.z);
+    function TS(geo, mat, sx, sy, sz, x, y, z) { var m = new T.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); ts.add(m); return m; }
+    TS(this.geo.box, this.mat('stone', 2), W + 0.3, 1.6, D + 0.3, 0, -0.75, 0); // a stone base down to wherever the ground dips
+    TS(this.geo.box, this.mat('cobble'), W, 0.1, D, 0, 0.03, 0);
+    for (var gx = -Q.hx + 2; gx < Q.hx; gx += 2) TS(this.geo.box, this.mat('stone', 2), 0.06, 0.11, D, gx, 0.03, 0);
+    for (var gz = -Q.hz + 2; gz < Q.hz; gz += 2) TS(this.geo.box, this.mat('stone', 2), W, 0.11, 0.06, 0, 0.03, gz);
+    [[0, -Q.hz, W + 0.4, 0.4], [0, Q.hz, W + 0.4, 0.4], [-Q.hx, 0, 0.4, D], [Q.hx, 0, 0.4, D]].forEach(function (k) { TS(self.geo.box, self.mat('stone', 0), k[2], 0.16, k[3], k[0], 0.05, k[1]); });
+    // The fountain: a round basin, a column and a spray.
+    TS(this.geo.cyl, this.mat('stone', 1), 1.8, 0.45, 1.8, 0, 0.22, 0);
+    TS(this.geo.cyl, this.mat('water'), 1.6, 0.05, 1.6, 0, 0.44, 0);
+    TS(this.geo.cyl6, this.mat('stone', 0), 0.22, 1.3, 0.22, 0, 0.9, 0);
+    TS(this.geo.cyl, this.mat('stone', 1), 0.6, 0.12, 0.6, 0, 1.55, 0);
+    TS(this.geo.blob, this.mat('water'), 0.35, 0.45, 0.35, 0, 1.85, 0);
+    // Benches facing the fountain, lamps at the corners, a tree in a planter at each corner.
+    [[0, -3.2, 0], [0, 3.2, Math.PI], [-3.6, 0, Math.PI / 2], [3.6, 0, -Math.PI / 2]].forEach(function (b) {
+      var bench = new T.Group(); bench.position.set(b[0], 0, b[1]); bench.rotation.y = b[2]; ts.add(bench);
+      var seat = new T.Mesh(self.geo.box, self.mat('wood')); seat.scale.set(1.4, 0.08, 0.36); seat.position.y = 0.4; bench.add(seat);
+      var back = new T.Mesh(self.geo.box, self.mat('wood')); back.scale.set(1.4, 0.32, 0.06); back.position.set(0, 0.62, -0.17); bench.add(back);
+      [-0.6, 0.6].forEach(function (x) { var leg = new T.Mesh(self.geo.box, self.mat('stoneDark')); leg.scale.set(0.06, 0.4, 0.3); leg.position.set(x, 0.2, 0); bench.add(leg); });
+    });
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c, i) {
+      var x = c[0] * (Q.hx - 1.3), z = c[1] * (Q.hz - 1.3);
+      TS(self.geo.box, self.mat('stone', 0), 1.2, 0.45, 1.2, x, 0.25, z);
+      TS(self.geo.cyl6, self.mat('trunk'), 0.12, 1.3, 0.12, x, 1.1, z);
+      TS(self.geo.blob, self.mat('leaf', i % 3), 0.85, 0.75, 0.85, x, 2.05, z);
+      self.lamp(Q.x + c[0] * (Q.hx - 0.4), Q.z + c[1] * (Q.hz - 3.2), base);
+    });
+    ts.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+    base.add(ts);
     this.buildSnowMountain(base);
   };
 
@@ -2350,7 +2392,7 @@
   Town.prototype.librarySign = function () {
     var g = new T.Group(), pick = 'library';
     g.position.set(LIBRARY.x, groundY(LIBRARY.x, LIBRARY.z), LIBRARY.z);
-    g.rotation.y = Math.atan2(-LIBRARY.x, -LIBRARY.z);
+    g.rotation.y = facingSquare(LIBRARY);
     this.part(g, this.geo.cyl6, this.mat('wood'), 0.06, 1.3, 0.06, 0, 0.65, 4.5, pick);
     this.part(g, this.geo.box, this.mat('woodLight'), 1.0, 0.5, 0.06, 0, 1.2, 4.52, pick);
     this.part(g, this.geo.box, this.mat('stone', 2), 8.4, 0.12, 5.4, 0, 0.06, -0.5, pick);
@@ -2389,7 +2431,7 @@
     if (!n || !CINEMA) return;
     var g = C.group = new T.Group();
     g.position.set(CINEMA.x, groundY(CINEMA.x, CINEMA.z), CINEMA.z);
-    g.rotation.y = Math.atan2(-CINEMA.x, -CINEMA.z); // the doors face town
+    g.rotation.y = facingSquare(CINEMA); // the doors face the town square
     this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
     var glow = this.mat('lantern'), screen = this.screenMat || (this.screenMat = new T.MeshBasicMaterial({ color: '#f4f1e6' }));
@@ -2453,7 +2495,7 @@
     if (L.sign) { this.retire(L.sign); L.sign.visible = false; }
     var g = new T.Group();
     g.position.set(LIBRARY.x, groundY(LIBRARY.x, LIBRARY.z), LIBRARY.z);
-    g.rotation.y = Math.atan2(-LIBRARY.x, -LIBRARY.z); // the front faces town
+    g.rotation.y = facingSquare(LIBRARY); // the front faces the town square
     L.group = g;
     this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
@@ -2790,7 +2832,7 @@
     { key: 'caribou', title: 'A caribou herd', goal: 1000, unit: 'km ridden (not commutes)', metric: function (s) { return Math.floor(s.bike.km); }, text: 'A small caribou herd wanders the far meadows.' },
     { key: 'bear', title: 'A grizzly bear', goal: 300, unit: 'lifting sessions', metric: function (s) { return s.lifts; }, text: 'Strong as a bear: a grizzly fishes for salmon in the river all summer and sleeps through the winter.' },
     { key: 'wolves', title: 'A wolf pack', goal: 150, unit: 'runs', metric: function (s) { return s.forest.runs; }, text: 'A wolf pack roams the edge of the wilderness at night.' },
-    { key: 'hoard', title: 'A dragon on its hoard', goal: 50000, unit: 'pages read', metric: function (s) { return s.library.pages; }, text: 'Fifty thousand pages! In a cave past the library, a great old dragon sleeps on a hoard of books and gold. Mind the smoke.' },
+    { key: 'hoard', title: 'A dragon on its hoard', goal: 50000, unit: 'pages read', metric: function (s) { return s.library.pages; }, text: 'Fifty thousand pages! In a cave out past the river, a great old dragon sleeps on a hoard of books and gold. Mind the smoke.' },
     { key: 'ent', title: 'An Ent', goal: 1, unit: 'half marathon (a sequoia)', metric: function (s) { return s.forest.kinds.sequoia || 0; }, text: 'One of the old sequoias has woken up! Now and then it goes for a slow walk round the forest.' }
   ];
   WILDLIFE.forEach(function (w) { w.need = function (s) { return w.metric(s) >= w.goal; }; w.how = w.goal + ' ' + w.unit; });
@@ -3906,7 +3948,9 @@
   // A White Pass & Yukon Route style narrow-gauge line round the edge of the map: an even grade,
   // timber trestles over low ground and the bay, and tunnels through four rocky hills.
   var RAIL_R = 112, RAIL_STEP = 0.5;
-  var RAIL_TUNNELS = [15, 100, 262, 338], TUNNEL_HALF = 3.8; // hill centres, and the portals' angle either side
+  // The line swings out over the water round the lighthouse headland.
+  function railR(a) { var d = angleDiff(a, 338); return RAIL_R + (d < 15 ? 17 * Math.pow(Math.cos(d / 15 * Math.PI / 2), 2) : 0); }
+  var RAIL_TUNNELS = [15, 100, 262], TUNNEL_HALF = 3.8; // hill centres, and the portals' angle either side
   var STATION_NAMES = ['Whitehorse', 'Carcross', 'Bennett', 'Fraser', 'Skagway'];
   function inTunnel(a, pad) { return RAIL_TUNNELS.some(function (t) { return angleDiff(a, t) < TUNNEL_HALF + (pad || 0); }); }
   var RAIL_LINE = null;
@@ -3914,7 +3958,7 @@
     if (RAIL_LINE) return RAIL_LINE;
     var n = Math.round(360 / RAIL_STEP), raw = [], pts = [];
     for (var i = 0; i < n; i++) {
-      var p = polar(i * RAIL_STEP, RAIL_R), g = groundY(p.x, p.z);
+      var p = polar(i * RAIL_STEP, railR(i * RAIL_STEP)), g = groundY(p.x, p.z);
       p.ground = g; p.a = i * RAIL_STEP;
       raw.push(Math.max(g + 0.12, SEA_Y + 1.6));
       pts.push(p);
@@ -3982,27 +4026,36 @@
       });
       g.add(bent);
     }
-    // Tunnel hills: a grassy, rocky knoll over the line with a timber portal at each end.
+    // Tunnel bluffs: a steep rocky block over the line whose end faces stand right at the portals,
+    // topped with grass and a few spruces.
+    var bluffGeo = this.geo.bluff || (this.geo.bluff = new T.CylinderGeometry(0.75, 1, 1, 8, 1).rotateY(Math.PI / 8).translate(0, 0.5, 0));
     RAIL_TUNNELS.forEach(function (ta) {
-      var ti = Math.round(ta / RAIL_STEP) % n, c = R.pts[ti], base = Math.min(c.ground, c.y) - 0.6, hill = new T.Group();
+      var ti = Math.round(ta / RAIL_STEP) % n, c = R.pts[ti], base = Math.min(c.ground, c.y) - 0.4, hill = new T.Group(), H = 4.6;
       hill.position.set(c.x, base, c.z); hill.rotation.y = heading(ti);
-      var span = RAIL_R * TUNNEL_HALF * D2R / 0.46; // the hill's half-length, so the slope stands about 3 high at each portal
-      var knoll = new T.Mesh(self.geo.mountain, self.mat('hill')); knoll.scale.set(span, 7.5, 9); hill.add(knoll);
-      var crag = new T.Mesh(self.geo.mountain, self.mat('rock')); crag.scale.set(span * 0.5, 8.6, 6.5); crag.position.set(span * 0.12, 0, -1.6); hill.add(crag);
-      [knoll, crag].forEach(function (m) { m.userData.pick = pick; self.picks.push(m); });
+      // Half-length so the end facets meet the portals about half way up the opening.
+      var half = RAIL_R * TUNNEL_HALF * D2R, mid = (c.y - base + 1.1) / H, L = half / (Math.cos(Math.PI / 8) * (1 - 0.25 * mid)) + 0.6;
+      var rock = new T.Mesh(bluffGeo, self.mat('rock')); rock.scale.set(L, H, 4.8); hill.add(rock);
+      var cap = new T.Mesh(self.geo.blob, self.mat('hill')); cap.scale.set(L * 0.72, 0.9, 3.4); cap.position.y = H + 0.05; hill.add(cap);
+      [[-0.35, 0.6, 1.0], [0.1, -1.1, 1.25], [0.45, 0.9, 0.85]].forEach(function (t) {
+        var tree = new T.Mesh(self.geo.cone, self.mat('pine', 0)); tree.scale.set(0.55 * t[2], 1.7 * t[2], 0.55 * t[2]); tree.position.set(t[0] * L, H + 0.6 + 0.85 * t[2], t[1]); hill.add(tree);
+      });
+      // A lower rocky shoulder off one side breaks up the outline.
+      var side = ta % 2 ? 1 : -1, sh = new T.Mesh(bluffGeo, self.mat('rock')); sh.scale.set(L * 0.55, H * 0.62, 3.2); sh.position.set(L * 0.2 * side, 0, 3.1 * side); sh.rotation.y = 0.3 * side; hill.add(sh);
+      var shCap = new T.Mesh(self.geo.blob, self.mat('hill')); shCap.scale.set(L * 0.38, 0.6, 2.2); shCap.position.set(L * 0.2 * side, H * 0.62 + 0.02, 3.1 * side); hill.add(shCap);
+      hill.children.forEach(function (m) { m.userData.pick = pick; self.picks.push(m); });
       g.add(hill);
       [-1, 1].forEach(function (sd) {
         var pi = Math.round((ta + sd * TUNNEL_HALF) / RAIL_STEP + n) % n, pp = R.pts[pi], portal = new T.Group();
         portal.position.set(pp.x, pp.y, pp.z); portal.rotation.y = heading(pi) + (sd < 0 ? 0 : Math.PI);
-        // Headwall round a 1.7 x 2.1 opening, timber posts and lintel, and a dark lining inside.
+        // Headwall round a 1.7 x 2.1 opening, timber posts and lintel, and darkness in the opening
+        // (the train slips into it and is gone).
         [-1, 1].forEach(function (s2) {
           P(portal, self.geo.box, self.mat('rock'), 0.4, 2.9, 1.0, 0.1, 1.2, s2 * 1.35);
           P(portal, self.geo.box, timber, 0.22, 2.2, 0.22, -0.15, 1.0, s2 * 0.95);
-          P(portal, self.geo.box, self.mat('wpBlack'), 1.3, 2.1, 0.05, 0.85, 0.95, s2 * 0.84);
         });
         P(portal, self.geo.box, self.mat('rock'), 0.4, 0.8, 3.1, 0.1, 2.55, 0);
         P(portal, self.geo.box, timber, 0.26, 0.22, 2.2, -0.15, 2.15, 0);
-        P(portal, self.geo.box, self.mat('wpBlack'), 1.3, 0.05, 1.7, 0.85, 2.02, 0);
+        P(portal, self.geo.box, self.mat('wpBlack'), 0.03, 2.05, 1.65, -0.13, 1.0, 0);
         g.add(portal);
       });
     });
@@ -4049,7 +4102,7 @@
     var site = CASTLE_SITES[ci], a = ci ? angleOf(site.x, site.z) : 180;
     // Find dry land for the platform near the castle's direction, clear of the tunnels.
     for (var d = 0; d < 60; d++) {
-      var t = a + (d % 2 ? 1 : -1) * Math.ceil(d / 2) * 1.5, p0 = polar(t, RAIL_R);
+      var t = a + (d % 2 ? 1 : -1) * Math.ceil(d / 2) * 1.5, p0 = polar(t, railR(t));
       if (coastSd(p0.x, p0.z) < -4 && riverDist(p0.x, p0.z) > 6 && !inTunnel(t, 4)) { a = t; break; }
     }
     var p = railPoint(a), g = new T.Group(), self = this, pick = 'railway';
@@ -4076,7 +4129,7 @@
     P(this.geo.box, this.mat('lantern'), 0.18, 0.22, 0.18, -2.1, up + 2.05, 1.6);
     R.group.add(g);
     // A path from the castle out to its station.
-    if (ci) { var from = polar(angleOf(site.x, site.z), Math.hypot(site.x, site.z) + 14.5), to = polar(a, RAIL_R - 4.5); this.layPath({ kind: 'path', pts: trail(from, to, 1) }, 200); }
+    if (ci) { var from = polar(angleOf(site.x, site.z), Math.hypot(site.x, site.z) + 14.5), to = polar(a, railR(a) - 4.5); this.layPath({ kind: 'path', pts: trail(from, to, 1) }, 200); }
     if (!this.instant) this.pop(g, 500);
   };
   Town.prototype.stepTrain = function (dt, now) {
@@ -4273,6 +4326,7 @@
     if (MTB_HILL && Math.hypot(MTB_HILL.x - p.x, MTB_HILL.z - p.z) < rad + MTB_HILL.r + 6) return false;
     if (WILD && WILD.hash.near(p.x, p.z, rad + 0.9)) return false;
     if (CINEMA && Math.hypot(CINEMA.x - p.x, CINEMA.z - p.z) < rad + 5) return false;
+    if (inTownSquare(p.x, p.z, rad + 2)) return false;
     if (MTB_LANE) for (var mk = 0; mk < MTB_LANE.pts.length; mk += 3) if (Math.hypot(MTB_LANE.pts[mk].x - p.x, MTB_LANE.pts[mk].z - p.z) < rad + 1.5) return false;
     return true;
   }
@@ -4325,16 +4379,6 @@
   })();
   // Wild woods: once the forest is full, new trees spread into open countryside, nearest the
   // forest first, keeping clear of everything else (roads, houses, fields, the lake, the trails).
-  // The cinema's plot: open ground on the village side of town.
-  var CINEMA = (function () {
-    // Nearest open ground to a spot on the village side, searched outwards on a 2 m grid.
-    var want = polar(222, 40), best = null, bd = 1e9;
-    for (var x = -90; x <= 90; x += 2) for (var z = -90; z <= 90; z += 2) {
-      var d = Math.hypot(x - want.x, z - want.z) + Math.max(0, Math.hypot(x, z) - 45) * 2;
-      if (d < bd && groundClear({ x: x, z: z }, 4.2)) { bd = d; best = { x: x, z: z }; }
-    }
-    return best;
-  })();
   var WILD = (function () {
     var r = rng(5151), pts = [], hash = new Scatter(3);
     for (var gx = -96; gx <= 96; gx += 1.15) for (var gz = -96; gz <= 96; gz += 1.15) {
@@ -5800,13 +5844,19 @@
     f.fence = g; f.fenceRows = rows;
   };
 
-  // Jo's place: a Japanese garden house on the village green that grows (a side wing, an upper
-  // storey, a gallery out to a tea house) and fills its walled garden the more you train together.
-  // Her gate faces the path from the square.
-  var JO_STAGES = [[1, 'A timber house with a tiled roof'], [3, 'A stone lantern'], [5, 'Stepping stones'], [8, 'A bamboo fence and gate'], [11, 'Moss and azaleas'],
-    [15, 'A Japanese maple'], [20, 'A side wing'], [26, 'A koi pond'], [32, 'A red arched bridge'], [38, 'A raked gravel garden'],
-    [45, 'A stone water basin'], [52, 'An upper storey'], [60, 'A tea house'], [70, 'A cherry tree'], [80, 'A cloud pine and a lantern path'],
-    [92, 'A roofed gate'], [105, 'A moon-viewing deck'], [120, 'A gallery out to the tea house'], [135, 'Paper lanterns along the veranda'], [150, 'A little pagoda']];
+  // Jo's place: an English cottage on the village green, with a big walled-in garden that fills in
+  // the more you train together. Her gate faces the path from the square.
+  // The house grows (a porch, a two-storey cross wing, a side wing, rooms over it) and new garden
+  // beds keep filling the open corners of the yard until it's all garden.
+  var JO_BEDS = [[16, 'A rose bed', 'rose', -3.3, -1.0], [23, 'A lavender bed', 'lavender', 1.5, 1.4], [29, 'A tulip bed', 'tulip', -1.8, 1.1],
+    [34, 'A herb garden', 'herb', -3.3, 0.3], [41, 'A sunflower patch', 'sunflower', 1.5, 2.8], [48, 'A cutting garden', 'cutting', 2.2, -3.6],
+    [56, 'A strawberry bed', 'veg', -1.5, -3.8], [64, 'A foxglove corner', 'foxglove', -4.5, 3.5], [74, 'A peony bed', 'rose', -4.6, -2.2],
+    [86, 'A pumpkin patch', 'pumpkin', 4.7, 1.3], [98, 'A wildflower strip', 'cutting', -2.4, 3.9]];
+  var JO_STAGES = [[1, 'A thatched cottage'], [3, 'Window boxes'], [5, 'Roses round the door'], [8, 'A white picket fence and gate'], [11, 'A flagstone path'],
+    [15, 'Cottage flower borders'], [18, 'A thatched porch'], [20, 'Hollyhocks along the wall'], [26, 'A vegetable garden'], [32, 'An apple tree'], [38, 'A bench under the window'],
+    [45, 'A bird bath'], [52, 'Dormer windows in the thatch'], [60, 'A potting shed'], [70, 'A lily pond'], [75, 'A two-storey cross wing'], [80, 'Beehives and wildflowers'],
+    [92, 'The garden gazebo'], [105, 'A rose arch over the gate'], [120, 'A side wing and glasshouse'], [135, 'Lanterns along the path'], [150, 'A dovecote'],
+    [170, 'Rooms over the side wing']].concat(JO_BEDS.map(function (b) { return [b[0], b[1]]; })).sort(function (x, y) { return x[0] - y[0]; });
   var JO_PLOT = (function () {
     var end = polar(angleOf(POND.x, POND.z) + 4, Math.hypot(POND.x, POND.z) - 5.5);
     return { x: POND.x, z: POND.z, face: Math.atan2(end.x - POND.x, end.z - POND.z) };
@@ -5823,213 +5873,219 @@
       fn(o, P);
       if (!self.instant) self.pop(o, delay + 150);
     }
-    var frustum = this.geo.frustum4 || (this.geo.frustum4 = new T.CylinderGeometry(0.42, 1, 1, 4, 1));
-    var tile = this.mat('jpTile', 0), tile2 = this.mat('jpTile', 1), timber = this.mat('jpTimber'), plaster = this.mat('jpPlaster');
-    // A hip-and-gable (irimoya) roof: a deep eave, a hipped skirt and a small gable on top.
-    function roof(P, x, y, z, w, d, h, rot) {
-      var r = new T.Group(); r.position.set(x, y, z); r.rotation.y = rot || 0;
-      var parts = [
-        P(self.geo.box, tile2, w + 0.6, 0.07, d + 0.6, 0, 0.02, 0),
-        P(frustum, tile, (w + 0.5) / 1.414, h * 0.55, (d + 0.5) / 1.414, 0, h * 0.275, 0),
-        P(self.geo.gable, tile, 0.42 * (d + 0.5) / 1.7, h * 0.45 / 0.75, 0.42 * (w + 0.5) / 1.5, 0, h * 0.55, 0),
-        P(self.geo.box, timber, 0.42 * (w + 0.5) + 0.25, 0.1, 0.14, 0, h, 0)
-      ];
-      parts[1].rotation.y = Math.PI / 4; parts[2].rotation.y = Math.PI / 2;
-      // Upturned corners on the eave.
-      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c) { var t = P(self.geo.cone4, tile2, 0.12, 0.2, 0.12, c[0] * (w + 0.6) / 2, 0.1, c[1] * (d + 0.6) / 2); t.rotation.z = -c[0] * 0.5; parts.push(t); });
-      parts.forEach(function (m) { m.parent.remove(m); r.add(m); });
-      return r;
-    }
-    function shoji(P, x, y, z, w, h, rotY) {
-      var s2 = P(self.geo.box, self.mat('whitewood'), w, h, 0.04, x, y, z); s2.rotation.y = rotY || 0;
-      var nx = Math.max(1, Math.round(w / 0.28));
-      for (var i = 1; i < nx; i++) { var m = P(self.geo.box, timber, 0.025, h, 0.05, 0, y, 0); m.position.set(x + Math.cos(rotY || 0) * (-w / 2 + i * w / nx), y, z - Math.sin(rotY || 0) * (-w / 2 + i * w / nx)); m.rotation.y = rotY || 0; }
-      for (var j = 1; j < 3; j++) { var m2 = P(self.geo.box, timber, w, 0.025, 0.05, x, y - h / 2 + j * h / 3, z); m2.rotation.y = rotY || 0; }
-    }
-    function lantern(P, x, z, sz) {
-      var y = at(x, z), k = sz || 1;
-      P(self.geo.cyl6, self.mat('stone', 1), 0.22 * k, 0.1 * k, 0.22 * k, x, y + 0.05 * k, z);
-      P(self.geo.cyl6, self.mat('stone', 0), 0.08 * k, 0.45 * k, 0.08 * k, x, y + 0.32 * k, z);
-      P(self.geo.box, self.mat('stone', 1), 0.3 * k, 0.06 * k, 0.3 * k, x, y + 0.58 * k, z);
-      P(self.geo.box, self.mat('lantern'), 0.2 * k, 0.2 * k, 0.2 * k, x, y + 0.71 * k, z);
-      P(self.geo.cone6, self.mat('stone', 2), 0.3 * k, 0.2 * k, 0.3 * k, x, y + 0.91 * k, z);
-      P(self.geo.ball, self.mat('stone', 2), 0.05 * k, 0.05 * k, 0.05 * k, x, y + 1.04 * k, z);
-    }
-    var hz = -1.5; // the house sits towards the back of the plot
+    var hz = -1.3; // the cottage sits towards the back of the plot
+    var thatch = this.mat('holdRoof', 0), walls = this.mat('plaster', 0), door = this.mat('roofJo');
     stage('cottage', 1, function (o, P) {
-      // Stone footing, a raised timber floor with a veranda (engawa) round the front.
-      P(self.geo.box, self.mat('stone', 2), 3.9, 0.22, 2.5, 0, 0.11, hz);
-      P(self.geo.box, self.mat('wood'), 4.0, 0.1, 2.9, 0, 0.3, hz + 0.2);
-      // White plaster walls in a dark timber frame.
-      P(self.geo.box, plaster, 3.4, 1.15, 2.0, 0, 0.92, hz);
-      [-1.7, -0.57, 0.57, 1.7].forEach(function (x) { [-1, 1].forEach(function (sd) { P(self.geo.box, timber, 0.11, 1.2, 0.11, x, 0.92, hz + sd * 1.0); }); });
-      P(self.geo.box, timber, 3.46, 0.1, 2.06, 0, 1.45, hz);
-      P(self.geo.box, timber, 3.46, 0.08, 2.06, 0, 0.4, hz);
-      // Veranda posts carrying the eave.
-      [-1.95, -0.65, 0.65, 1.95].forEach(function (x) { P(self.geo.box, timber, 0.09, 1.2, 0.09, x, 0.92, hz + 1.55); });
-      // Sliding paper screens across the front, one standing open.
-      shoji(P, -1.15, 0.92, hz + 1.03, 1.05, 1.0);
-      shoji(P, 1.15, 0.92, hz + 1.03, 1.05, 1.0);
-      P(self.geo.box, self.mat('wpBlack'), 0.75, 1.0, 0.03, 0, 0.92, hz + 1.01);
-      shoji(P, 0.3, 0.92, hz + 1.06, 0.55, 1.0);
-      P(self.geo.box, self.mat('stone', 1), 0.8, 0.12, 0.45, 0, 0.18, hz + 1.85); // the step stone
-      o.add(roof(P, 0, 1.5, hz + 0.15, 3.9, 2.6, 1.25));
-      var chim = new T.Object3D(); chim.position.set(0.9, 2.35, hz); g.add(chim); f.roof = chim;
+      P(self.geo.box, self.mat('holdStone', 1), 2.9, 0.2, 1.9, 0, 0.1, hz);
+      P(self.geo.box, walls, 2.7, 1.25, 1.7, 0, 0.72, hz);
+      // A deep golden thatch with a chunky ridge, hanging well past the walls.
+      P(self.geo.gable, thatch, 1.9, 1.55, 1.35, 0, 1.33, hz);
+      P(self.geo.box, self.mat('holdRoof', 1), 0.42, 0.22, 2.06, 0, 2.47, hz).rotation.z = Math.PI / 4;
+      P(self.geo.box, self.mat('holdRoof', 1), 3.3, 0.14, 2.1, 0, 1.36, hz);
+      // A stone chimney at the end.
+      P(self.geo.box, self.mat('holdStone', 2), 0.42, 2.9, 0.5, 1.2, 1.45, hz - 0.2);
+      P(self.geo.box, self.mat('holdStone', 0), 0.5, 0.12, 0.58, 1.2, 2.94, hz - 0.2);
+      var chim = new T.Object3D(); chim.position.set(1.2 - 0.4, 3.0 - 0.85, hz - 0.2 + 0.3); g.add(chim); f.roof = chim;
+      // Red door, small white-framed windows.
+      P(self.geo.box, door, 0.5, 0.85, 0.05, 0, 0.55, hz + 0.86);
+      P(self.geo.ball, self.mat('gold'), 0.04, 0.04, 0.04, 0.16, 0.55, hz + 0.9);
+      [-0.85, 0.85].forEach(function (x) {
+        P(self.geo.box, self.mat('whitewood'), 0.5, 0.44, 0.04, x, 0.85, hz + 0.86);
+        P(self.geo.box, self.mat('window'), 0.4, 0.34, 0.05, x, 0.85, hz + 0.87);
+        P(self.geo.box, self.mat('whitewood'), 0.04, 0.34, 0.06, x, 0.85, hz + 0.88);
+      });
+      P(self.geo.box, self.mat('stone', 1), 0.7, 0.08, 0.35, 0, 0.04, hz + 1.05);
       f.floors = 2;
     });
-    stage('lantern', 3, function (o, P) { lantern(P, 1.5, 1.1, 1.1); });
-    stage('path', 5, function (o, P) {
-      for (var z = hz + 2.3, i = 0; z < 4.5; z += 0.6, i++) {
-        var x = Math.sin(i * 1.3) * 0.35, st = P(self.geo.cyl6, self.mat('stone', i % 3), 0.26 + (i % 2) * 0.05, 0.07, 0.22, x, at(x, z) + 0.03, z);
-        st.rotation.y = i * 0.7;
+    stage('boxes', 3, function (o, P) {
+      [-0.85, 0.85].forEach(function (x, xi) {
+        P(self.geo.box, self.mat('wood'), 0.52, 0.1, 0.14, x, 0.6, hz + 0.93);
+        for (var i = 0; i < 4; i++) P(self.geo.ball, self.mat('flag', (i + xi) % 5), 0.06, 0.06, 0.06, x - 0.18 + i * 0.12, 0.69, hz + 0.93);
+      });
+    });
+    stage('roses', 5, function (o, P) {
+      for (var i = 0; i < 11; i++) {
+        var a = i / 10 * Math.PI, x = Math.cos(a) * 0.38, y = 0.15 + Math.sin(a) * 1.0;
+        P(self.geo.blob, self.mat('houseplant', i), 0.09, 0.1, 0.06, x, y, hz + 0.9);
+        if (i % 2 === 0) P(self.geo.ball, self.mat('flag', i % 4 ? 0 : 4), 0.05, 0.05, 0.05, x, y + 0.05, hz + 0.94);
       }
     });
     stage('fence', 8, function (o, P) {
-      // Woven bamboo fence round the plot, bound with dark cord, and a simple gate.
-      var X = 5.2, Z0 = -4.4, Z1 = 4.6;
+      var X = 5.2, Z0 = -4.4, Z1 = 4.6, pick2 = self.mat('whitewood');
       function run(x0, z0, x1, z1) {
-        var len = Math.hypot(x1 - x0, z1 - z0), steps = Math.round(len / 0.13), ang = Math.atan2(x1 - x0, z1 - z0);
+        var len = Math.hypot(x1 - x0, z1 - z0), steps = Math.round(len / 0.36);
         for (var i = 0; i <= steps; i++) {
           var t = i / steps, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
-          P(self.geo.cyl6, self.mat('bamboo', i % 2), 0.045, 0.7 + (i % 3) * 0.04, 0.045, x, at(x, z) + 0.36, z);
+          if (z === Z1 && Math.abs(x) < 0.65) continue; // the gate gap
+          var y = at(x, z), pk = P(self.geo.box, pick2, 0.07, 0.5, 0.07, x, y + 0.25, z);
+          P(self.geo.cone4, pick2, 0.06, 0.1, 0.06, x, y + 0.55, z).rotation.y = Math.PI / 4;
         }
-        var mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, my = at(mx, mz);
-        [0.22, 0.55].forEach(function (ry) { P(self.geo.box, timber, 0.05, 0.05, len, mx, my + ry, mz).rotation.y = ang; });
+        // Two rails.
+        var mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, my = at(mx, mz), ang = Math.atan2(x1 - x0, z1 - z0);
+        [0.18, 0.38].forEach(function (ry) { if (z0 === Z1 && z1 === Z1) return; P(self.geo.box, pick2, 0.04, 0.05, len, mx, my + ry, mz).rotation.y = ang; });
       }
       run(-X, Z0, X, Z0); run(-X, Z0, -X, Z1); run(X, Z0, X, Z1);
-      run(-X, Z1, -0.7, Z1); run(0.7, Z1, X, Z1);
-      [-0.7, 0.7].forEach(function (x) { P(self.geo.box, timber, 0.14, 1.0, 0.14, x, at(x, Z1) + 0.5, Z1); });
-      P(self.geo.box, timber, 1.7, 0.1, 0.16, 0, at(0, Z1) + 1.0, Z1);
+      run(-X, Z1, -0.65, Z1); run(0.65, Z1, X, Z1);
+      [[-X, -0.65], [0.65, X]].forEach(function (seg) { var mx = (seg[0] + seg[1]) / 2, len = seg[1] - seg[0], my = at(mx, Z1); [0.18, 0.38].forEach(function (ry) { P(self.geo.box, pick2, len, 0.05, 0.04, mx, my + ry, Z1); }); });
+      // The gate, standing open.
+      [-0.65, 0.65].forEach(function (x) { P(self.geo.box, pick2, 0.12, 0.7, 0.12, x, at(x, Z1) + 0.35, Z1); });
+      var gate = P(self.geo.box, pick2, 0.6, 0.42, 0.04, -0.35, at(-0.6, Z1) + 0.28, Z1 + 0.3); gate.rotation.y = 1.2;
     });
-    stage('moss', 11, function (o, P) {
-      [[-1.3, 3.4], [-1.1, 0.9], [4.6, 0.4], [4.5, -1.5], [-4.6, -1.6], [0.9, 4.0]].forEach(function (m, i) {
-        var y = at(m[0], m[1]);
-        P(self.geo.blob, self.mat('moss'), 0.42, 0.16, 0.36, m[0], y + 0.04, m[1]);
-        P(self.geo.blob, self.mat('azalea', i % 2), 0.22, 0.17, 0.22, m[0] + 0.15, y + 0.17, m[1] - 0.05);
-        if (i % 2) P(self.geo.blob, self.mat('stone', 2), 0.16, 0.12, 0.14, m[0] - 0.25, y + 0.08, m[1] + 0.1);
+    stage('path', 11, function (o, P) {
+      for (var z = hz + 1.3, i = 0; z < 4.6; z += 0.55, i++) P(self.geo.box, self.mat('stone', i % 3), 0.55 + (i % 2) * 0.1, 0.05, 0.42, (i % 2 ? 0.08 : -0.06), at(0, z) + 0.03, z).rotation.y = (i % 3 - 1) * 0.12;
+    });
+    stage('borders', 15, function (o, P) {
+      [[-4.8, -0.95], [0.95, 4.8]].forEach(function (seg) {
+        for (var x = seg[0], i = 0; x <= seg[1]; x += 0.32, i++) {
+          var z = 4.1 + (i % 2) * 0.18, y = at(x, z);
+          P(self.geo.blob, self.mat('houseplant', i), 0.16, 0.14, 0.16, x, y + 0.1, z);
+          P(self.geo.ball, self.mat('flag', (i * 3) % 5), 0.06, 0.06, 0.06, x, y + 0.26, z);
+          if (i % 3 === 0) P(self.geo.ball, self.mat('plaster', 0), 0.05, 0.05, 0.05, x + 0.1, y + 0.22, z - 0.08);
+        }
       });
     });
-    stage('maple', 15, function (o, P) {
-      var x = -4.3, z = 3.7, y = at(x, z);
-      P(self.geo.cyl6, self.mat('trunk'), 0.1, 1.1, 0.1, x, y + 0.55, z).rotation.z = 0.15;
-      [[0, 1.45, 0, 0.75], [0.45, 1.25, 0.2, 0.5], [-0.4, 1.3, -0.15, 0.5], [0.1, 1.75, -0.1, 0.45]].forEach(function (c, i) { P(self.geo.blob, self.mat('maple', i % 2), c[3], c[3] * 0.65, c[3], x + c[0], y + c[1], z + c[2]); });
+    stage('hollyhocks', 20, function (o, P) {
+      [-1.25, -0.5, 0.5, 1.25].forEach(function (x, i) {
+        P(self.geo.cyl6, self.mat('houseplant', 1), 0.025, 1.1, 0.025, x, 0.55, hz + 1.0);
+        for (var k = 0; k < 5; k++) P(self.geo.ball, self.mat('flag', [0, 4, 1, 0][i]), 0.06 - k * 0.006, 0.06 - k * 0.006, 0.06, x, 0.55 + k * 0.13, hz + 1.03);
+      });
     });
-    stage('wing', 20, function (o, P) {
-      // A side wing off the left, set back, with its own veranda and roof.
-      var x = -3.0, z = hz - 0.55;
-      P(self.geo.box, self.mat('stone', 2), 2.0, 0.22, 1.9, x, 0.11, z);
-      P(self.geo.box, plaster, 1.7, 1.0, 1.5, x, 0.82, z);
-      [-0.85, 0.85].forEach(function (dx) { [-0.75, 0.75].forEach(function (dz) { P(self.geo.box, timber, 0.1, 1.05, 0.1, x + dx, 0.82, z + dz); }); });
-      P(self.geo.box, timber, 1.76, 0.09, 1.56, x, 1.3, z);
-      shoji(P, x, 0.82, z + 0.77, 1.4, 0.85);
-      o.add(roof(P, x, 1.34, z, 1.9, 1.7, 0.95));
+    stage('veg', 26, function (o, P) {
+      [[-3.4, -3.3], [-3.4, -2.2], [-2.3, -3.3]].forEach(function (bd, i) {
+        var y = at(bd[0], bd[1]);
+        P(self.geo.box, self.mat('wood'), 0.9, 0.18, 0.75, bd[0], y + 0.09, bd[1]);
+        P(self.geo.box, self.mat('soil'), 0.82, 0.04, 0.67, bd[0], y + 0.19, bd[1]);
+        for (var c = 0; c < 6; c++) P(i === 1 && c % 2 ? self.geo.ball : self.geo.blob, i === 1 && c % 2 ? self.mat('crop', 0) : self.mat('houseplant', c), 0.09, 0.08, 0.09, bd[0] - 0.27 + (c % 3) * 0.27, y + 0.26, bd[1] - 0.15 + Math.floor(c / 3) * 0.3);
+      });
     });
-    stage('pond', 26, function (o, P) {
-      var x = -2.9, z = 1.6, y = at(x, z);
-      [[0, 0, 1.05, 0.75], [0.8, 0.35, 0.65, 0.5], [-0.75, -0.1, 0.55, 0.5]].forEach(function (w) { P(self.geo.cyl, self.mat('water'), w[2], 0.04, w[3], x + w[0], y + 0.03, z + w[1]); });
-      for (var s3 = 0; s3 < 18; s3++) { var a = s3 / 18 * Math.PI * 2, sx = x + 0.1 + Math.cos(a) * 1.55, sz = z + 0.1 + Math.sin(a) * 0.95; P(self.geo.blob, self.mat('stone', s3 % 3), 0.16, 0.1, 0.13, sx, at(sx, sz) + 0.05, sz); }
-      [[0.3, 0.1, 0], [-0.4, -0.2, 1], [0.9, 0.4, 0], [-0.1, 0.3, 1]].forEach(function (k) { var m = P(self.geo.ball, self.mat('koi', k[2]), 0.1, 0.03, 0.05, x + k[0], y + 0.07, z + k[1]); m.rotation.y = k[0] * 2; });
-      [[0.4, -0.3], [-0.7, 0.3]].forEach(function (l) { P(self.geo.cyl, self.mat('houseplant', 3), 0.1, 0.015, 0.1, x + l[0], y + 0.06, z + l[1]); });
+    stage('apple', 32, function (o, P) {
+      var x = 3.5, z = 0.4, y = at(x, z);
+      P(self.geo.cyl6, self.mat('trunk'), 0.12, 1.0, 0.12, x, y + 0.5, z);
+      P(self.geo.blob, self.mat('houseplant', 0), 0.85, 0.7, 0.85, x, y + 1.35, z);
+      P(self.geo.blob, self.mat('houseplant', 2), 0.55, 0.45, 0.55, x + 0.35, y + 1.7, z - 0.2);
+      [[0.6, 1.2, 0.3], [-0.5, 1.3, 0.4], [0.2, 1.1, -0.65], [-0.3, 1.6, -0.4], [0.7, 1.5, -0.2], [0.1, 1.2, 0.75]].forEach(function (a) { P(self.geo.ball, self.mat('flag', 0), 0.07, 0.07, 0.07, x + a[0], y + a[1], z + a[2]); });
     });
-    stage('bridge', 32, function (o, P) {
-      // A little red arched bridge across the pond's waist.
-      var x = -2.5, z = 1.75, red = self.mat('wpRed'), y = at(x, z);
-      for (var i = 0; i <= 8; i++) {
-        var t = i / 8, bx = x - 0.9 + t * 1.8, by = y + 0.12 + Math.sin(t * Math.PI) * 0.35;
-        P(self.geo.box, self.mat('wood'), 0.24, 0.05, 0.6, bx, by, z).rotation.z = -Math.cos(t * Math.PI) * 0.55;
-        if (i % 2 === 0) [-0.3, 0.3].forEach(function (sd) { P(self.geo.box, red, 0.05, 0.32, 0.05, bx, by + 0.16, z + sd); });
+    stage('bench', 38, function (o, P) {
+      P(self.geo.box, self.mat('whitewood'), 0.9, 0.06, 0.3, 1.9, 0.38, hz + 1.25);
+      P(self.geo.box, self.mat('whitewood'), 0.9, 0.3, 0.05, 1.9, 0.56, hz + 1.1);
+      [1.5, 2.3].forEach(function (x) { P(self.geo.box, self.mat('whitewood'), 0.06, 0.38, 0.26, x, 0.19, hz + 1.25); });
+    });
+    stage('birdbath', 45, function (o, P) {
+      var x = -1.7, z = 3.0, y = at(x, z);
+      P(self.geo.cyl6, self.mat('stone', 0), 0.12, 0.6, 0.12, x, y + 0.3, z);
+      P(self.geo.cyl, self.mat('stone', 1), 0.32, 0.08, 0.32, x, y + 0.64, z);
+      P(self.geo.cyl, self.mat('water'), 0.26, 0.02, 0.26, x, y + 0.69, z);
+      P(self.geo.ball, self.mat('fox', 2), 0.06, 0.05, 0.08, x + 0.15, y + 0.74, z);
+    });
+    stage('dormers', 52, function (o, P) {
+      [-0.75, 0.75].forEach(function (x) {
+        P(self.geo.box, walls, 0.5, 0.45, 0.5, x, 1.85, hz + 0.55);
+        P(self.geo.gable, thatch, 0.4, 0.45, 0.42, x, 2.07, hz + 0.6);
+        P(self.geo.box, self.mat('window'), 0.26, 0.24, 0.04, x, 1.86, hz + 0.81);
+      });
+    });
+    stage('shed', 60, function (o, P) {
+      var x = 3.9, z = -3.1, y = at(x, z);
+      P(self.geo.box, self.mat('woodLight'), 1.2, 0.9, 0.9, x, y + 0.45, z);
+      P(self.geo.box, self.mat('shingle'), 1.35, 0.08, 1.05, x, y + 0.95, z).rotation.x = 0.15;
+      P(self.geo.box, self.mat('window'), 0.32, 0.26, 0.04, x - 0.25, y + 0.55, z + 0.46);
+      P(self.geo.box, self.mat('wood'), 0.32, 0.6, 0.04, x + 0.3, y + 0.32, z + 0.46);
+      for (var pp = 0; pp < 3; pp++) P(self.geo.cyl6, self.mat('brick', pp), 0.07, 0.12, 0.07, x - 0.4 + pp * 0.2, y + 0.06, z + 0.62);
+    });
+    stage('pond', 70, function (o, P) {
+      var x = -3.5, z = 1.9, y = at(x, z);
+      P(self.geo.cyl, self.mat('water'), 0.95, 0.04, 0.7, x, y + 0.03, z);
+      for (var s2 = 0; s2 < 14; s2++) { var a = s2 / 14 * Math.PI * 2; P(self.geo.box, self.mat('stone', s2 % 3), 0.22, 0.1, 0.16, x + Math.cos(a) * 1.0, y + 0.05, z + Math.sin(a) * 0.75).rotation.y = -a; }
+      [[0.3, 0.1], [-0.35, -0.2], [0.05, -0.3]].forEach(function (l) { P(self.geo.cyl, self.mat('houseplant', 3), 0.12, 0.015, 0.12, x + l[0], y + 0.06, z + l[1]); });
+      P(self.geo.ball, self.mat('plaster', 0), 0.05, 0.04, 0.05, x + 0.3, y + 0.09, z + 0.1);
+    });
+    stage('bees', 80, function (o, P) {
+      [[4.5, -1.6], [4.5, -0.9]].forEach(function (h) { var y = at(h[0], h[1]); for (var k = 0; k < 3; k++) P(self.geo.box, self.mat('whitewood'), 0.36 - k * 0.02, 0.16, 0.36 - k * 0.02, h[0], y + 0.1 + k * 0.16, h[1]); P(self.geo.cone4, self.mat('shingle'), 0.3, 0.12, 0.3, h[0], y + 0.6, h[1]).rotation.y = Math.PI / 4; });
+      for (var w = 0; w < 18; w++) { var wx = 2.4 + (w * 0.37) % 2.4, wz = -2.2 + (w * 0.61) % 1.9; P(self.geo.ball, self.mat('flag', w % 5), 0.04, 0.04, 0.04, wx, at(wx, wz) + 0.12, wz); }
+    });
+    stage('gazebo', 92, function (o, P) {
+      var x = 3.3, z = 3.0, y = at(x, z);
+      P(self.geo.cyl6, self.mat('stone', 2), 1.15, 0.15, 1.15, x, y + 0.07, z);
+      for (var gp = 0; gp < 6; gp++) { var ga = gp / 6 * Math.PI * 2; P(self.geo.cyl6, self.mat('whitewood'), 0.05, 1.2, 0.05, x + Math.cos(ga) * 1.0, y + 0.75, z + Math.sin(ga) * 1.0); }
+      P(self.geo.cone6, self.mat('roof', 3), 1.35, 0.7, 1.35, x, y + 1.7, z);
+      P(self.geo.ball, self.mat('gold'), 0.08, 0.08, 0.08, x, y + 2.08, z);
+    });
+    stage('arch', 105, function (o, P) {
+      var y = at(0, 4.6);
+      [-0.62, 0.62].forEach(function (x) { P(self.geo.box, self.mat('whitewood'), 0.06, 1.3, 0.06, x, y + 0.65, 4.6); });
+      for (var i = 0; i <= 12; i++) {
+        var a = i / 12 * Math.PI, x = Math.cos(a) * 0.62, yy = y + 1.3 + Math.sin(a) * 0.45;
+        P(self.geo.blob, self.mat('houseplant', i), 0.1, 0.1, 0.1, x, yy, 4.6);
+        if (i % 2) P(self.geo.ball, self.mat('flag', 0), 0.05, 0.05, 0.05, x, yy + 0.06, 4.66);
       }
-      [-0.31, 0.31].forEach(function (sd) { for (var k = 0; k < 8; k++) { var t0 = (k + 0.5) / 8; P(self.geo.box, red, 0.24, 0.04, 0.04, x - 0.9 + t0 * 1.8, y + 0.44 + Math.sin(t0 * Math.PI) * 0.35, z + sd).rotation.z = -Math.cos(t0 * Math.PI) * 0.55; } });
     });
-    stage('gravel', 38, function (o, P) {
-      // A dry garden: raked white gravel with three rocks and their ripples.
-      var x0 = 2.5, z0 = 2.5, y = at(x0, z0);
-      P(self.geo.box, self.mat('gravel'), 3.0, 0.04, 2.4, x0 + 0.2, y + 0.02, z0);
-      for (var r = 0; r < 10; r++) P(self.geo.box, self.mat('stone', 1), 2.9, 0.015, 0.03, x0 + 0.2, y + 0.05, z0 - 1.05 + r * 0.23);
-      [[-0.6, -0.3, 0.32], [0.5, 0.4, 0.24], [1.2, -0.5, 0.18]].forEach(function (rk) {
-        P(self.geo.blob, self.mat('rock'), rk[2] * 1.3, rk[2], rk[2], x0 + rk[0], y + rk[2] * 0.6, z0 + rk[1]);
-        for (var k = 1; k <= 2; k++) P(self.geo.torus, self.mat('stone', 1), rk[2] * (1.4 + k * 0.5), rk[2] * (1.4 + k * 0.5), 0.05, x0 + rk[0], y + 0.05, z0 + rk[1]).rotation.x = Math.PI / 2;
+    stage('wing', 120, function (o, P) {
+      P(self.geo.box, walls, 1.3, 1.0, 1.3, -1.95, 0.6, hz - 0.1);
+      P(self.geo.gable, thatch, 0.9, 1.0, 0.95, -1.95, 1.1, hz - 0.1);
+      P(self.geo.box, self.mat('window'), 0.34, 0.3, 0.04, -1.95, 0.7, hz + 0.56);
+      // The glasshouse off the far end, full of plants.
+      var x = 2.15, z = hz - 0.2;
+      P(self.geo.box, self.mat('stone', 1), 0.95, 0.12, 1.1, x, 0.06, z);
+      P(self.geo.box, self.mat('glasshouse'), 0.86, 0.6, 1.0, x, 0.42, z);
+      P(self.geo.gable, self.mat('glasshouse'), 0.55, 0.45, 0.68, x, 0.72, z).rotation.y = Math.PI / 2;
+      for (var pl = 0; pl < 6; pl++) { P(self.geo.blob, self.mat('houseplant', pl), 0.11, 0.13, 0.11, x - 0.25 + (pl % 2) * 0.5, 0.3, z - 0.35 + Math.floor(pl / 2) * 0.35); if (pl % 2) P(self.geo.ball, self.mat('flag', pl % 5), 0.04, 0.04, 0.04, x - 0.25 + (pl % 2) * 0.5, 0.44, z - 0.35 + Math.floor(pl / 2) * 0.35); }
+    });
+    stage('lanterns', 135, function (o, P) {
+      [0.6, 1.8, 3.0].forEach(function (z) { [-0.55, 0.55].forEach(function (x) { var y = at(x, z); P(self.geo.cyl6, self.mat('stoneDark'), 0.03, 0.55, 0.03, x, y + 0.27, z); P(self.geo.box, self.mat('lantern'), 0.12, 0.14, 0.12, x, y + 0.6, z); }); });
+    });
+    stage('dovecote', 150, function (o, P) {
+      var x = -4.6, z = -0.6, y = at(x, z);
+      P(self.geo.cyl6, self.mat('whitewood'), 0.05, 1.5, 0.05, x, y + 0.75, z);
+      P(self.geo.cyl6, self.mat('whitewood'), 0.25, 0.36, 0.25, x, y + 1.65, z);
+      P(self.geo.cone6, thatch, 0.34, 0.35, 0.34, x, y + 2.0, z);
+      [0, 2.1, 4.2].forEach(function (a) { P(self.geo.ball, self.mat('plaster', 0), 0.06, 0.05, 0.07, x + Math.cos(a) * 0.3, y + 1.86, z + Math.sin(a) * 0.3); });
+    });
+    stage('porch', 18, function (o, P) {
+      // A little thatched porch on two posts over the front door.
+      [-0.45, 0.45].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.08, 1.05, 0.08, x, 0.55, hz + 1.45); });
+      var pr = P(self.geo.gable, thatch, 0.75, 0.55, 0.75, 0, 1.08, hz + 1.2); pr.rotation.y = 0;
+      P(self.geo.box, self.mat('holdRoof', 1), 1.25, 0.08, 0.16, 0, 1.1, hz + 1.6);
+    });
+    stage('crosswing', 75, function (o, P) {
+      // A taller two-storey wing behind, its gable end rising over the thatch.
+      var z = hz - 1.25, x = 0.2;
+      P(self.geo.box, self.mat('holdStone', 1), 2.3, 0.2, 1.5, x, 0.1, z);
+      P(self.geo.box, walls, 2.1, 2.1, 1.3, x, 1.15, z);
+      P(self.geo.box, self.mat('wood'), 2.14, 0.08, 1.34, x, 1.15, z);
+      var cr = P(self.geo.gable, thatch, 1.5, 1.25, 1.0, x, 2.18, z); cr.rotation.y = Math.PI / 2;
+      [-0.5, 0.5].forEach(function (dx) { [0.65, 1.6].forEach(function (y) {
+        P(self.geo.box, self.mat('whitewood'), 0.4, 0.38, 0.04, x + dx, y, z - 0.67);
+        P(self.geo.box, self.mat('window'), 0.32, 0.3, 0.05, x + dx, y, z - 0.68);
+      }); });
+      [-1.06, 1.06].forEach(function (dx) { P(self.geo.box, self.mat('window'), 0.04, 0.3, 0.3, x + dx, 1.6, z); });
+    });
+    stage('upstairs', 170, function (o, P) {
+      // Rooms over the side wing, with their own dormer.
+      P(self.geo.box, walls, 1.3, 0.75, 1.3, -1.95, 1.5, hz - 0.1);
+      P(self.geo.gable, thatch, 0.95, 0.95, 1.0, -1.95, 1.85, hz - 0.1);
+      P(self.geo.box, self.mat('window'), 0.3, 0.26, 0.04, -1.95, 1.5, hz + 0.56);
+    });
+    // Garden beds, each in its own open corner of the yard.
+    JO_BEDS.forEach(function (bd, bi) {
+      stage('bed' + bi, bd[0], function (o, P) {
+        var x = bd[3], z = bd[4], y = at(x, z), kind = bd[2];
+        P(self.geo.box, kind === 'herb' || kind === 'veg' ? self.mat('wood') : self.mat('stone', bi % 3), 1.0, 0.14, 0.8, x, y + 0.07, z);
+        P(self.geo.box, self.mat('soil'), 0.9, 0.04, 0.7, x, y + 0.15, z);
+        for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) {
+          var px = x - 0.33 + c * 0.22, pz = z - 0.22 + r * 0.22, k = r * 4 + c;
+          if (kind === 'sunflower' || kind === 'foxglove') {
+            P(self.geo.cyl6, self.mat('houseplant', 1), 0.02, 0.55, 0.02, px, y + 0.44, pz);
+            P(self.geo.ball, kind === 'sunflower' ? self.mat('flag', 1) : self.mat('balloon', 3 + (k % 2) * 2), 0.07, kind === 'sunflower' ? 0.03 : 0.1, 0.07, px, y + 0.72, pz);
+          } else if (kind === 'pumpkin') {
+            if (k % 2) P(self.geo.ball, self.mat('crop', 0), 0.1, 0.08, 0.1, px, y + 0.22, pz);
+            else P(self.geo.blob, self.mat('houseplant', k), 0.09, 0.06, 0.09, px, y + 0.2, pz);
+          } else {
+            P(self.geo.blob, self.mat('houseplant', k), 0.08, kind === 'herb' ? 0.1 : 0.08, 0.08, px, y + 0.22, pz);
+            var bloom = { rose: self.mat('flag', k % 3 ? 0 : 4), lavender: self.mat('balloon', 3), tulip: self.mat('flag', k % 5), cutting: self.mat('flag', (k * 2) % 5), veg: self.mat('flag', 0) }[kind];
+            if (bloom && (kind !== 'veg' || k % 2)) P(self.geo.ball, bloom, 0.05, kind === 'lavender' ? 0.09 : 0.05, 0.05, px, y + 0.31, pz);
+          }
+        }
       });
-    });
-    stage('basin', 45, function (o, P) {
-      var x = 2.3, z = 0.5, y = at(x, z);
-      P(self.geo.cyl6, self.mat('stone', 2), 0.3, 0.3, 0.3, x, y + 0.15, z);
-      P(self.geo.cyl, self.mat('water'), 0.2, 0.02, 0.2, x, y + 0.31, z);
-      P(self.geo.cyl6, self.mat('bamboo', 0), 0.04, 0.55, 0.04, x + 0.45, y + 0.28, z);
-      P(self.geo.cyl6, self.mat('bamboo', 1), 0.035, 0.5, 0.035, x + 0.25, y + 0.5, z).rotation.z = Math.PI / 2 - 0.2;
-      P(self.geo.cyl6, self.mat('bamboo', 1), 0.02, 0.2, 0.02, x - 0.05, y + 0.47, z).rotation.x = 0.5;
-    });
-    stage('upper', 52, function (o, P) {
-      // An upper storey rising through the main roof, under a second roof of its own.
-      P(self.geo.box, plaster, 2.0, 0.85, 1.3, 0, 2.55, hz + 0.1);
-      [-1.0, 1.0].forEach(function (x) { [-0.65, 0.65].forEach(function (dz) { P(self.geo.box, timber, 0.09, 0.9, 0.09, x, 2.55, hz + 0.1 + dz); }); });
-      shoji(P, 0, 2.55, hz + 0.77, 1.6, 0.6);
-      o.add(roof(P, 0, 2.98, hz + 0.1, 2.4, 1.7, 0.95));
-      f.roof.position.set(0.5, 3.8, hz + 0.1);
-    });
-    stage('tea', 60, function (o, P) {
-      // A tea house in the back corner: small, dark timber, a pyramid roof and a round window.
-      var x = 3.8, z = -2.9, y = at(x, z);
-      P(self.geo.box, self.mat('stone', 2), 1.6, 0.18, 1.5, x, y + 0.09, z);
-      P(self.geo.box, plaster, 1.3, 0.85, 1.2, x, y + 0.6, z);
-      [-0.65, 0.65].forEach(function (dx) { [-0.6, 0.6].forEach(function (dz) { P(self.geo.box, timber, 0.08, 0.9, 0.08, x + dx, y + 0.6, z + dz); }); });
-      P(self.geo.cyl, self.mat('window'), 0.17, 0.03, 0.17, x - 0.66, y + 0.65, z).rotation.z = Math.PI / 2;
-      P(self.geo.box, timber, 1.7, 0.06, 1.6, x, y + 1.05, z);
-      P(self.geo.cone4, tile, 1.15, 0.7, 1.15, x, y + 1.42, z).rotation.y = Math.PI / 4;
-      P(self.geo.ball, self.mat('gold'), 0.06, 0.06, 0.06, x, y + 1.8, z);
-    });
-    stage('cherry', 70, function (o, P) {
-      var x = -3.4, z = -3.85, y = at(x, z);
-      P(self.geo.cyl6, self.mat('trunk'), 0.12, 1.2, 0.12, x, y + 0.6, z).rotation.z = -0.12;
-      [[0, 1.55, 0, 0.8], [0.5, 1.3, 0.3, 0.55], [-0.45, 1.4, -0.3, 0.5], [0.15, 1.9, 0.1, 0.5]].forEach(function (c, i) { P(self.geo.blob, self.mat('sakura', i % 2), c[3], c[3] * 0.7, c[3], x + c[0], y + c[1], z + c[2]); });
-      for (var pt = 0; pt < 10; pt++) { var px = x - 0.8 + (pt * 0.37) % 1.6, pz = z - 0.6 + (pt * 0.53) % 1.3; P(self.geo.box, self.mat('sakura', 1), 0.06, 0.01, 0.06, px, at(px, pz) + 0.02, pz); }
-    });
-    stage('pine', 80, function (o, P) {
-      // A cloud-pruned pine by the veranda, and little lanterns along the stepping stones.
-      var x = 2.4, z = -0.6, y = at(x, z);
-      P(self.geo.cyl6, self.mat('trunk'), 0.08, 1.0, 0.08, x, y + 0.5, z).rotation.z = 0.35;
-      [[0.2, 0.75, 0.42], [-0.1, 1.05, 0.34], [0.32, 1.32, 0.26]].forEach(function (c) { P(self.geo.blob, self.mat('pine', 0), c[2], c[2] * 0.4, c[2], x + c[0], y + c[1], z); });
-      [1.4, 2.6, 3.7].forEach(function (z2, i) { lantern(P, i % 2 ? 0.75 : -0.75, z2, 0.45); });
-    });
-    stage('gate', 92, function (o, P) {
-      // A roofed gate over the entrance.
-      var Z1 = 4.6, y = at(0, Z1);
-      [-0.75, 0.75].forEach(function (x) { P(self.geo.box, timber, 0.16, 1.5, 0.16, x, y + 0.75, Z1); });
-      P(self.geo.box, timber, 1.9, 0.12, 0.2, 0, y + 1.45, Z1);
-      var gr = P(self.geo.gable, tile, 1.4, 0.55, 0.65, 0, y + 1.52, Z1); gr.rotation.y = Math.PI / 2;
-      P(self.geo.box, timber, 1.0, 0.06, 0.06, 0, y + 1.95, Z1);
-    });
-    stage('deck', 105, function (o, P) {
-      // A moon-viewing deck out over the pond's edge.
-      var x = -3.7, z = 2.6, y = at(x, z);
-      P(self.geo.box, self.mat('wood'), 1.5, 0.08, 1.0, x, y + 0.35, z);
-      [[-0.7, -0.45], [0.7, -0.45], [-0.7, 0.45], [0.7, 0.45]].forEach(function (c) { P(self.geo.box, timber, 0.08, 0.6, 0.08, x + c[0], y + 0.3, z + c[1]); });
-      P(self.geo.box, timber, 1.5, 0.05, 0.05, x, y + 0.62, z + 0.47);
-      P(self.geo.box, timber, 0.05, 0.05, 1.0, x - 0.73, y + 0.62, z);
-    });
-    stage('gallery', 120, function (o, P) {
-      // A covered gallery from the house out to the tea house.
-      var x0 = 1.95, z0 = hz - 0.4, x1 = 3.8, z1 = -2.9, len = Math.hypot(x1 - x0, z1 - z0), ang = Math.atan2(x1 - x0, z1 - z0), mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, y = 0;
-      P(self.geo.box, self.mat('wood'), 0.8, 0.08, len, mx, y + 0.3, mz).rotation.y = ang;
-      for (var i = 0; i <= 3; i++) { var t = i / 3; [-0.38, 0.38].forEach(function (sd) { P(self.geo.box, timber, 0.07, 0.95, 0.07, x0 + (x1 - x0) * t + Math.cos(ang) * sd, y + 0.8, z0 + (z1 - z0) * t - Math.sin(ang) * sd); }); }
-      var gr = P(self.geo.gable, tile, 0.7, 0.45, len / 1.5, mx, y + 1.25, mz); gr.rotation.y = ang;
-    });
-    stage('paper', 135, function (o, P) {
-      [-1.95, -0.65, 0.65, 1.95].forEach(function (x, i) {
-        P(self.geo.cyl6, self.mat('wpBlack'), 0.01, 0.15, 0.01, x, 1.55, hz + 1.55);
-        P(self.geo.ball, i % 2 ? self.mat('lantern') : self.mat('wpRed'), 0.12, 0.17, 0.12, x, 1.35, hz + 1.55);
-      });
-    });
-    stage('pagoda', 150, function (o, P) {
-      // A little three-tiered pagoda in the far corner.
-      var x = -1.0, z = -3.8, y = at(x, z);
-      P(self.geo.box, self.mat('stone', 2), 0.8, 0.15, 0.8, x, y + 0.07, z);
-      for (var tier = 0; tier < 3; tier++) {
-        var w = 0.55 - tier * 0.1, ty = y + 0.15 + tier * 0.55;
-        P(self.geo.box, self.mat('wpRed'), w, 0.4, w, x, ty + 0.2, z);
-        P(self.geo.cone4, tile, (w + 0.45) / 1.2, 0.22, (w + 0.45) / 1.2, x, ty + 0.5, z).rotation.y = Math.PI / 4;
-      }
-      P(self.geo.cyl6, self.mat('gold'), 0.03, 0.5, 0.03, x, y + 1.95, z);
     });
   };
 
@@ -6312,7 +6368,7 @@
     if (!s.pub) {
       var g = new T.Group(), pick = 'pub';
       g.position.set(PUB.x, 0, PUB.z);
-      g.rotation.y = Math.atan2(SQUARE.x - PUB.x, SQUARE.z - PUB.z); // front faces the square
+      g.rotation.y = facingSquare(PUB); // front faces the town square
       function part(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
       part(this.geo.box, this.mat('stone', 1), 2.8, 1.1, 2.0, 0, 0.55, 0);                 // stone ground floor
       part(this.geo.box, this.mat('plaster', 0), 3.1, 1.05, 2.3, 0, 1.62, 0);              // overhanging upper floor
@@ -7079,7 +7135,7 @@
       case 'railway':
         var RW = s.rail;
         var names = RW ? RW.stations.map(function (ci) { return STATION_NAMES[ci] || 'a halt'; }) : [];
-        return { title: 'The White Pass & Yukon Route', lines: [plural(names.length, 'station') + ' open' + (names.length ? ': ' + names.join(', ') : '') + '.', 'Through four tunnels and over the trestles round the bay.', 'A new station opens at each castle when it\u2019s finished.'] };
+        return { title: 'The White Pass & Yukon Route', lines: [plural(names.length, 'station') + ' open' + (names.length ? ': ' + names.join(', ') : '') + '.', 'Through three tunnels, over the trestles and round the lighthouse.', 'A new station opens at each castle when it\u2019s finished.'] };
       case 'hike':
         var h = s.hike, peaks = h.peaks.filter(Boolean), done = peaks.filter(function (x) { return x.done; }).length;
         var cur = peaks[peaks.length - 1];
@@ -7099,7 +7155,7 @@
         var fr = s.friends[p[1]];
         if (fr.jo) {
           var jh = JO_STAGES.filter(function (st) { return fr.n >= st[0]; }).map(function (st) { return st[1].toLowerCase(); }), jn = JO_STAGES.filter(function (st) { return fr.n < st[0]; })[0];
-          return { title: p[1] + '’s cottage', lines: [plural(fr.n, 'workout') + ' together', 'An English cottage on the village green. Has: ' + jh.join(', ') + '.',
+          return { title: p[1] + '’s cottage', lines: [plural(fr.n, 'workout') + ' together', 'An English cottage on the village green, growing and filling its garden. Has: ' + jh.join(', ') + '.',
             jn ? 'Next: ' + jn[1].toLowerCase() + ' at ' + jn[0] + ' workouts.' : 'The cottage garden is complete.', tail] };
         }
         if (fr.tent) return { title: p[1] + '’s tent', lines: [plural(fr.n, 'workout') + ' together', 'The village is full, so newer friends camp at the edge.'] };
@@ -7267,7 +7323,7 @@
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
-  Town.layout = { groundClear: groundClear, groundY: groundY, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES };
+  Town.layout = { groundClear: groundClear, groundY: groundY, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES };
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
