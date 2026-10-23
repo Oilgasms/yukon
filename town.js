@@ -8411,7 +8411,9 @@
       var fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
       var right = new T.Vector3(-fwd.z, 0, fwd.x);
       var run = K.shift || (this.stick && Math.hypot(this.stick.x, this.stick.y) > 0.92);
-      var sp = (run ? 6.4 : 3.3) * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1);
+      var wired = pl.caffeine && now < pl.caffeine;
+      var sp = (run ? 6.4 : 3.3) * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1) * (wired ? 1.75 : 1);
+      if (wired && !pl.swim && Math.random() < dt * 14) this.puff(P.x, P.y + 0.02, P.z, 1, 'dust');
       var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
       if (pl.tipsy && now < pl.tipsy) { var wob = Math.sin(now / 380) * 0.55, cw = Math.cos(wob), sw = Math.sin(wob), ox = dx; dx = ox * cw - dz * sw; dz = ox * sw + dz * cw; }
       var tryMove = function (ddx, ddz) {
@@ -8437,7 +8439,7 @@
       var face = Math.atan2(dx, dz), d = face - g.rotation.y;
       while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 14);
-      pl.phase += dt * (run ? 21 : 14);
+      pl.phase += dt * (run ? 21 : 14) * (wired ? 1.6 : 1);
       if (!air && !pl.swim) pl.legs.forEach(function (l, li) { l.rotation.x = Math.sin(pl.phase + (li === 0 || li === 3 ? 0 : Math.PI)) * 0.7; });
       // A little wake behind, paddling along.
       if (pl.swim && now > (pl.wakeAt || 0)) { pl.wakeAt = now + 260; this.puff(P.x - Math.sin(g.rotation.y) * 0.3, wHere + 0.02, P.z - Math.cos(g.rotation.y) * 0.3, 2, 'ripple'); if (Math.random() < 0.5) this.sfx('paddle'); }
@@ -8532,7 +8534,9 @@
     if (pl && this.boardNear(pl)) return;
     if (pl && !pl.seat && !(pl.carry && pl.carry.kind === 'beer')) { var sq = this.seatNear(pl.g.position.x, pl.g.position.z); if (sq && Math.abs(sq.y - pl.g.position.y) < 1.2 && Math.hypot(sq.x - pl.g.position.x, sq.z - pl.g.position.z) < 1.1) { this.takeSeat(pl, sq, performance.now()); return; } }
     // Holding a pint: E is a swig. Near the pub: E orders one, whatever else is closer.
-    if (pl && pl.carry && pl.carry.kind === 'beer') { this.swig(pl); return; }
+    if (pl && pl.carry && (pl.carry.kind === 'beer' || pl.carry.kind === 'coffee')) { this.swig(pl); return; }
+    var shop = this.st.mtb && this.st.mtb.group;
+    if (pl && shop && Math.hypot(shop.position.x - pl.g.position.x, shop.position.z - pl.g.position.z) < 5) { this.getCoffee(); return; }
     if (pl && pub && Math.hypot(pub.position.x - pl.g.position.x, pub.position.z - pl.g.position.z) < 4.5) { this.getBeer(); return; }
     if (this.near && this.onInteract) { this.onInteract(this.near); return; }
     // Nothing to look at: have a little chitter to yourself.
@@ -8954,6 +8958,16 @@
   // Hold the find in its mouth; sit still for a bit and it gets eaten (washed first, by water).
   Town.prototype.carryItem = function (pl, kind) {
     if (pl.carry) pl.mouth.remove(pl.carry.m);
+    if (kind === 'coffee') {
+      // A takeaway cup: white, a brown sleeve, a lid, steaming.
+      var cup = new T.Group(); pl.mouth.add(cup); cup.position.set(0, -0.06, 0.04); cup.scale.setScalar(1.6);
+      this.part(cup, this.geo.cyl, this.mat('swan', 0), 0.045, 0.12, 0.045, 0, 0, 0);
+      this.part(cup, this.geo.cyl, this.mat('woodLight'), 0.048, 0.045, 0.048, 0, -0.005, 0);
+      this.part(cup, this.geo.cyl, this.mat('swan', 2), 0.05, 0.015, 0.05, 0, 0.065, 0);
+      var lip = new T.Object3D(); lip.position.set(0, 0.08, 0); cup.add(lip);
+      pl.carry = { m: cup, eat: 0, kind: 'coffee', sips: 0, steam: lip };
+      return;
+    }
     if (kind === 'candy') {
       var cd = new T.Group(); pl.mouth.add(cd);
       this.part(cd, this.geo.box, this.mat('flag', Math.floor(Math.random() * 5)), 0.08, 0.05, 0.05, 0, 0, 0);
@@ -8976,8 +8990,25 @@
   };
   Town.prototype.stepCarry = function (pl, dt, now, moving) {
     var c = pl.carry;
+    if (pl.caffeine && now < pl.caffeine && now > (pl.zoomAt || 0)) { pl.zoomAt = now + 7000 + Math.random() * 6000; this.say(['ZOOM', 'go go go', 'I can hear colours', 'gotta go fast', 'wheeee'][Math.floor(Math.random() * 5)], pl.g, 0.9, 1.0); }
     if (pl.tipsy && now < pl.tipsy && now > (pl.hicAt || 0)) { pl.hicAt = now + 5000 + Math.random() * 6000; this.say('*hic*', pl.g, 0.9, 0.9); }
     if (!c) return;
+    if (c.kind === 'coffee') {
+      // Always steaming.
+      if (now > (c.steamAt || 0)) { c.steamAt = now + 220; var sw = new T.Vector3(); c.steam.getWorldPosition(sw); this.puff(sw.x, sw.y, sw.z, 1, 'smoke', 0.01); }
+      pl.sipping = false;
+      var forcedC = c.forced && now < c.forced;
+      if (!forcedC && (moving || pl.swim || pl.dig || (pl.idle || 0) < 0.8)) return;
+      c.eat += dt;
+      pl.sipping = c.eat % 1.6 > 1.0;
+      if (pl.sipping && !c.glugged) { c.glugged = true; c.sips++; this.sfx('glug'); this.say(['*sip*', 'ahh', 'hot hot hot'][Math.min(2, c.sips - 1)], pl.g, 1.15, 0.8); }
+      if (!pl.sipping) c.glugged = false;
+      if (c.sips >= 3 && !pl.sipping) {
+        pl.mouth.remove(c.m); pl.carry = null; pl.caffeine = now + 60000;
+        this.say('CAFFEINE', pl.g, 1.0, 1.2); this.sfx('found');
+      }
+      return;
+    }
     if (c.kind === 'beer') {
       // Sit down with it and it goes down in big glugs; then the hiccups.
       pl.sipping = false;
@@ -9060,8 +9091,20 @@
   };
   Town.prototype.swig = function (pl) {
     var c = pl.carry;
-    if (!c || c.kind !== 'beer') return;
+    if (!c || (c.kind !== 'beer' && c.kind !== 'coffee')) return;
     c.eat = 1.1; c.glugged = false; pl.idle = Math.max(pl.idle || 0, 1.6); c.forced = performance.now() + 700;
+  };
+  // A coffee from the bike shop: a minute of going very fast.
+  Town.prototype.getCoffee = function () {
+    var pl = this.player;
+    if (!pl) return false;
+    this.carryItem(pl, 'coffee');
+    this.say(['flat white, extra shot', 'one oat latte please', 'double espresso. make it a triple'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.6);
+    var shop = this.st.mtb.group, self = this, spot = new T.Object3D(); spot.position.copy(shop.position); spot.position.y += 2.4; this.scene.add(spot);
+    setTimeout(function () { self.say(['coming right up', 'here you go, speedy', 'that\u2019ll be one acorn'][Math.floor(Math.random() * 3)], spot, 0, 1.6); }, 700);
+    setTimeout(function () { self.scene.remove(spot); }, 3000);
+    this.sfx('found');
+    return true;
   };
   // Up to the bar for a pint.
   Town.prototype.getBeer = function () {
