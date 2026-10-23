@@ -27,7 +27,8 @@
   }
   var mcp = {
     callTool: function (server, tool, input) {
-      if (server === 'Strava') return file('data/strava.json', 'json').then(function (acts) { return { payload: { activities: acts, has_next_page: false } }; });
+      // Until Strava is connected there's no file yet: show no activities rather than an error.
+      if (server === 'Strava') return file('data/strava.json', 'json').catch(function () { return []; }).then(function (acts) { return { payload: { activities: acts, has_next_page: false } }; });
       var path = SHEETS[input && input.fileId];
       if (!path) return Promise.reject(new Error('No published copy of that file'));
       return file(path).then(function (buf) { return { payload: { content: base64(buf) } }; });
