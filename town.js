@@ -8273,6 +8273,20 @@
   // bucketed into a grid. Rebuilt every few seconds while things are still being built.
   Town.prototype.buildSolids = function () {
     var grid = {}, list = [], geoBox = this.geo.box, climb = {};
+    // The mountains (the ski hill and the hiking peaks) are ground you walk up, not scenery to
+    // walk through.
+    function ground(m) {
+      for (var q = m; q; q = q.parent) if (!q.visible) return;
+      m.updateWorldMatrix(true, false);
+      // Their shapes are raised after they're made: refresh the bounds the ray test relies on.
+      m.geometry.computeBoundingSphere(); m.geometry.computeBoundingBox();
+      var b = new T.Box3().setFromObject(m);
+      if (!isFinite(b.min.x)) return;
+      var co = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z, y0: b.min.y, y1: b.max.y, m: m };
+      for (var cx = Math.floor(co.x0 / 4); cx <= Math.floor(co.x1 / 4); cx++) for (var cz = Math.floor(co.z0 / 4); cz <= Math.floor(co.z1 / 4); cz++) (climb[cx + ',' + cz] = climb[cx + ',' + cz] || []).push(co);
+    }
+    if (this.snowMtn) ground(this.snowMtn);
+    this.picks.forEach(function (m) { if (/^hike/.test(m.userData.pick || '') && !m.isInstancedMesh && m.geometry && m.geometry.attributes.position.count > 200) ground(m); });
     this.picks.forEach(function (m) {
       var k = m.userData.pick;
       if (!k || SOLID_SKIP.test(k)) return;
@@ -8999,7 +9013,9 @@
       return true;
     }
     if (L && L.chairs.length && L.towers.length > 1) {
-      var bottom = L.towers[0];
+      // The towers are stored relative to the ski hill: find the bottom station on the map.
+      L.group.updateWorldMatrix(true, false);
+      var bottom = L.group.localToWorld(L.towers[0].clone());
       if (Math.hypot(bottom.x - P.x, bottom.z - P.z) < 3.5) {
         // The next chair heading up.
         var ch = L.chairs.slice().sort(function (a, b) { return (a.userData.u || 0) - (b.userData.u || 0); }).filter(function (c) { return (c.userData.u || 0) < 0.45; })[0];
@@ -9017,8 +9033,8 @@
       if (now > (Rd.cheer || 0)) { Rd.cheer = now + 9000 + Math.random() * 9000; if (Rd.t > 3) this.say(['wheee!', 'choo choo', 'what a view', 'tickets please?', 'next stop: Skagway'][Math.floor(Math.random() * 5)], pl.g, 1.0, 1.5); }
     } else {
       o.getWorldPosition(wp); wp.y -= 0.43;
-      var L = this.st.snow.lift, top = L.towers[L.towers.length - 1];
-      pl.g.rotation.y = Math.atan2(top.x - L.towers[0].x, top.z - L.towers[0].z);
+      var L = this.st.snow.lift, top = L.group.localToWorld(L.towers[L.towers.length - 1].clone()), bot = L.group.localToWorld(L.towers[0].clone());
+      pl.g.rotation.y = Math.atan2(top.x - bot.x, top.z - bot.z);
       // Off at the top.
       if ((o.userData.u || 0) > 0.48) {
         var a = pl.g.rotation.y;
