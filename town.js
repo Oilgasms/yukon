@@ -489,7 +489,8 @@
   pad(PUB, 3, 4.4); pad(SQUARE, 3.6, 5.2); pad(STATUE, 1.5, 2.6); pad(POND, 7.6, 11); // Jo's whole garden, fence and all, sits level
   // Level spots for the sauna, the changing hut and the bathhouse down at the water's level, with the
   // shore easing up behind them.
-  [[-4.2, -3.2, 2.0, 4.2], [-3.4, -7.6, 1.5, 3.8], [0, -4.6, 2.9, 5.4]].forEach(function (b) { var w = swimWorld(b[0], b[1]); PADS.push({ x: w.x, z: w.z, rIn: b[2], rOut: b[3], h: LAKE.y + 0.55 }); }); // at the lake's level, like the dock pad(OFFICE, 4.6, 6.2);
+  [[-4.2, -3.2, 2.0, 4.2], [-3.4, -7.6, 1.5, 3.8], [0, -4.6, 2.9, 5.4]].forEach(function (b) { var w = swimWorld(b[0], b[1]); PADS.push({ x: w.x, z: w.z, rIn: b[2], rOut: b[3], h: LAKE.y + 0.55 }); }); // at the lake's level, like the dock
+  pad(OFFICE, 6.0, 9.0); // wide enough for the institute at full growth: wings, rear hall, lawns and railings
   pad(DOG_PEN.c, 4.3, 5.8);
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
@@ -638,12 +639,19 @@
     var xs = seg.map(function (p) { return p.x; }), zs = seg.map(function (p) { return p.z; });
     return { pts: seg, y0: y0, y1: y1, box: [Math.min.apply(null, xs) - 5, Math.max.apply(null, xs) + 5, Math.min.apply(null, zs) - 5, Math.max.apply(null, zs) + 5] };
   })();
+  // Each extra castle's road home, from the ring road to its gate (laid when the castle starts).
+  var CASTLE_ROADS = CASTLE_SITES.map(function (site, ci) {
+    if (!ci) return null;
+    var gp = polar(angleOf(-site.x, -site.z), 13.8);
+    return trail(polar(angleOf(site.x, site.z), RING_ROAD), { x: site.x + gp.x, z: site.z + gp.z }, 3);
+  });
   FOREST = FOREST.filter(function (p) { return !nearPath(p.x, p.z, 1.3); });
   FOREST = FOREST.filter(function (p) { return !LANE.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 1.6; }); });
   FOREST.hash = new Scatter(4); FOREST.forEach(function (p) { FOREST.hash.add(p); });
   function nearPath(x, z, dist) {
     for (var i = 0; i < PATHS.length; i++) for (var k = 0; k < PATHS[i].pts.length; k += 2) if (Math.hypot(PATHS[i].pts[k].x - x, PATHS[i].pts[k].z - z) < dist) return true;
     for (i = 0; i < STREETS.length; i++) for (k = 0; k < STREETS[i].length; k += 2) if (Math.hypot(STREETS[i][k].x - x, STREETS[i][k].z - z) < dist) return true;
+    for (i = 1; i < CASTLE_ROADS.length; i++) for (k = 0; k < CASTLE_ROADS[i].length; k += 2) if (Math.hypot(CASTLE_ROADS[i][k].x - x, CASTLE_ROADS[i][k].z - z) < dist + 0.4) return true;
     return false;
   }
 
@@ -1587,8 +1595,7 @@
     var gate = angleOf(-site.x, -site.z);
     C = this.st.castles[ci] = { ci: ci, site: site, group: g, style: style, gate: gate, lifts: 0, done: {}, towers: this.makeTowers(g, ':' + ci, style), name: CASTLE_NAMES[ci] };
     // The road home, from the ring road to this castle's gate.
-    var gp = polar(gate, 13.8), gateP = { x: site.x + gp.x, z: site.z + gp.z };
-    this.layPath({ kind: 'road', pts: trail(polar(angleOf(site.x, site.z), RING_ROAD), gateP, 3) }, delay);
+    this.layPath({ kind: 'road', pts: CASTLE_ROADS[ci] }, delay);
     this.pop(g, delay);
     return C;
   };
@@ -1680,7 +1687,8 @@
       [-1, 1].forEach(function (side) {
         var limit = 27;
         // Leave the gate road clear.
-        if (angleDiff(def.angle + side * limit, gateAngle) < angleDiff(def.angle, gateAngle)) limit = Math.min(limit, angleDiff(def.angle, gateAngle) - 10);
+        var toGate = ((gateAngle - def.angle) * side % 360 + 540) % 360 - 180; // degrees to the gate, going this way
+        if (toGate > 0 && toGate < limit + 10) limit = toGate - 10;
         var nb = Math.max(0, Math.floor((limit - start - 4) / 6.5));
         if (nb < 1) return;
         for (var i = 0; i < nb; i++) steps.push({ type: 'block', row: row, side: side, i: i, nb: nb, R: R, a: def.angle + side * (start + i * 6.5 + 3.25), mid: def.angle + side * (start + nb * 6.5 / 2) });
@@ -1708,6 +1716,10 @@
       g.rotation.y = a + Math.PI / 2;
       this.part(g, this.geo.box, this.smat(S, 'stone', (st.i + st.row) % 3), len, 1.3, 1.6, 0, 0.65, 0, pick);
       this.part(g, this.geo.box, this.mat('window'), 0.28, 0.4, 0.05, 0, 0.75, -0.81, pick);
+      // A flower box under every window, and a door into every other bay.
+      this.part(g, this.geo.box, this.mat('wood'), 0.36, 0.08, 0.1, 0, 0.5, -0.86, pick);
+      for (var fb = 0; fb < 3; fb++) this.part(g, this.geo.ball, this.mat('flag', fb + st.i), 0.08, 0.08, 0.08, -0.1 + fb * 0.1, 0.57, -0.87, pick);
+      if (st.i % 2 === 0) { this.part(g, this.geo.box, this.mat('wood'), 0.26, 0.5, 0.04, len * 0.3, 0.25, -0.81, pick); this.part(g, this.geo.ball, this.mat('lantern'), 0.06, 0.06, 0.06, len * 0.3 + 0.2, 0.62, -0.85, pick); }
       this.part(g, this.geo.box, this.smat(S, 'stoneDark'), len * 1.02, 0.1, 1.66, 0, 1.3, 0, pick);
       parent.add(g);
       this.animDrop(g, 0, delay);
@@ -1870,8 +1882,12 @@
         self.part(g, self.geo.cone, self.mat('roof', 0), 0.65, 0.9, 0.65, s * 1.0, 3.05, 0.2, 'castle');
       });
       self.part(g, self.geo.box, self.mat('stone', 1), 1.6, 0.8, 0.9, 0, 2.0, 0.2, 'castle');
-      self.part(g, self.geo.box, self.mat('wood'), 0.9, 1.6, 0.1, 0, 0.8, 0.62, 'castle');
-      for (var i = 0; i < 4; i++) self.part(g, self.geo.box, self.mat('stoneDark'), 0.05, 1.5, 0.12, -0.3 + i * 0.2, 0.85, 0.68, 'castle');
+      // The doors stand open, swung back against the passage walls.
+      self.part(g, self.geo.box, self.mat('stoneDark'), 0.9, 1.6, 0.05, 0, 0.8, 0.12, 'castle');
+      [-1, 1].forEach(function (s) {
+        self.part(g, self.geo.box, self.mat('wood'), 0.08, 1.6, 0.45, s * 0.42, 0.8, 0.4, 'castle');
+        for (var i = 0; i < 2; i++) self.part(g, self.geo.box, self.mat('stoneDark'), 0.1, 1.5, 0.04, s * 0.42, 0.85, 0.25 + i * 0.3, 'castle');
+      });
     } else if (kind === 'banners') {
       this.wallsDirty = true;
       return;
@@ -1891,6 +1907,7 @@
         var w = this.part(g, this.geo.box, this.mat('stone', 1), len, 1.3, 0.45, (p0.x + p1.x) / 2, 0.65, (p0.z + p1.z) / 2, 'castle');
         w.rotation.y = -Math.atan2(dz, dx);
       }
+      this.castleCozy(g, GATE_ANGLE, 7.8, null, 'castle');
     } else if (kind === 'spire') {
       var keep = this.st.towers.full;
       var sp = this.part(keep.roof, this.geo.cone, this.mat('gold'), 0.35, 2.4, 0.35, 0, 2.6, 0, 'castle');
@@ -1985,12 +2002,15 @@
         });
         P(self.geo.box, M('stone', 1), 2.4, 1.2, 1.2, 0, 3.4, 0, g);
         P(self.geo.box, M('stoneDark'), 2.5, 0.15, 1.3, 0, 4.05, 0, g);
-        P(self.geo.box, self.mat('silver'), 1.5, 2.7, 0.15, 0, 1.35, 0.35, g);
-        for (var i2 = 0; i2 < 3; i2++) P(self.geo.box, M('accent'), 0.06, 2.5, 0.05, -0.45 + i2 * 0.45, 1.3, 0.45, g);
+        // The silver doors stand open, swung in against the gate towers.
+        [-1, 1].forEach(function (sd) {
+          P(self.geo.box, self.mat('silver'), 0.15, 2.7, 0.75, sd * 0.62, 1.35, -0.4, g);
+          P(self.geo.box, M('accent'), 0.05, 2.5, 0.06, sd * 0.53, 1.3, -0.4, g);
+        });
         P(self.geo.ball, M('accent'), 0.3, 0.3, 0.08, 0, 3.4, 0.62, g);
       } else if (K === 'hold') {
         [-1.3, 1.3].forEach(function (x) { P(self.geo.cyl6, self.mat('wood'), 0.28, 3.0, 0.28, x, 1.5, 0, g); });
-        P(self.geo.box, self.mat('wood'), 1.5, 2.2, 0.15, 0, 1.1, 0.1, g);
+        [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('wood'), 0.15, 2.2, 0.75, sd * 0.94, 1.1, -0.28, g); }); // swung open
         P(self.geo.gable, M('roof', 0), 1.8, 1.2, 0.9, 0, 3.0, 0, g);
         // Crossed gable boards with carved horse heads.
         [-1, 1].forEach(function (sd) {
@@ -1998,14 +2018,20 @@
           P(self.geo.box, M('accent'), 0.3, 0.18, 0.1, sd * 0.05, 4.4, 0.7, g);
         });
       } else if (K === 'keep') {
-        P(self.geo.box, M('stone', 0), 4.4, 4.2, 1.8, 0, 2.1, 0, g);
-        P(self.geo.box, M('stoneDark'), 1.9, 2.9, 0.1, 0, 1.45, 0.91, g);
+        // A gatehouse of granite with a passage through it; the stone doors stand open inside.
+        [-1, 1].forEach(function (sd) {
+          P(self.geo.box, M('stone', 0), 1.25, 4.2, 1.8, sd * 1.575, 2.1, 0, g);
+          P(self.geo.box, M('stoneDark'), 0.18, 2.85, 0.9, sd * 0.86, 1.43, 0.45, g);
+          P(self.geo.box, M('accent'), 0.04, 0.06, 0.7, sd * 0.76, 2.2, 0.45, g);
+        });
+        P(self.geo.box, M('stone', 0), 1.9, 1.3, 1.8, 0, 3.55, 0, g);
+        P(self.geo.box, M('stoneDark'), 1.9, 0.05, 1.8, 0, 2.88, 0, g);
         P(self.geo.box, M('stone', 2), 2.5, 0.35, 0.2, 0, 3.1, 0.95, g);
         for (var r2 = 0; r2 < 5; r2++) P(self.geo.box, M('accent'), 0.06, 0.4, 0.04, -0.6 + r2 * 0.3, 3.1, 1.06, g);
-        P(self.geo.box, M('accent'), 1.7, 0.06, 0.04, 0, 2.2, 0.97, g);
         for (var m2 = 0; m2 < 6; m2++) P(self.geo.box, M('roof', 0), 0.45, 0.45, 1.9, -1.95 + m2 * 0.78, 4.4, 0, g);
       } else {
         var ring = P(self.geo.torus, M('stone', 0), 1.7, 1.7, 2.2, 0, 1.8, 0, g);
+        ring.userData.passable = true; // you walk through the middle of the moon
         P(self.geo.box, M('stone', 1), 3.8, 0.15, 0.5, 0, 0.07, 0, g);
         for (var v = 0; v < 9; v++) { var va = v / 8 * Math.PI; P(self.geo.blob, self.mat('hedge'), 0.2, 0.2, 0.2, Math.cos(va) * 1.75, 1.8 + Math.sin(va) * 1.75, 0.2, g); }
         P(self.geo.ball, self.mat('lantern'), 0.16, 0.16, 0.16, 0, 3.75, 0.1, g);
@@ -2172,8 +2198,70 @@
       P(self.geo.cone, M('accent'), 0.1, 0.6, 0.1, 0, 3.1, 0, pv);
       P(self.geo.ball, self.mat('lantern'), 0.15, 0.15, 0.15, 0, 1.4, 0, pv);
     }
+    if (kind === 'gate') this.castleCozy(o, C.gate, 6.4, S, pick);
     C.group.add(o);
     this.pop(o, delay);
+  };
+  // Life inside the walls, once a castle has its gate: a cobbled lane in from the gate under
+  // lanterns and bunting, a well, a market stall, benches and a pair of courtyard trees.
+  // R is the radius of the open ring between the keep and the halls.
+  Town.prototype.castleCozy = function (o, gate, R, S, pick) {
+    var self = this;
+    function P(geo, mat, sx, sy, sz, x, y, z, parent) { return self.part(parent || o, geo, mat, sx, sy, sz, x, y, z, pick); }
+    // A group at an angle off the gate and a radius, turned so its +z faces the keep.
+    function spot(off, r) { var g = new T.Group(), q = polar(gate + off, r), a = (gate + off) * D2R; g.position.set(q.x, 0, q.z); g.rotation.y = Math.atan2(-Math.cos(a), Math.sin(a)); o.add(g); return g; }
+    // The lane: local z runs from the gate (z = 0) in toward the keep.
+    var lane = spot(0, 12.9), len = 12.9 - (R - 1.2);
+    P(self.geo.box, self.smat(S, 'stone', 2), 1.7, 0.05, len, 0, 0.03, len / 2, lane);
+    for (var c = 0; c < 18; c++) P(self.geo.box, self.smat(S, 'stoneDark'), 0.3, 0.06, 0.26, ((c * 7) % 5 - 2) * 0.32, 0.04, 0.3 + c * len / 18, lane).rotation.y = c * 0.7;
+    [1.6, 5.0].forEach(function (z, zi) {
+      [-1.25, 1.25].forEach(function (x) {
+        P(self.geo.cyl6, self.mat('wood'), 0.09, 1.5, 0.09, x, 0.75, z, lane);
+        P(self.geo.box, self.mat('wood'), 0.32, 0.05, 0.05, x * 0.9, 1.45, z, lane);
+        P(self.geo.box, self.mat('lantern'), 0.16, 0.2, 0.16, x * 0.8, 1.3, z, lane);
+        P(self.geo.cyl, self.mat('brick', 1), 0.16, 0.22, 0.16, x, 0.11, z + 0.3, lane);
+        for (var f = 0; f < 3; f++) P(self.geo.ball, self.mat('flag', f + zi + (x > 0 ? 2 : 0)), 0.12, 0.12, 0.12, x + (f - 1) * 0.09, 0.28, z + 0.3 + (f % 2) * 0.06, lane);
+      });
+      // Bunting strung across the lane between the lantern posts.
+      for (var b = 0; b < 9; b++) {
+        var bx = -1.15 + b * 0.2875, sag = 1.45 - Math.sin(b / 8 * Math.PI) * 0.22;
+        P(self.geo.cone4, self.mat('flag', b), 0.12, 0.18, 0.03, bx, sag - 0.1, z, lane).rotation.x = Math.PI;
+      }
+    });
+    // The well.
+    var w = spot(125, R + 0.2);
+    P(self.geo.cyl, self.smat(S, 'stone', 1), 0.45, 0.55, 0.45, 0, 0.28, 0, w);
+    P(self.geo.cyl, self.mat('water'), 0.36, 0.04, 0.36, 0, 0.56, 0, w);
+    [-0.4, 0.4].forEach(function (x) { P(self.geo.box, self.mat('wood'), 0.08, 1.2, 0.08, x, 0.9, 0, w); });
+    P(self.geo.gable, self.smat(S, 'roof', 1), 1.1, 0.45, 0.7, 0, 1.45, 0, w);
+    P(self.geo.cyl6, self.mat('wood'), 0.06, 0.8, 0.06, 0, 1.25, 0, w).rotation.z = Math.PI / 2;
+    P(self.geo.cyl, self.mat('wood'), 0.08, 0.18, 0.08, 0, 0.95, 0, w);
+    // A market stall under a striped awning, with crates of produce and barrels.
+    var m = spot(-125, R + 0.3);
+    P(self.geo.box, self.mat('wood'), 1.3, 0.08, 0.55, 0, 0.6, 0, m);
+    [[-0.6, -0.22], [0.6, -0.22], [-0.6, 0.22], [0.6, 0.22]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.06, 0.6, 0.06, l[0], 0.3, l[1], m); });
+    [-0.62, 0.62].forEach(function (x) { P(self.geo.box, self.mat('wood'), 0.06, 1.5, 0.06, x, 0.75, -0.3, m); });
+    for (var sp = 0; sp < 5; sp++) P(self.geo.box, self.mat('canvas', sp % 2), 0.27, 0.04, 0.8, -0.54 + sp * 0.27, 1.4, 0.05, m).rotation.x = -0.3;
+    for (var cr = 0; cr < 3; cr++) {
+      P(self.geo.box, self.mat('woodLight'), 0.34, 0.14, 0.3, -0.4 + cr * 0.4, 0.71, 0, m);
+      for (var fr = 0; fr < 4; fr++) P(self.geo.ball, self.mat('flag', cr === 1 ? 4 : cr * 3), 0.09, 0.09, 0.09, -0.48 + cr * 0.4 + (fr % 2) * 0.14, 0.8, -0.06 + Math.floor(fr / 2) * 0.12, m);
+    }
+    [-1.0, 1.0].forEach(function (x) { P(self.geo.cyl, self.mat('wood'), 0.17, 0.45, 0.17, x, 0.22, 0.05, m); });
+    // Benches facing the keep, and two courtyard trees.
+    [-40, 40].forEach(function (off) {
+      var bg = spot(off, R - 0.3);
+      P(self.geo.box, self.mat('wood'), 0.9, 0.06, 0.3, 0, 0.32, 0, bg);
+      P(self.geo.box, self.mat('wood'), 0.9, 0.3, 0.05, 0, 0.55, -0.15, bg);
+      [-0.38, 0.38].forEach(function (x) { P(self.geo.box, self.mat('wood'), 0.06, 0.32, 0.26, x, 0.16, 0, bg); });
+    });
+    [-160, 160].forEach(function (off, ti) {
+      var tg = spot(off, R);
+      P(self.geo.cyl, self.smat(S, 'stone', 2), 0.45, 0.25, 0.45, 0, 0.12, 0, tg);
+      P(self.geo.cyl6, self.mat('trunk'), 0.16, 1.0, 0.16, 0, 0.7, 0, tg);
+      P(self.geo.blob, self.mat('hedge'), 0.75, 0.65, 0.75, 0, 1.45, 0, tg);
+      P(self.geo.blob, self.mat('hedge', 1), 0.5, 0.45, 0.5, 0.25, 1.85, 0.1, tg);
+      for (var bl = 0; bl < 5; bl++) P(self.geo.ball, self.mat('flag', ti ? 0 : 1), 0.08, 0.08, 0.08, Math.cos(bl * 1.3) * 0.62, 1.35 + (bl % 3) * 0.2, Math.sin(bl * 1.3) * 0.62, tg);
+    });
   };
 
 
@@ -7528,10 +7616,10 @@
   // Footprints of everything solid: the ground-level parts of buildings, walls, trunks and so on,
   // bucketed into a grid. Rebuilt every few seconds while things are still being built.
   Town.prototype.buildSolids = function () {
-    var grid = {}, list = [];
+    var grid = {}, list = [], geoBox = this.geo.box;
     this.picks.forEach(function (m) {
       var k = m.userData.pick;
-      if (!k || SOLID_SKIP.test(k)) return;
+      if (!k || SOLID_SKIP.test(k) || m.userData.passable) return;
       for (var q = m; q; q = q.parent) if (!q.visible && !q.userData.inBatch) return;
       m.updateWorldMatrix(true, false);
       var b = new T.Box3().setFromObject(m);
@@ -7539,6 +7627,16 @@
       var gy = groundY((b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2);
       if (b.min.y > gy + 0.9) return; // roofs, canopies, things up in the air
       var o = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z, k: k };
+      // An upright box turned at an angle (a stretch of wall, a door): test its real footprint,
+      // not the square around it, or every diagonal wall would block its gate.
+      var gp = m.geometry.parameters;
+      if (m.geometry.type === 'CylinderGeometry' && gp && Math.abs(m.matrixWorld.elements[4]) + Math.abs(m.matrixWorld.elements[6]) < 1e-3) {
+        var ce = m.matrixWorld.elements;
+        o.circ = { cx: ce[12], cz: ce[14], r: Math.max(gp.radiusTop, gp.radiusBottom) * Math.max(Math.hypot(ce[0], ce[2]), Math.hypot(ce[8], ce[10])) };
+      } else if (m.geometry === geoBox) {
+        var e = m.matrixWorld.elements, ux = e[0] / 2, uz = e[2] / 2, vx = e[8] / 2, vz = e[10] / 2;
+        if (Math.abs(e[4]) + Math.abs(e[6]) < 1e-3 && Math.abs(ux * vx + uz * vz) < 1e-4) o.obb = { cx: e[12], cz: e[14], ux: ux, uz: uz, vx: vx, vz: vz, uu: ux * ux + uz * uz, vv: vx * vx + vz * vz };
+      }
       list.push(o);
       for (var gx = Math.floor(o.x0 / 4); gx <= Math.floor(o.x1 / 4); gx++) for (var gz = Math.floor(o.z0 / 4); gz <= Math.floor(o.z1 / 4); gz++) (grid[gx + ',' + gz] = grid[gx + ',' + gz] || []).push(o);
     });
@@ -7559,7 +7657,14 @@
     // The river: only on a bridge (a path, road or the commuter lane crossing it).
     if (riverDist(x, z) < RIVER_HALF + 0.2 && !nearPath(x, z, 1.1) && !LANE.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 0.9; })) return false;
     var cell = this.solids && this.solids.grid[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
-    if (cell) for (var i = 0; i < cell.length; i++) { var o = cell[i]; if (x > o.x0 - r && x < o.x1 + r && z > o.z0 - r && z < o.z1 + r) return false; }
+    if (cell) for (var i = 0; i < cell.length; i++) {
+      var o = cell[i];
+      if (!(x > o.x0 - r && x < o.x1 + r && z > o.z0 - r && z < o.z1 + r)) continue;
+      if (o.circ) { if (Math.hypot(x - o.circ.cx, z - o.circ.cz) < o.circ.r + r) return false; continue; }
+      if (!o.obb) return false;
+      var B = o.obb, dx = x - B.cx, dz = z - B.cz, s = (dx * B.ux + dz * B.uz) / B.uu, t = (dx * B.vx + dz * B.vz) / B.vv;
+      if (Math.abs(s) < 1 + r / Math.sqrt(B.uu) && Math.abs(t) < 1 + r / Math.sqrt(B.vv)) return false;
+    }
     return true;
   };
   Town.prototype.stepPlayer = function (dt, now) {
@@ -7644,7 +7749,7 @@
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
-  Town.layout = { groundClear: groundClear, groundY: groundY, landY: landY, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES };
+  Town.layout = { groundClear: groundClear, groundY: groundY, landY: landY, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS };
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
