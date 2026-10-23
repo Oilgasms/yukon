@@ -289,6 +289,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn" id="recenter" type="button">Recenter</button>
       <button class="btn" id="pixel" type="button" aria-pressed="true">Pixel</button>
       <button class="btn" id="motion" type="button" aria-pressed="true">Motion</button>
+      <button class="btn" id="sound" type="button" aria-pressed="false">Sound: off</button>
     </div>
     <div class="caption" id="caption">&nbsp;</div>
     <div class="phases" id="phases"></div>
@@ -328,7 +329,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v66';
+  var BUILD = 'v67';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -497,6 +498,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     if (key === 'library' && town.st.library.books.length) return openShelf();
     if (key === 'cinema') return openCinema();
     if (key === 'fox') return town.hearts();
+    if (key === 'railway' && town.toot) { town.toot(); return; }
+    if (key === 'church') town.ringBell();
     if (/^dog:/.test(key)) town.bark(key.slice(4));
     else if (key === 'dogs') town.st.dogs.order.forEach(function (n, i) { setTimeout(function () { town.bark(n, true); }, i * 250); });
     var p = town.playerScreen();
@@ -528,7 +531,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     town.setExplore(on); syncExplore(); lsSet(EXPLORE_KEY, on ? '' : 'map');
     // Walking about, tuck the title panel and the ledger away (they're one tap from coming back).
     if (on && !tucked) { tucked = true; setTimeout(function () { if (!$('title-card').classList.contains('min')) $('title-min').click(); $('ledger').open = false; }, 0); }
-    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 Space to jump \u00b7 E to look \u00b7 M for the map'); }
+    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 Space to jump \u00b7 E to look \u00b7 stand still by a bench to sit \u00b7 M for the map'); }
   }
   $('explore').addEventListener('click', function () { setExplore(!town.explore); });
   // M swaps views, after a moment, so typing a word that starts with M (mellon...) doesn't.
@@ -574,6 +577,13 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     town.setMotion(!reduced);
     syncMotionButton();
   });
+  // Sound (footsteps, barks, the bell, the train) is off until you switch it on. Browsers only
+  // allow sound after a tap or key press, so a saved "on" waits for the first one.
+  var SOUND_KEY = 'fittertown:sound', soundOn = lsGet(SOUND_KEY) === '1';
+  function syncSoundButton() { $('sound').setAttribute('aria-pressed', String(soundOn)); $('sound').textContent = soundOn ? 'Sound: on' : 'Sound: off'; }
+  syncSoundButton();
+  $('sound').addEventListener('click', function () { soundOn = !soundOn; lsSet(SOUND_KEY, soundOn ? '1' : ''); town.setSound(soundOn); syncSoundButton(); });
+  if (soundOn) ['pointerdown', 'keydown'].forEach(function (ev) { addEventListener(ev, function first() { removeEventListener(ev, first); if (soundOn) town.setSound(true); }); });
   if (innerWidth < 640) $('ledger').open = false;
 
   // ---- ledger ----
@@ -935,6 +945,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     var k = town && town.pick(e.clientX, e.clientY);
     if (k === 'fox') town.hearts();
     else if (k && /^dog:/.test(k)) town.bark(k.slice(4));
+    else if (k === 'church') town.ringBell();
+    else if (k === 'railway') town.toot();
     else if (k === 'library' && town.st.library.books.length) openShelf();
     else if (k === 'cinema') openCinema();
   });
