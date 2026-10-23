@@ -1,0 +1,1578 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yukon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap">
+<style>
+/* Layout: the island fills the screen; parchment-and-wood panels float at the corners like a farm game's HUD. */
+:root {
+  --sky-top: #7ec8ee; --sky-bottom: #d9f1fb;
+  --card: #f7e6bd; --card-2: #ecd49a; --edge: #6b3f1d; --ink: #3a220e; --muted: #7a5634; --line: rgba(107, 63, 29, 0.28);
+  --accent: #3f8f3a; --accent-ink: #fff8e6; --warn: #b8361f; --live: #3f8f3a;
+  --display: "Pixelify Sans", "Nunito", ui-rounded, system-ui, sans-serif;
+  --body: "Nunito", ui-rounded, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --sky-top: #1b1838; --sky-bottom: #4b3560;
+  --card: #3b2716; --card-2: #4d341d; --edge: #d9a95a; --ink: #f6e6c0; --muted: #c9a77a; --line: rgba(217, 169, 90, 0.3);
+  --accent: #6fbf5a; --accent-ink: #1b1206; --warn: #ff9b7a; --live: #6fbf5a; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --sky-top: #1b1838; --sky-bottom: #4b3560;
+  --card: #3b2716; --card-2: #4d341d; --edge: #d9a95a; --ink: #f6e6c0; --muted: #c9a77a; --line: rgba(217, 169, 90, 0.3);
+  --accent: #6fbf5a; --accent-ink: #1b1206; --warn: #ff9b7a; --live: #6fbf5a; color-scheme: dark;
+}
+/* The horizon tint follows the season of the latest log. */
+body[data-season="spring"] { --sky-bottom: #e6f6dc; }
+body[data-season="fall"] { --sky-bottom: #f6d9ab; }
+body[data-season="winter"] { --sky-top: #a9cfe6; --sky-bottom: #eef4f8; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body[data-season="spring"] { --sky-bottom: #3f4a66; }
+  :root:not([data-theme="light"]) body[data-season="fall"] { --sky-bottom: #5e3a48; }
+  :root:not([data-theme="light"]) body[data-season="winter"] { --sky-top: #121a30; --sky-bottom: #3a4466; }
+}
+:root[data-theme="dark"] body[data-season="spring"] { --sky-bottom: #3f4a66; }
+:root[data-theme="dark"] body[data-season="fall"] { --sky-bottom: #5e3a48; }
+:root[data-theme="dark"] body[data-season="winter"] { --sky-top: #121a30; --sky-bottom: #3a4466; }
+html, body { height: 100%; }
+body {
+  margin: 0; overflow: hidden; font-family: var(--body); color: var(--ink);
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+  transition: background 0.8s;
+}
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#scene:active { cursor: grabbing; }
+.hud {
+  position: fixed; inset: 0; pointer-events: none;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr auto; gap: 12px;
+}
+.card {
+  pointer-events: auto; background: var(--card); border: 3px solid var(--edge); border-radius: 6px;
+  box-shadow: inset 0 0 0 2px var(--card-2), 0 4px 0 rgba(40, 20, 5, 0.35);
+}
+.title { grid-column: 1; grid-row: 1; justify-self: start; padding: 12px 16px; max-width: 360px; }
+.eyebrow { font-family: var(--display); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 700; font-size: 32px; line-height: 1; margin: 2px 0 8px; text-wrap: balance; }
+.sync { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 4px; }
+.dot { width: 8px; height: 8px; background: var(--muted); flex: none; }
+.dot.live { background: var(--live); } .dot.err { background: var(--warn); }
+.btn, .sync button {
+  font: 600 13px var(--display); color: var(--ink); background: var(--card-2); border: 2px solid var(--edge);
+  border-radius: 4px; padding: 3px 9px; cursor: pointer; box-shadow: 0 2px 0 var(--edge);
+}
+.btn:active, .sync button:active { transform: translateY(2px); box-shadow: none; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn[aria-pressed="true"] { background: var(--edge); color: var(--card); }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.season { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 12.5px; color: var(--muted); }
+.season b { font-family: var(--display); font-weight: 600; font-size: 13px; color: var(--ink); background: var(--card-2); border: 2px solid var(--edge); border-radius: 4px; padding: 0 7px; }
+.clock { font: 600 12.5px var(--body); color: var(--muted); background: none; border: 0; padding: 0; margin: 0 0 6px; cursor: pointer; text-decoration: underline dotted; }
+.notice { margin-top: 8px; font-size: 13px; line-height: 1.4; color: var(--ink); }
+.notice b { color: var(--warn); }
+.connect { display: flex; gap: 6px; margin-top: 8px; }
+.connect input { flex: 1; min-width: 0; font: 12.5px var(--body); color: var(--ink); background: transparent; border: 2px solid var(--line); border-radius: 4px; padding: 4px 8px; }
+
+.ledger { grid-column: 2; grid-row: 1 / span 2; align-self: start; width: 248px; padding: 4px 0; max-height: calc(100vh - 190px); overflow: auto; }
+.ledger summary {
+  list-style: none; cursor: pointer; padding: 10px 16px 8px; font-family: var(--display); font-weight: 700; font-size: 19px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.ledger summary::-webkit-details-marker { display: none; }
+.ledger summary::after { content: "\2013"; color: var(--muted); }
+.ledger:not([open]) summary::after { content: "+"; }
+.rows { padding: 0 16px 12px; display: grid; gap: 7px; }
+/* The ledger uses the plain rounded body font so the numbers are easy to read; the pixel font
+   stays for headings. */
+.row { display: grid; grid-template-columns: 1fr auto; gap: 10px; font-size: 14px; line-height: 1.3; align-items: baseline; }
+.row span:first-child { color: var(--ink); opacity: 0.78; }
+.row span:last-child { font-family: var(--body); font-weight: 800; font-size: 14.5px; font-variant-numeric: tabular-nums; text-align: right; }
+.ledger .wildlife, .ledger .secrets, .ledger .key { font-size: 13.5px; }
+.wildlife li .n { font-family: var(--body) !important; font-weight: 800; }
+.tonnage strong { font-family: var(--body) !important; font-weight: 800; }
+.shelf { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow: auto; padding: 16px 18px 18px; z-index: 5; pointer-events: auto; box-sizing: border-box; }
+.shelf h2 { font-family: var(--display); font-size: 22px; margin: 0 28px 2px 0; }
+.shelf .sub { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; }
+.shelf .books { display: grid; gap: 12px; }
+.shelf .book { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 10px; border: 2px solid var(--line); border-radius: 6px; background: var(--card-2); }
+.shelf .cover { width: 64px; height: 96px; border-radius: 3px; object-fit: cover; background: var(--edge); box-shadow: 0 2px 0 rgba(40, 20, 5, 0.35); }
+.shelf .spine { width: 64px; height: 96px; border-radius: 3px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px; box-sizing: border-box; color: #fff8e6; font: 700 11px/1.15 var(--body); box-shadow: 0 2px 0 rgba(40, 20, 5, 0.35); }
+.shelf .bt { font: 700 15.5px/1.25 var(--body); color: var(--ink); }
+.shelf .ba { font-size: 13.5px; color: var(--muted); }
+.shelf .bm { font-size: 13px; color: var(--ink); margin-top: 3px; }
+.shelf .stars { color: #d99a1e; letter-spacing: 1px; }
+.shelf .rv { font-size: 13.5px; line-height: 1.45; margin-top: 6px; font-style: italic; color: var(--ink); }
+.shelf .stack { display: grid; grid-template-columns: 90px 1fr; gap: 14px; align-items: end; margin: 4px 0 14px; padding: 10px 12px; border: 2px dashed var(--line); border-radius: 6px; }
+.shelf .stack[hidden] { display: none; }
+.shelf .pile { position: relative; height: 140px; display: flex; flex-direction: column-reverse; align-items: center; }
+.shelf .pile i { display: block; width: 46px; border-radius: 2px; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25); }
+.shelf .pile .ref { position: absolute; left: -6px; right: -6px; border-top: 2px dashed var(--muted); }
+.shelf .stack b { font: 800 22px var(--body); display: block; }
+.shelf .stack p { margin: 2px 0 0; font-size: 13.5px; line-height: 1.4; }
+.shelf .close { position: absolute; top: 8px; right: 10px; font: 700 20px var(--display); background: none; border: 0; color: var(--muted); cursor: pointer; }
+.tonnage { margin: 4px 16px 12px; padding-top: 10px; border-top: 2px dashed var(--line); font-size: 13px; line-height: 1.4; }
+.tonnage strong { font-family: var(--display); font-size: 24px; font-weight: 700; display: block; }
+.key { margin: 0 16px 12px; padding-top: 10px; border-top: 2px dashed var(--line); font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.key b { color: var(--ink); font-weight: 700; }
+
+.timeline { grid-column: 1 / span 2; grid-row: 3; justify-self: center; width: min(660px, 100%); min-width: 0; box-sizing: border-box; padding: 10px 14px; display: grid; gap: 6px; }
+.timeline > * { min-width: 0; }
+.tl-top { display: flex; gap: 10px; align-items: center; }
+.tl-top input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.caption { font-size: 13px; color: var(--muted); min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.caption b { color: var(--ink); }
+.phases { display: flex; justify-content: space-between; font-family: var(--display); font-size: 12px; color: var(--muted); gap: 8px; }
+.phases span:last-child { text-align: right; }
+.phases span:nth-child(2):not(:last-child) { text-align: center; }
+.phases span { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tip {
+  position: fixed; pointer-events: none; z-index: 5; padding: 10px 12px; max-width: 270px; font-size: 13px; line-height: 1.45;
+  transform: translate(-50%, calc(-100% - 14px));
+}
+.tip h2 { margin: 0 0 4px; font-family: var(--display); font-weight: 700; font-size: 17px; }
+.tip p { margin: 0; color: var(--muted); }
+.tip p:first-of-type { color: var(--ink); font-weight: 600; }
+.toast {
+  position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  padding: 8px 14px; font-family: var(--display); font-weight: 600; font-size: 15px; z-index: 6; pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+@media (max-width: 640px) {
+  .hud { grid-template-columns: minmax(0, 1fr); }
+  .title { max-width: none; justify-self: stretch; padding: 10px 14px; }
+  h1 { font-size: 26px; }
+  .ledger { grid-column: 1; grid-row: 2; justify-self: end; width: 220px; }
+  .timeline { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+/* Secret unlocked card */
+.secret-card {
+  position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  width: min(360px, calc(100vw - 32px)); padding: 12px 16px 12px; z-index: 5; pointer-events: auto;
+  border-color: #b8860b; box-shadow: inset 0 0 0 2px #f2d27a, 0 6px 0 rgba(40, 20, 5, 0.35);
+  animation: secret-in 0.5s cubic-bezier(.2, 1.4, .4, 1);
+}
+@keyframes secret-in { from { transform: translate(-50%, -30px) scale(0.9); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .secret-card { animation: none; } }
+.secret-card .eyebrow { color: #9a6b00; }
+.secret-card.big { width: min(440px, calc(100vw - 32px)); padding: 18px 20px 14px; background: linear-gradient(180deg, #fff3c4, var(--card)); border-width: 4px; }
+.secret-card.big h2 { font-size: 30px; color: #8a5a00; }
+.secret-card.big p { font-size: 15px; }
+.secret-card h2 { font-family: var(--display); font-size: 22px; margin: 2px 0 4px; }
+.secret-card p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.4; }
+.secret-card .acts { display: flex; gap: 8px; justify-content: flex-end; }
+.reading-panel { display: grid; gap: 5px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.reading-panel input, .reading-panel textarea { font: 12.5px var(--body); color: var(--ink); background: transparent; border: 2px solid var(--line); border-radius: 4px; padding: 4px 8px; width: 100%; box-sizing: border-box; resize: vertical; }
+.reading-panel .acts { display: flex; gap: 8px; justify-content: flex-end; }
+.reading-panel[hidden] { display: none; }
+.tip.wide { max-width: 340px; transform: translate(-50%, 18px); }
+.tip ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 3px; }
+.tip li { font-size: 12.5px; color: var(--ink); line-height: 1.35; }
+.tip li span { color: var(--muted); }
+.wildlife { margin: 0 16px 12px; padding-top: 10px; border-top: 2px dashed var(--line); font-size: 12.5px; line-height: 1.45; }
+.wildlife summary { list-style: none; cursor: pointer; font-family: var(--display); font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; }
+.wildlife summary::-webkit-details-marker { display: none; }
+.wildlife summary::after { content: "\2013"; color: var(--muted); }
+.wildlife details:not([open]) summary::after { content: "+"; }
+.wildlife ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.wildlife li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; color: var(--muted); }
+.wildlife li b { color: var(--ink); font-weight: 600; }
+.wildlife li .n { font-family: var(--display); font-variant-numeric: tabular-nums; color: var(--ink); }
+.wildlife .bar { grid-column: 1 / -1; height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.wildlife .bar i { display: block; height: 100%; background: var(--accent); }
+.wildlife li.here b::before { content: "\2713  "; color: var(--accent); }
+.min-btn { position: absolute; top: 6px; right: 8px; font: 700 16px var(--display); color: var(--muted); background: none; border: 0; padding: 2px 6px; cursor: pointer; line-height: 1; }
+.title, .timeline { position: relative; }
+.title.min > :not(h1):not(.min-btn):not(.eyebrow) { display: none; }
+.title.min h1 { margin: 2px 22px 0 0; }
+.title { padding-right: 34px; }
+.timeline.min { width: auto; padding-right: 34px; }
+.timeline.min .caption, .timeline.min .phases, .timeline.min #scrub, .timeline.min #future, .timeline.min #future5, .timeline.min #recenter, .timeline.min #pixel { display: none; }
+.timeline .tl-top { padding-right: 22px; }
+.secrets { margin: 0 16px 12px; padding-top: 10px; border-top: 2px dashed var(--line); font-size: 12.5px; line-height: 1.45; }
+.secrets h3 { font-family: var(--display); font-size: 14px; margin: 0 0 6px; }
+.secrets ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.secrets li { color: var(--muted); }
+.secrets li b { color: var(--ink); font-weight: 600; }
+.secrets li button { font: inherit; color: var(--ink); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+</style>
+
+<canvas id="scene" aria-label="Your town, built from your workouts. Drag to orbit, scroll or pinch to zoom."></canvas>
+
+<div class="hud">
+  <section class="card title" id="title-card">
+    <button class="min-btn" type="button" id="title-min" aria-expanded="true" aria-label="Minimize this panel">&ndash;</button>
+    <div class="eyebrow">Fit(ter) by 30</div>
+    <h1>Yukon</h1>
+    <div class="season" id="season" hidden><b id="season-name">Fall</b><span id="season-why"></span><span id="weather-now"></span></div>
+    <div><button class="clock" id="clock" type="button" title="Tap to preview dawn, day, golden hour, dusk and night">&#9728; Day</button></div>
+    <div class="sync"><span class="dot" id="dot"></span><span id="status">Connecting to your sheet…</span><button id="refresh" type="button" hidden>Refresh</button></div>
+    <div class="sync"><span class="dot" id="sdot"></span><span id="sstatus">Strava not connected</span><button id="strava" type="button">Connect Strava</button></div>
+    <div class="sync"><span class="dot" id="bdot"></span><span id="bstatus">Bible log: waiting for your sheet</span></div>
+    <div class="sync"><span class="dot" id="rdot"></span><span id="rstatus">Reading log: loading…</span><button id="shelf-open" type="button">Bookshelf</button><button id="reading" type="button">Change</button></div>
+    <div class="sync"><span class="dot" id="mdot"></span><span id="mstatus">Films</span><button id="films-open" type="button" hidden>Films</button><button id="movies" type="button">Add export</button></div>
+    <div class="reading-panel" id="movies-panel" hidden>
+      <label for="movies-link">Your Letterboxd diary in Google Drive</label>
+      <input id="movies-link" type="url" placeholder="https://drive.google.com/file/d/… or a Google Sheets link">
+      <div style="font-size:12.5px;line-height:1.4;color:var(--muted)">Your last 50 diary entries are already in. For older films, on Letterboxd: Settings → Import &amp; Export → <b>Export your data</b>. Unzip it, upload <b>diary.csv</b> to Google Drive (or open it as a Google Sheet), then paste its link here.</div>
+      <div class="acts"><button class="btn" type="button" id="movies-clear">Clear</button><button class="btn primary" type="button" id="movies-save">Save</button></div>
+    </div>
+    <div class="reading-panel" id="reading-panel" hidden>
+      <label for="reading-link">Google Sheets link</label>
+      <input id="reading-link" type="url" placeholder="https://docs.google.com/spreadsheets/d/…">
+      <label for="reading-paste">…or paste your list: a table with Title, Author, Pages, Rating and Date</label>
+      <textarea id="reading-paste" rows="5" placeholder="| Title | Author | Pages | Rating | Date |"></textarea>
+      <div class="acts"><button class="btn" type="button" id="reading-clear">Clear</button><button class="btn primary" type="button" id="reading-save">Save</button></div>
+    </div>
+    <div class="notice" id="notice" hidden></div>
+  </section>
+
+  <details class="card ledger" id="ledger" open>
+    <summary>Town ledger</summary>
+    <div class="rows" id="rows"></div>
+    <div class="tonnage" id="tonnage"></div>
+    <div class="wildlife" id="wildlife"></div>
+    <div class="secrets" id="secrets"></div>
+    <div class="key">
+      <b>Your sheet's colours:</b> a workout counts once its cell is green; yellow (rest) and red (missed) don't count. This week's uncoloured workouts float as pale ghosts of what they'll build (hover one for the plan) until you turn them green; uncoloured extras in earlier weeks still count. A <b>PR</b> is any lift that beats your best for that exercise (more weight, or the same weight for more reps),. The town works this out itself from your exercise lines; "+" notes don't count. Runs and rides set PRs too (longest, fastest pace or speed, most climbing): the run's tree gets a gold star and pennant, the ride's crop a pennant.
+      <br><br>      <b>Lifts</b> stack stone on a tower for that muscle group, and every 12 layers a tower sprouts a balcony, turret, windows or banner. Towers can only get so far ahead of the castle as a whole; extra sessions build halls and turrets around it, and once towers hit their full height a new castle rises on a far hill. The <b>castle</b> gains a gatehouse, moat and outer walls as sessions add up. A <b>flag</b> flies when a tower's latest session set a PR.
+      <b>Runs</b> plant a tree each, plus one more for every 5 km, in groves by kind (trail runs spruce, short runs birch, 5–10 km road runs maples, 10 km+ giant oaks, half marathons sequoias; longer runs grow bigger trees), <b>bike rides</b> plough farmland and sow a crop per 5 km (rides of 30 km+ launch <b>balloons</b>, and every Strava ride over 100 km adds a <b>sheep</b> to the pasture), <b>commutes</b> lay the cobbled lane through the forest and over the river to the office, and <b>hikes</b> raise the mountain range, with a <b>cairn</b> on every peak you finish. Runs, rides and commutes come from Strava.
+      <b>Snowboard days</b> first build the chairlift, then cut green, blue and black runs on the snowboard mountain.
+      <b>Hockey</b> floods the rink kept clear behind the castle (ice in winter). <b>Sports</b> build fields (and once a field has all 22 pennants, it slowly becomes a stadium), <b>pilates and stretching</b> plant the flower garden, <b>friends</b> get houses that keep growing, each with a road that grows out to it (couples share one), <b>Jo</b> gets an English cottage with a big garden on the village green, <b>Minto, Blue and Millie</b> live in the dog pen, and <b>weigh-ins</b> build the weight wall at the end of the gate road (one pillar per week, so the tops trace your weight), and <b>drinks</b> stack barrels at the Slow Pour, then grow it into a cosy coaching inn. <b>Bible chapters</b> (from your reading log) build the church past the south street: each finished book lights a stained-glass window. <b>Books you read</b> (from your Whitehorse Book Tracker) build the library past the river: pages raise it, each book lights a window, books you rate 4.5 or higher plant roses in its courtyard. Click the library (or Bookshelf, top left) for your shelf of covers, ratings and reviews. Beside it, every finished book piles onto a <b>stack of books</b> (thicker for longer books, coloured by rating); tall stacks start new ones beside them. A great horned owl comes at 10,000 pages, and something sleeps in a cave past the library at 50,000. <b>Rowing and paddling</b> build the harbour on the coast; <b>swims</b> build a swimming dock, sauna and lido on the lake; <b>cross-country ski days</b> build a cozy log ski cabin and a little trail winding round the lake, with spruces, lanterns, a fire pit and more along it; <b>mountain bike rides</b> sow the farmland like any ride and also grow a little bike shop cottage behind the mountains, with a dirt lane out to it (through a tunnel) that gets longer with every ride; every full year of logging adds to the island in the bay; finished castles open stations on the railway round the edge of the map. <b>Wildlife</b> moves in as you hit different goals: ravens follow your commutes, hares your runs, a moose your hikes, butterflies your mobility, fireflies a three-week streak, a grizzly your lifting, an Ent your first half marathon, and more. The ledger shows the closest one; hover over an animal to see what brought it. At night the chimneys smoke and the lighthouse sweeps the sea, holidays decorate the town, and the weather follows Whitehorse.
+      <br><br><b>Move around:</b> drag to slide across the map, right-drag to turn, scroll or pinch to zoom. WASD or the arrow keys move, Q and E turn.
+    </div>
+  </details>
+
+  <section class="card secret-card" id="secret" role="status" aria-live="polite" hidden>
+    <div class="eyebrow" id="secret-eyebrow">Secret unlocked</div>
+    <h2 id="secret-title"></h2>
+    <p id="secret-text"></p>
+    <div class="acts">
+      <button class="btn" type="button" id="secret-show">Show me</button>
+      <button class="btn primary" type="button" id="secret-ok">Nice</button>
+    </div>
+  </section>
+
+  <section class="card timeline" aria-label="Timeline" id="timeline-card">
+    <button class="min-btn" type="button" id="timeline-min" aria-expanded="true" aria-label="Minimize the timeline">&ndash;</button>
+    <div class="tl-top">
+      <button class="btn primary" id="play" type="button">Replay</button>
+      <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Scrub through your workouts">
+      <button class="btn" id="future" type="button" aria-pressed="false">+2 years</button>
+      <button class="btn" id="future5" type="button" aria-pressed="false">+5 years</button>
+      <button class="btn" id="recenter" type="button">Recenter</button>
+      <button class="btn" id="pixel" type="button" aria-pressed="true">Pixel</button>
+    </div>
+    <div class="caption" id="caption">&nbsp;</div>
+    <div class="phases" id="phases"></div>
+  </section>
+</div>
+<div class="card tip" id="tip" hidden></div>
+<section class="card shelf" id="shelf" role="dialog" aria-label="Bookshelf" hidden>
+  <button class="close" type="button" id="shelf-close" aria-label="Close the bookshelf">&times;</button>
+  <h2 id="shelf-title">The Yukon Library</h2>
+  <div class="stack" id="shelf-stack" hidden></div>
+  <div class="sub" id="shelf-sub"></div>
+  <div class="books" id="shelf-books"></div>
+</section>
+<div class="card toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+  // Anything that breaks before the town starts shows up in the title card instead of failing silently.
+  addEventListener('error', function (e) {
+    if (e && e.target && e.target.tagName === 'IMG') return; // a book cover that didn't load just shows its spine
+    var msg = (e && e.message) || (e && e.target && e.target.src ? 'Couldn’t load ' + e.target.src : 'Unknown error');
+    var st = document.getElementById('status'), n = document.getElementById('notice');
+    if (st) st.textContent = 'The page hit an error';
+    if (n) { n.hidden = false; n.textContent = 'Error: ' + msg; }
+  }, true);
+</script>
+<script src="data/films.js"></script>
+<script src="site.js"></script>
+<script src="parser.js"></script>
+<script src="town.js"></script>
+<script>
+(function () {
+  var BUILD = 'v54';
+  var SHEET_KEY = 'fittertown:sheet';
+  var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
+  try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
+  var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  var SERVER = 'Google Drive', TOOL = 'download_file_content';
+  var SEEN_KEY = 'fittertown:seen';
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // Start the 3D view, falling back to a lighter renderer on a fresh canvas if the first try is refused.
+  var LITE_KEY = 'fittertown:lite', PIXEL_KEY = 'fittertown:pixel';
+  var pixelOn = true;
+  try { pixelOn = localStorage.getItem(PIXEL_KEY) !== '0'; } catch (e) {}
+  var preferLite = false;
+  try { preferLite = localStorage.getItem(LITE_KEY) === '1'; } catch (e) {}
+  function glReason() {
+    var c = document.createElement('canvas'), why = '';
+    c.addEventListener('webglcontextcreationerror', function (e) { why = e.statusMessage || why; }, false);
+    var gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (gl) { var lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); return ''; }
+    return why || 'no WebGL context available';
+  }
+  function freshCanvas() {
+    var old = $('scene'), c = old.cloneNode(false);
+    old.parentNode.replaceChild(c, old);
+    return c;
+  }
+  var town, startErr = null, softNote = false;
+  if (!window.THREE || !THREE.OrbitControls) startErr = new Error('The 3D library didn\u2019t load.');
+  else if (!window.FitParser || !window.Town) startErr = new Error('The town\u2019s own scripts didn\u2019t load.');
+  else {
+    var tries = preferLite ? [{ lite: true }] : [{ lite: false }, { lite: true }];
+    tries.push({ software: true }); // last resort: no WebGL at all
+    for (var t = 0; t < tries.length && !town; t++) {
+      try { town = new Town(t ? freshCanvas() : $('scene'), { reducedMotion: reduced, lite: tries[t].lite, software: tries[t].software, pixel: pixelOn }); }
+      catch (e) { if (!startErr || !tries[t].software) startErr = e; }
+    }
+  }
+  if (!town) {
+    var why = startErr && /webgl/i.test(startErr.message) ? glReason() : '';
+    $('status').textContent = 'The town couldn\u2019t start';
+    $('dot').className = 'dot err';
+    $('notice').hidden = false;
+    $('notice').innerHTML = '';
+    if (why || (startErr && /webgl/i.test(startErr.message))) {
+      var p1 = document.createElement('p'); p1.style.margin = '0 0 6px';
+      p1.textContent = 'Your browser turned off 3D graphics (WebGL) for this page. This usually happens after the graphics driver resets, and it lasts until the browser restarts.';
+      var p2 = document.createElement('p'); p2.style.margin = '0';
+      p2.textContent = 'Quit the browser completely (every window), reopen this link, and the town should load in a lighter mode. If it still won\u2019t, check that hardware acceleration is on in your browser settings.';
+      $('notice').append(p1, p2, detail('Reason: ' + (why || startErr.message) + ' \u00b7 build ' + BUILD));
+    } else {
+      $('notice').append(document.createTextNode((startErr ? startErr.message : 'Unknown error') + ' (build ' + BUILD + ')'));
+    }
+    try { localStorage.setItem(LITE_KEY, '1'); } catch (e) {}
+    return;
+  }
+  if (town.soft) {
+    $('notice').hidden = false;
+    $('notice').textContent = 'Drawing without graphics acceleration, since this browser has it turned off. Everything works; dragging is a little slower and there are no shadows.';
+    softNote = true;
+  }
+  // If the graphics driver drops the 3D view, say so and use lite mode from the next load on.
+  town.canvas.addEventListener('webglcontextlost', function (e) {
+    e.preventDefault();
+    try { localStorage.setItem(LITE_KEY, '1'); } catch (er) {}
+    setStatus('3D view paused: your graphics driver reset', 'err');
+    setNotice('Reload the page to bring the town back. It will use a lighter mode from now on.');
+  }, false);
+  var events = [], phases = [], shown = 0, playing = null, isExample = false, mcp = null;
+
+  // ---- time of day ----
+  // The sky and light follow the real time in Whitehorse: dawn, day, golden hour, dusk and night,
+  // with sunrise and sunset worked out for the date (long summer evenings, short winter days).
+  // Dark mode only changes the panels. Tap the clock in the top panel to preview each time of day.
+  var WHX_LAT = 60.72, WHX_LON = -135.05, WHX_TZ = -7;
+  function whitehorseNow() {
+    var d = new Date(Date.now() + WHX_TZ * 3600000);
+    var start = Date.UTC(d.getUTCFullYear(), 0, 0), doy = Math.floor((d.getTime() - start) / 86400000);
+    return { h: d.getUTCHours() + d.getUTCMinutes() / 60, doy: doy, label: d.toISOString().slice(11, 16) };
+  }
+  function sunTimes(doy) {
+    var R = Math.PI / 180, decl = 23.44 * Math.sin(2 * Math.PI * (284 + doy) / 365) * R, lat = WHX_LAT * R;
+    var cosw = (Math.sin(-0.833 * R) - Math.sin(lat) * Math.sin(decl)) / (Math.cos(lat) * Math.cos(decl));
+    var w = Math.acos(Math.max(-1, Math.min(1, cosw))) / R / 15, noon = 12 - (WHX_LON - WHX_TZ * 15) / 15;
+    return { rise: noon - w, set: noon + w };
+  }
+  function phaseNow() {
+    var n = whitehorseNow(), t = sunTimes(n.doy), h = n.h;
+    if (h >= t.rise - 0.75 && h < t.rise + 0.25) return 'dawn';
+    if (h >= t.rise + 0.25 && h < t.set - 1) return 'day';
+    if (h >= t.set - 1 && h < t.set) return 'golden';
+    if (h >= t.set && h < t.set + 0.75) return 'dusk';
+    return 'night';
+  }
+  var PHASES = ['dawn', 'day', 'golden', 'dusk', 'night'], phasePreview = null;
+  var PHASE_NAMES = { dawn: 'Dawn', day: 'Day', golden: 'Golden hour', dusk: 'Dusk', night: 'Night' };
+  var SKY = { dawn: ['#4a5a8e', '#f5b48a'], golden: ['#e8a066', '#ffe2a8'], dusk: ['#3b2a5e', '#e0866a'], night: ['#0a0f24', '#23305a'],
+    day: { spring: ['#7ec8ee', '#e6f6dc'], summer: ['#7ec8ee', '#d9f1fb'], fall: ['#7ec8ee', '#f6d9ab'], winter: ['#a9cfe6', '#eef4f8'] } };
+  function syncTheme() {
+    var ph = phasePreview || phaseNow();
+    town.setTimeOfDay(ph);
+    var sky = ph === 'day' ? SKY.day[document.body.getAttribute('data-season') || 'summer'] || SKY.day.summer : SKY[ph];
+    document.body.style.setProperty('--sky-top', sky[0]);
+    document.body.style.setProperty('--sky-bottom', sky[1]);
+    var c = $('clock');
+    if (c) c.textContent = (ph === 'night' ? '\u263e ' : '\u2600 ') + PHASE_NAMES[ph] + (phasePreview ? ' (preview)' : ' \u00b7 ' + whitehorseNow().label + ' in Whitehorse');
+  }
+  syncTheme();
+  setInterval(syncTheme, 60000);
+  // Holidays come from today's real date (and your birthday, once it's set).
+  var BIRTHDAY = '08-12'; // 'MM-DD'
+  town.setToday(new Date().toLocaleDateString('en-CA'), BIRTHDAY);
+
+  // ---- Whitehorse weather ----
+  // Asks Open-Meteo for the current weather in Whitehorse; if the page can't reach it, uses the
+  // usual weather for this time of year there instead. Only for today's town, not the projection.
+  var WHX = { lat: 60.72, lon: -135.05 }, whWeather;
+  function climateWeather() {
+    var m = new Date().getMonth(), h = new Date().getHours(), seed = Math.sin((new Date().getDate() * 24 + h) * 12.9898) * 43758.5453; seed -= Math.floor(seed);
+    var snow = [0.4, 0.35, 0.3, 0.2, 0.05, 0, 0, 0, 0.03, 0.2, 0.35, 0.4][m], rain = [0, 0, 0, 0.03, 0.15, 0.2, 0.25, 0.25, 0.22, 0.12, 0, 0][m];
+    return seed < snow ? ['snow', 'snowing in Whitehorse'] : seed < snow + rain ? ['rain', 'raining in Whitehorse'] : [null, 'clear in Whitehorse'];
+  }
+  function applyWhitehorse() {
+    if (future) return;
+    var w = whWeather || climateWeather();
+    town.lockWeather(w[0], w[1]);
+  }
+  function fetchWhitehorse() {
+    var done = false, timer = setTimeout(function () { if (!done) { done = true; applyWhitehorse(); } }, 6000);
+    try {
+      fetch('https://api.open-meteo.com/v1/forecast?latitude=' + WHX.lat + '&longitude=' + WHX.lon + '&current=weather_code,temperature_2m')
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (done) return; done = true; clearTimeout(timer);
+          var c = j && j.current ? j.current.weather_code : null, t = j && j.current ? Math.round(j.current.temperature_2m) : null;
+          var kind = c == null ? undefined : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'snow' : (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95 ? 'rain' : null;
+          if (kind !== undefined) whWeather = [kind, (kind === 'snow' ? 'snowing' : kind === 'rain' ? 'raining' : 'clear') + ' in Whitehorse' + (t != null ? ', ' + t + '°C' : '')];
+          applyWhitehorse();
+        })
+        .catch(function () { if (!done) { done = true; clearTimeout(timer); applyWhitehorse(); } });
+    } catch (e) { if (!done) { done = true; clearTimeout(timer); applyWhitehorse(); } }
+  }
+  fetchWhitehorse();
+  setInterval(function () { whWeather = null; fetchWhitehorse(); }, 30 * 60000);
+  $('clock').addEventListener('click', function () {
+    var i = phasePreview ? PHASES.indexOf(phasePreview) + 1 : 0;
+    phasePreview = i < PHASES.length ? PHASES[i] : null;
+    syncTheme();
+  });
+  new MutationObserver(syncTheme).observe(document.body, { attributes: true, attributeFilter: ['data-season'] });
+  addEventListener('resize', function () { town.resize(); });
+  town.onWeather = function (label) { $('weather-now').textContent = label === 'clear' ? '' : '\u00b7 ' + label; };
+  town.onSecret = function (def, ev) { queueSecret(def, ev && ev.projected); };
+  // Pixel-art rendering is on by default; the button switches to a smooth render.
+  function syncPixelButton() { $('pixel').setAttribute('aria-pressed', String(pixelOn)); $('pixel').textContent = pixelOn ? 'Pixel: on' : 'Pixel: off'; }
+  syncPixelButton();
+  $('recenter').addEventListener('click', function () { town.recenter(); });
+  $('pixel').addEventListener('click', function () {
+    pixelOn = !pixelOn;
+    try { localStorage.setItem(PIXEL_KEY, pixelOn ? '1' : '0'); } catch (e) {}
+    town.setPixel(pixelOn);
+    syncPixelButton();
+  });
+  if (innerWidth < 640) $('ledger').open = false;
+
+  // ---- ledger ----
+  var THINGS = [[412000, 'empty Boeing 747s'], [66000, 'humpback whales'], [25000, 'school buses'], [5000, 'pickup trucks'], [1000, 'moose']];
+  function fmt(n) { return Math.round(n).toLocaleString('en-CA'); }
+
+  // ---- secrets ----
+  // A card pops up the first time each secret is earned (remembered in this browser). Secrets
+  // reached only in the projection pop up too, marked as projected, but aren't remembered.
+  var SECRETS_KEY = 'fittertown:secrets', secretQueue = [], secretShown = {}, secretCurrent = null;
+  function seenSecrets() { try { return JSON.parse(localStorage.getItem(SECRETS_KEY) || '{}'); } catch (e) { return {}; } }
+  function rememberSecret(id) { try { var s = seenSecrets(); s[id] = 1; localStorage.setItem(SECRETS_KEY, JSON.stringify(s)); } catch (e) {} }
+  function queueSecret(def, projected) {
+    if (!def) return;
+    // In the projection, only first-time secrets pop up (not every "it grows again").
+    if (projected && def.id.indexOf('#') >= 0) return;
+    var key = def.id + (projected ? ':p' : '');
+    if (secretShown[key] || (!projected && seenSecrets()[def.id])) return;
+    secretShown[key] = true;
+    secretQueue.push({ def: def, projected: projected });
+    if (!secretCurrent) setTimeout(nextSecret, 600);
+  }
+  function nextSecret() {
+    var item = secretQueue.shift();
+    secretCurrent = item || null;
+    if (!item) { $('secret').hidden = true; return; }
+    $('secret-eyebrow').textContent = item.projected ? 'Secret · in the projection' : item.def.big ? '★ Big secret unlocked ★' : 'Secret unlocked';
+    $('secret-title').textContent = item.def.title;
+    $('secret-text').textContent = item.def.text;
+    $('secret').classList.toggle('big', !!item.def.big);
+    $('secret').hidden = false;
+    if (item.def.big && town) town.fireworks(40);
+    if (!item.projected) rememberSecret(item.def.id);
+  }
+  $('secret-ok').addEventListener('click', nextSecret);
+  $('secret-show').addEventListener('click', function () { if (secretCurrent && town) town.focusOn(secretCurrent.def.id); nextSecret(); });
+  function renderSecrets() {
+    var list = (window.Town && Town.secrets) || [], got = town.st.secrets || {}, el = $('secrets');
+    el.innerHTML = '';
+    var h = document.createElement('h3'); h.textContent = 'Secrets · ' + list.filter(function (x) { return got[x.id]; }).length + ' of ' + list.length;
+    var ul = document.createElement('ul');
+    list.forEach(function (x) {
+      var li = document.createElement('li');
+      if (got[x.id]) {
+        var b = document.createElement('button'); b.type = 'button'; b.textContent = x.title;
+        b.addEventListener('click', function () { town.focusOn(x.id); });
+        li.append(b);
+      } else {
+        var q = document.createElement('b'); q.textContent = '??? ';
+        li.append(q, document.createTextNode(x.hint));
+      }
+      ul.append(li);
+    });
+    el.append(h, ul);
+  }
+  // Every animal, with what brings it: arrived ones first, then the rest by how close you are.
+  var WILD_OPEN_KEY = 'fittertown:wildOpen';
+  function renderWildlife() {
+    var list = (window.Town && Town.wildlife) || [], s = town.st, have = (s.wild && s.wild.have) || {}, el = $('wildlife');
+    el.innerHTML = '';
+    var d = document.createElement('details'), sum = document.createElement('summary');
+    d.open = lsGet(WILD_OPEN_KEY) !== '0';
+    d.addEventListener('toggle', function () { lsSet(WILD_OPEN_KEY, d.open ? '' : '0'); });
+    var n = list.filter(function (w) { return have[w.key]; }).length;
+    sum.textContent = 'Wildlife \u00b7 ' + n + ' of ' + list.length;
+    var ul = document.createElement('ul');
+    list.map(function (w) { var v = Math.min(w.metric(s), w.goal); return { w: w, v: v, f: have[w.key] ? 2 : v / w.goal }; })
+      .sort(function (a, b) { return b.f - a.f; })
+      .forEach(function (x) {
+        var li = document.createElement('li'), name = document.createElement('b'), num = document.createElement('span');
+        name.textContent = x.w.title; num.className = 'n';
+        if (have[x.w.key]) { li.className = 'here'; num.textContent = 'here'; li.append(name, num); }
+        else {
+          num.textContent = fmt(x.v) + ' / ' + fmt(x.w.goal);
+          var unit = document.createElement('span'); unit.textContent = x.w.unit; unit.style.gridColumn = '1 / -1';
+          var bar = document.createElement('div'), fill = document.createElement('i'); bar.className = 'bar'; fill.style.width = Math.round(x.f * 100) + '%'; bar.append(fill);
+          li.append(name, num, unit, bar);
+        }
+        ul.append(li);
+      });
+    d.append(sum, ul); el.append(d);
+  }
+  function renderLedger() {
+    var s = town.st;
+    var stones = 0, towers = 0;
+    var flying = 0;
+    for (var k in s.towers) { stones += s.towers[k].n; if (s.towers[k].n) towers++; if (s.towers[k].flying) flying++; }
+    var peaks = s.hike.peaks.filter(Boolean), tall = peaks.length ? Math.max.apply(null, peaks.map(function (p) { return p.h; })) : 0;
+    var w = s.weight;
+    var now0 = new Date(), wk = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate() - (now0.getDay() + 6) % 7).toLocaleDateString('en-CA');
+    var doneWk = events.filter(function (e) { return !e.projected && e.date && e.date >= wk && !/^(weight|drink|social|bible|book)$/.test(e.kind); }).length;
+    var rows = [
+      ['This week', doneWk + ' done \u00b7 ' + plannedNow().length + ' planned'],
+      ['Workouts', fmt(s.sessions)],
+      ['Stones laid', fmt(stones)],
+      ['PRs logged', fmt(s.prs)],
+      ['Towers flying a flag', fmt(flying) + ' of ' + towers],
+      ['Forest (runs)', fmt(s.forest.trees.length) + ' trees · ' + fmt(s.forest.km) + ' km'],
+      ['Mountain range (hikes)', peaks.length ? fmt(peaks.length) + (peaks.length === 1 ? ' peak' : ' peaks') + ' · tallest ' + tall.toFixed(1) : 'not started'],
+      ['Farmland (rides + MTB)', fmt(s.bike.crops.length) + ' crops · ' + fmt(s.bike.km) + ' km'],
+      ['Balloons (rides 30 km+)', fmt(s.bike.balloons.length)],
+      ['Sheep (Strava rides 100 km+)', fmt(s.sheep.list.length)],
+      ['Commuter lane', s.commute.n >= 140 ? 'complete' : Math.round(s.commute.n / 140 * 100) + '% · ' + fmt(s.commute.n) + ' commutes'],
+      ['Harbour (rowing & paddling)', fmt(s.row.km) + ' km'],
+      ['Swimming dock (swims)', s.swim.sessions ? fmt(s.swim.sessions) + ' · ' + s.swim.km.toFixed(1) + ' km' : 'none yet'],
+      ['Ski cabin trail (XC ski)', s.nordic.sessions ? fmt(s.nordic.sessions) + ' days · ' + fmt(s.nordic.km) + ' km' : 'none yet'],
+      ['Bike shop (MTB rides)', s.mtb.rides ? fmt(s.mtb.rides) + ' · ' + fmt(s.mtb.km) + ' km' : 'none yet'],
+      ['Fields', fmt(s.sportOrder.length)],
+      ['Flower beds (mobility)', fmt(s.farm.crops.length)],
+      ['Households', fmt(s.friendOrder.length)],
+      ['Dogs walked', s.dogs.order.length ? s.dogs.order.map(function (n) { return n + ' ' + s.dogs.list[n].n; }).join(' · ') : 'none yet'],
+      ['Snowboard days', s.snow.days ? fmt(s.snow.days) + ' · ' + fmt(s.snow.runs.length) + ' runs' : 'none yet'],
+      ['Cinema (films)', s.cinema.films.length ? fmt(s.cinema.films.length) : 'not connected'],
+      ['Library (books)', s.library.books.length ? fmt(s.library.books.length) + ' · ' + fmt(s.library.pages) + ' pages' : 'none yet'],
+      ['Bible (the church)', fmt(s.bible.chapters) + ' of 1,189 ch · ' + s.bible.books.length + ' of 66 books'],
+      ['Next animal', (function () { var nw = town.nextWildlife(); return nw ? nw.title + ': ' + nw.have + ' / ' + nw.goal + ' ' + nw.how.replace(/^\d+ /, '') : 'all here'; })()],
+      ['Secrets found', fmt(Object.keys(s.secrets || {}).length) + ' of ' + ((window.Town && Town.secrets) || []).length],
+      ['Weight', w.latest == null ? 'no weigh-ins' : w.first + ' \u2192 ' + w.latest + ' lb (' + (w.latest - w.first >= 0 ? '+' : '') + (w.latest - w.first).toFixed(1) + ')']
+    ];
+    $('rows').innerHTML = '';
+    rows.forEach(function (r) {
+      var d = document.createElement('div'); d.className = 'row';
+      var a = document.createElement('span'); a.textContent = r[0];
+      var b = document.createElement('span'); b.textContent = r[1];
+      d.append(a, b); $('rows').append(d);
+    });
+    renderSecrets();
+    renderWildlife();
+    var t = s.tonnage, el = $('tonnage');
+    el.innerHTML = '';
+    var big = document.createElement('strong'); big.textContent = fmt(t) + ' lb';
+    var line = document.createElement('span');
+    var thing = THINGS.find(function (x) { return t >= x[0]; });
+    line.textContent = 'moved in logged lifts' + (thing ? ', about ' + (t / thing[0]).toFixed(1) + ' ' + thing[1] : '') + '.';
+    el.append(big, line);
+  }
+
+  // ---- timeline ----
+  var KIND_WORDS = {
+    lift: function (e) { return e.groups.map(function (g) { return { chest: 'Chest', back: 'Back', legs: 'Leg', shoulders: 'Shoulders & arms', post: 'Posterior chain', core: 'Core', full: 'Keep' }[g]; }).join(' + ') + ' tower' + (e.prCount ? ', PR flag raised' : ''); },
+    commute: function () { return 'a cobble on the commuter lane'; },
+    social: function () { return 'time with friends'; },
+    run: function (e) { var extra = Math.min(12, Math.floor((e.km || 0) / 5)); return KIND_WORDS.runTree(e) + (extra ? ' and ' + extra + ' more tree' + (extra > 1 ? 's' : '') : ''); },
+    runTree: function (e) { var km = e.km || 0, trail = e.sub === 'trail' || /trail/i.test(e.label || ''); return 'a ' + (km >= 21 ? 'sequoia' : trail ? (km >= 10 ? 'giant spruce' : 'spruce') : km >= 10 ? 'giant oak' : km < 5 || /interval|sprint|400|track|tempo|fartlek/i.test(e.label || '') ? 'birch' : 'maple') + ' in the forest'; },
+    bike: function (e) { var n = Math.max(1, Math.min(20, Math.round(e.km / 5))); return n + ' crop' + (n > 1 ? 's' : '') + ' in the farmland' + (e.km >= 30 ? ' and a balloon' : ''); },
+    row: function () { return 'the harbour grows'; },
+    swim: function () { return 'the swimming dock on the lake grows'; },
+    xcski: function () { return 'more of the ski cabin trail round the lake'; },
+    mtb: function (e) { return KIND_WORDS.bike(e) + ', plus more of the lane to the bike shop'; },
+    hike: function () { return 'the mountains rise'; },
+    stairs: function () { return 'the mountains rise a little'; },
+    walk: function () { return 'stepping stones'; },
+    sport: function (e) { return 'a pennant on the ' + e.sport + ' field'; },
+    mobility: function () { return 'a flower bed in the garden'; },
+    drink: function () { return 'a barrel at the Slow Pour'; },
+    movie: function (e) { return '\u201c' + e.title + '\u201d at the picture house'; },
+    book: function (e) { return '\u201c' + e.title + '\u201d on the library shelves' + (e.pages ? ' (' + e.pages + ' pages)' : ''); },
+    bible: function (e) { return (e.count || 0) + ' chapter' + (e.count === 1 ? '' : 's') + ' for the church'; },
+    weight: function (e) { return e.value + ' lb on the weight wall'; },
+    snowboard: function (e) { return 'a new run on the snowboard mountain' + (e.laps ? ' (' + e.laps + ' laps)' : ''); }
+  };
+  function caption(i) {
+    var c = $('caption');
+    c.textContent = '';
+    if (!events.length) return;
+    if (i <= 0) { c.textContent = 'Empty fields, before ' + phases[0].replace(/^Phase \d+\s*/, '') + '.'; return; }
+    var e = events[i - 1];
+    var b = document.createElement('b'); b.textContent = (e.projected ? 'Projected ' : '') + e.day + ' · ' + e.label;
+    var friends = e.friends && e.friends.length ? (e.kind === 'social' ? ': ' : ', and ') + e.friends.join(' & ') + '\u2019s house grows' : '';
+    var dogs = e.dogs && e.dogs.length ? ', and ' + e.dogs.join(' & ') + ' play in the dog pen' : '';
+    c.append(b, document.createTextNode(' → ' + KIND_WORDS[e.kind](e) + friends + dogs));
+  }
+  function renderPhases() {
+    var el = $('phases'); el.innerHTML = '';
+    phases.forEach(function (p) { var s = document.createElement('span'); s.textContent = p; el.append(s); });
+  }
+  // The season comes from the most recent dated log at this point in the timeline.
+  var SEASON_NAMES = { spring: 'Spring', summer: 'Summer', fall: 'Fall', winter: 'Winter' };
+  function syncSeason(n) {
+    var season = 'summer', from = null;
+    for (var i = Math.min(n, events.length) - 1; i >= 0; i--) {
+      if (events[i].date) { season = Town.seasonOf(events[i].date); from = events[i]; break; }
+    }
+    town.setSeason(season);
+    document.body.setAttribute('data-season', season);
+    $('season').hidden = !events.length;
+    $('season-name').textContent = SEASON_NAMES[season];
+    $('season-why').textContent = from ? 'from your log on ' + from.day : (isExample ? 'example' : 'before your dated logs');
+  }
+  function showUpTo(n) {
+    stop();
+    syncSeason(n);
+    town.build(events, n);
+    if (lsGet('fittertown:mellon')) town.unlockSecret('mellon', true);
+    town.setPlanned(!future && n === events.length ? plannedNow() : []);
+    shown = n;
+    $('scrub').value = n;
+    caption(n);
+    renderLedger();
+    // Fireworks over the town the day after a marathon.
+    if (!future && n === events.length && !celebrated && town.dayAfterMarathon && town.dayAfterMarathon(new Date().toLocaleDateString('en-CA'))) {
+      celebrated = true;
+      setTimeout(function () { town.fireworks(90); }, 1200);
+      queueSecret({ id: 'fireworks-' + new Date().toLocaleDateString('en-CA'), title: 'Fireworks!', text: 'You ran a marathon yesterday. The whole town is celebrating.' }, false);
+    }
+  }
+  var celebrated = false;
+  // This week's uncoloured workouts, minus anything Strava shows you've already done that day.
+  function plannedNow() {
+    var list = (sheetData && sheetData.planned) || [];
+    return list.filter(function (e) {
+      return !(stravaActs || []).some(function (a) { return a.date === e.date && (a.kind === e.kind || (e.kind === 'bike' && a.kind === 'commute')); });
+    });
+  }
+  function stop() {
+    if (playing) { clearTimeout(playing); playing = null; $('play').textContent = 'Replay'; }
+  }
+  function playFrom(from, step) {
+    stop();
+    town.setPlanned([]);
+    town.build(events, from);
+    if (lsGet('fittertown:mellon')) town.unlockSecret('mellon', true);
+    shown = from;
+    $('play').textContent = 'Pause';
+    (function next() {
+      if (shown >= events.length) { stop(); if (!future) town.setPlanned(plannedNow()); return; }
+      town.add(events[shown], 0);
+      shown++;
+      syncSeason(shown);
+      $('scrub').value = shown;
+      caption(shown);
+      renderLedger();
+      playing = setTimeout(next, step);
+    })();
+  }
+  $('play').addEventListener('click', function () {
+    if (playing) { stop(); return; }
+    if (reduced) { showUpTo(events.length); return; }
+    playFrom(shown >= events.length ? 0 : shown, 110);
+  });
+  $('scrub').addEventListener('input', function () { showUpTo(+this.value); });
+
+  // ---- hover / tap info ----
+  var tip = $('tip');
+  function showTip(x, y) {
+    var key = town.pick(x, y);
+    var info = key && town.info(key);
+    if (!info) { tip.hidden = true; return; }
+    tip.innerHTML = '';
+    var h = document.createElement('h2'); h.textContent = info.title; tip.append(h);
+    info.lines.filter(Boolean).forEach(function (l) { var p = document.createElement('p'); p.textContent = l; tip.append(p); });
+    tip.classList.toggle('wide', !!info.books);
+    if (info.books) {
+      var ul = document.createElement('ul'), shown2 = info.books.slice(0, 12);
+      shown2.forEach(function (b) {
+        var li = document.createElement('li'), meta = document.createElement('span');
+        li.textContent = (b.projected ? '(projected) ' : '') + b.title + ' ';
+        meta.textContent = [b.author, b.pages ? b.pages + ' p' : '', b.stars != null ? '\u2605'.repeat(Math.round(b.stars)) + '\u2606'.repeat(Math.max(0, 5 - Math.round(b.stars))) : ''].filter(Boolean).join(' · ');
+        li.append(meta); ul.append(li);
+      });
+      if (info.books.length > shown2.length) { var more = document.createElement('li'); more.textContent = '+ ' + (info.books.length - shown2.length) + ' more'; ul.append(more); }
+      tip.append(ul);
+    }
+    tip.style.left = Math.min(Math.max(x, 140), innerWidth - 140) + 'px';
+    tip.style.top = Math.max(y, 160) + 'px';
+    tip.hidden = false;
+    // The book list hangs below the pointer, kept on screen.
+    if (info.books) tip.style.top = Math.max(8, Math.min(y, innerHeight - tip.offsetHeight - 26)) + 'px';
+  }
+  var down = null;
+  $('scene').addEventListener('pointermove', function (e) {
+    if (e.pointerType === 'mouse' && !e.buttons) showTip(e.clientX, e.clientY);
+  });
+  $('scene').addEventListener('pointerleave', function () { tip.hidden = true; });
+  $('scene').addEventListener('pointerdown', function (e) { down = [e.clientX, e.clientY]; tip.hidden = true; });
+  $('scene').addEventListener('pointerup', function (e) {
+    if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 6 && e.pointerType !== 'mouse') showTip(e.clientX, e.clientY);
+  });
+
+  // ---- the bookshelf: every book with its cover, rating, month and your review ----
+  var SPINES = ['#7a3b2e', '#2f5e4e', '#3f4f7a', '#8a5a2e', '#5e3f6e', '#2e5a6e'];
+  function starsText(n) { if (n == null) return ''; var full = Math.floor(n), half = n - full >= 0.5; return '\u2605'.repeat(full) + (half ? '\u00bd' : '') + ' ' + n + '/5'; }
+  // How tall your books would stand stacked up: about 0.075 mm a page plus 4 mm of cover each.
+  var HEIGHTS = [[9, 'a coffee mug'], [30, 'a ruler'], [55, 'Minto'], [76, 'a kitchen table'], [122, 'a hockey net'], [180, 'you, roughly'], [210, 'a moose at the shoulder'], [305, 'a basketball hoop'], [550, 'a giraffe'], [1000, 'a three-storey house'], [2000, 'the castle keep'], [4600, 'the Statue of Liberty']];
+  function stackHeight(books) {
+    var mm = 0; books.forEach(function (b) { mm += (b.pages || 250) * 0.075 + 4; });
+    var cm = mm / 10, under = HEIGHTS.filter(function (h) { return h[0] <= cm; }).pop(), over = HEIGHTS.filter(function (h) { return h[0] > cm; })[0];
+    var el = $('shelf-stack'); el.innerHTML = '';
+    var pile = document.createElement('div'); pile.className = 'pile';
+    var scale = 140 / Math.max(cm, over ? over[0] : cm);
+    books.slice().reverse().forEach(function (b, i) { var bi = document.createElement('i'); bi.style.height = Math.max(1, ((b.pages || 250) * 0.075 + 4) / 10 * scale) + 'px'; bi.style.background = SPINES[i % SPINES.length]; bi.style.width = (38 + (i * 7) % 14) + 'px'; pile.append(bi); });
+    if (over) { var ref = document.createElement('div'); ref.className = 'ref'; ref.style.bottom = (over[0] * scale) + 'px'; ref.title = over[1]; pile.append(ref); }
+    var txt = document.createElement('div'), big = document.createElement('b'), p1 = document.createElement('p');
+    big.textContent = cm < 100 ? Math.round(cm) + ' cm tall' : (cm / 100).toFixed(cm < 1000 ? 2 : 1) + ' m tall';
+    p1.textContent = 'Stacked on top of each other, your books would stand ' + (under ? 'taller than ' + under[1] : 'nice and short') + (over ? ', and ' + Math.round(cm / over[0] * 100) + '% of the way to ' + over[1] + ' (the dashed line).' : '.');
+    txt.append(big, p1); el.append(pile, txt); el.hidden = !books.length;
+  }
+  function openShelf() {
+    $('shelf-title').textContent = 'The Yukon Library';
+    var books = (town.st.library.books || []).filter(function (b) { return !b.projected; }).slice().reverse();
+    stackHeight(books);
+    var pages = 0, rated = 0, sum = 0;
+    books.forEach(function (b) { pages += b.pages || 0; if (b.stars != null) { rated++; sum += b.stars; } });
+    $('shelf-sub').textContent = books.length ? books.length + ' book' + (books.length === 1 ? '' : 's') + ' \u00b7 ' + fmt(pages) + ' pages' + (rated ? ' \u00b7 average ' + (sum / rated).toFixed(1) + '\u2605' : '') + ' \u00b7 newest first' : 'No books yet. Finished books from your book tracker land here.';
+    var el = $('shelf-books'); el.innerHTML = '';
+    books.forEach(function (b, i) {
+      var card = document.createElement('div'); card.className = 'book';
+      var spine = document.createElement('div'); spine.className = 'spine'; spine.style.background = SPINES[i % SPINES.length]; spine.textContent = b.title;
+      if (b.cover) {
+        var img = document.createElement('img'); img.className = 'cover'; img.alt = 'Cover of ' + b.title; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; img.src = b.cover;
+        img.addEventListener('error', function () { img.replaceWith(spine); });
+        card.append(img);
+      } else card.append(spine);
+      var body = document.createElement('div');
+      var t = document.createElement('div'); t.className = 'bt'; t.textContent = b.title;
+      var a = document.createElement('div'); a.className = 'ba'; a.textContent = b.author || '';
+      var m = document.createElement('div'); m.className = 'bm';
+      var st = document.createElement('span'); st.className = 'stars'; st.textContent = starsText(b.stars);
+      m.append(st, document.createTextNode([b.pages ? ' \u00b7 ' + b.pages + ' pages' : '', b.month ? ' \u00b7 ' + b.month : ''].join('')));
+      body.append(t, a, m);
+      if (b.review) { var rv = document.createElement('div'); rv.className = 'rv'; rv.textContent = '\u201c' + b.review + '\u201d'; body.append(rv); }
+      card.append(body); el.append(card);
+    });
+    $('shelf').hidden = false; tip.hidden = true;
+  }
+  $('shelf-open').addEventListener('click', openShelf);
+  // The cinema's film list, newest first.
+  function openCinema() {
+    var films = (town.st.cinema.films || []).filter(function (f) { return !f.projected; }).slice().reverse(), rated = films.filter(function (f) { return f.stars != null; });
+    $('shelf-title').textContent = 'The Yukon Picture House'; $('shelf-stack').hidden = true;
+    var re = films.filter(function (f) { return f.rewatch; }).length;
+    $('shelf-sub').textContent = films.length ? films.length + ' film' + (films.length === 1 ? '' : 's') + (rated.length ? ' \u00b7 average ' + (rated.reduce(function (a, f) { return a + f.stars; }, 0) / rated.length).toFixed(1) + '\u2605' : '') + (re ? ' \u00b7 ' + re + ' rewatch' + (re === 1 ? '' : 'es') : '') + ' \u00b7 about ' + fmt(films.length * 1.9) + ' hours of film \u00b7 newest first' : 'No films yet.';
+    var el = $('shelf-books'); el.innerHTML = '';
+    films.slice(0, 200).forEach(function (f, i) {
+      var card = document.createElement('div'); card.className = 'book';
+      var spine = document.createElement('div'); spine.className = 'spine'; spine.style.background = SPINES[i % SPINES.length]; spine.style.height = '64px'; spine.textContent = '\ud83c\udf9e';
+      var body = document.createElement('div'), t = document.createElement('div'), m = document.createElement('div'), st = document.createElement('span');
+      t.className = 'bt'; t.textContent = f.title + (f.year ? ' (' + f.year + ')' : '');
+      m.className = 'bm'; st.className = 'stars'; st.textContent = starsText(f.stars);
+      m.append(st, document.createTextNode((f.date ? ' \u00b7 watched ' + new Date(f.date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : '') + (f.rewatch ? ' \u00b7 \u21bb rewatch' : '')));
+      body.append(t, m); card.append(spine, body); el.append(card);
+    });
+    $('shelf').hidden = false; tip.hidden = true;
+  }
+  $('films-open').addEventListener('click', openCinema);
+  $('shelf-close').addEventListener('click', function () { $('shelf').hidden = true; });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape') $('shelf').hidden = true; });
+
+  // Speak, friend, and enter.
+  var MELLON_KEY = 'fittertown:mellon', typed = '';
+  addEventListener('keydown', function (e) {
+    if (!e.key || e.key.length !== 1 || /input|textarea/i.test((e.target && e.target.tagName) || '')) return;
+    typed = (typed + e.key.toLowerCase()).slice(-6);
+    if (typed === 'mellon' && town) { lsSet(MELLON_KEY, '1'); town.unlockSecret('mellon'); renderLedger(); }
+  });
+  $('scene').addEventListener('click', function (e) {
+    var k = town && town.pick(e.clientX, e.clientY);
+    if (k === 'fox') town.hearts();
+    else if (k === 'library' && town.st.library.books.length) openShelf();
+    else if (k === 'cinema') openCinema();
+  });
+
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.hidden = false; t.style.opacity = 1;
+    setTimeout(function () { t.style.opacity = 0; setTimeout(function () { t.hidden = true; }, 450); }, 3200);
+  }
+
+  // ---- data ----
+  function readSeen() { try { return +localStorage.getItem(SEEN_KEY) || 0; } catch (e) { return 0; } }
+  function writeSeen(n) { try { localStorage.setItem(SEEN_KEY, String(n)); } catch (e) {} }
+
+  function same(a, b) { return a.kind === b.kind && a.label === b.label && a.day === b.day && a.km === b.km && a.value === b.value; }
+
+  function applyEvents(next, nextPhases, fromSheet) {
+    var prev = events;
+    baseEvents = next; basePhases = nextPhases;
+    if (future) { next = next.concat(projectEvents(next, future)); nextPhases = nextPhases.concat(['Projected']); }
+    events = next; phases = nextPhases;
+    $('scrub').max = events.length;
+    renderPhases();
+    if (!fromSheet) { showUpTo(events.length); return; }
+    var seen = readSeen();
+    var prefix = prev.length && prev.length <= next.length && prev.every(function (e, i) { return same(e, next[i]); });
+    if (prefix && prev.length && shown === prev.length && !playing) {
+      // A refresh found new rows: drop just those in.
+      for (var i = prev.length; i < next.length; i++) town.add(next[i], (i - prev.length) * 260);
+      shown = next.length; $('scrub').value = shown; caption(shown); renderLedger(); syncSeason(shown);
+      if (next.length > prev.length) toast((next.length - prev.length) + ' new workout' + (next.length - prev.length > 1 ? 's' : '') + ' just landed');
+    } else if (!prev.length && !seen && !reduced) {
+      playFrom(0, 70); // first visit: watch the whole year build
+    } else if (!prev.length && seen && seen < next.length && !reduced) {
+      showUpTo(seen);
+      playFrom(seen, 380);
+      var n = next.length - seen;
+      toast(n + ' new workout' + (n > 1 ? 's' : '') + ' since your last visit');
+    } else {
+      showUpTo(next.length);
+    }
+    writeSeen(next.length);
+  }
+
+  // ---- years ahead ----
+  // Repeats your recent workouts at the pace you've kept: each kind of workout is projected from its
+  // own recent stretch (Phase 3 for the sheet, Strava's history for runs, rides and commutes, at
+  // least four weeks), reusing the real sessions in order so distances, PRs and friends carry on.
+  var future = 0, baseEvents = [], basePhases = [];
+  // Workouts that the recent stretch undercounts get a floor: rowing about weekly all year, and
+  // snowboarding on winter weekends (Dec to Mar), so they still show up in the projection.
+  var PLANNED = {
+    row: { perYear: 45, months: null, km: 4, label: 'Row' },
+    snowboard: { perYear: 14, months: [11, 0, 1, 2], weekends: true, label: 'Snowboard day' },
+    // The new sports: swims all year, MTB in summer, Nordic skiing and hockey in winter.
+    swim: { perYear: 40, months: null, km: 2, label: 'Swim' },
+    mtb: { perYear: 30, months: [4, 5, 6, 7, 8, 9], km: 20, label: 'Mountain bike ride' },
+    xcski: { perYear: 22, months: [11, 0, 1, 2], km: 15, label: 'Cross-country ski' },
+    hockey: { kind: 'sport', sport: 'Hockey', perYear: 20, months: [10, 11, 0, 1, 2], label: 'Hockey' }
+  };
+  function projectEvents(base, years) {
+    var FUTURE_DAYS = Math.round(365.25 * years);
+    var DAY = 86400000, now = new Date(); now.setHours(12, 0, 0, 0);
+    var T0 = now.getTime();
+    var sheetDated = base.filter(function (e) { return e.date && !e.strava && e.kind !== 'bible' && e.kind !== 'book'; }).map(function (e) { return e.date; }).sort();
+    if (!sheetDated.length) return [];
+    var sheetStart = sheetDated[0], byKind = {};
+    base.forEach(function (e) { if (e.date && e.date <= now.toISOString().slice(0, 10)) (byKind[e.kind] = byKind[e.kind] || []).push(e); });
+    var out = [];
+    function stamp(src, t) {
+      var e = clone(src), d = new Date(t);
+      e.date = d.toISOString().slice(0, 10);
+      e.day = d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+      e.projected = true; e._t = t; delete e.used;
+      return e;
+    }
+    Object.keys(byKind).forEach(function (k) {
+      if (k === 'weight' || k === 'bible' || k === 'book' || PLANNED[k]) return;
+      var list = byKind[k].slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      var fromStravaKind = list.some(function (e) { return e.strava; }) && (k === 'run' || k === 'bike' || k === 'commute');
+      var start = fromStravaKind ? list[0].date : sheetStart;
+      var pool = list.filter(function (e) { return e.date >= start; });
+      if (!pool.length) return;
+      var days = Math.max(28, (T0 - new Date(start + 'T12:00:00').getTime()) / DAY);
+      var n = Math.round(pool.length / days * FUTURE_DAYS);
+      for (var i = 0; i < n; i++) {
+        var e = stamp(pool[i % pool.length], T0 + (i + 0.5) / n * FUTURE_DAYS * DAY);
+        // PRs come less often the longer you train: about a third of sessions in year one, a sixth in year two.
+        if (e.prCount) {
+          var keep = ((i * 0.6180339887) % 1) < (i < n / 2 ? 0.33 : 0.16);
+          if (!keep) { e.prs = {}; e.prCount = 0; }
+        }
+        out.push(e);
+      }
+    });
+    Object.keys(PLANNED).forEach(function (k) {
+      var plan = PLANNED[k], kind = plan.kind || k, pool = (byKind[kind] || []).filter(function (e) { return e.date >= sheetStart && (!plan.sport || e.sport === plan.sport); });
+      var seen = pool.length / Math.max(28, (T0 - new Date(sheetStart + 'T12:00:00').getTime()) / DAY) * 365.25;
+      var n = Math.round(Math.max(plan.perYear, plan.months ? 0 : seen) * years);
+      var slots = [];
+      for (var t = T0 + DAY; t < T0 + FUTURE_DAYS * DAY; t += DAY) {
+        var d = new Date(t);
+        if (plan.months && plan.months.indexOf(d.getMonth()) < 0) continue;
+        if (plan.weekends && d.getDay() % 6) continue;
+        slots.push(t);
+      }
+      n = Math.min(n, slots.length);
+      for (var i = 0; i < n; i++) {
+        var t2 = slots[Math.floor((i + 0.5) / n * slots.length)];
+        var e = pool.length ? stamp(pool[i % pool.length], t2)
+          : stamp({ kind: kind, sport: plan.sport, label: plan.label, phase: 'Projected', friends: [], dogs: [], km: plan.km || 0, laps: k === 'snowboard' ? 4 + (i * 3) % 7 : null }, t2);
+        out.push(e);
+      }
+    });
+    // Bible reading carries on at your pace, through the chapters you haven't read yet in
+    // order from where you are (wrapping round to Genesis), a little each evening.
+    var bib = (byKind.bible || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (bib.length && window.Town && Town.bible) {
+      var B = Town.bible, read = {}, total = 0;
+      bib.forEach(function (e) { total += e.count || 0; var bi = B.findIndex(function (x) { return x[0].toLowerCase() === String(e.book).toLowerCase(); }); if (bi >= 0) (e.chapters || []).forEach(function (c) { read[bi + ':' + c] = 1; }); });
+      var bdays = Math.max(28, (T0 - new Date(bib[0].date + 'T12:00:00').getTime()) / DAY), rate = total / bdays;
+      var last = bib[bib.length - 1], li = B.findIndex(function (x) { return x[0].toLowerCase() === String(last.book).toLowerCase(); });
+      var queue = [], start = Math.max(0, li);
+      for (var q = 0; q < B.length; q++) { var bi2 = (start + q) % B.length; for (var c = 1; c <= B[bi2][1]; c++) if (!read[bi2 + ':' + c]) queue.push([bi2, c]); }
+      var acc = 0, qi = 0;
+      for (var dd = 1; dd <= FUTURE_DAYS && qi < queue.length; dd++) {
+        acc += rate;
+        var n2 = Math.floor(acc);
+        if (n2 < 1) continue;
+        acc -= n2;
+        var bk = queue[qi][0], chs = [];
+        while (n2-- > 0 && qi < queue.length && queue[qi][0] === bk) chs.push(queue[qi++][1]);
+        var t3 = T0 + dd * DAY + 0.4 * DAY, e3 = stamp({ kind: 'bible', book: B[bk][0], chapters: chs, count: chs.length, label: B[bk][0] + ' ' + chs[0] + (chs.length > 1 ? '-' + chs[chs.length - 1] : ''), phase: 'Bible', friends: [], dogs: [] }, t3);
+        out.push(e3);
+      }
+    }
+    // Books keep coming at your pace (and your average length), as unnamed future reads.
+    var bks = (byKind.book || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (bks.length) {
+      var span = Math.max(60, (T0 - new Date(bks[0].date + 'T12:00:00').getTime()) / DAY), per = bks.length / span, avg = 0;
+      bks.forEach(function (b) { avg += b.pages || 0; }); avg = Math.round(avg / bks.length) || 300;
+      var nb = Math.round(per * FUTURE_DAYS);
+      for (var bi3 = 0; bi3 < nb; bi3++) out.push(stamp({ kind: 'book', title: 'A future book', author: '', pages: avg, stars: null, label: 'A future book', phase: 'Reading', friends: [], dogs: [] }, T0 + (bi3 + 0.5) / nb * FUTURE_DAYS * DAY));
+    }
+    // Weight follows the straight-line trend of your recent weigh-ins, monthly, capped at 20 lb either way.
+    var ws = (byKind.weight || []).filter(function (e) { return e.date >= sheetStart; });
+    if (ws.length >= 2) {
+      var xs = ws.map(function (e) { return new Date(e.date + 'T12:00:00').getTime() / DAY; }), ys = ws.map(function (e) { return e.value; });
+      var mx = xs.reduce(function (a, b) { return a + b; }) / xs.length, my = ys.reduce(function (a, b) { return a + b; }) / ys.length;
+      var num = 0, den = 0;
+      xs.forEach(function (x, i) { num += (x - mx) * (ys[i] - my); den += (x - mx) * (x - mx); });
+      var slope = den ? num / den : 0, last = ys[ys.length - 1];
+      for (var m = 1; m <= years * 12; m++) {
+        var w = stamp(ws[ws.length - 1], T0 + m * 30.4 * DAY);
+        w.value = Math.round((last + Math.max(-20, Math.min(20, slope * 30.4 * m))) * 10) / 10;
+        w.label = w.value + ' lb';
+        out.push(w);
+      }
+    }
+    return out.sort(function (a, b) { return a._t - b._t; });
+  }
+  function setFuture(years) {
+    var on = years > 0;
+    future = years;
+    if (years) town.lockWeather(undefined); else applyWhitehorse();
+    $('future').setAttribute('aria-pressed', String(years === 2));
+    $('future').textContent = years === 2 ? 'Back to today' : '+2 years';
+    $('future5').setAttribute('aria-pressed', String(years === 5));
+    $('future5').textContent = years === 5 ? 'Back to today' : '+5 years';
+    if (!baseEvents.length) return;
+    if (on) showUpTo(baseEvents.length);
+    var proj = on ? projectEvents(baseEvents, years) : [];
+    events = baseEvents.concat(proj);
+    phases = on ? basePhases.concat(['Projected']) : basePhases;
+    $('scrub').max = events.length;
+    renderPhases();
+    if (on) {
+      var end = new Date(Date.now() + years * 365.25 * 86400000).toLocaleDateString('en-CA', { month: 'long', year: 'numeric' });
+      setNotice('<b>' + (years === 5 ? 'Five' : 'Two') + ' years ahead.</b> ' + proj.length + ' more workouts at your current pace (plus rowing, swims, summer mountain biking, and winter snowboarding, Nordic skiing and hockey), out to ' + end + '. Press Back to today to return.');
+      if (reduced) showUpTo(events.length);
+      else { showUpTo(baseEvents.length); playFrom(baseEvents.length, Math.max(12, Math.round(16000 / Math.max(1, proj.length)))); }
+    } else {
+      setNotice('');
+      showUpTo(events.length);
+    }
+  }
+  $('future').addEventListener('click', function () { setFuture(future === 2 ? 0 : 2); });
+  $('future5').addEventListener('click', function () { setFuture(future === 5 ? 0 : 5); });
+
+  function setStatus(text, state) {
+    $('status').textContent = text;
+    $('dot').className = 'dot' + (state ? ' ' + state : '');
+  }
+  function setNotice(html) {
+    var n = $('notice');
+    if (!html) { n.hidden = true; n.innerHTML = ''; return; }
+    n.innerHTML = html; n.hidden = false;
+  }
+
+  // Finds the file's base64 in whatever shape the connector answers with.
+  function findBase64(result) {
+    var seen = [];
+    function looksB64(v) { return typeof v === 'string' && v.length > 200 && /^[A-Za-z0-9+/=\s]+$/.test(v.slice(0, 200).replace(/^data:[^,]*,/, '')); }
+    function walk(v, depth) {
+      if (v == null || depth > 5) return null;
+      if (typeof v === 'string') {
+        var t = v.trim();
+        if (t.charAt(0) === '{') { try { return walk(JSON.parse(t), depth + 1); } catch (e) {} }
+        return looksB64(t) ? t.replace(/^data:[^,]*,/, '') : null;
+      }
+      if (typeof v !== 'object' || seen.indexOf(v) >= 0) return null;
+      seen.push(v);
+      var keys = ['content', 'data', 'blob', 'base64', 'fileContent', 'resource', 'text', 'payload', 'structuredContent'];
+      for (var i = 0; i < keys.length; i++) { var f = walk(v[keys[i]], depth + 1); if (f) return f; }
+      if (Array.isArray(v)) for (i = 0; i < v.length; i++) { f = walk(v[i], depth + 1); if (f) return f; }
+      return null;
+    }
+    return walk(result && result.payload, 0) || walk(result && result.structuredContent, 0) || walk(result && result.content, 0);
+  }
+
+  function readFail(reason) { var e = new Error(reason); e.readFail = true; return e; }
+
+  function fromPayload(result) {
+    var sheets = sheetsOf(result);
+    var now = new Date(); now.setHours(23, 59, 59, 999);
+    var parsed = FitParser.parseWorkbook(sheets, now);
+    if (!parsed.events.length) throw readFail('The sheet opened, but no tab has Morning and Evening columns with workouts in them.');
+    return parsed;
+  }
+  function sheetsOf(result) {
+    if (typeof XLSX === 'undefined') throw readFail('The spreadsheet reader didn’t load. Reload the page.');
+    var b64 = findBase64(result);
+    if (!b64) throw readFail('Google Drive answered, but without the file in it.');
+    var wb;
+    try { wb = XLSX.read(b64.replace(/\s+/g, ''), { type: 'base64', cellStyles: true }); }
+    catch (e) { throw readFail('The file Google Drive sent isn’t a readable spreadsheet.'); }
+    // Keep each cell's text and its fill colour (green is done, yellow rest, red missed). Google
+    // Sheets saves its palette colours as theme colours, so look those up in the workbook's theme.
+    var THEME = ['FFFFFF', '000000', 'FFFFFF', '000000', '4285F4', 'EA4335', 'FBBC04', '34A853', 'FF6D01', '46BDC6'];
+    try {
+      var cs = wb.Themes && wb.Themes.themeElements && wb.Themes.themeElements.clrScheme;
+      if (cs && cs.length) THEME = cs.map(function (c) { return c.rgb || ''; });
+    } catch (e) {}
+    function fillOf(st) {
+      if (!st || st.patternType !== 'solid' || !st.fgColor) return '';
+      if (st.fgColor.rgb) return st.fgColor.rgb;
+      return st.fgColor.theme != null ? THEME[st.fgColor.theme] || '' : '';
+    }
+    var sheets = wb.SheetNames.map(function (name) {
+      var ws = wb.Sheets[name], rows = [], fills = [];
+      if (!ws['!ref']) return { name: name, rows: rows, fills: fills };
+      var range = XLSX.utils.decode_range(ws['!ref']);
+      for (var r = 0; r <= range.e.r; r++) {
+        var row = [], fill = [];
+        for (var c = 0; c <= range.e.c; c++) {
+          var cell = ws[XLSX.utils.encode_cell({ r: r, c: c })];
+          row.push(cell ? (cell.w != null ? cell.w : cell.v == null ? '' : String(cell.v)) : '');
+          var st = cell && cell.s;
+          fill.push(fillOf(st));
+        }
+        rows.push(row); fills.push(fill);
+      }
+      return { name: name, rows: rows, fills: fills };
+    });
+    return sheets;
+  }
+
+  function detail(text) {
+    var d = document.createElement('details');
+    d.style.marginTop = '6px';
+    var s = document.createElement('summary'); s.textContent = 'Details'; s.style.cursor = 'pointer';
+    var pre = document.createElement('div'); pre.textContent = text; pre.style.cssText = 'font-size:12px;color:var(--muted);word-break:break-word;margin-top:4px';
+    d.append(s, pre);
+    return d;
+  }
+
+  function handleResult(result) {
+    try {
+      var parsed = fromPayload(result);
+      isExample = false;
+      setNotice('');
+      var when = result.cache ? new Date(result.cache.storedAt) : new Date();
+      setStatus('Synced with your sheet · ' + when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), 'live');
+      $('refresh').hidden = false;
+      sheetData = parsed;
+      applyEvents(withBible(mergeStrava(parsed.events)), parsed.phases, true);
+      startWatch();
+      loadBible();
+      if (!readingEvents) loadReading();
+      if (!movieEvents) loadMovies();
+      if (stravaWanted() && !stravaActs && !stravaBusy) connectStrava();
+    } catch (e) {
+      setStatus('Couldn’t read the sheet', 'err');
+      setNotice((events.length && !isExample ? '' : '<b>Example town.</b> ') + (e.readFail ? e.message : 'Something went wrong while building the town.').replace(/</g, '&lt;'));
+      var keys = result && result.payload && typeof result.payload === 'object' ? Object.keys(result.payload).join(', ') : typeof (result && result.payload);
+      $('notice').append(detail((e.message || String(e)) + ' · reply fields: ' + keys + ' · build ' + BUILD));
+      if (!events.length) exampleTown();
+    }
+  }
+
+  function handleError(err, fromWatch) {
+    var code = (err && err.code) || 'unknown';
+    var keepTown = !isExample && events.length;
+    // Background refreshes stay quiet once the town is built; Refresh still works.
+    if (fromWatch && keepTown) { setStatus('Synced earlier · press Refresh for new rows', 'live'); return; }
+    var msg = {
+      needs_reauth: 'Your Google Drive connection expired. Reconnect it in claude.ai Settings → Connectors, then press Connect.',
+      server_not_connected: 'Google Drive isn’t connected for this page. Add it in claude.ai Settings → Connectors, then press Connect.',
+      selection_required: 'You have more than one Google Drive connected. Pick one when claude.ai asks, then press Connect.',
+      not_in_manifest: 'Google Drive is switched off for this page. Turn it on from the artifact’s Permissions menu, then press Connect.',
+      blocked_by_policy: 'Your organization blocks this Google Drive tool.',
+      approval_required: 'The town needs your OK to read the sheet. Press Connect and choose Allow.',
+      consent_required: 'The town needs your OK to read the sheet. Press Connect and choose Allow.',
+      tool_error: 'Google Drive couldn’t open the sheet. Check the sheet link below and that you can open it.',
+      server_unavailable: 'Google Drive didn’t answer. Press Connect to try again.',
+      upstream_error: 'Google Drive didn’t answer. Press Connect to try again.'
+    }[code] || 'The town couldn’t reach your sheet. Press Connect to try again.';
+    setStatus(keepTown ? 'Showing your last sync' : 'Not connected', 'err');
+    setNotice((keepTown ? '' : '<b>Example town.</b> ') + msg.replace(/</g, '&lt;'));
+    var n = $('notice');
+    var row = document.createElement('div'); row.className = 'connect';
+    var input = document.createElement('input');
+    input.id = 'sheet-link'; input.type = 'url'; input.value = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/edit';
+    input.setAttribute('aria-label', 'Google Sheet link');
+    var b = document.createElement('button'); b.className = 'btn primary'; b.type = 'button'; b.textContent = 'Connect';
+    b.addEventListener('click', function () {
+      var m = input.value.match(/\/d\/([A-Za-z0-9_-]{20,})/) || input.value.match(/^([A-Za-z0-9_-]{20,})$/);
+      if (m) { SHEET_ID = m[1]; try { localStorage.setItem(SHEET_KEY, SHEET_ID); } catch (e) {} }
+      manualSync();
+    });
+    row.append(input, b);
+    n.append(row, detail('Error code: ' + code + (err && err.message ? ' · ' + err.message : '') + ' · build ' + BUILD));
+    $('refresh').hidden = false;
+    if (!keepTown) exampleTown();
+  }
+
+  var syncing = false;
+  function manualSync() {
+    if (!mcp || syncing) return;
+    syncing = true;
+    setStatus('Asking Google Drive for your sheet…');
+    var started = Date.now();
+    clearTimeout(manualSync.wait);
+    manualSync.wait = setTimeout(function () {
+      if (!syncing) return;
+      setStatus('Waiting on Google Drive…');
+      setNotice('Still waiting after ' + Math.round((Date.now() - started) / 1000) + ' s. If claude.ai is showing an <b>Allow</b> prompt for Google Drive, choose Allow. It can sit behind other windows.');
+    }, 10000);
+    mcp.callTool(SERVER, TOOL, { fileId: SHEET_ID, exportMimeType: XLSX_MIME }, { cache: { refresh: true, staleTime: 60000, gcTime: 600000 } })
+      .then(handleResult, function (err) {
+        // One quiet retry for a Drive hiccup.
+        if (err && err.retryable) {
+          return new Promise(function (r) { setTimeout(r, Math.min(err.retryAfterMs || 1500, 8000) + Math.random() * 500); })
+            .then(function () { return mcp.callTool(SERVER, TOOL, { fileId: SHEET_ID, exportMimeType: XLSX_MIME }); })
+            .then(handleResult, function (e2) { handleError(e2, false); });
+        }
+        handleError(err, false);
+      })
+      .then(function () { syncing = false; clearTimeout(manualSync.wait); }, function () { syncing = false; clearTimeout(manualSync.wait); });
+  }
+  $('refresh').addEventListener('click', manualSync);
+
+  // After a successful sync, keep the town current in the background.
+  var unwatch = null;
+  function startWatch() {
+    if (unwatch || !mcp) return;
+    try {
+      unwatch = mcp.watchTool(SERVER, TOOL, { fileId: SHEET_ID, exportMimeType: XLSX_MIME }, function (ev) {
+        if (ev.type === 'data') { if (findBase64(ev.result)) handleResult(ev.result); }
+        else handleError(ev.error, true);
+      }, { cache: { staleTime: 60000, gcTime: 600000 }, refetchInterval: 300000 });
+    } catch (e) { unwatch = null; }
+  }
+
+  // ---- Bible reading log ----
+  // A second spreadsheet: each chapter read builds the church.
+  var BIBLE_ID = '18H8UIzPnUcA-tuPPp8i17TbBM9CE_TSY3s4U0hl5XuA', bibleEvents = null, bibleBusy = false, bibleUnwatch = null;
+  function setBible(text, state) { $('bstatus').textContent = text; $('bdot').className = 'dot' + (state ? ' ' + state : ''); }
+  function bibleResult(result) {
+    try {
+      var evs = FitParser.parseBible(sheetsOf(result));
+      var changed = JSON.stringify(evs) !== JSON.stringify(bibleEvents);
+      bibleEvents = evs;
+      var ch = 0; evs.forEach(function (e) { ch += e.count || 0; });
+      setBible('Bible log: ' + ch + ' chapter' + (ch === 1 ? '' : 's') + ' logged', 'live');
+      if (changed && sheetData) applyEvents(withBible(mergeStrava(sheetData.events)), sheetData.phases, true);
+    } catch (e) { setBible('Couldn’t read the Bible log', 'err'); }
+  }
+  function loadBible() {
+    if (!mcp || bibleBusy || bibleEvents) return;
+    bibleBusy = true;
+    setBible('Bible log: loading…');
+    mcp.callTool(SERVER, TOOL, { fileId: BIBLE_ID, exportMimeType: XLSX_MIME }, { cache: { refresh: true, staleTime: 60000, gcTime: 600000 } })
+      .then(function (r) { bibleBusy = false; bibleResult(r); startBibleWatch(); }, function () { bibleBusy = false; setBible('Couldn’t reach the Bible log', 'err'); });
+  }
+  function startBibleWatch() {
+    if (bibleUnwatch || !mcp) return;
+    try {
+      bibleUnwatch = mcp.watchTool(SERVER, TOOL, { fileId: BIBLE_ID, exportMimeType: XLSX_MIME }, function (ev) {
+        if (ev.type === 'data' && findBase64(ev.result)) bibleResult(ev.result);
+      }, { cache: { staleTime: 60000, gcTime: 600000 }, refetchInterval: 300000 });
+    } catch (e) { bibleUnwatch = null; }
+  }
+  // ---- Reading log (the library) ----
+  // From a Google Sheet link, or a pasted list kept in this browser.
+  var READ_SHEET_KEY = 'fittertown:readingSheet', READ_PASTE_KEY = 'fittertown:readingPaste', readingEvents = null, readingBusy = false;
+  // Your Whitehorse Book Tracker, unless you point the page at another sheet (Change).
+  var READING_ID = '12y_x_81x0vXwEpqRJrU5eJaUcmWHCnVl7XMGSq_guTE';
+  function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
+  function setReading(text, state) { $('rstatus').textContent = text; $('rdot').className = 'dot' + (state ? ' ' + state : ''); }
+  function readingLoaded(evs, from) {
+    var changed = JSON.stringify(evs) !== JSON.stringify(readingEvents);
+    readingEvents = evs;
+    var pages = 0; evs.forEach(function (b) { pages += b.pages || 0; });
+    setReading(evs.length ? 'Reading log: ' + evs.length + ' book' + (evs.length === 1 ? '' : 's') + ' · ' + pages.toLocaleString('en-CA') + ' pages (' + from + ')' : 'Reading log: no books found ' + (from === 'sheet' ? 'in that sheet' : 'in what you pasted'), evs.length ? 'live' : 'err');
+    if (changed && sheetData) applyEvents(withBible(mergeStrava(sheetData.events)), sheetData.phases, true);
+  }
+  function loadReading() {
+    var paste = lsGet(READ_PASTE_KEY), id = lsGet(READ_SHEET_KEY) || (paste ? '' : READING_ID);
+    if (id && mcp && !readingBusy) {
+      readingBusy = true;
+      setReading('Reading log: loading…');
+      mcp.callTool(SERVER, TOOL, { fileId: id, exportMimeType: XLSX_MIME }, { cache: { refresh: true, staleTime: 60000, gcTime: 600000 } })
+        .then(function (r) { readingBusy = false; try { readingLoaded(FitParser.parseReading(sheetsOf(r)), 'sheet'); } catch (e) { setReading('Couldn’t read the reading sheet', 'err'); } },
+          function () { readingBusy = false; setReading('Couldn’t reach the reading sheet', 'err'); });
+    } else if (paste) readingLoaded(FitParser.parseReadingText(paste), 'pasted');
+  }
+  $('reading').addEventListener('click', function () {
+    var p = $('reading-panel'); p.hidden = !p.hidden;
+    if (!p.hidden) { var id = lsGet(READ_SHEET_KEY); $('reading-link').value = id ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : ''; $('reading-paste').value = lsGet(READ_PASTE_KEY); }
+  });
+  $('reading-save').addEventListener('click', function () {
+    var m = $('reading-link').value.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+    lsSet(READ_SHEET_KEY, m ? m[1] : '');
+    lsSet(READ_PASTE_KEY, $('reading-paste').value.trim());
+    $('reading-panel').hidden = true;
+    readingEvents = null;
+    loadReading();
+  });
+  $('reading-clear').addEventListener('click', function () {
+    $('reading-link').value = ''; $('reading-paste').value = '';
+    lsSet(READ_SHEET_KEY, ''); lsSet(READ_PASTE_KEY, '');
+    readingLoaded([], 'pasted'); setReading('Reading log: no books yet');
+  });
+
+  // ---- Films (the cinema): Letterboxd's diary export, kept in Google Drive ----
+  var MOVIE_KEY = 'fittertown:movieSheet', movieEvents = null, moviesBusy = false;
+  // letterboxd.com/oilgasms diary, read from its public feed on Oct 23, 2026: [title, year, watched, stars, rewatch].
+  // A Drive export adds anything older; the feed itself will be read automatically once the town is hosted.
+  // The cinema opens with 12 Angry Men (Jun 17, 2026); diary entries before that aren't counted.
+  var LB_USER = 'oilgasms', LB_SNAPSHOT = '2026-10-23', LB_START = '2026-06-17', LB_FILMS = window.SITE_FILMS || [["The House",2022,"2025-11-05",3.5,0],["The Royal Tenenbaums",2001,"2025-12-02",null,0],["Grave of the Fireflies",1988,"2025-12-09",5.0,0],["Song Sung Blue",2025,"2025-12-15",2.5,0],["The Muppet Christmas Carol",1992,"2025-12-16",4.0,0],["Avatar: Fire and Ash",2025,"2025-12-19",3.5,0],["The Lord of the Rings: The Fellowship of the Ring",2001,"2025-12-24",5.0,1],["The Lord of the Rings: The Two Towers",2002,"2025-12-26",5.0,0],["The Lord of the Rings: The Return of the King",2003,"2025-12-27",5.0,0],["Spider-Man: Into the Spider-Verse",2018,"2026-01-06",null,0],["The Apartment",1960,"2026-01-12",4.5,0],["Chinatown",1974,"2026-01-13",null,0],["Spider-Man: Across the Spider-Verse",2023,"2026-01-20",null,0],["Force Majeure",2014,"2026-01-27",null,0],["Wolfwalkers",2020,"2026-02-03",null,0],["No Other Choice",2025,"2026-02-11",null,0],["Treasure Planet",2002,"2026-02-18",null,0],["Marty Supreme",2025,"2026-02-20",null,0],["The Banshees of Inisherin",2022,"2026-02-25",4.0,0],["Sorry, Baby",2025,"2026-02-27",null,0],["Bugonia",2025,"2026-02-28",2.5,0],["The King's Speech",2010,"2026-03-07",null,0],["Sinners",2025,"2026-03-16",null,0],["Palm Springs",2020,"2026-03-20",3.5,0],["Mystic Pizza",1988,"2026-03-30",2.5,0],["The Prince of Egypt",1998,"2026-04-02",null,0],["Hamnet",2025,"2026-04-18",3.5,0],["Project Hail Mary",2026,"2026-04-19",4.5,0],["The Nice Guys",2016,"2026-04-23",3.5,0],["Nirvanna the Band the Show the Movie",2025,"2026-05-20",4.0,0],["The Drama",2026,"2026-05-23",4.0,0],["12 Angry Men",1957,"2026-06-17",5.0,0],["Ernest & Celestine",2012,"2026-06-18",4.0,0],["Tuner",2025,"2026-06-24",4.5,0],["Mulholland Drive",2001,"2026-07-02",1.0,0],["The Invisible Guest",2016,"2026-07-08",3.5,0],["Babette's Feast",1987,"2026-07-14",5.0,0],["When Harry Met Sally...",1989,"2026-07-18",3.5,0],["Happy Gilmore",1996,"2026-07-19",2.5,0],["Cool Runnings",1993,"2026-07-20",4.0,0],["The Impossible",2012,"2026-08-05",3.0,0],["The Odyssey",2026,"2026-08-07",4.0,0],["The Invite",2026,"2026-08-12",3.0,0],["The Painted Veil",2006,"2026-09-01",3.5,0],["Coyote vs. Acme",2026,"2026-09-18",4.0,0],["The Secret of Kells",2009,"2026-09-27",3.0,0],["Obsession",2025,"2026-10-11",3.5,0],["Decision to Leave",2022,"2026-10-13",4.5,0],["The Intouchables",2011,"2026-10-15",4.0,0],["The History of Concrete",2026,"2026-10-21",3.0,0]];
+  var snapFilms = LB_FILMS.map(function (f) {
+    return { kind: 'movie', title: f[0], year: f[1] ? String(f[1]) : '', stars: f[3], rewatch: !!f[4], date: f[2],
+      day: new Date(f[2] + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }), label: f[0], phase: 'Films', friends: [], dogs: [] };
+  });
+  // Everything from the export plus the snapshot, without counting the same viewing twice.
+  function allFilms() {
+    var seen = {}, out = [];
+    (movieEvents || []).concat(snapFilms).forEach(function (f) { if (!f.date || f.date < LB_START) return; var k = f.title.toLowerCase() + '|' + f.date; if (!seen[k]) { seen[k] = 1; out.push(f); } });
+    return out.sort(function (a, b) { return (a.date || '') < (b.date || '') ? -1 : 1; });
+  }
+  function snapStatus() { setMovies('Films: ' + allFilms().length + ' from Letterboxd (' + LB_USER + ')', 'live'); $('films-open').hidden = false; }
+  function setMovies(text, state) { $('mstatus').textContent = text; $('mdot').className = 'dot' + (state ? ' ' + state : ''); }
+  // A Letterboxd export is a CSV. Converted to a Google Sheet it exports as xlsx; left as a CSV
+  // file Drive hands it over as-is, so try both.
+  function movieSheets(r) {
+    try { return sheetsOf(r); } catch (e) {
+      var text = '';
+      (function walk(v, d) {
+        if (text || v == null || d > 5) return;
+        if (typeof v === 'string') { if (/name|title/i.test(v) && /,/.test(v) && /\n/.test(v)) text = v; return; }
+        if (typeof v === 'object') for (var k in v) walk(v[k], d + 1);
+      })(r, 0);
+      if (!text) throw e;
+      var wb = XLSX.read(text, { type: 'string', raw: true });
+      return wb.SheetNames.map(function (n) { var rows = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' }); return { name: n, rows: rows, fills: rows.map(function () { return []; }) }; });
+    }
+  }
+  function loadMovies() {
+    var id = lsGet(MOVIE_KEY);
+    if (!id || !mcp || moviesBusy) return;
+    moviesBusy = true; setMovies('Films: loading…');
+    var opts = { cache: { refresh: true, staleTime: 60000, gcTime: 600000 } };
+    function got(r) {
+      moviesBusy = false;
+      try {
+        var evs = FitParser.parseMovies(movieSheets(r)), changed = JSON.stringify(evs) !== JSON.stringify(movieEvents);
+        movieEvents = evs;
+        var tot = allFilms().length;
+        setMovies(evs.length ? 'Films: ' + tot + ' from Letterboxd (' + LB_USER + ' + export)' : 'Films: no films found in that file', evs.length ? 'live' : 'err');
+        $('films-open').hidden = !tot; $('movies').textContent = 'Change export';
+        if (changed && sheetData) applyEvents(withBible(mergeStrava(sheetData.events)), sheetData.phases, true);
+      } catch (e) { setMovies('Films: couldn\u2019t read that file', 'err'); }
+    }
+    mcp.callTool(SERVER, TOOL, { fileId: id, exportMimeType: XLSX_MIME }, opts)
+      .then(function (r) { try { movieSheets(r); return r; } catch (e) { return mcp.callTool(SERVER, TOOL, { fileId: id }, opts); } },
+        function () { return mcp.callTool(SERVER, TOOL, { fileId: id }, opts); })
+      .then(got, function () { moviesBusy = false; setMovies('Films: couldn\u2019t reach that file', 'err'); });
+  }
+  $('movies').addEventListener('click', function () { var p = $('movies-panel'); p.hidden = !p.hidden; if (!p.hidden) { var id = lsGet(MOVIE_KEY); $('movies-link').value = id ? 'https://drive.google.com/file/d/' + id + '/view' : ''; } });
+  $('movies-save').addEventListener('click', function () {
+    var m = $('movies-link').value.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || $('movies-link').value.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+    lsSet(MOVIE_KEY, m ? m[1] : ''); $('movies-panel').hidden = true; movieEvents = null; loadMovies();
+  });
+  $('movies-clear').addEventListener('click', function () { lsSet(MOVIE_KEY, ''); movieEvents = []; $('movies-link').value = ''; snapStatus(); $('movies').textContent = 'Add export'; if (sheetData) applyEvents(withBible(mergeStrava(sheetData.events)), sheetData.phases, true); });
+
+  if (!lsGet(MOVIE_KEY)) snapStatus();
+
+  // Slots Bible readings and finished books into the workout timeline by date (evenings).
+  function withBible(list) {
+    var extra = (bibleEvents || []).concat(readingEvents || [], allFilms());
+    if (!extra.length) return list;
+    var all = list.map(clone), lastT = null, firstIdx = all.findIndex(function (e) { return e.date; });
+    var firstT = firstIdx >= 0 ? new Date(all[firstIdx].date + 'T00:00:00').getTime() : Date.now();
+    all.forEach(function (e, i) {
+      if (e._t != null) return;
+      if (e.date) lastT = new Date(e.date + 'T00:00:00').getTime();
+      e._t = lastT != null ? lastT + i / 1e6 : firstT - (firstIdx - i) * 3600000;
+    });
+    var end = all.length ? all[all.length - 1]._t : Date.now();
+    extra.forEach(function (b, i) {
+      var e = clone(b);
+      e._t = b.date ? new Date(b.date + 'T21:00:00').getTime() + i : end + 1 + i;
+      all.push(e);
+    });
+    return all.sort(function (a, b) { return a._t - b._t; });
+  }
+
+  // ---- Strava ----
+  // Once Strava is linked it is the only source for runs, rides and commutes (rides tagged Commute
+  // build the lane; the rest sow farmland). Hikes and walks fill in distance and climbing for matching sheet days.
+  var STRAVA = 'Strava', STRAVA_TOOL = 'list_activities', STRAVA_KEY = 'fittertown:strava';
+  var STRAVA_SINCE = '2026-06-22'; // the Monday Phase 2 began
+  var stravaActs = null, stravaBusy = false, sheetData = null;
+  function stravaWanted() { try { return localStorage.getItem(STRAVA_KEY) === '1'; } catch (e) { return false; } }
+  function setStrava(text, state) { $('sstatus').textContent = text; $('sdot').className = 'dot' + (state ? ' ' + state : ''); }
+
+  var STRAVA_KINDS = [
+    [/^(run|trailrun|virtualrun)$/i, 'run'], [/mountainbike/i, 'mtb'], [/swim/i, 'swim'], [/nordicski|rollerski/i, 'xcski'], [/ride|velomobile|handcycle/i, 'bike'], [/^hike$/i, 'hike'], [/^walk$/i, 'walk'],
+    [/rowing|kayak|canoe|standuppaddl/i, 'row'], [/climb/i, 'climb'], [/snowboard|alpineski|backcountryski/i, 'snowboard']
+  ];
+  // Any other Strava sport gets a field of its own, named after its type; gym-type sessions are
+  // left to the sheet, yoga and pilates plant the flower garden, and stair machines count as stairs.
+  var STRAVA_SPORT_NAMES = { TableTennis: 'Table tennis', Soccer: 'Futsal', Skateboard: 'Skateboarding', IceSkate: 'Skating', InlineSkate: 'Skating', Kitesurf: 'Kitesurfing', Windsurf: 'Windsurfing', Sail: 'Sailing', Surfing: 'Surfing', Racquetball: 'Racquetball', Wheelchair: 'Wheelchair', HandCycle: 'Handcycling' };
+  var STRAVA_SKIP = /^(workout|weighttraining|crossfit|highintensityintervaltraining|elliptical|virtualrow)$/i;
+  function normalizeActivity(a) {
+    var type = String(a.sport_type || a.type || '').replace(/\s+/g, '');
+    var kind = null, sport = null;
+    for (var i = 0; i < STRAVA_KINDS.length; i++) if (STRAVA_KINDS[i][0].test(type)) { kind = STRAVA_KINDS[i][1]; break; }
+    if (!kind && /^(yoga|pilates)$/i.test(type)) kind = 'mobility';
+    else if (!kind && /stair/i.test(type)) kind = 'stairs';
+    else if (!kind && /snowshoe/i.test(type)) kind = 'hike';
+    else if (!kind && type && !STRAVA_SKIP.test(type)) { kind = 'sport'; sport = STRAVA_SPORT_NAMES[type] || type.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, function (c) { return c.toUpperCase(); }).replace(/ (\w)/g, function (m, c) { return ' ' + c.toLowerCase(); }); }
+    // Strava has no hockey type, so anything named hockey (often an ice skate) is a hockey game.
+    if (/hockey/i.test(type + ' ' + (a.name || ''))) kind = 'hockey';
+    var when = String(a.start_local || a.start_date_local || a.start_date || '');
+    if (!kind || !/^\d{4}-\d{2}-\d{2}/.test(when)) return null;
+    var sum = a.summary || a;
+    var metres = +sum.distance, elev = +(sum.elevation_gain != null ? sum.elevation_gain : sum.total_elevation_gain);
+    var commute = !!(a.is_commute || a.commute || (a.activity_tags || []).indexOf('Commute') >= 0);
+    return {
+      kind: kind === 'bike' && commute ? 'commute' : kind, sport: sport, km: isNaN(metres) ? null : metres / 1000, elev: isNaN(elev) ? 0 : elev,
+      date: when.slice(0, 10), when: when, name: a.name || type, sub: /trail/i.test(type) ? 'trail' : 'road',
+      secs: +(sum.moving_time || sum.elapsed_time || a.moving_time || 0) || null
+    };
+  }
+  // Pages through every activity since Phase 2 began, 100 at a time, oldest first.
+  function fetchStrava() {
+    var all = [], pages = 0;
+    function page(cursor) {
+      var input = { first: 100, include_tags: true, ordering: 'StartDateLocalAsc', range_start: STRAVA_SINCE + 'T00:00:00' };
+      if (cursor) input.after = cursor;
+      return mcp.callTool(STRAVA, STRAVA_TOOL, input).then(function (res) {
+        var p = res && res.payload;
+        if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) {} }
+        if (!p || !Array.isArray(p.activities)) {
+          var err = new Error('Strava answered, but without a list of activities.');
+          err.code = 'shape'; err.sample = JSON.stringify(p || (res && res.content)).slice(0, 300);
+          throw err;
+        }
+        all = all.concat(p.activities);
+        pages++;
+        if (p.has_next_page && p.end_cursor && pages < 30) return page(p.end_cursor);
+        return all;
+      });
+    }
+    return page(null);
+  }
+  function connectStrava() {
+    if (!mcp || stravaBusy) return;
+    stravaBusy = true;
+    setStrava('Loading Strava activities…');
+    fetchStrava().then(function (raw) {
+      stravaActs = raw.map(normalizeActivity).filter(Boolean);
+      try { localStorage.setItem(STRAVA_KEY, '1'); } catch (e) {}
+      var runs = stravaActs.filter(function (a) { return a.kind === 'run'; }).length;
+      var commutes = stravaActs.filter(function (a) { return a.kind === 'commute'; }).length;
+      var rides = stravaActs.filter(function (a) { return a.kind === 'bike'; }).length;
+      var more = [['swim', 'swims'], ['xcski', 'ski days'], ['mtb', 'MTB rides']].map(function (k) { var n = stravaActs.filter(function (a) { return a.kind === k[0]; }).length; return n ? ', ' + n + ' ' + k[1] : ''; }).join('');
+      setStrava('Strava: ' + runs + ' runs, ' + rides + ' rides, ' + commutes + ' commutes' + more, 'live');
+      $('strava').textContent = 'Refresh Strava';
+      if (sheetData) applyEvents(withBible(mergeStrava(sheetData.events)), sheetData.phases, true);
+    }, function (err) {
+      var code = (err && err.code) || 'unknown';
+      var msg = {
+        server_not_connected: 'Add the Strava connector in claude.ai Settings → Connectors, then press Connect Strava.',
+        needs_reauth: 'Your Strava connection expired. Reconnect it in claude.ai Settings → Connectors.',
+        not_in_manifest: 'Strava is switched off for this page. Turn it on from the artifact’s Permissions menu.',
+        approval_required: 'Strava needs your OK. Press Connect Strava and choose Allow.',
+        tool_error: 'Strava refused the request. Its connector needs an active Strava subscription.',
+        shape: err && err.message
+      }[code] || 'Couldn’t reach Strava. Press Connect Strava to try again.';
+      setStrava('Strava not loaded', 'err');
+      setNotice(msg.replace(/</g, '&lt;'));
+      $('notice').append(detail('Strava error: ' + code + (err && err.message && code !== 'shape' ? ' · ' + err.message : '') + (err && err.sample ? ' · reply starts: ' + err.sample : '') + ' · build ' + BUILD));
+    }).then(function () { stravaBusy = false; });
+  }
+  $('strava').addEventListener('click', function () { setNotice(''); connectStrava(); });
+
+  function dayLabel(date) { return new Date(date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }); }
+  function clone(e) { var c = {}; for (var k in e) c[k] = e[k]; return c; }
+
+  // With Strava linked: sheet runs, rides and commutes are dropped and Strava's take their place; other
+  // Strava activities only fill in distance and climbing for a matching sheet entry on the same day.
+  // Everything is then put in date order. Phase 2 has no dates, so its rows are spread evenly
+  // between the day Phase 2 began and the first dated week.
+  function mergeStrava(sheetEvents) {
+    if (!stravaActs || !stravaActs.length) return sheetEvents;
+    var DAY = 86400000, since = new Date(STRAVA_SINCE + 'T00:00:00').getTime();
+    var all = sheetEvents.map(clone);
+    var firstIdx = all.findIndex(function (e) { return e.date; });
+    var firstT = firstIdx >= 0 ? new Date(all[firstIdx].date + 'T00:00:00').getTime() : since + 60 * DAY;
+    var lastT = null;
+    all.forEach(function (e, i) {
+      if (e.date) lastT = new Date(e.date + 'T00:00:00').getTime();
+      e._t = lastT != null ? lastT + i / 1e6 : since + (firstT - since) * (i / Math.max(1, firstIdx));
+    });
+    var fromStrava = { run: 1, commute: 1, bike: 1, swim: 1, xcski: 1, mtb: 1 }, kept = [], dropped = [];
+    all.forEach(function (e) { (fromStrava[e.kind] ? dropped : kept).push(e); });
+    var added = [];
+    stravaActs.forEach(function (a) {
+      if (fromStrava[a.kind]) {
+        var ev = { kind: a.kind, km: a.km != null ? Math.round(a.km * 10) / 10 : 5, elev: a.elev, date: a.date, day: dayLabel(a.date),
+          label: a.name, phase: 'Strava', strava: true, friends: [], dogs: [], sub: a.sub, secs: a.secs, exactKm: a.km };
+        // Keep training partners from the sheet's run or ride on the same day.
+        var buddy = dropped.filter(function (d) { return (d.kind === a.kind || d.kind !== 'run' && a.kind !== 'run') && d.date === a.date && d.friends && d.friends.length && !d.used; })[0];
+        if (buddy) { buddy.used = true; ev.friends = buddy.friends; ev.dogs = buddy.dogs || []; }
+        ev._t = new Date(a.when).getTime() || new Date(a.date + 'T12:00:00').getTime();
+        added.push(ev);
+        return;
+      }
+      if (a.kind === 'hockey') {
+        var hm = kept.filter(function (e) { return !e.strava && e.date === a.date && e.kind === 'sport' && e.sport === 'Hockey'; })[0];
+        if (hm) { hm.strava = true; hm.label += ' · Strava'; }
+        else added.push({ kind: 'sport', sport: 'Hockey', date: a.date, day: dayLabel(a.date), label: a.name, phase: 'Strava', strava: true, friends: [], dogs: [],
+          _t: new Date(a.when).getTime() || new Date(a.date + 'T12:00:00').getTime() });
+        return;
+      }
+      var kind = a.kind === 'climb' ? 'sport' : a.kind, sportName = a.kind === 'climb' ? 'Climbing' : a.sport;
+      var match = kept.filter(function (e) { return !e.strava && e.date === a.date && e.kind === kind && (kind !== 'sport' || e.sport === sportName); })[0];
+      // New sports, yoga and stair sessions that are only in Strava still count.
+      if (!match && (a.sport || kind === 'mobility' || kind === 'stairs' || kind === 'hike' || kind === 'walk' || kind === 'row')) {
+        added.push({ kind: kind, sport: sportName || undefined, km: a.km != null ? Math.round(a.km * 10) / 10 : ({ hike: 8, walk: 2, row: 3 }[kind] || 0), elev: a.elev || 0, date: a.date, day: dayLabel(a.date), label: a.name, phase: 'Strava', strava: true, friends: [], dogs: [],
+          _t: new Date(a.when).getTime() || new Date(a.date + 'T12:00:00').getTime() });
+        return;
+      }
+      // Snowboard days only in Strava still count.
+      if (!match && kind === 'snowboard') {
+        added.push({ kind: 'snowboard', date: a.date, day: dayLabel(a.date), label: a.name, phase: 'Strava', strava: true, friends: [], dogs: [], laps: null,
+          _t: new Date(a.when).getTime() || new Date(a.date + 'T12:00:00').getTime() });
+        return;
+      }
+      if (match) {
+        match.strava = true;
+        if (a.km != null && kind !== 'sport') match.km = Math.round(a.km * 10) / 10;
+        match.elev = a.elev;
+        match.label += ' · Strava';
+      }
+    });
+    // Sheet entries that were replaced still credit the friends named in them.
+    dropped.forEach(function (d) {
+      if (d.used || !((d.friends && d.friends.length) || (d.dogs && d.dogs.length))) return;
+      var social = { kind: 'social', friends: d.friends || [], dogs: d.dogs || [], date: d.date, day: d.day, label: d.label, phase: d.phase, _t: d._t };
+      added.push(social);
+    });
+    return kept.concat(added).sort(function (x, y) { return x._t - y._t; });
+  }
+
+  // Shown only when the sheet can't be read, so the page still explains itself.
+  function exampleTown() {
+    isExample = true;
+    var plan = ['CHEST/BACK', 'Run w/ Sam 5k', 'Bike commute', 'LEGS', 'Basketball', 'SHOULDERS/ARMS', 'Bike ride w/ Alex 24k', 'Bike commute', 'POST CHAIN', 'Pilates',
+      'Rowing 4k', 'CORE', 'Hike w/ Sam', 'Full body', 'Hockey', 'Stairs', 'Walk with Priya', 'CHEST', 'Bike commute', 'Run 6k', 'LEGS'];
+    var ev = [];
+    for (var w = 0; w < 6; w++) plan.forEach(function (label, i) {
+      FitParser.classify(label).forEach(function (e) {
+        e.label = label; e.day = 'Example wk ' + (w + 1); e.phase = 'Example';
+        e.friends = FitParser.friendsIn(label);
+        if (e.kind === 'lift' && (w + i) % 4 === 0) { e.prs = {}; e.prs[e.groups[0]] = 1; e.prCount = 1; e.tonnage = 9000; }
+        else if (e.kind === 'lift') e.tonnage = 7000;
+        var km = label.match(/(\d+)k/); e.km = km ? +km[1] : ({ run: 4, bike: 12, row: 3, hike: 8, stairs: 1, walk: 2, commute: 10 }[e.kind] || 0);
+        ev.push(e);
+      });
+      if (w % 2) ev.push({ kind: 'drink', count: 1, label: '1 drink', day: 'Example wk ' + (w + 1), phase: 'Example' });
+    });
+    applyEvents(ev, ['Example data'], false);
+  }
+
+  // Panels can be tucked away; each remembers how you left it.
+  function minimizable(card, btn, key, label) {
+    function set(m) {
+      card.classList.toggle('min', m);
+      btn.innerHTML = m ? '+' : '&ndash;';
+      btn.setAttribute('aria-expanded', String(!m));
+      btn.setAttribute('aria-label', (m ? 'Expand ' : 'Minimize ') + label);
+    }
+    set(lsGet(key) === '1');
+    btn.addEventListener('click', function () { var m = !card.classList.contains('min'); set(m); lsSet(key, m ? '1' : ''); });
+  }
+  minimizable($('title-card'), $('title-min'), 'fittertown:min:title', 'the title panel');
+  minimizable($('timeline-card'), $('timeline-min'), 'fittertown:min:timeline', 'the timeline');
+  (function () {
+    var L = $('ledger');
+    if (lsGet('fittertown:min:ledger') === '1') L.open = false;
+    L.addEventListener('toggle', function () { lsSet('fittertown:min:ledger', L.open ? '' : '1'); });
+  })();
+
+  var stage = 'claude';
+  // If a step hangs, say which one instead of sitting on "Connecting".
+  setTimeout(function () {
+    if (stage === 'claude') {
+      setStatus('No answer from claude.ai', 'err');
+      setNotice('<b>Example town.</b> This view didn’t hand the page its Google Drive connection. Open the artifact at claude.ai in a browser, signed in, then reload.');
+      $('notice').append(detail('Stuck at: connector setup · build ' + BUILD + ' · claude object: ' + (window.claude ? 'present' : 'missing')));
+      if (!events.length) exampleTown();
+    }
+  }, 12000);
+  (window.claude && window.claude.use ? window.claude.use('mcp') : Promise.resolve(null)).then(function (ns) {
+    stage = 'drive';
+    mcp = ns;
+    if (!mcp) {
+      setStatus('Not connected', 'err');
+      setNotice('<b>Example town.</b> This view can’t use connectors. Open the artifact at claude.ai, signed in with Google Drive connected.');
+      $('notice').append(detail('Connector capability unavailable · build ' + BUILD));
+      exampleTown();
+      return;
+    }
+    // A direct call (not a watch) so claude.ai can ask for your OK the first time.
+    manualSync();
+  });
+})();
+</script>
