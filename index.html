@@ -329,7 +329,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v67';
+  var BUILD = 'v68';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -488,11 +488,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   function nearName(key) { var info = key && town.info(key); return info ? info.title : ''; }
   town.onNear = function (key) {
     var n = $('near'), name = nearName(key);
-    if (!name) { n.hidden = true; $('act').disabled = true; return; }
+    if (!name) { n.hidden = true; $('act').textContent = 'Chitter'; return; }
+    $('act').textContent = 'Look';
     n.innerHTML = '';
     if (!coarse) { var kb = document.createElement('kbd'); kb.textContent = 'E'; n.append(kb); }
     n.append(document.createTextNode((coarse ? 'Tap to look at ' : '') + name));
-    n.hidden = false; $('act').disabled = false;
+    n.hidden = false;
   };
   town.onInteract = function (key) {
     if (key === 'library' && town.st.library.books.length) return openShelf();
@@ -531,7 +532,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     town.setExplore(on); syncExplore(); lsSet(EXPLORE_KEY, on ? '' : 'map');
     // Walking about, tuck the title panel and the ledger away (they're one tap from coming back).
     if (on && !tucked) { tucked = true; setTimeout(function () { if (!$('title-card').classList.contains('min')) $('title-min').click(); $('ledger').open = false; }, 0); }
-    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 Space to jump \u00b7 E to look \u00b7 stand still by a bench to sit \u00b7 M for the map'); }
+    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 Space to jump (or climb) \u00b7 E to look \u00b7 knock over bins and dig \u00b7 M for the map'); }
   }
   $('explore').addEventListener('click', function () { setExplore(!town.explore); });
   // M swaps views, after a moment, so typing a word that starts with M (mellon...) doesn't.
@@ -558,6 +559,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   })();
   if (!town.soft && lsGet(EXPLORE_KEY) !== 'map') setExplore(true); else syncExplore();
   town.onWeather = function (label) { $('weather-now').textContent = label === 'clear' ? '' : '\u00b7 ' + label; };
+  // Treasures the raccoon digs out of the bins are kept from visit to visit.
+  town.loot = +lsGet('fittertown:loot') || 0;
+  town.onLoot = function (what, n) { lsSet('fittertown:loot', String(n)); };
   town.onSecret = function (def, ev) { queueSecret(def, ev && ev.projected); };
   // Pixel-art rendering is on by default; the button switches to a smooth render.
   function syncPixelButton() { $('pixel').setAttribute('aria-pressed', String(pixelOn)); $('pixel').textContent = pixelOn ? 'Pixel: on' : 'Pixel: off'; }
@@ -694,6 +698,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       ['Fields', fmt(s.sportOrder.length)],
       ['Flower beds (mobility)', fmt(s.farm.crops.length)],
       ['Households', fmt(s.friendOrder.length)],
+      ['Raccoon treasures', town.loot ? fmt(town.loot) + ' dug out of the bins' : 'none yet'],
       ['Dogs walked', s.dogs.order.length ? s.dogs.order.map(function (n) { return n + ' ' + s.dogs.list[n].n; }).join(' · ') : 'none yet'],
       ['Snowboard days', s.snow.days ? fmt(s.snow.days) + ' · ' + fmt(s.snow.runs.length) + ' runs' : 'none yet'],
       ['Cinema (films)', s.cinema.films.length ? fmt(s.cinema.films.length) : 'not connected'],

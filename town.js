@@ -80,7 +80,7 @@
     eagle: ['#4a3420', '#e8b934', '#f4f2ec'], owl: ['#8a6e4e', '#e8b934', '#b89a72'],
     brick: ['#a8483a', '#b5553f', '#9a4034'], logwood: ['#8a5a34', '#74492a'], shingle: '#4e3d34', whitewood: '#f3efe6',
     fox: ['#d9682a', '#f4efe6', '#2a2420'], coon: ['#8d8883', '#2b2826', '#efece6'], glass: ['#c8372d', '#2f6fc0', '#e8b934', '#3f8a3f', '#7a4fb0', '#d9682a'],
-    fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
+    fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
   };
   var CASTLE_MILESTONES = [
     [20, 'gatehouse', 'Gatehouse'], [40, 'banners', 'Wall banners'], [60, 'moat', 'Moat and drawbridge'],
@@ -1276,7 +1276,12 @@
     if (par && !cur) this.growStreet(par.j, par.k + 2, delay);
     var g = new T.Group();
     this.layTiles(st.slice(cur, upto), 'cobble', 1.4, g);
-    lampPoints(st, 9, 1.3, cur).forEach(function (l) { if (l.i < upto) this.lamp(l.x, l.z, g); }, this);
+    lampPoints(st, 9, 1.3, cur).forEach(function (l, li) {
+      if (l.i >= upto) return;
+      this.lamp(l.x, l.z, g);
+      // A garbage can out by every other lamp.
+      if (li % 2 === 0) { var a = st[Math.min(st.length - 1, l.i + 1)], b = st[Math.max(0, l.i - 1)], tl = Math.hypot(a.x - b.x, a.z - b.z) || 1; this.addCan(l.x + (a.x - b.x) / tl * 0.45, l.z + (a.z - b.z) / tl * 0.45, l.i); }
+    }, this);
     this.world.add(g);
     if (!this.instant) { g.position.y = 4; this.anims.push({ obj: g, start: performance.now() + (delay || 0), dur: 600, from: 4, to: 0, kind: 'slide' }); }
     S[si] = upto;
@@ -1916,7 +1921,6 @@
         w.rotation.y = -Math.atan2(dz, dx);
       }
       this.castleCozy(g, GATE_ANGLE, 7.8, null, 'castle', { x: 0, z: 0, y: 0 });
-      this.wallSeats(GATE_ANGLE + 22.5, 315, 13, 1.35, { x: 0, z: 0, y: 0 });
     } else if (kind === 'spire') {
       var keep = this.st.towers.full;
       var sp = this.part(keep.roof, this.geo.cone, this.mat('gold'), 0.35, 2.4, 0.35, 0, 2.6, 0, 'castle');
@@ -2208,21 +2212,12 @@
       P(self.geo.ball, self.mat('lantern'), 0.15, 0.15, 0.15, 0, 1.4, 0, pv);
     }
     if (kind === 'gate') this.castleCozy(o, C.gate, 6.4, S, pick, { x: site.x, z: site.z, y: base });
-    if (kind === 'wall' && K !== 'hold') this.wallSeats(C.gate + 8, 344, 13, (K === 'keep' ? 2.5 : K === 'elf' ? 1.2 : 1.9) + 0.05, { x: site.x, z: site.z, y: base });
     C.group.add(o);
     this.pop(o, delay);
   };
   // Life inside the walls, once a castle has its gate: a cobbled lane in from the gate under
   // lanterns and bunting, a well, a market stall, benches and a pair of courtyard trees.
   // R is the radius of the open ring between the keep and the halls.
-  // Spots along the top of a curtain wall where the raccoon can hop up and sit, looking out.
-  Town.prototype.wallSeats = function (from, span, R, h, base) {
-    var seats = this.st.seats = this.st.seats || [];
-    for (var a = from + 4; a < from + span - 2; a += 9) {
-      var q = polar(a, R);
-      seats.push({ x: base.x + q.x, z: base.z + q.z, y: base.y + h, rot: Math.atan2(q.x, q.z), wall: true });
-    }
-  };
   Town.prototype.castleCozy = function (o, gate, R, S, pick, base) {
     var self = this;
     function P(geo, mat, sx, sy, sz, x, y, z, parent) { return self.part(parent || o, geo, mat, sx, sy, sz, x, y, z, pick); }
@@ -2265,6 +2260,8 @@
       for (var fr = 0; fr < 4; fr++) P(self.geo.ball, self.mat('flag', cr === 1 ? 4 : cr * 3), 0.09, 0.09, 0.09, -0.48 + cr * 0.4 + (fr % 2) * 0.14, 0.8, -0.06 + Math.floor(fr / 2) * 0.12, m);
     }
     [-1.0, 1.0].forEach(function (x) { P(self.geo.cyl, self.mat('wood'), 0.17, 0.45, 0.17, x, 0.22, 0.05, m); });
+    if (base) { var sf = m.rotation.y; (this.st.stashes = this.st.stashes || []).push({ x: base.x + m.position.x, z: base.z + m.position.z, mx: base.x + m.position.x + Math.sin(sf) * 0.65, mz: base.z + m.position.z + Math.cos(sf) * 0.65, y: base.y, finds: 3 }); }
+    if (base && !this.soft) { var cq = polar(gate - 125 - 12, R + 0.5); this.addCan(base.x + cq.x, base.z + cq.z, 0); this.st.cans[this.st.cans.length - 1].y = base.y; this.st.cans[this.st.cans.length - 1].g.position.y = base.y; }
     // Benches facing the keep, and two courtyard trees.
     [-40, 40].forEach(function (off) {
       var bg = spot(off, R - 0.3);
@@ -2989,6 +2986,7 @@
     var g = new T.Group(), self = this, fox = kind === 'fox', pick = fox ? 'fox' : 'raccoon', name = fox ? 'fox' : 'coon', m = this.mat(name, 0);
     function P(geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || g, geo, mat, sx, sy, sz, x, y, z, pick); }
     var dark = this.mat(name, fox ? 2 : 1), light = this.mat(name, fox ? 1 : 2);
+    if (fox) return this.foxCritter(g, P, m, dark, light);
     var body = new T.Group(); body.position.y = 0.3; g.add(body);
     P(this.geo.box, m, 0.26, 0.24, 0.55, 0, 0, 0, body);
     var head = new T.Group(); head.position.set(0, 0.12, 0.34); body.add(head);
@@ -3009,6 +3007,42 @@
     g.scale.setScalar(fox ? 1.4 : 1.3);
     this.world.add(g);
     return { g: g, body: body, head: head, legs: legs, tail: tail, kind: kind, cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: fox ? 3 : 7, speed: fox ? 1.1 : 0.75 };
+  };
+  // Jo the fox: slim and long-legged, a fine pointed snout, tall ears, lashes, a daisy tucked
+  // behind one ear and a big plume of a tail.
+  Town.prototype.foxCritter = function (g, P, m, dark, light) {
+    var self = this, body = new T.Group(); body.position.y = 0.37; g.add(body);
+    P(this.geo.box, m, 0.17, 0.17, 0.48, 0, 0, 0, body);
+    P(this.geo.box, light, 0.12, 0.1, 0.16, 0, -0.06, 0.17, body);            // cream chest
+    var head = new T.Group(); head.position.set(0, 0.13, 0.29); body.add(head);
+    P(this.geo.box, m, 0.17, 0.15, 0.16, 0, 0, 0, head);
+    [-1, 1].forEach(function (sd) { P(self.geo.box, light, 0.05, 0.07, 0.1, sd * 0.065, -0.04, 0.04, head); }); // cheeks
+    P(this.geo.box, light, 0.07, 0.06, 0.17, 0, -0.035, 0.14, head);          // long slim snout
+    P(this.geo.box, dark, 0.035, 0.035, 0.03, 0, -0.025, 0.23, head);          // nose
+    [-1, 1].forEach(function (sd) {
+      P(self.geo.cone4, m, 0.045, 0.17, 0.035, sd * 0.055, 0.15, -0.02, head);   // tall ears
+      P(self.geo.cone4, dark, 0.025, 0.1, 0.02, sd * 0.055, 0.14, 0.0, head);
+      P(self.geo.box, self.mat('swan', 2), 0.03, 0.028, 0.02, sd * 0.048, 0.03, 0.085, head); // eyes
+      var lash = P(self.geo.box, self.mat('swan', 2), 0.04, 0.008, 0.012, sd * 0.06, 0.05, 0.09, head); lash.rotation.z = sd * 0.5;
+    });
+    // A daisy behind her ear.
+    var fl = new T.Group(); fl.position.set(0.085, 0.13, -0.01); head.add(fl);
+    for (var pe = 0; pe < 5; pe++) { var a = pe / 5 * Math.PI * 2; P(self.geo.ball, self.mat('swan', 0), 0.022, 0.022, 0.014, Math.cos(a) * 0.026, Math.sin(a) * 0.026, 0, fl); }
+    P(this.geo.ball, this.mat('flag', 1), 0.017, 0.017, 0.016, 0, 0, 0.006, fl);
+    fl.rotation.y = Math.PI / 2;
+    // The tail: a big soft plume, fuller in the middle, with a white tip.
+    var tail = new T.Group(); tail.position.set(0, 0.03, -0.24); body.add(tail);
+    [[0.08, -0.06], [0.12, -0.16], [0.15, -0.27], [0.14, -0.38], [0.1, -0.47]].forEach(function (seg, i) { P(self.geo.box, i === 4 ? light : m, seg[0], seg[0], 0.12, 0, 0.02 + i * 0.012, seg[1], tail); });
+    tail.rotation.x = 0.55;
+    var legs = [[-0.055, 0.17], [0.055, 0.17], [-0.055, -0.17], [0.055, -0.17]].map(function (l) {
+      var hip = new T.Group(); hip.position.set(l[0], 0.3, l[1]); g.add(hip);
+      P(self.geo.box, m, 0.042, 0.18, 0.042, 0, -0.09, 0, hip);
+      P(self.geo.box, dark, 0.045, 0.13, 0.045, 0, -0.235, 0, hip);         // dark stockings
+      return hip;
+    });
+    g.scale.setScalar(1.35);
+    this.world.add(g);
+    return { g: g, body: body, head: head, legs: legs, tail: tail, kind: 'fox', cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: 3, speed: 1.1 };
   };
   Town.prototype.placeCritter = function (key, cx, cz, rIn, rOut) {
     var c = this.st.critters[key] || (this.st.critters[key] = this.critter(key === 'fox' ? 'fox' : 'raccoon'));
@@ -4942,6 +4976,7 @@
         seats.forEach(function (c, ci) {
           var ch = new T.Group(); ch.position.set(c[0], 0, c[1]); ch.rotation.y = c[2]; g.add(ch);
           (self.st.seats = self.st.seats || []).push({ x: pos.x + c[0], z: pos.z + c[1], y: g.position.y + 0.45, rot: c[2], party: 'feast' });
+          if (ci === 4 || ci === 5) (self.st.stashes = self.st.stashes || []).push({ x: pos.x, z: pos.z, mx: pos.x + c[0] * 0.5, mz: pos.z + c[1] * 1.15, y: g.position.y - 0.1, finds: 4, party: 'feast' });
           P(self.geo.box, self.mat('woodLight'), 0.36, 0.05, 0.34, 0, 0.38, 0, ch);
           P(self.geo.box, self.mat('woodLight'), 0.36, 0.42, 0.05, 0, 0.6, -0.16, ch);
           [[-0.15, -0.14], [0.15, -0.14], [-0.15, 0.14], [0.15, 0.14]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.04, 0.38, 0.04, l[0], 0.19, l[1], ch); });
@@ -7060,9 +7095,19 @@
   // Dogs trot around the pen with moving legs and wagging tails: they sniff, sit, nose their
   // toys and now and then break into zoomies.
   Town.prototype.walkDogs = function (dt, now) {
-    var D = this.st.dogs, W = DOG_PEN.w - 1.2, Dd = DOG_PEN.d - 1.6;
+    var D = this.st.dogs, W = DOG_PEN.w - 1.2, Dd = DOG_PEN.d - 1.6, self = this, chase = null;
+    // A raccoon near the pen: every dog in there goes absolutely bananas.
+    if (this.explore && this.player && D.pen) {
+      var pp = this.player.g.position, pc = DOG_PEN.c;
+      if (Math.hypot(pp.x - pc.x, pp.z - pc.z) < 7.5) { chase = D.pen.worldToLocal(pp.clone()); chase.x = Math.max(-W / 2, Math.min(W / 2, chase.x)); chase.z = Math.max(-Dd / 2, Math.min(Dd / 2, chase.z)); }
+    }
     D.order.forEach(function (name, k) {
       var g = D.list[name], body = g.group, t = now / 1000 + k * 1.7;
+      if (chase) {
+        g.wait = 0; g.mood = 'zoom'; g.speed = 3.4; g.target = null;
+        g.tx = chase.x + (k - 1) * 0.5; g.tz = chase.z;
+        if (now > (g.barkAt || 0)) { g.barkAt = now + 1200 + Math.random() * 1800; self.bark(name, true); }
+      }
       if (g.wag > 0) g.wag -= dt;
       g.tail.rotation.y = Math.sin(t * (g.wag > 0 ? 30 : g.wait > 0 ? 9 : 14)) * 0.6;
       var hopY = 0;
@@ -7709,12 +7754,18 @@
         this.world.remove(pc.g); this.scene.add(pc.g);
         pc.g.position.set(TOWN_SQ.x + 2.4, 0, TOWN_SQ.z - 0.6);
         pc.g.rotation.y = Math.PI;
-        pc.g.scale.setScalar(1.6);
+        pc.g.scale.setScalar(PLAYER_SCALE);
+        pc.hip0 = pc.legs.map(function (l) { return l.position.clone(); });
+        // Little eyes that shine in the dark, like a raccoon's in torchlight.
+        pc.eyeMat = new T.MeshBasicMaterial({ color: '#1a1a1a' });
+        [-0.06, 0.06].forEach(function (x) { var e = new T.Mesh(this.geo.box, pc.eyeMat); e.scale.set(0.045, 0.04, 0.02); e.position.set(x, 0.03, 0.13); pc.head.add(e); }, this);
+        // And a mouth to carry things in.
+        pc.mouth = new T.Group(); pc.mouth.position.set(0, -0.08, 0.27); pc.head.add(pc.mouth);
         this.player = pc;
       }
       this.player.g.visible = true;
       var P = this.player.g.position;
-      P.y = surfaceY(P.x, P.z); this.player.gy = null; this.player.air = 0; this.player.vy = 0; this.player.idle = 0;
+      P.y = this.floorAt(P.x, P.z, P.y + 0.4); this.player.air = 0; this.player.vy = 0; this.player.idle = 0; this.player.climb = null; this.player.dig = null;
       this.fit.auto = false; c.autoRotate = false; c.enablePan = false;
       c.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.DOLLY, RIGHT: T.MOUSE.ROTATE };
       c.touches = { ONE: T.TOUCH.ROTATE, TWO: T.TOUCH.DOLLY_ROTATE };
@@ -7745,14 +7796,20 @@
   // Footprints of everything solid: the ground-level parts of buildings, walls, trunks and so on,
   // bucketed into a grid. Rebuilt every few seconds while things are still being built.
   Town.prototype.buildSolids = function () {
-    var grid = {}, list = [], geoBox = this.geo.box;
+    var grid = {}, list = [], geoBox = this.geo.box, climb = {};
     this.picks.forEach(function (m) {
       var k = m.userData.pick;
-      if (!k || SOLID_SKIP.test(k) || m.userData.passable) return;
+      if (!k || SOLID_SKIP.test(k)) return;
       for (var q = m; q; q = q.parent) if (!q.visible && !q.userData.inBatch) return;
       m.updateWorldMatrix(true, false);
       var b = new T.Box3().setFromObject(m);
-      if (!isFinite(b.min.x) || b.max.y - b.min.y < 0.35) return;
+      if (!isFinite(b.min.x)) return;
+      // Everything you might stand on top of, filed by where it is.
+      if (b.max.x - b.min.x < 24 && b.max.z - b.min.z < 24 && !m.isInstancedMesh && !/^(prflag|secret:feast)/.test(k)) {
+        var co = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z, y0: b.min.y, y1: b.max.y, m: m };
+        for (var cx = Math.floor(co.x0 / 4); cx <= Math.floor(co.x1 / 4); cx++) for (var cz = Math.floor(co.z0 / 4); cz <= Math.floor(co.z1 / 4); cz++) (climb[cx + ',' + cz] = climb[cx + ',' + cz] || []).push(co);
+      }
+      if (m.userData.passable || b.max.y - b.min.y < 0.35) return;
       var gy = groundY((b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2);
       if (b.min.y > gy + 0.9) return; // roofs, canopies, things up in the air
       var o = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z, k: k, top: b.max.y };
@@ -7777,19 +7834,28 @@
       for (var gx = Math.floor(o.x0 / 4); gx <= Math.floor(o.x1 / 4); gx++) for (var gz = Math.floor(o.z0 / 4); gz <= Math.floor(o.z1 / 4); gz++) (grid[gx + ',' + gz] = grid[gx + ',' + gz] || []).push(o);
     });
     this.solids = { grid: grid, list: list };
+    this.climbGrid = climb;
   };
   // feet: how high the raccoon's feet are mid-jump; anything lower than that can be hopped over.
-  Town.prototype.walkable = function (x, z, feet) {
+  Town.prototype.walkable = function (x, z, feet, aloft) {
     var r = 0.22;
     if (Math.hypot(x, z) > 118) return false;
     var deck = this.deckAt(x, z);
-    if (deck) return this.clearOfSolids(x, z, feet);
-    if (coastSd(x, z) > -0.6 || lakeDist(x, z) < -0.4) return false;
-    if (TARNS.some(function (t) { return Math.hypot(x - t.x, z - t.z) < t.R; })) return false;
-    // The river: only on a bridge (a path, road or the commuter lane crossing it).
-    if (riverDist(x, z) < RIVER_HALF + 0.2 && !nearPath(x, z, 1.1) && !LANE.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 0.9; })) return false;
+    if (deck || aloft) return this.clearOfSolids(x, z, feet);
+    // Raccoons swim: the lake, the ponds, the sea and the river are all fair game, except the
+    // river down in the canyon, where the walls are too steep to climb back out.
+    if (riverDist(x, z) < RIVER_HALF + 0.2 && canyonDepth(x, z) > 0.4 && !nearPath(x, z, 1.1)) return false;
     return this.clearOfSolids(x, z, feet);
   };
+  // The water surface at x, z, if there's water to swim in there (not under a bridge's deck).
+  function waterAt(x, z) {
+    if (lakeDist(x, z) < -0.4) return LAKE.y;
+    if (coastSd(x, z) > -0.6) return SEA_Y;
+    for (var i = 0; i < TARNS.length; i++) { var t = TARNS[i]; if (Math.hypot(x - t.x, z - t.z) < t.R) return t.y; }
+    if (riverDist(x, z) < RIVER_HALF + 0.2 && !nearPath(x, z, 1.1) && !LANE.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 0.9; })) return riverLevel(RIVER_NEAR.i);
+    return null;
+  }
+  var SWIM_SINK = 0.24;
   // Docks and jetties: planks you can walk out on over the water.
   Town.prototype.deckAt = function (x, z) {
     var D = this.st.decks;
@@ -7811,64 +7877,96 @@
     }
     return true;
   };
+  var PLAYER_SCALE = 1.25, STEP_UP = 0.4, GRAVITY = 17;
   Town.prototype.stepPlayer = function (dt, now) {
     var pl = this.player;
     if (!pl) return false;
     if (!this.solids || now > this.solidAt) { this.buildSolids(); this.solidAt = now + (this.anims.length ? 1500 : 6000); }
     var roam = this.st.critters && this.st.critters.raccoon; if (roam && roam.g.visible) roam.g.visible = false; // you are the raccoon now
-    var K = this.keys, g = pl.g, P = g.position, c = this.controls, cam = this.camera;
+    var K = this.keys, g = pl.g, P = g.position, c = this.controls, cam = this.camera, self = this;
     var mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0) + (this.stick ? this.stick.x : 0);
     var mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0) + (this.stick ? -this.stick.y : 0);
     var len = Math.hypot(mx, mz), moving = len > 0.15;
-    // Sitting on something: stay put until you move, then hop (or drop) off.
+    pl.vy = pl.vy || 0;
+    if (pl.eyeMat) { var glow = this.dark ? '#d9ff7a' : '#1a1a1a'; if (pl.eyeGlow !== glow) { pl.eyeGlow = glow; pl.eyeMat.color.set(glow); } }
+    this.stepCarry(pl, dt, now, moving);
+    // Scrambling up a wall: nothing else happens until it's on top.
+    if (pl.climb) { this.climbStep(pl, dt, now); this.followCam(P, dt); return true; }
+    // Sitting on something: stay put until you move, then hop off.
     if (pl.seat) {
-      if (moving || pl.air > 0.05) this.leaveSeat(pl);
+      if (moving) this.leaveSeat(pl);
       else return this.sitStep(pl, dt, now);
     }
-    // Jumping: up and over anything low (fences, hedges, benches), with a squash on landing.
-    pl.air = pl.air || 0; pl.vy = pl.vy || 0;
-    if (pl.air > 0 || pl.vy > 0) {
-      pl.vy -= 17 * dt; pl.air += pl.vy * dt;
-      if (pl.air <= 0) { pl.air = 0; pl.vy = 0; pl.squash = 0.18; this.puff(P.x, P.y, P.z, 5, 'dust'); }
-    }
-    var feet = pl.air > 0.05 ? P.y : null, stuck = !this.walkable(P.x, P.z);
+    var floor = this.floorAt(P.x, P.z, P.y + STEP_UP), air = P.y - floor > STEP_UP || pl.vy > 0;
+    var wHere = this.deckAt(P.x, P.z) ? null : waterAt(P.x, P.z);
+    pl.swim = wHere != null && P.y < wHere + 0.05 && !air;
+    var aloft = P.y > surfaceY(P.x, P.z) + 0.3, stuck = !this.walkable(P.x, P.z, P.y + 0.3, aloft);
     if (moving) {
       if (len > 1) { mx /= len; mz /= len; }
       var fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
       var right = new T.Vector3(-fwd.z, 0, fwd.x);
       var run = K.shift || (this.stick && Math.hypot(this.stick.x, this.stick.y) > 0.92);
-      var sp = (run ? 6.2 : 3.2) * dt;
+      var sp = (run ? 6.4 : 3.3) * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1);
       var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
-      // Slide along whatever's in the way.
-      // (After landing on top of something, walk off it freely.)
-      if (stuck || this.walkable(P.x + dx, P.z + dz, feet)) { P.x += dx; P.z += dz; }
-      else if (this.walkable(P.x + dx, P.z, feet)) P.x += dx;
-      else if (this.walkable(P.x, P.z + dz, feet)) P.z += dz;
+      var tryMove = function (ddx, ddz) {
+        var nx = P.x + ddx, nz = P.z + ddz;
+        if (!stuck && !self.walkable(nx, nz, P.y + 0.3, aloft)) return false;
+        return !self.blockedAt(nx, nz, P.y); // a wall, a chimney, a rising roof too steep to step up
+      };
+      // Up on a ledge (a castle wall, a roof ridge): steer along it rather than stepping off.
+      var keepsHeight = function (ddx, ddz) { return self.floorAt(P.x + ddx, P.z + ddz, P.y + STEP_UP) > P.y - 0.5; };
+      var moved = false;
+      if (aloft && !air && !keepsHeight(dx, dz)) {
+        for (var a = 1; a <= 4 && !moved; a++) [1, -1].forEach(function (sg) {
+          if (moved) return;
+          var ang = sg * a * 0.4, ca = Math.cos(ang), sa = Math.sin(ang), rx = dx * ca - dz * sa, rz = dx * sa + dz * ca;
+          if (keepsHeight(rx, rz) && tryMove(rx, rz)) { P.x += rx; P.z += rz; dx = rx; dz = rz; moved = true; }
+        });
+      }
+      if (!moved) {
+        if (tryMove(dx, dz)) { P.x += dx; P.z += dz; }
+        else if (tryMove(dx, 0)) P.x += dx;
+        else if (tryMove(0, dz)) P.z += dz;
+      }
       var face = Math.atan2(dx, dz), d = face - g.rotation.y;
       while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 14);
-      pl.phase += dt * (run ? 20 : 13);
-      if (!pl.air) pl.legs.forEach(function (l, i) { l.rotation.x = Math.sin(pl.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.7; });
+      pl.phase += dt * (run ? 21 : 14);
+      if (!air && !pl.swim) pl.legs.forEach(function (l, li) { l.rotation.x = Math.sin(pl.phase + (li === 0 || li === 3 ? 0 : Math.PI)) * 0.7; });
+      // A little wake behind, paddling along.
+      if (pl.swim && now > (pl.wakeAt || 0)) { pl.wakeAt = now + 260; this.puff(P.x - Math.sin(g.rotation.y) * 0.3, wHere + 0.02, P.z - Math.cos(g.rotation.y) * 0.3, 2, 'ripple'); if (Math.random() < 0.5) this.sfx('paddle'); }
       pl.tail.rotation.y = Math.sin(pl.phase * 0.5) * 0.3;
-      this.brushPast(P.x, P.z, dx / dt, dz / dt, now);
-      if (this.season === 'winter' && !pl.air) this.pawprint(pl, P, g.rotation.y);
+      if (!aloft) this.brushPast(P.x, P.z, dx / dt, dz / dt, now);
+      if (this.season === 'winter' && !air && !aloft) this.pawprint(pl, P, g.rotation.y);
+      this.bumpCans(P, dx / dt, dz / dt, now);
     }
-    if (moving || pl.air) pl.idle = 0; else pl.idle = (pl.idle || 0) + dt;
+    // Falling, jumping and landing on whatever's underneath: ground, a roof, a wall, a bench.
+    floor = this.floorAt(P.x, P.z, P.y + STEP_UP);
+    if (pl.vy > 0 || P.y - floor > STEP_UP) {
+      pl.vy -= GRAVITY * dt; P.y += pl.vy * dt;
+      pl.fallFrom = Math.max(pl.fallFrom || P.y, P.y);
+      if (P.y <= floor) {
+        var wl = waterAt(P.x, P.z);
+        if (wl != null && !this.deckAt(P.x, P.z) && (pl.fallFrom || 0) - floor > 0.3) { this.puff(P.x, wl + 0.05, P.z, 10, 'splash'); this.sfx('splash'); if ((pl.fallFrom || 0) - floor > 1.5) this.say('SPLOOSH', pl.g, 0.9, 1.0); }
+        else if ((pl.fallFrom || 0) - floor > 0.3) { pl.squash = 0.18; this.puff(P.x, floor, P.z, 5, 'dust'); if ((pl.fallFrom || 0) - floor > 1.2) this.sfx('wood'); }
+        P.y = floor; pl.vy = 0; pl.fallFrom = null;
+        this.bumpCans(P, 0, 0, now, true);
+      }
+    } else { P.y += (floor - P.y) * Math.min(1, dt * 18); pl.fallFrom = null; }
+    pl.air = Math.max(0, P.y - floor);
+    air = pl.vy !== 0 || pl.air > STEP_UP;
+    if (moving || air) pl.idle = 0; else pl.idle = (pl.idle || 0) + dt;
     // Footsteps, when the sound is on: one per paw that lands.
-    if (moving && !pl.air) { var stepN = Math.floor(pl.phase / Math.PI); if (stepN !== pl.stepN) { pl.stepN = stepN; this.footstep(P.x, P.z); } }
-    // Left alone next to a bench, a chair, the end of a dock or a castle wall: hop up and sit.
-    if (!moving && !pl.air && pl.idle > 1.2 && pl.idle < 25 && now > (pl.seatAt || 0)) {
+    if (moving && !air) { var stepN = Math.floor(pl.phase / Math.PI); if (stepN !== pl.stepN) { pl.stepN = stepN; this.footstep(P.x, P.z, aloft); } }
+    // Rummaging in a knocked-over can.
+    this.digStep(pl, dt, now, moving || air);
+    // Left alone next to a bench, a chair or the end of a dock: hop up and sit.
+    if (!moving && !air && !pl.dig && pl.idle > 1.2 && pl.idle < 25 && now > (pl.seatAt || 0)) {
       pl.seatAt = now + 400;
       var seat = this.seatNear(P.x, P.z);
-      if (seat) { this.takeSeat(pl, seat, now); return true; }
+      if (seat && Math.abs(seat.y - P.y) < 1.2) { this.takeSeat(pl, seat, now); return true; }
     }
     this.posePlayer(pl, dt, now, moving);
-    var deck = this.deckAt(P.x, P.z), ground = deck ? deck.y : surfaceY(P.x, P.z);
-    pl.gy = pl.gy == null ? P.y : pl.gy;
-    pl.gy += (ground - pl.gy) * Math.min(1, dt * 18);
-    // Walking off something high (a castle wall): fall rather than snap down.
-    if (pl.gy - ground > 0.4 && !pl.air) { pl.air = pl.gy - ground; pl.gy = ground; pl.vy = 0; }
-    P.y = pl.gy + pl.air;
     // Sharper shadows close up: the sun's shadow box follows you about.
     if (this.sunBase && !this.soft) {
       var sun = this.sun, sc2 = sun.shadow.camera;
@@ -7876,11 +7974,7 @@
       sun.target.position.set(P.x, 0, P.z);
       sun.position.set(P.x + this.sunBase.x, this.sunBase.y, P.z + this.sunBase.z);
     }
-    // The camera keeps its angle and drifts after you.
-    var tx = P.x, ty = P.y + 0.6, tz = P.z, k = Math.min(1, dt * 6);
-    var mvx = (tx - c.target.x) * k, mvy = (ty - c.target.y) * k, mvz = (tz - c.target.z) * k;
-    c.target.x += mvx; c.target.y += mvy; c.target.z += mvz;
-    cam.position.x += mvx; cam.position.y += mvy; cam.position.z += mvz;
+    var mv = this.followCam(P, dt);
     // What's close enough to look at.
     if (now > (this.nearAt || 0)) {
       this.nearAt = now + 200;
@@ -7893,14 +7987,85 @@
       if (R && R.train && R.train[0]) { var lp = R.train[0].position; if (Math.hypot(lp.x - P.x, lp.z - P.z) < 3.2) best = 'railway'; }
       if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
     }
-    return moving || pl.air > 0 || pl.idle < 60 || Math.abs(mvx) + Math.abs(mvz) > 0.001;
+    return moving || air || pl.idle < 60 || mv;
   };
-  Town.prototype.interact = function () { if (this.near && this.onInteract) this.onInteract(this.near); };
+  // The highest thing to stand on at x, z, no higher than fromY: the ground (or a dock), or the
+  // top of a roof, a wall, a fence, a bench, a treetop.
+  Town.prototype.floorAt = function (x, z, fromY) {
+    var deck = this.deckAt(x, z), w = deck ? null : waterAt(x, z);
+    var base = deck ? deck.y : w != null ? Math.max(w - SWIM_SINK, groundY(x, z)) : surfaceY(x, z), C = this.climbGrid;
+    if (!C || fromY <= base) return base;
+    var cell = C[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
+    if (!cell) return base;
+    var cands = [];
+    for (var i = 0; i < cell.length; i++) { var o = cell[i]; if (x >= o.x0 && x <= o.x1 && z >= o.z0 && z <= o.z1 && o.y0 < fromY && o.y1 > base + 0.12) cands.push(o.m); }
+    if (!cands.length) return base;
+    var rc = this.footRay || (this.footRay = new T.Raycaster());
+    rc.ray.origin.set(x, fromY, z); rc.ray.direction.set(0, -1, 0); rc.near = 0; rc.far = fromY - base;
+    var hits = rc.intersectObjects(cands, false);
+    return hits.length ? Math.max(base, hits[0].point.y) : base;
+  };
+  // Something in the way at body height (above what can be stepped up onto).
+  Town.prototype.blockedAt = function (x, z, y) {
+    return this.floorAt(x, z, y + 0.55) > y + STEP_UP;
+  };
+  Town.prototype.followCam = function (P, dt) {
+    var c = this.controls, cam = this.camera, k = Math.min(1, dt * 6);
+    var mvx = (P.x - c.target.x) * k, mvy = (P.y + 0.5 - c.target.y) * k, mvz = (P.z - c.target.z) * k;
+    c.target.x += mvx; c.target.y += mvy; c.target.z += mvz;
+    cam.position.x += mvx; cam.position.y += mvy; cam.position.z += mvz;
+    return Math.abs(mvx) + Math.abs(mvy) + Math.abs(mvz) > 0.001;
+  };
+  Town.prototype.interact = function () {
+    if (this.near && this.onInteract) { this.onInteract(this.near); return; }
+    // Nothing to look at: have a little chitter to yourself.
+    var pl = this.player;
+    if (!pl) return;
+    this.say(['*chitter*', 'hehehe', '*chirrrp*', 'mine.', 'trash panda!', '*sniff sniff*', 'hrrrm'][Math.floor(Math.random() * 7)], pl.g, 1.0, 1.2);
+    this.sfx('chitter');
+    if (!pl.vy && !pl.climb && !pl.seat) pl.vy = 2.2;
+  };
   Town.prototype.jump = function () {
     var pl = this.player;
-    if (!pl || pl.air > 0.02) return;
-    if (pl.idle > 25) { pl.idle = 0; this.say('!', pl.g, 1.3, 0.8); } // woken up
-    pl.vy = 4.8; pl.air = 0.001; pl.idle = 0;
+    if (!pl || pl.climb || pl.air > 0.05 || pl.vy > 0) return;
+    if (pl.idle > 25) { pl.idle = 0; this.say('!', pl.g, 1.0, 0.8); } // woken up
+    if (pl.seat) this.leaveSeat(pl);
+    pl.dig = null; pl.idle = 0;
+    // Right up against something too tall to hop onto (a house, a shed, a castle wall, a tree)?
+    // Scramble up it.
+    var P = pl.g.position, ry = pl.g.rotation.y, fx = Math.sin(ry), fz = Math.cos(ry);
+    for (var d = 0.4; d <= 0.95; d += 0.275) {
+      var px = P.x + fx * d, pz = P.z + fz * d, top = this.floorAt(px, pz, P.y + 4.6), h = top - P.y;
+      if (h > 0.6 && h < 4.6 && this.floorAt(px, pz, top + 0.8) <= top + 0.05) {
+        var lx = px + fx * 0.12, lz = pz + fz * 0.12, land = this.floorAt(lx, lz, top + 0.3);
+        if (Math.abs(land - top) > 0.4) { lx = px; lz = pz; land = top; }
+        pl.climb = { x0: P.x, z0: P.z, y0: P.y, x1: lx, z1: lz, y1: land, t: 0, dur: 0.35 + h * 0.16, fx: fx, fz: fz };
+        this.puff(P.x + fx * 0.2, P.y + 0.1, P.z + fz * 0.2, 4, 'dust');
+        return;
+      }
+    }
+    pl.vy = 4.8;
+  };
+  // Up the wall in a scrabble of paws, then over the top.
+  Town.prototype.climbStep = function (pl, dt, now) {
+    var C = pl.climb, P = pl.g.position, t;
+    C.t += dt; t = Math.min(1, C.t / C.dur);
+    var wallX = C.x0 + C.fx * 0.12, wallZ = C.z0 + C.fz * 0.12;
+    if (t < 0.72) {
+      var u = t / 0.72;
+      P.x = C.x0 + (wallX - C.x0) * Math.min(1, u * 4); P.z = C.z0 + (wallZ - C.z0) * Math.min(1, u * 4);
+      P.y = C.y0 + (C.y1 + 0.1 - C.y0) * u;
+      pl.body.rotation.x += (-1.25 - pl.body.rotation.x) * Math.min(1, dt * 14);
+      pl.legs.forEach(function (l, i) { l.rotation.x = -1.2 + Math.sin(now / 45 + i * 1.7) * 0.7; });
+      if (Math.floor(C.t * 12) !== C.tick) { C.tick = Math.floor(C.t * 12); this.sfx('scrabble'); }
+    } else {
+      var v = (t - 0.72) / 0.28;
+      P.x = wallX + (C.x1 - wallX) * v; P.z = wallZ + (C.z1 - wallZ) * v;
+      P.y = C.y1 + 0.1 + Math.sin(v * Math.PI) * 0.25 - 0.1 * v;
+      pl.body.rotation.x += (0 - pl.body.rotation.x) * Math.min(1, dt * 14);
+    }
+    pl.g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+    if (t >= 1) { P.set(C.x1, this.floorAt(C.x1, C.z1, C.y1 + 0.4), C.z1); pl.climb = null; pl.vy = 0; pl.squash = 0.12; pl.idle = 0; }
   };
   Town.prototype.seatNear = function (x, z) {
     var list = (this.seats || []).concat(this.st.seats || []), objs = this.st.partyObjs || {}, best = null, bd = 1.0;
@@ -7917,12 +8082,7 @@
     pl.air = 0; pl.vy = 0;
   };
   Town.prototype.leaveSeat = function (pl) {
-    var seat = pl.seat, P = pl.g.position, ground = surfaceY(P.x, P.z), deck = this.deckAt(P.x, P.z);
-    if (deck) ground = deck.y;
-    pl.seat = null; pl.idle = 0; pl.seatAt = performance.now() + 2500;
-    // Off a wall: step out the way you're facing and drop down.
-    if (seat.wall) { P.x += Math.sin(pl.g.rotation.y) * 0.75; P.z += Math.cos(pl.g.rotation.y) * 0.75; ground = surfaceY(P.x, P.z); }
-    pl.gy = ground; pl.air = Math.max(0, P.y - ground); pl.vy = seat.wall ? 1.5 : 2.5;
+    pl.seat = null; pl.idle = 0; pl.seatAt = performance.now() + 2500; pl.vy = 2.2;
   };
   // Hop across onto the seat, then sit; on the end of a dock, now and then a fish jumps.
   Town.prototype.sitStep = function (pl, dt, now) {
@@ -7935,29 +8095,15 @@
     while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
     g.rotation.y += d * Math.min(1, dt * 10);
     pl.idle = Math.min(20, (pl.idle || 0) + dt);
-    // Sitting pose: up on its haunches (low on a dock, legs over the edge), tail swinging.
-    var k = Math.min(1, dt * 8), body = pl.body, head = pl.head, tt = now / 1000;
-    body.rotation.x += ((seat.low || seat.wall ? -0.2 : -0.5) - body.rotation.x) * k;
-    body.position.y += ((seat.low || seat.wall ? 0.22 : 0.36) - body.position.y) * k;
-    var legPose = seat.low || seat.wall ? [0.9 + Math.sin(tt * 3) * 0.25, 0.9 + Math.sin(tt * 3 + 1.4) * 0.25, 1.2, 1.2] : [-0.4, -0.4, 0.5, 0.5];
-    pl.legs.forEach(function (l, i) { l.rotation.x += (legPose[i] - l.rotation.x) * k; });
-    pl.tail.rotation.y = Math.sin(tt * 1.6) * 0.4;
-    var look = Math.sin(tt * 0.4) + Math.sin(tt * 0.77);
-    head.rotation.y += ((Math.abs(look) > 1.2 ? Math.sign(look) * 0.6 : 0) - head.rotation.y) * Math.min(1, dt * 4);
-    head.rotation.x += ((seat.fish ? 0.2 : -0.1) - head.rotation.x) * k;
-    g.scale.set(1.6, 1.6, 1.6);
+    // Sitting bolt upright (on the edge of a dock, with its legs swinging).
+    this.applyPose(pl, this.sitPose(now / 1000, seat.low ? 'ledge' : 'sit'), dt, now / 1000, false);
+    g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
     if (seat.fish && t >= 1) {
       pl.fishT += dt;
       if (pl.fishT > pl.fishAt) { pl.fishT = 0; pl.fishAt = 8 + Math.random() * 10; this.fishJump(seat.fish); this.say('!', g, 1.3, 0.9); }
     }
     this.followCam(P, dt);
     return true;
-  };
-  Town.prototype.followCam = function (P, dt) {
-    var c = this.controls, cam = this.camera, k = Math.min(1, dt * 6);
-    var mvx = (P.x - c.target.x) * k, mvy = (P.y + 0.6 - c.target.y) * k, mvz = (P.z - c.target.z) * k;
-    c.target.x += mvx; c.target.y += mvy; c.target.z += mvz;
-    cam.position.x += mvx; cam.position.y += mvy; cam.position.z += mvz;
   };
   // A fish leaps out of the water in an arc and splashes back in.
   Town.prototype.fishJump = function (w) {
@@ -8009,8 +8155,9 @@
     }
     if (on && this.audio && this.audio.ctx.state === 'suspended') this.audio.ctx.resume();
   };
-  Town.prototype.footstep = function (x, z) {
+  Town.prototype.footstep = function (x, z, aloft) {
     if (!this.soundOn) return;
+    if (aloft) { this.sfx('wood'); return; }
     var deck = this.deckAt(x, z), Q = TOWN_SQ, inSq = inTownSquare(x, z, 0);
     var board = deck || (inSq && (Math.abs(x - Q.x) > Q.hx - 1.1 || Math.abs(z - Q.z) > Q.hz - 1.1));
     this.sfx(board ? 'wood' : this.season === 'winter' ? 'snow' : inSq || nearPath(x, z, 0.8) ? 'gravel' : 'grass');
@@ -8050,6 +8197,14 @@
       case 'owl': [0, 0.45].forEach(function (d) { tone('sine', 410, 360, 0.12, 0.08, 0.32, t + d); }); break;
       case 'splash': noise('bandpass', 900, 0.6, 0.25, 0.35, t); noise('highpass', 3000, 0.5, 0.1, 0.2, t + 0.05); break;
       case 'boing': tone('sine', 300, 600, 0.06, 0.01, 0.15, t); break;
+      case 'clang': [[620, 0.12], [1550, 0.07], [2470, 0.05]].forEach(function (h) { tone('triangle', h[0], h[0] * 0.97, h[1], 0.003, 0.5, t); }); noise('bandpass', 3000, 0.8, 0.18, 0.25, t); tone('triangle', 540, 520, 0.08, 0.003, 0.3, t + 0.18); break;
+      case 'rustle': noise('bandpass', 1800 + Math.random() * 1500, 0.9, 0.07, 0.07, t); break;
+      case 'paddle': noise('lowpass', 700, 0.6, 0.06, 0.12, t); break;
+      case 'chitter': for (var ch = 0; ch < 5; ch++) tone('square', 1500 + Math.random() * 900, 1100, 0.035, 0.004, 0.035, t + ch * 0.055, 3500); break;
+      case 'hiss': noise('highpass', 3500, 0.5, 0.12, 0.45, t); break;
+      case 'nom': [0, 0.14, 0.28].forEach(function (d) { noise('bandpass', 900, 1.2, 0.08, 0.05, t + d); }); break;
+      case 'scrabble': noise('highpass', 2500, 0.6, 0.06, 0.04, t); break;
+      case 'found': tone('square', 660, null, 0.05, 0.005, 0.08, t, 2500); tone('square', 990, null, 0.05, 0.005, 0.14, t + 0.09, 2500); break;
     }
   };
 
@@ -8089,51 +8244,209 @@
   // it sits, looks about, washes its paws if there's water close by, and in the end curls up asleep.
   Town.prototype.posePlayer = function (pl, dt, now, moving) {
     var body = pl.body, head = pl.head, t = now / 1000, idle = pl.idle || 0, P = pl.g.position;
-    var k = Math.min(1, dt * 8), pitch = 0, by = 0.3, hx = 0, hy = 0, tailY = null, legPose = null;
-    if (pl.air > 0) {
-      pitch = pl.vy > 0 ? -0.35 : 0.2;
-      legPose = [0.9, 0.9, -0.9, -0.9];
-    } else if (!moving && idle > 25) {
+    var pose = null;
+    if (pl.vy !== 0) pose = { pitch: pl.vy > 0 ? -0.35 : 0.2, legs: [0.9, 0.9, -0.9, -0.9] };
+    else if (pl.swim) {
+      // Swimming: nose up, paws paddling under the surface, tail floating out behind.
+      var pd = moving ? 14 : 5;
+      pose = { pitch: -0.15, by: 0.3, hx: -0.25, tailX: 0.05, tailY: Math.sin(t * 3) * 0.3, legs: [Math.sin(t * pd) * 0.8, Math.sin(t * pd + Math.PI) * 0.8, Math.sin(t * pd + Math.PI) * 0.6, Math.sin(t * pd) * 0.6] };
+    } else if (pl.dig) {
+      // Head first in the can, front paws going like mad, tail up and wagging.
+      pose = { pitch: 0.55, by: 0.27, hx: 0.45, tailX: -0.2, tailY: Math.sin(t * 9) * 0.6,
+        legs: [-0.9 + Math.sin(t * 34) * 0.7, -0.9 + Math.sin(t * 34 + 2) * 0.7, -0.3, -0.3] };
+    } else if (!moving && idle > 25 && !pl.swim) {
       // Asleep: curled up low, head down, tail wrapped round, and the odd Zzz.
-      by = 0.16; hx = 0.35; hy = 0.5; tailY = 1.3;
-      legPose = [1.4, 1.4, -1.4, -1.4];
-      body.rotation.z += (0.08 * Math.sin(t * 1.3) - body.rotation.z) * k; // breathing
-      if (now > (pl.zzzAt || 0)) { pl.zzzAt = now + 2600; this.say('z z Z', pl.g, 0.9, 2.4, true); }
-    } else if (!moving && idle > 5) {
+      pose = { by: 0.16, hx: 0.35, hy: 0.5, tailY: 1.3, legs: [1.4, 1.4, -1.4, -1.4], breathe: true };
+      if (now > (pl.zzzAt || 0)) { pl.zzzAt = now + 2600; this.say('z z Z', pl.g, 0.7, 2.4, true); }
+    } else if (!moving && idle > 4) {
       if (pl.water == null || now > (pl.waterAt || 0)) {
         pl.waterAt = now + 1000;
-        pl.water = lakeDist(P.x, P.z) < 2.2 || riverDist(P.x, P.z) < RIVER_HALF + 1.6 || streamDist(P.x, P.z) < 1.6 || coastSd(P.x, P.z) > -2.4 || TARNS.some(function (q) { return Math.hypot(P.x - q.x, P.z - q.z) < q.R + 1.6; });
+        pl.water = pl.air < 0.05 && P.y < surfaceY(P.x, P.z) + 0.3 && (lakeDist(P.x, P.z) < 2.2 || riverDist(P.x, P.z) < RIVER_HALF + 1.6 || streamDist(P.x, P.z) < 1.6 || coastSd(P.x, P.z) > -2.4 || TARNS.some(function (q) { return Math.hypot(P.x - q.x, P.z - q.z) < q.R + 1.6; }));
       }
-      // Sitting up on its haunches.
-      pitch = -0.5; by = 0.36;
-      if (pl.water) {
-        // Washing its paws in the water, the way raccoons do.
-        var w = Math.sin(t * 11);
-        legPose = [-1.0 + w * 0.35, -1.0 - w * 0.35, 0.5, 0.5];
-        hx = 0.35;
-      } else {
-        legPose = [-0.4, -0.4, 0.5, 0.5];
-        // Looking about now and then.
-        var look = Math.sin(t * 0.45) + Math.sin(t * 0.83);
-        hy = Math.abs(look) > 1.1 ? Math.sign(look) * 0.7 : 0;
-        hx = -0.15;
-      }
-    } else if (!moving) {
-      pl.legs.forEach(function (l) { l.rotation.x *= 0.8; });
-      pl.tail.rotation.y = Math.sin(now / 350) * 0.35;
+      pose = this.sitPose(t, pl.water ? 'wash' : 'sit');
     }
-    if (idle <= 25) body.rotation.z += (0 - body.rotation.z) * k;
-    if (legPose) pl.legs.forEach(function (l, i) { l.rotation.x += (legPose[i] - l.rotation.x) * k; });
-    if (tailY != null) pl.tail.rotation.y += (tailY - pl.tail.rotation.y) * k;
-    body.rotation.x += (pitch - body.rotation.x) * k;
-    body.position.y += (by - body.position.y) * k;
-    head.rotation.x += (hx - head.rotation.x) * k;
-    head.rotation.y += (hy - head.rotation.y) * Math.min(1, dt * 4);
+    this.applyPose(pl, pose, dt, t, moving);
     // Squash and stretch.
     var sq = 1;
     if (pl.squash > 0) { pl.squash -= dt; sq = 1 - Math.sin(Math.max(0, pl.squash) / 0.18 * Math.PI) * 0.22; }
-    else if (pl.air > 0) sq = 1.08;
-    pl.g.scale.set(1.6 / Math.sqrt(sq), 1.6 * sq, 1.6 / Math.sqrt(sq));
+    else if (pl.vy !== 0) sq = 1.08;
+    pl.g.scale.set(PLAYER_SCALE / Math.sqrt(sq), PLAYER_SCALE * sq, PLAYER_SCALE / Math.sqrt(sq));
+  };
+  // Sitting bolt upright on its haunches, front paws up by its chest, looking about.
+  Town.prototype.sitPose = function (t, kind) {
+    var look = Math.sin(t * 0.45) + Math.sin(t * 0.83), w = Math.sin(t * 11);
+    var p = { pitch: -1.05, by: 0.34, hx: 0.85, hy: Math.abs(look) > 1.1 ? Math.sign(look) * 0.7 : 0, tailX: 1.35, tailY: Math.sin(t * 1.6) * 0.35,
+      front: { y: 0.36, z: 0.15 }, legs: [-0.35, -0.35, 1.35, 1.35] };
+    if (kind === 'wash') { p.legs = [-0.9 + w * 0.35, -0.9 - w * 0.35, 1.35, 1.35]; p.hx = 1.15; p.hy = 0; }
+    if (kind === 'ledge') { p.legs = [-0.35, -0.35, 1.35 + Math.sin(t * 3) * 0.2, 1.35 + Math.sin(t * 3 + 1.4) * 0.2]; }
+    return p;
+  };
+  Town.prototype.applyPose = function (pl, p, dt, t, moving) {
+    var body = pl.body, head = pl.head, k = Math.min(1, dt * 9);
+    p = p || {};
+    body.rotation.x += ((p.pitch || 0) - body.rotation.x) * k;
+    body.position.y += ((p.by || 0.3) - body.position.y) * k;
+    body.rotation.z += ((p.breathe ? 0.08 * Math.sin(t * 1.3) : 0) - body.rotation.z) * k;
+    head.rotation.x += ((p.hx || 0) - head.rotation.x) * k;
+    head.rotation.y += ((p.hy || 0) - head.rotation.y) * Math.min(1, dt * 4);
+    pl.tail.rotation.x += ((p.tailX != null ? p.tailX : 0.4) - pl.tail.rotation.x) * k;
+    if (p.tailY != null) pl.tail.rotation.y += (p.tailY - pl.tail.rotation.y) * k;
+    else if (!moving) pl.tail.rotation.y = Math.sin(t * 2.9) * 0.35;
+    var h0 = pl.hip0;
+    pl.legs.forEach(function (l, i) {
+      if (p.legs) l.rotation.x += (p.legs[i] - l.rotation.x) * k;
+      else if (!moving) l.rotation.x *= 0.8;
+      if (h0) {
+        var fr = i < 2 && p.front, ty = fr ? p.front.y : h0[i].y, tz = fr ? p.front.z : h0[i].z;
+        l.position.y += (ty - l.position.y) * k; l.position.z += (tz - l.position.z) * k;
+      }
+    });
+  };
+
+  // ---- garbage cans: knock them over, dig through them -------------------------------------
+  var LOOT = ['half a sandwich!', 'a shiny bottle cap!', 'pizza crust!', 'a single sock?', 'a banana peel', 'a lost earring!', 'fish bones', 'a cold french fry',
+    'birthday cake!!', 'a rubber duck', 'an apple core', 'a mystery noodle', 'a lottery ticket (not a winner)', 'cheese puffs!', 'a whole donut!!', 'a soggy fortune cookie',
+    'someone’s homework', 'a corn cob', 'a tiny trophy', 'chicken wing (mostly bone)'];
+  var MEH = ['nothing good', 'just napkins', 'eww', 'coffee grounds', 'empty', 'only wrappers'];
+  Town.prototype.addCan = function (x, z, rot) {
+    if (this.soft) return;
+    var g = new T.Group(), self = this, y = groundY(x, z);
+    g.position.set(x, y, z); g.rotation.y = rot || 0;
+    var can = new T.Group(); g.add(can);
+    function P(par, geo, mat, sx, sy, sz, px, py, pz) { return self.part(par, geo, mat, sx, sy, sz, px, py, pz); }
+    P(can, this.geo.cyl, this.mat('bin', 0), 0.15, 0.4, 0.15, 0, 0.2, 0);
+    [0.08, 0.2, 0.32].forEach(function (yy) { P(can, self.geo.cyl, self.mat('bin', 1), 0.157, 0.025, 0.157, 0, yy, 0); });
+    var lid = new T.Group(); lid.position.y = 0.41; can.add(lid);
+    P(lid, this.geo.cyl, this.mat('bin', 2), 0.17, 0.04, 0.17, 0, 0, 0);
+    P(lid, this.geo.box, this.mat('bin', 1), 0.1, 0.035, 0.03, 0, 0.04, 0);
+    this.world.add(g);
+    (this.st.cans = this.st.cans || []).push({ g: g, can: can, lid: lid, x: x, z: z, y: y, down: false, t: 0, finds: 1 + Math.floor(Math.random() * 2), mess: [] });
+  };
+  // Run into a can and over it goes, lid rolling off and rubbish everywhere.
+  Town.prototype.bumpCans = function (P, vx, vz, now, landed) {
+    var C = this.st.cans;
+    if (!C) return;
+    for (var i = 0; i < C.length; i++) {
+      var c = C[i];
+      if (c.down || Math.abs(c.x - P.x) > 0.6 || Math.abs(c.z - P.z) > 0.6 || P.y > c.y + 0.6) continue;
+      var d = Math.hypot(c.x - P.x, c.z - P.z);
+      if (d > (landed ? 0.35 : 0.3)) continue;
+      var sp = Math.hypot(vx, vz), dx = sp ? vx / sp : (c.x - P.x) / (d || 1), dz = sp ? vz / sp : (c.z - P.z) / (d || 1);
+      this.knockCan(c, dx, dz, now);
+    }
+  };
+  Town.prototype.knockCan = function (c, dx, dz, now) {
+    var self = this;
+    c.down = true; c.t = 0; c.dir = Math.atan2(dx, dz) - c.g.rotation.y; c.downAt = now; c.finds = 1 + Math.floor(Math.random() * 2);
+    // The lid flies off and skitters away.
+    var lidW = new T.Vector3(); c.lid.getWorldPosition(lidW); c.can.remove(c.lid); this.world.add(c.lid); c.lid.position.copy(lidW);
+    c.lidV = { x: dx * 2.2 + (Math.random() - 0.5), y: 2.2, z: dz * 2.2 + (Math.random() - 0.5), spin: (Math.random() - 0.5) * 14 };
+    // Rubbish spills out where the mouth of the can lands.
+    var mx = c.x + dx * 0.55, mz = c.z + dz * 0.55, cols = ['flag', 'woodLight', 'plaster', 'leaf', 'swan', 'balloon'];
+    for (var k = 0; k < 7; k++) {
+      var m = new T.Mesh(this.geo.box, this.mat(cols[k % cols.length], k));
+      var r = 0.05 + Math.random() * 0.05;
+      m.scale.set(r, 0.025, r * (0.6 + Math.random()));
+      m.position.set(mx + (Math.random() - 0.5) * 0.5 + dx * Math.random() * 0.3, groundY(mx, mz) + 0.02, mz + (Math.random() - 0.5) * 0.5 + dz * Math.random() * 0.3);
+      m.rotation.y = Math.random() * 6;
+      this.world.add(m); c.mess.push(m);
+    }
+    this.sfx('clang');
+    if (Math.random() < 0.55) this.say(['CRASH!', 'CLANG!', 'BONK!', 'oops', 'heh heh'][Math.floor(Math.random() * 5)], c.g, 0.9, 0.9);
+    this.needsRender = true;
+  };
+  // Standing still by a knocked-over can: dig in. Every so often, a find.
+  Town.prototype.digStep = function (pl, dt, now, busy) {
+    var C = this.st.cans, P = pl.g.position;
+    if (busy || !C) { pl.dig = null; return; }
+    var best = null, objs = this.st.partyObjs || {};
+    for (var i = 0; i < C.length; i++) {
+      var c = C[i];
+      if (!c.down || c.t < 0.3) continue;
+      var mx = c.x + Math.sin(c.dir + c.g.rotation.y) * 0.5, mz = c.z + Math.cos(c.dir + c.g.rotation.y) * 0.5;
+      if (Math.hypot(mx - P.x, mz - P.z) < 0.75 && Math.abs(P.y - c.y) < 0.4) { best = c; break; }
+    }
+    // Market stalls and the long table can be raided too, and they restock after a while.
+    (this.st.stashes || []).forEach(function (sh) {
+      if (best || (sh.party && !(objs[sh.party] && objs[sh.party].visible))) return;
+      if (!sh.finds && now > (sh.refill || 0)) sh.finds = 3;
+      if (Math.hypot(sh.mx - P.x, sh.mz - P.z) < 0.7 && Math.abs(P.y - sh.y) < 0.6) best = sh;
+    });
+    if (!best || (pl.idle || 0) < 0.5) { pl.dig = null; return; }
+    if (!pl.dig || pl.dig.c !== best) pl.dig = { c: best, t: 0, next: 1.6 + Math.random() };
+    var D = pl.dig, g = pl.g, tx = best.x - P.x, tz = best.z - P.z;
+    // Face into the can.
+    var want = Math.atan2(tx, tz), d = want - g.rotation.y;
+    while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+    g.rotation.y += d * Math.min(1, dt * 8);
+    D.t += dt; pl.idle = Math.min(pl.idle, 3);
+    if (Math.floor(D.t * 7) !== D.tick) {
+      D.tick = Math.floor(D.t * 7);
+      // Rubbish flies out behind.
+      this.puff(P.x + Math.sin(g.rotation.y) * 0.25, P.y + 0.25, P.z + Math.cos(g.rotation.y) * 0.25, 1, 'trash');
+      if (D.tick % 2) this.sfx('rustle');
+    }
+    if (D.t > D.next) {
+      D.t = 0; D.next = 2 + Math.random() * 1.5;
+      if (best.finds > 0 && Math.random() < 0.6) {
+        best.finds--;
+        if (!best.finds) best.refill = now + 90000;
+        var what = LOOT[Math.floor(Math.random() * LOOT.length)];
+        this.loot = (this.loot || 0) + 1;
+        this.say(what, pl.g, 1.0, 2.2);
+        this.sfx('found');
+        this.carryItem(pl);
+        if (this.onLoot) this.onLoot(what, this.loot);
+      } else this.say(best.finds > 0 ? MEH[Math.floor(Math.random() * MEH.length)] : 'all gone', pl.g, 1.0, 1.4);
+    }
+  };
+  // Hold the find in its mouth; sit still for a bit and it gets eaten (washed first, by water).
+  Town.prototype.carryItem = function (pl) {
+    if (pl.carry) pl.mouth.remove(pl.carry.m);
+    var m = this.mesh(Math.random() < 0.5 ? this.geo.box : this.geo.ball, this.mat(['flag', 'woodLight', 'balloon', 'leaf', 'brick'][Math.floor(Math.random() * 5)], Math.floor(Math.random() * 4)), pl.mouth);
+    m.scale.set(0.09, 0.06, 0.12); m.rotation.y = Math.random();
+    pl.carry = { m: m, eat: 0 };
+  };
+  Town.prototype.stepCarry = function (pl, dt, now, moving) {
+    var c = pl.carry;
+    if (!c) return;
+    if (moving || pl.swim || pl.dig || (pl.idle || 0) < 3.5) { c.eat = Math.max(0, c.eat - dt); return; }
+    c.eat += dt;
+    pl.head.rotation.x += Math.sin(now / 90) * 0.04;
+    if (Math.floor(c.eat * 3) !== c.tick) { c.tick = Math.floor(c.eat * 3); this.sfx('nom'); }
+    var k = Math.max(0.05, 1 - c.eat / 4);
+    c.m.scale.set(0.09 * k, 0.06 * k, 0.12 * k);
+    if (c.eat > 4) { pl.mouth.remove(c.m); pl.carry = null; this.say(['nom nom nom', '*munch*', 'delicious', 'gourmet', '*burp*'][Math.floor(Math.random() * 5)], pl.g, 1.0, 1.4); }
+  };
+  Town.prototype.stepCans = function (dt, now) {
+    var C = this.st.cans, busy = false, self = this, P = this.player && this.explore ? this.player.g.position : null;
+    if (!C) return false;
+    C.forEach(function (c) {
+      if (!c.down) return;
+      c.t += dt;
+      if (c.t < 0.35) {
+        busy = true;
+        var u = Math.min(1, c.t / 0.3), ax = Math.cos(c.dir), az = -Math.sin(c.dir);
+        c.can.rotation.set(0, 0, 0); c.can.rotateOnAxis(new T.Vector3(ax, 0, az), u * u * Math.PI / 2 * 0.95);
+        c.can.position.set(Math.sin(c.dir) * 0.2 * u, 0.0, Math.cos(c.dir) * 0.2 * u);
+      }
+      if (c.lidV) {
+        busy = true;
+        var L = c.lid, v = c.lidV;
+        v.y -= 14 * dt; L.position.x += v.x * dt; L.position.y += v.y * dt; L.position.z += v.z * dt; L.rotation.x += v.spin * dt;
+        var gy = groundY(L.position.x, L.position.z) + 0.02;
+        if (L.position.y < gy) { L.position.y = gy; v.y = Math.abs(v.y) > 1 ? -v.y * 0.35 : 0; v.x *= 0.6; v.z *= 0.6; v.spin *= 0.5; L.rotation.x = Math.round(L.rotation.x / Math.PI) * Math.PI; if (Math.abs(v.x) + Math.abs(v.z) < 0.05 && !v.y) c.lidV = null; }
+      }
+      // Tidied up by someone in the night: back on its feet a minute or so later, once you've gone.
+      if (c.t > 70 && (!P || Math.hypot(P.x - c.x, P.z - c.z) > 7)) {
+        c.down = false; c.lidV = null;
+        c.lid.parent && c.lid.parent.remove(c.lid); c.lid.position.set(0, 0.41, 0); c.lid.rotation.set(0, 0, 0); c.can.add(c.lid);
+        c.can.rotation.set(0, 0, 0); c.can.position.set(0, 0, 0);
+        c.mess.forEach(function (m) { self.world.remove(m); }); c.mess = [];
+        self.pop(c.g, 0); busy = true;
+      }
+    });
+    return busy;
   };
 
   // ---- little effects: rustling plants, falling leaves, speech bubbles, pawprints ------------
@@ -8172,7 +8485,15 @@
     if (this.soft) return;
     var F = this.fx || (this.fx = { bits: [], group: null }), self = this;
     if (!F.group) { F.group = new T.Group(); this.scene.add(F.group); }
-    var mat = kind === 'snow' || kind === 'splash' || kind === 'steam' ? this.mat('swan', 0) : kind === 'dust' ? this.mat('path') : kind === 'needle' ? this.mat('pine', 0) : kind === 'birchleaf' ? this.mat('birchleaf') : this.mat('leaf', Math.floor(Math.random() * 3));
+    if (kind === 'ripple') {
+      for (var ri = 0; ri < n && F.bits.length < 90; ri++) {
+        var rm = new T.Mesh(this.geo.box, this.mat('swan', 0)); rm.scale.set(0.05, 0.01, 0.05);
+        rm.position.set(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3); F.group.add(rm);
+        F.bits.push({ m: rm, kind: 'ripple', life: 0.9, t: 0, vx: 0, vy: 0, vz: 0, ph: 0, fixedY: y });
+      }
+      return;
+    }
+    var mat = kind === 'trash' ? this.mat(['flag', 'woodLight', 'plaster', 'leaf', 'balloon'][Math.floor(Math.random() * 5)], Math.floor(Math.random() * 4)) : kind === 'snow' || kind === 'splash' || kind === 'steam' ? this.mat('swan', 0) : kind === 'dust' ? this.mat('path') : kind === 'needle' ? this.mat('pine', 0) : kind === 'birchleaf' ? this.mat('birchleaf') : this.mat('leaf', Math.floor(Math.random() * 3));
     spread = spread || 0.3;
     for (var i = 0; i < n && F.bits.length < 90; i++) {
       var m = new T.Mesh(this.geo.box, mat);
@@ -8180,9 +8501,10 @@
       m.scale.set(sz, kind === 'dust' || kind === 'snow' ? sz : 0.015, kind === 'needle' ? sz * 0.4 : sz);
       m.position.set(x + (Math.random() - 0.5) * spread * 2, y + (Math.random() - 0.5) * spread, z + (Math.random() - 0.5) * spread * 2);
       F.group.add(m);
-      var burst = kind === 'dust' || kind === 'splash' || kind === 'steam';
+      var burst = kind === 'dust' || kind === 'splash' || kind === 'steam' || kind === 'trash';
+      if (kind === 'trash') { m.scale.set(0.06, 0.02, 0.05); }
       if (kind === 'steam') m.scale.setScalar(0.14 + Math.random() * 0.08);
-      F.bits.push({ m: m, kind: kind, life: kind === 'dust' ? 0.5 : kind === 'splash' ? 0.6 : kind === 'steam' ? 1.2 : 1.6 + Math.random() * 0.9, t: 0, vx: (Math.random() - 0.5) * (burst ? 1.6 : 0.5), vy: kind === 'splash' ? 1.4 + Math.random() : kind === 'steam' ? 0.9 + Math.random() * 0.4 : kind === 'dust' ? 0.6 + Math.random() * 0.5 : -0.25 - Math.random() * 0.3, vz: (Math.random() - 0.5) * (burst ? 1.6 : 0.5), ph: Math.random() * 6 });
+      F.bits.push({ m: m, kind: kind, life: kind === 'dust' ? 0.5 : kind === 'splash' ? 0.6 : kind === 'steam' ? 1.2 : 1.6 + Math.random() * 0.9, t: 0, vx: (Math.random() - 0.5) * (burst ? 1.6 : 0.5), vy: kind === 'trash' ? 1.8 + Math.random() : kind === 'splash' ? 1.4 + Math.random() : kind === 'steam' ? 0.9 + Math.random() * 0.4 : kind === 'dust' ? 0.6 + Math.random() * 0.5 : -0.25 - Math.random() * 0.3, vz: (Math.random() - 0.5) * (burst ? 1.6 : 0.5), ph: Math.random() * 6 });
     }
     this.needsRender = true;
   };
@@ -8225,6 +8547,7 @@
   Town.prototype.stepFx = function (dt, now) {
     var busy = false, B = this.brush, F = this.fx, self = this;
     this.stepNight(dt, now);
+    if (this.stepCans(dt, now)) busy = true;
     if (B && B.wob.length) {
       busy = true;
       var m4 = new T.Matrix4(), rot = new T.Matrix4(), tr = new T.Matrix4(), back = new T.Matrix4(), axis = new T.Vector3(), dirty = [];
@@ -8249,6 +8572,8 @@
         var m = b.m;
         if (b.kind === 'dust') { b.vy -= 2 * dt; m.scale.multiplyScalar(1 - dt * 1.5); }
         else if (b.kind === 'splash') { b.vy -= 6 * dt; }
+        else if (b.kind === 'trash') { b.vy -= 7 * dt; m.rotation.x += dt * 9; }
+        else if (b.kind === 'ripple') { m.scale.x += dt * 0.5; m.scale.z += dt * 0.5; m.position.y = b.fixedY; if (b.t > b.life) { F.group.remove(m); return false; } return true; }
         else if (b.kind === 'steam') { b.vy *= 1 - dt; m.scale.multiplyScalar(1 + dt * 0.8); }
         else { m.rotation.x += dt * 3; m.rotation.z += dt * 2; b.vx += Math.sin(b.t * 4 + b.ph) * dt * 0.8; }
         m.position.x += b.vx * dt; m.position.y += b.vy * dt; m.position.z += b.vz * dt;
@@ -8292,6 +8617,12 @@
     g.hop = 0.45; g.wag = 1.5;
     this.say(BARKS[Math.floor(Math.random() * BARKS.length)], g.group, 1.25, 1.3);
     this.sfx('bark');
+    // The raccoon is not impressed.
+    var pl = this.player;
+    if (this.explore && pl && Math.hypot(pl.g.position.x - DOG_PEN.c.x, pl.g.position.z - DOG_PEN.c.z) < 7.5 && performance.now() > (pl.hissAt || 0)) {
+      pl.hissAt = performance.now() + 3500;
+      var self2 = this; setTimeout(function () { self2.say(Math.random() < 0.5 ? 'HSSSS' : 'come at me', pl.g, 1.0, 1.1); self2.sfx('hiss'); }, 350);
+    }
     var others = D.order.filter(function (n) { return n !== name; });
     if (!answer && others.length && Math.random() < 0.6) { var self = this, o = others[Math.floor(Math.random() * others.length)]; setTimeout(function () { self.bark(o, true); }, 380 + Math.random() * 300); }
     this.needsRender = true;
