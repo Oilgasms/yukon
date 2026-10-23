@@ -148,14 +148,14 @@
   var CHURCH_AT = [256, 47.5], CHURCH = polar(CHURCH_AT[0], CHURCH_AT[1]);
   // Where the church first stood: kept for the houses on Chapel Lane.
   var CHAPEL_LANE = polar(254, 56);
-  // The town square: a cobbled market square west of the Slow Pour (which fronts it), joined to
-  // the old village square at its corner. The library stands on its west side and the cinema on
-  // its south side, both facing in.
-  var TOWN_SQ = { x: -20, z: 27, hx: 8, hz: 6.5 };
+  // The town square: a little Dawson City style square of packed earth and boardwalks in the low
+  // ground west of the Slow Pour, joined to the old village square at its corner. The pub, the
+  // library and the cinema front right onto it; the land rises gently all round.
+  var TOWN_SQ = { x: -17, z: 26, hx: 5.5, hz: 4.5 };
   function inTownSquare(x, z, m) { return Math.abs(x - TOWN_SQ.x) < TOWN_SQ.hx + (m || 0) && Math.abs(z - TOWN_SQ.z) < TOWN_SQ.hz + (m || 0); }
   function facingSquare(p) { return Math.atan2(TOWN_SQ.x - p.x, TOWN_SQ.z - p.z); }
   function frontOf(p, d) { var a = facingSquare(p); return { x: p.x + Math.sin(a) * d, z: p.z + Math.cos(a) * d }; }
-  var LIBRARY = { x: -37, z: 29 }, CINEMA = { x: -20, z: 40.5 };
+  var LIBRARY = { x: -27.3, z: 26 }, CINEMA = { x: -17, z: 33.6 };
   // The dragon's cave, out past the river.
   var HOARD = polar(18, 84);
   var SNOW = { c: polar(97, 58), R: 17, H: 19, runs: 42 };
@@ -256,7 +256,7 @@
     // Market Lane, west from the end of the west street.
     bezierPath(polar(212, 36.5), { x: -40, z: 20.5 }, { x: -48, z: 19.5 }, { x: -55, z: 24 }),
     // Library Lane, south from the square's corner past the library, then round to Chapel Lane.
-    bezierPath({ x: -28.3, z: 33.8 }, { x: -31, z: 41 }, { x: -33, z: 48 }, { x: -31, z: 56 }),
+    bezierPath({ x: -22.8, z: 31 }, { x: -29, z: 38 }, { x: -33, z: 48 }, { x: -31, z: 56 }),
     bezierPath({ x: -31, z: 56 }, { x: -26, z: 60 }, { x: -19, z: 59.5 }, polar(256, 58))
   ];
   function FIELDS_NEAR(p) { return typeof FIELDS !== 'undefined' && FIELDS && FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 3.5; }); }
@@ -448,7 +448,14 @@
   pad(HOCKEY, 3.0, 4.4);
   pad(PASTURE, PASTURE_R + 0.5, PASTURE_R + 3);
   pad(CHURCH, 6.5, 9);
-  pad(LIBRARY, 8, 11); pad(TOWN_SQ, 10.6, 17); pad(CINEMA, 4.5, 6.5);
+  // The square sits at the lowest ground under it and the land eases up all round; it goes first
+  // so the houses and the pub keep their own ground. The library and cinema are cut in at street level.
+  var SQ_Y = (function () { var lo = 1e9; for (var x = -TOWN_SQ.hx; x <= TOWN_SQ.hx; x += 1) for (var z = -TOWN_SQ.hz; z <= TOWN_SQ.hz; z += 1) lo = Math.min(lo, landY(TOWN_SQ.x + x, TOWN_SQ.z + z)); return lo - 0.1; })();
+  PADS.unshift({ x: TOWN_SQ.x, z: TOWN_SQ.z, rIn: 7.4, rOut: 19, h: SQ_Y });
+  PADS.forEach(function (p) { if (p.x === PUB.x && p.z === PUB.z) p.h = SQ_Y + 0.05; }); // the pub fronts the square at street level
+  PADS.push({ x: LIBRARY.x, z: LIBRARY.z, rIn: 8, rOut: 12, h: SQ_Y + 0.05 });
+  PADS.push({ x: CINEMA.x, z: CINEMA.z, rIn: 4.6, rOut: 7.5, h: SQ_Y + 0.05 });
+  PADS.push({ x: TOWN_SQ.x, z: TOWN_SQ.z, rIn: 7.2, rOut: 8, h: SQ_Y }); // and the square itself stays dead level
   pad(PUB, 3, 4.4); pad(SQUARE, 3.6, 5.2); pad(STATUE, 1.5, 2.6); pad(POND, 5, 6.8); pad(OFFICE, 4.6, 6.2);
   pad(DOG_PEN.c, 4.3, 5.8);
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
@@ -1040,35 +1047,38 @@
     sq.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     base.add(sq);
 
-    // The town square: cobbles with a stone kerb, a fountain, lamps, benches and corner trees.
-    var ts = new T.Group(), Q = TOWN_SQ, W = Q.hx * 2, D = Q.hz * 2;
+    // The town square: packed earth ringed by a plank boardwalk, a little fountain, hitching rails,
+    // a water trough, benches on the boardwalk and a lamp at each corner.
+    var ts = new T.Group(), Q = TOWN_SQ, W = Q.hx * 2, D = Q.hz * 2, BW = 1.1;
     ts.position.set(Q.x, groundY(Q.x, Q.z), Q.z);
     function TS(geo, mat, sx, sy, sz, x, y, z) { var m = new T.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); ts.add(m); return m; }
-    TS(this.geo.box, this.mat('stone', 2), W + 0.3, 1.6, D + 0.3, 0, -0.75, 0); // a stone base down to wherever the ground dips
-    TS(this.geo.box, this.mat('cobble'), W, 0.1, D, 0, 0.03, 0);
-    for (var gx = -Q.hx + 2; gx < Q.hx; gx += 2) TS(this.geo.box, this.mat('stone', 2), 0.06, 0.11, D, gx, 0.03, 0);
-    for (var gz = -Q.hz + 2; gz < Q.hz; gz += 2) TS(this.geo.box, this.mat('stone', 2), W, 0.11, 0.06, 0, 0.03, gz);
-    [[0, -Q.hz, W + 0.4, 0.4], [0, Q.hz, W + 0.4, 0.4], [-Q.hx, 0, 0.4, D], [Q.hx, 0, 0.4, D]].forEach(function (k) { TS(self.geo.box, self.mat('stone', 0), k[2], 0.16, k[3], k[0], 0.05, k[1]); });
-    // The fountain: a round basin, a column and a spray.
-    TS(this.geo.cyl, this.mat('stone', 1), 1.8, 0.45, 1.8, 0, 0.22, 0);
-    TS(this.geo.cyl, this.mat('water'), 1.6, 0.05, 1.6, 0, 0.44, 0);
-    TS(this.geo.cyl6, this.mat('stone', 0), 0.22, 1.3, 0.22, 0, 0.9, 0);
-    TS(this.geo.cyl, this.mat('stone', 1), 0.6, 0.12, 0.6, 0, 1.55, 0);
-    TS(this.geo.blob, this.mat('water'), 0.35, 0.45, 0.35, 0, 1.85, 0);
-    // Benches facing the fountain, lamps at the corners, a tree in a planter at each corner.
-    [[0, -3.2, 0], [0, 3.2, Math.PI], [-3.6, 0, Math.PI / 2], [3.6, 0, -Math.PI / 2]].forEach(function (b) {
-      var bench = new T.Group(); bench.position.set(b[0], 0, b[1]); bench.rotation.y = b[2]; ts.add(bench);
-      var seat = new T.Mesh(self.geo.box, self.mat('wood')); seat.scale.set(1.4, 0.08, 0.36); seat.position.y = 0.4; bench.add(seat);
-      var back = new T.Mesh(self.geo.box, self.mat('wood')); back.scale.set(1.4, 0.32, 0.06); back.position.set(0, 0.62, -0.17); bench.add(back);
-      [-0.6, 0.6].forEach(function (x) { var leg = new T.Mesh(self.geo.box, self.mat('stoneDark')); leg.scale.set(0.06, 0.4, 0.3); leg.position.set(x, 0.2, 0); bench.add(leg); });
+    TS(this.geo.box, this.mat('stone', 2), W + 0.3, 1.6, D + 0.3, 0, -0.75, 0); // footing, in case the ground dips at an edge
+    TS(this.geo.box, this.mat('path'), W - 2 * BW, 0.1, D - 2 * BW, 0, 0.03, 0);
+    // Boardwalk: planks across each side, raised a step.
+    [[0, -(Q.hz - BW / 2), W, BW], [0, Q.hz - BW / 2, W, BW], [-(Q.hx - BW / 2), 0, BW, D - 2 * BW], [Q.hx - BW / 2, 0, BW, D - 2 * BW]].forEach(function (k, ki) {
+      TS(self.geo.box, self.mat('wood'), k[2], 0.22, k[3], k[0], 0.11, k[1]);
+      var along = k[2] > k[3], len = along ? k[2] : k[3];
+      for (var t = -len / 2 + 0.3; t < len / 2; t += 0.3) TS(self.geo.box, self.mat('woodLight'), along ? 0.02 : BW, 0.225, along ? BW : 0.02, k[0] + (along ? t : 0), 0.11, k[1] + (along ? 0 : t));
     });
-    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c, i) {
-      var x = c[0] * (Q.hx - 1.3), z = c[1] * (Q.hz - 1.3);
-      TS(self.geo.box, self.mat('stone', 0), 1.2, 0.45, 1.2, x, 0.25, z);
-      TS(self.geo.cyl6, self.mat('trunk'), 0.12, 1.3, 0.12, x, 1.1, z);
-      TS(self.geo.blob, self.mat('leaf', i % 3), 0.85, 0.75, 0.85, x, 2.05, z);
-      self.lamp(Q.x + c[0] * (Q.hx - 0.4), Q.z + c[1] * (Q.hz - 3.2), base);
+    // A small fountain in the middle.
+    TS(this.geo.cyl, this.mat('stone', 1), 1.05, 0.38, 1.05, 0, 0.19, 0);
+    TS(this.geo.cyl, this.mat('water'), 0.9, 0.05, 0.9, 0, 0.37, 0);
+    TS(this.geo.cyl6, this.mat('stone', 0), 0.14, 0.9, 0.14, 0, 0.7, 0);
+    TS(this.geo.blob, this.mat('water'), 0.22, 0.3, 0.22, 0, 1.25, 0);
+    // Hitching rails and a water trough along the north side, benches on the boardwalks.
+    [-2.6, 2.6].forEach(function (x) {
+      [-0.7, 0.7].forEach(function (dx) { TS(self.geo.box, self.mat('wood'), 0.1, 0.8, 0.1, x + dx, 0.4, -(Q.hz - BW - 0.5)); });
+      TS(self.geo.box, self.mat('wood'), 1.6, 0.08, 0.08, x, 0.75, -(Q.hz - BW - 0.5));
     });
+    TS(this.geo.box, this.mat('wood'), 1.0, 0.35, 0.4, 0, 0.18, -(Q.hz - BW - 0.5));
+    TS(this.geo.box, this.mat('water'), 0.9, 0.02, 0.3, 0, 0.35, -(Q.hz - BW - 0.5));
+    [[-(Q.hx - 0.4), 1.6, Math.PI / 2], [Q.hx - 0.4, -1.6, -Math.PI / 2], [-2.5, Q.hz - 0.4, Math.PI], [2.5, Q.hz - 0.4, Math.PI]].forEach(function (b) {
+      var bench = new T.Group(); bench.position.set(b[0], 0.22, b[1]); bench.rotation.y = b[2]; ts.add(bench);
+      var seat = new T.Mesh(self.geo.box, self.mat('wood')); seat.scale.set(1.2, 0.07, 0.32); seat.position.y = 0.38; bench.add(seat);
+      var back = new T.Mesh(self.geo.box, self.mat('wood')); back.scale.set(1.2, 0.3, 0.06); back.position.set(0, 0.58, -0.15); bench.add(back);
+      [-0.5, 0.5].forEach(function (x) { var leg = new T.Mesh(self.geo.box, self.mat('stoneDark')); leg.scale.set(0.06, 0.38, 0.28); leg.position.set(x, 0.19, 0); bench.add(leg); });
+    });
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c) { self.lamp(Q.x + c[0] * (Q.hx - 0.35), Q.z + c[1] * (Q.hz - 0.35), base); });
     ts.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     base.add(ts);
     this.buildSnowMountain(base);
@@ -7323,7 +7333,7 @@
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
-  Town.layout = { groundClear: groundClear, groundY: groundY, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES };
+  Town.layout = { groundClear: groundClear, groundY: groundY, landY: landY, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES };
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
