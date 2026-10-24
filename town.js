@@ -1125,7 +1125,7 @@
     TS(this.geo.cyl, this.mat('stone', 1), 1.05, 0.38, 1.05, 0, 0.19, 0);
     TS(this.geo.cyl, this.mat('water'), 0.9, 0.05, 0.9, 0, 0.37, 0);
     TS(this.geo.cyl6, this.mat('stone', 0), 0.14, 0.9, 0.14, 0, 0.7, 0);
-    TS(this.geo.blob, this.mat('water'), 0.22, 0.3, 0.22, 0, 1.25, 0);
+    this.addFountain(ts, 0, 1.25, 0, 0.37, 0.85, TS(this.geo.blob, this.mat('water'), 0.22, 0.3, 0.22, 0, 1.25, 0));
     // Hitching rails and a water trough along the north side, benches on the boardwalks.
     [-2.6, 2.6].forEach(function (x) {
       [-0.7, 0.7].forEach(function (dx) { TS(self.geo.box, self.mat('wood'), 0.1, 0.8, 0.1, x + dx, 0.4, -(Q.hz - BW - 0.5)); });
@@ -2827,7 +2827,7 @@
       P(this.geo.cyl, this.mat('stone', 0), 0.9, 0.35, 0.9, 0, 0.2, -6.4);
       P(this.geo.cyl, this.mat('water'), 0.8, 0.05, 0.8, 0, 0.38, -6.4);
       P(this.geo.cyl, this.mat('stone', 1), 0.12, 0.9, 0.12, 0, 0.75, -6.4);
-      P(this.geo.ball, this.mat('water'), 0.18, 0.28, 0.18, 0, 1.25, -6.4);
+      this.addFountain(g, 0, 1.25, -6.4, 0.38, 0.75, P(this.geo.ball, this.mat('water'), 0.18, 0.28, 0.18, 0, 1.25, -6.4));
     }
     if (P0 >= 8000) {
       // Cloister arcades round three sides of the courtyard.
@@ -4279,6 +4279,46 @@
     this.part(c, this.geo.cone4, this.mat('swan', 0), 0.03, 0.04, 0.03, 0, 0.01, 0.11).rotation.x = Math.PI / 2;
   };
 
+  // ---- fountains: water leaping from the spout and splashing down into the basin ---------
+  // Each fountain marks its spout; drops are thrown up and out in little arcs that land round the
+  // basin, the jet on top bobs, and the odd ripple spreads where they fall.
+  Town.prototype.addFountain = function (parent, x, y, z, basinY, r, jet) {
+    var m = new T.Object3D(); m.position.set(x, y, z); parent.add(m);
+    (this.fountains = this.fountains || []).push({ spout: m, drop: y - basinY, r: r, jet: jet || null, jetY: jet ? jet.scale.y : 1, acc: 0 });
+  };
+  Town.prototype.stepFountains = function (dt, now) {
+    if (this.soft || !this.fountains || !this.fountains.length) return;
+    var self = this, D = this.drops || (this.drops = { list: [], free: [], group: new T.Group() }), tgt = this.controls.target, wp = new T.Vector3(), ws = new T.Vector3();
+    if (!D.group.parent) this.scene.add(D.group);
+    // Forget fountains that were rebuilt away.
+    this.fountains = this.fountains.filter(function (f) { var o = f.spout; while (o.parent) o = o.parent; return o === self.scene; });
+    this.fountains.forEach(function (f, i) {
+      if (f.jet) f.jet.scale.y = f.jetY * (1 + Math.sin(now / 85 + i * 1.7) * 0.18);
+      f.spout.getWorldPosition(wp);
+      if (self.reduced || Math.hypot(wp.x - tgt.x, wp.z - tgt.z) > 55) return;
+      f.spout.getWorldScale(ws);
+      var sc = ws.y, h = f.drop * sc;
+      f.acc += dt * (sc < 0.5 ? 24 : 70);
+      while (f.acc > 1 && D.list.length < 700) {
+        f.acc--;
+        var m = D.free.pop() || self.mesh(self.geo.box, self.mat(Math.random() < 0.55 ? 'swan' : 'water', 0), D.group);
+        m.visible = true; m.castShadow = false;
+        var a = Math.random() * Math.PI * 2, vy = (1.6 + Math.random() * 0.6) * Math.sqrt(sc), t = (vy + Math.sqrt(vy * vy + 18 * h)) / 9, hs = f.r * sc * (0.5 + Math.random() * 0.45) / t;
+        m.scale.setScalar((0.045 + Math.random() * 0.025) * Math.max(0.5, sc));
+        m.position.copy(wp);
+        D.list.push({ m: m, vx: Math.cos(a) * hs, vy: vy, vz: Math.sin(a) * hs, floor: wp.y - h });
+      }
+    });
+    D.list = D.list.filter(function (d) {
+      d.vy -= 9 * dt; d.m.position.x += d.vx * dt; d.m.position.y += d.vy * dt; d.m.position.z += d.vz * dt;
+      if (d.m.position.y > d.floor) return true;
+      d.m.visible = false; D.free.push(d.m);
+      if (Math.random() < 0.04) self.puff(d.m.position.x, d.floor + 0.02, d.m.position.z, 1, 'ripple');
+      return false;
+    });
+    if (D.list.length) this.needsRender = true;
+  };
+
   // ---- campfires: cook what you catch ------------------------------------------
   // One on the lake shore and one up on the beach by the harbour, on flat open ground (plus the
   // island bonfire once it's built).
@@ -5444,8 +5484,8 @@
     { id: 'thousandclub', title: 'The Thousand-Pound Club', hint: 'Squat, bench and deadlift a thousand pounds between them.', text: 'Squat + bench + deadlift = 1,000 lb! A monument of three giant bumper plates now stands outside town. Welcome to the club.' },
     { id: 'colossus', title: 'The Colossus', hint: 'Lift three million pounds in one calendar year.', text: 'Three million pounds in a single year! A stone titan kneels in the hills, holding the whole world on his shoulders.' },
     { id: 'jersey', title: 'The Yellow Jersey', hint: 'Ride 1,500 km in one calendar year.', text: '1,500 km on the bike in one year! A giant golden bicycle now stands on the hill, with a yellow jersey flying over it.' },
-    { id: 'torch', title: 'The Eternal Flame', hint: 'Run 500 km in one calendar year.', text: '500 km run in a single year! A great stone cauldron on a column has been lit, and it will burn forever.' },
-    { id: 'everest', title: 'Everest', hint: 'Climb 8,849 m in one calendar year.', text: 'You\u2019ve climbed the height of Everest this year! A great snowy peak has risen at the end of the range, prayer flags streaming from its summit and your flag on top.' },
+    { id: 'torch', title: 'The Eternal Flame', hint: 'Run 750 km in one calendar year.', text: '750 km run in a single year! A great stone cauldron on a column has been lit, and it will burn forever.' },
+    { id: 'everest', title: 'Everest', hint: 'Climb 8,849 m running and hiking in one calendar year (Strava).', text: 'You\u2019ve climbed the height of Everest this year! A great snowy peak has risen at the end of the range, prayer flags streaming from its summit and your flag on top.' },
     { id: 'mellon', title: 'The Doors of Durin', hint: 'Speak, friend, and enter.', text: 'Mellon! Moonlit runes glow on a hidden door at the foot of the mountains, and it swings open for you.' },
     { id: 'sub20', title: 'The Golden Runner', hint: 'Run 5 km in 20 minutes (on Strava).', big: true,
       text: 'A SUB-20 5K! The whole town is setting off fireworks, and a giant golden runner now strides over the forest. This one is a big deal.' }
@@ -5506,10 +5546,10 @@
       if (ev.kind === 'lift') ys.lb += ev.tonnage || 0;
       if (ev.kind === 'bike' || ev.kind === 'mtb' || ev.kind === 'commute') ys.bike += ev.km || 0;
       if (ev.kind === 'run') ys.run += ev.km || 0;
-      ys.elev += ev.elev || 0;
+      if (ev.strava && (ev.kind === 'run' || ev.kind === 'hike')) ys.elev += ev.elev || 0;
       if (ys.lb >= 3e6) hit('colossus');
       if (ys.bike >= 1500) hit('jersey');
-      if (ys.run >= 500) hit('torch');
+      if (ys.run >= 750) hit('torch');
       if (ys.elev >= 8849) hit('everest');
     }
     if ((b.squat || 0) + (b.bench || 0) + (b.deadlift || 0) >= 1000) hit('thousandclub');
@@ -7724,7 +7764,7 @@
       P(o, self.geo.cyl, self.mat('water'), 0.36, 0.02, 0.36, 0.2, 0.2, -2.05);
       P(o, self.geo.cyl, self.mat('stone', 1), 0.06, 0.4, 0.06, 0.2, 0.38, -2.05);
       P(o, self.geo.cyl, self.mat('stone', 0), 0.16, 0.05, 0.16, 0.2, 0.58, -2.05);
-      P(o, self.geo.ball, self.mat('water'), 0.06, 0.12, 0.06, 0.2, 0.68, -2.05);
+      self.addFountain(o, 0.2, 0.68, -2.05, 0.2, 0.3, P(o, self.geo.ball, self.mat('water'), 0.06, 0.12, 0.06, 0.2, 0.68, -2.05));
     });
     once('topiary', 66, function (o) {
       topiary(o, -0.95, 1.45, true); topiary(o, 0.95, 1.45, true);
@@ -8212,7 +8252,7 @@
         P(self.geo.cyl6, self.mat('stone', 1), 0.12, 0.5, 0.12, 0, 1.1, 0);
         P(self.geo.cyl, self.mat('stone', 1), 0.5, 0.12, 0.5, 0, 1.38, 0);
         P(self.geo.cyl, self.mat('water'), 0.43, 0.03, 0.43, 0, 1.45, 0);
-        P(self.geo.ball, self.mat('water'), 0.1, 0.2, 0.1, 0, 1.62, 0);
+        self.addFountain(o, 0, 1.62, 0, 0.37, 0.95, P(self.geo.ball, self.mat('water'), 0.1, 0.2, 0.1, 0, 1.62, 0));
         break;
       case 6: // potted trees on the boardwalk
         [[0, -(Q.hz - 0.5)], [0, Q.hz - 0.5], [-(Q.hx - 0.5), 0], [Q.hx - 0.5, 0]].forEach(function (c) {
@@ -10842,6 +10882,7 @@
     var busy = false, B = this.brush, F = this.fx, self = this;
     this.stepNight(dt, now);
     this.stepFires(dt, now);
+    this.safe('fountains', function () { self.stepFountains(dt, now); });
     this.safe('gang', function () { self.stepGang(dt, now); self.penCheck(now); });
     if (this.stepCans(dt, now)) busy = true;
     // Wood smoke from the library chimneys.
