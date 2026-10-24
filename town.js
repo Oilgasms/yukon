@@ -75,7 +75,7 @@
     glacier: ['#d8eef6', '#aed8ea'],
     wpGreen: '#2f6b45', wpYellow: '#e6bf3c', wpBlack: '#26262b', wpRed: '#a8372b', wpCream: '#efe4c4',
     hare: ['#9b7f62', '#5a4636', '#e8dfd2'], deer: ['#a8754a', '#5a3c26', '#efe6d8'], moose: ['#5a3a24', '#2e1e14', '#d8c49a'], caribou: ['#8a7a66', '#4a3e32', '#eeeae2'],
-    wolf: ['#8d8a86', '#4a4744', '#e2ded8'], lynx: ['#b9a688', '#3a3028', '#e8e0d0'], bear: ['#7a5232', '#3a2616', '#a87a50'], salmon: ['#d9604a', '#a8402c'],
+    wolf: ['#8d8a86', '#4a4744', '#e2ded8'], coyote: ['#a8927a', '#55473a', '#e6dccb'], lynx: ['#b9a688', '#3a3028', '#e8e0d0'], bear: ['#7a5232', '#3a2616', '#a87a50'], salmon: ['#d9604a', '#a8402c'],
     beaver: ['#7a4e2c', '#3a2a1e', '#a87a50'], duck: ['#8a6a4a', '#e8b934', '#2f7a46'], loon: ['#1e1e1e', '#2a2a2a', '#e8e8e8'], raven: ['#1c1c22', '#2a2a30', '#1c1c22'],
     eagle: ['#4a3420', '#e8b934', '#f4f2ec'], owl: ['#8a6e4e', '#e8b934', '#b89a72'],
     brick: ['#a8483a', '#b5553f', '#9a4034'], logwood: ['#8a5a34', '#74492a'], shingle: '#4e3d34', whitewood: '#f3efe6',
@@ -3141,29 +3141,42 @@
     var C = this.st.critters;
     for (var k in C) {
       var c = C[k], g = c.g;
-      // Jo the fox: walk up to her and she trots along beside you for a while, then heads home.
+      // Jo the fox: walk up to her and she sticks right by your side for a good long while, hopping
+      // up after you onto roofs and walls, sitting when you sit, then heads home.
       if (c.kind === 'fox' && this.explore && this.player && this.player.g.visible) {
         var pp = this.player.g.position, pd = Math.hypot(pp.x - g.position.x, pp.z - g.position.z);
-        if (!c.follow && pd < 2.4 && now > (c.followCool || 0)) { c.follow = now + 30000 + Math.random() * 15000; c.wait = 0; this.hearts(); }
-        if (c.follow && (now > c.follow || pd > 30)) { c.follow = 0; c.followCool = now + 40000; c.tx = c.cx; c.tz = c.cz; c.away = true; }
+        if (!c.follow && pd < 2.4 && now > (c.followCool || 0)) { c.follow = now + 240000 + Math.random() * 120000; c.wait = 0; this.hearts(g.position); }
+        if (c.follow && (now > c.follow || pd > 45)) { c.follow = 0; c.followCool = now + 15000; c.tx = c.cx; c.tz = c.cz; c.away = true; c.body.rotation.x = 0; }
+        if (!c.follow && g.position.y > groundY(g.position.x, g.position.z) + 0.05) g.position.y = Math.max(groundY(g.position.x, g.position.z), g.position.y - dt * 6); // hop down off the roof on the way home
         if (c.follow) {
           // A little behind and to the side, wherever you're facing.
           var ry = this.player.g.rotation.y, side = c.side || (c.side = 1);
-          c.tx = pp.x - Math.sin(ry) * 0.7 + Math.cos(ry) * 0.9 * side; c.tz = pp.z - Math.cos(ry) * 0.7 - Math.sin(ry) * 0.9 * side;
+          c.tx = pp.x - Math.sin(ry) * 0.35 + Math.cos(ry) * 0.6 * side; c.tz = pp.z - Math.cos(ry) * 0.35 - Math.sin(ry) * 0.6 * side;
+          // Up somewhere narrow (a little roof, a wall top)? Squeeze in right behind you instead.
+          if (pp.y > groundY(pp.x, pp.z) + 0.3 && this.floorAt(c.tx, c.tz, pp.y + 0.6) < pp.y - 0.3) {
+            for (var tb = 0.3; tb >= 0.05; tb -= 0.1) { c.tx = pp.x - Math.sin(ry) * tb; c.tz = pp.z - Math.cos(ry) * tb; if (this.floorAt(c.tx, c.tz, pp.y + 0.6) > pp.y - 0.3) break; }
+          }
           c.wait = 0; c.away = true;
           var fdx = c.tx - g.position.x, fdz = c.tz - g.position.z, fd = Math.hypot(fdx, fdz);
           if (fd > 0.12) {
-            var fs = Math.min(fd, dt * Math.min(7, 1.2 + fd * 2.5));
+            var fs = Math.min(fd, dt * Math.min(10, 1.5 + fd * 3.5));
+            c.body.rotation.x *= 0.8;
             g.position.x += fdx / fd * fs; g.position.z += fdz / fd * fs;
             g.rotation.y = Math.atan2(fdx, fdz);
             c.phase += dt * Math.min(22, 6 + fd * 9);
             c.legs.forEach(function (l, i) { l.rotation.x = Math.sin(c.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.6; });
           } else {
-            c.legs.forEach(function (l) { l.rotation.x *= 0.8; });
+            // Sit down beside you while you're sitting or standing about.
+            var sitting = this.player.seat || this.player.cook || (this.player.idle || 0) > 1.5;
+            c.body.rotation.x += ((sitting ? -0.45 : 0) - c.body.rotation.x) * Math.min(1, dt * 6);
+            c.legs.forEach(function (l, i) { l.rotation.x += ((sitting && i > 1 ? 1.1 : 0) - l.rotation.x) * Math.min(1, dt * 6); });
             var face = ry - g.rotation.y; while (face > Math.PI) face -= Math.PI * 2; while (face < -Math.PI) face += Math.PI * 2;
             g.rotation.y += face * Math.min(1, dt * 3);
           }
-          g.position.y = groundY(g.position.x, g.position.z);
+          // Up (a quick hop) or down to whatever's underfoot: ground, a roof, a wall top.
+          var fy = this.floorAt(g.position.x, g.position.z, Math.max(g.position.y, pp.y) + 0.6);
+          if (fy > g.position.y + 0.02) g.position.y = Math.min(fy, g.position.y + dt * 7);
+          else g.position.y = Math.max(fy, g.position.y - dt * 6);
           c.tail.rotation.y = Math.sin(now / 160) * 0.5;
           this.needsRender = true;
           continue;
@@ -3829,6 +3842,247 @@
         break;
     }
     return true;
+  };
+
+  // ---- the coyote gang: three outlaws riding into town ----------------------------------------
+  // Some days (and every Friday and Saturday night) they swagger through the streets, lean and
+  // rangy, a tumbleweed rolling along behind, stumbling on whiskey, shoving each other and
+  // knocking over bins. Get too close and the raccoon hisses, and it's a full cartoon
+  // scrap: a spinning ball of dust with fists and tails poking out.
+  var GANG_LINES = ['YEEHAW', 'howdy, varmint', 'hold my whiskey', 'AWOOO, pardner', '*hic*', 'who you lookin at, varmint?', 'to the saloon, boys!', 'this here town\u2019s ours now', 'reach for the sky!', 'I\u2019m the fastest paw in the west', 'mighty fine bins y\u2019all got', '*spits*', 'I ain\u2019t drunk, YOU\u2019RE drunk', 'shut yer trap, Clem', 'wanted: dead or alive'];
+  Town.prototype.gangDay = function () {
+    var d = this.today ? +this.today.replace(/-/g, '') : 0, dow = this.today ? new Date(this.today + 'T12:00:00').getDay() : -1;
+    return (d * 7919) % 3 === 0 || ((dow === 5 || dow === 6) && this.dark);
+  };
+  Town.prototype.stepGang = function (dt, now) {
+    var G = this.st.gang, self = this;
+    var want = this.explore && !this.soft && this.gangDay() && now > (this.gangBack || 0);
+    if (!want) { if (G && !G.fleeing) this.dropGang(); return; }
+    if (!G) G = this.buildGang();
+    var pl = this.player, pp = pl && pl.g.position, L = G.dogs[0];
+    if (G.fleeing) {
+      // Legging it, tails between their legs, then gone.
+      G.dogs.forEach(function (c) { var g = c.g; g.position.x += c.vx * dt; g.position.z += c.vz * dt; g.position.y = groundY(g.position.x, g.position.z); c.ph += dt * 26; c.legs.forEach(function (l, i) { l.rotation.x = Math.sin(c.ph + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.9; }); });
+      if (now > G.fleeing) { this.dropGang(); this.gangBack = now + 240000; }
+      return;
+    }
+    if (G.standoff) {
+      // Face off: hackles up, then it's on.
+      G.dogs.forEach(function (c) { c.g.rotation.y = Math.atan2(pp.x - c.g.position.x, pp.z - c.g.position.z); c.legs.forEach(function (l) { l.rotation.x *= 0.8; }); });
+      if (now > G.standoff) { G.standoff = 0; this.gangFight(); }
+      return;
+    }
+    // The leader wanders the streets; the other two lurch along behind.
+    if (!G.route.length) {
+      var si = Math.floor(Math.random() * STREETS.length), ti = Math.floor(Math.random() * STREETS[si].length);
+      G.route = streetRoute(G.node, { si: si, ti: ti }).slice(); G.node = { si: si, ti: ti };
+      if (Math.random() < 0.3) { G.route.push({ x: TOWN_SQ.x + 1, z: TOWN_SQ.z }); }
+    }
+    var tgt = G.route[0], dx = tgt.x - L.g.position.x, dz = tgt.z - L.g.position.z, d = Math.hypot(dx, dz);
+    if (d < 0.4) G.route.shift();
+    G.dogs.forEach(function (c, i) {
+      var g = c.g, tx, tz;
+      if (i === 0) { tx = tgt.x; tz = tgt.z; }
+      else { var ly = L.g.rotation.y, sd = i === 1 ? 1 : -1; tx = L.g.position.x - Math.sin(ly) * 1.0 + Math.cos(ly) * 0.6 * sd; tz = L.g.position.z - Math.cos(ly) * 1.0 - Math.sin(ly) * 0.6 * sd; }
+      // Drunk: weaving side to side.
+      var wob = Math.sin(now / 700 + i * 2.1) * 0.5, ex = tx - g.position.x, ez = tz - g.position.z, ed = Math.hypot(ex, ez);
+      if (ed > 0.15) {
+        var sp = Math.min(ed, dt * (i ? Math.min(3.2, 1.3 + ed) : 1.4));
+        var hx = ex / ed, hz = ez / ed;
+        g.position.x += (hx + -hz * wob * 0.6) * sp; g.position.z += (hz + hx * wob * 0.6) * sp;
+        g.rotation.y = Math.atan2(hx, hz) + wob * 0.3;
+        c.ph += dt * 10;
+        c.legs.forEach(function (l, j) { l.rotation.x = Math.sin(c.ph + (j === 0 || j === 3 ? 0 : Math.PI)) * 0.6; });
+      } else c.legs.forEach(function (l) { l.rotation.x *= 0.85; });
+      // Stumbles and shoves.
+      if (now > c.stumbleAt) { c.stumbleAt = now + 4000 + Math.random() * 7000; c.stumble = 0.7; if (Math.random() < 0.5) self.say(['whoa there', 'dang', 'quit shovin\u2019, Clem', 'meant to do that'][Math.floor(Math.random() * 4)], g, 1.0, 1.0); }
+      if (c.stumble > 0) { c.stumble -= dt; g.rotation.z = Math.sin(c.stumble / 0.7 * Math.PI * 2) * 0.35; } else g.rotation.z = 0;
+      g.position.y = groundY(g.position.x, g.position.z) + (c.hop > 0 ? Math.sin((c.hop -= dt) / 0.4 * Math.PI) * 0.4 : 0);
+      if (c.can) c.can.rotation.z = Math.sin(now / 300 + i) * 0.2;
+      // Bins don't stand a chance.
+      (self.st.cans || []).forEach(function (cn) { if (!cn.down && Math.hypot(cn.x - g.position.x, cn.z - g.position.z) < 0.6) { var kx = cn.x - g.position.x, kz = cn.z - g.position.z, kl = Math.hypot(kx, kz) || 1; self.knockCan(cn, kx / kl, kz / kl, now); self.sfx('clang'); self.say(['YEEHAW', 'whoopsie', 'BINS!'][Math.floor(Math.random() * 3)], g, 1.0, 1.0); } });
+    });
+    if (G.weed) {
+      // Bouncing along a few steps behind the boss.
+      var W = G.weed, wx = L.g.position.x - Math.sin(L.g.rotation.y) * 2.2 + Math.sin(now / 900) * 0.8, wz = L.g.position.z - Math.cos(L.g.rotation.y) * 2.2, wdx = wx - W.position.x, wdz = wz - W.position.z, wd = Math.hypot(wdx, wdz);
+      if (wd > 0.05) { var wst = Math.min(wd, dt * 2.2); W.position.x += wdx / wd * wst; W.position.z += wdz / wd * wst; W.rotation.x += wst * 4; W.rotation.z += wst * 1.5; }
+      W.position.y = groundY(W.position.x, W.position.z) + 0.22 + Math.abs(Math.sin(now / 250)) * 0.25;
+    }
+    if (now > G.talkAt) { G.talkAt = now + 2500 + Math.random() * 4000; var who = G.dogs[Math.floor(Math.random() * 3)]; this.say(GANG_LINES[Math.floor(Math.random() * GANG_LINES.length)], who.g, 1.1, 1.6); if (Math.random() < 0.3) who.hop = 0.4; if (Math.random() < 0.3) this.sfx('howl'); }
+    // Too close to the raccoon: hiss, square up.
+    if (pl && pl.g.visible && !pl.paddle && !pl.ride && !pl.snow && !pl.climb && pl.air < 0.05 && this.gangNear(pp, 1.6)) this.squareUp();
+  };
+  Town.prototype.buildGang = function () {
+    var self = this, G = this.st.gang = { dogs: [], route: [], node: SQ_STREET, talkAt: 0 };
+    // A tumbleweed rolls into town with them.
+    var tw = G.weed = new T.Group(); this.world.add(tw);
+    for (var w = 0; w < 7; w++) { var ws = this.mesh(this.geo.blob, this.mat(w % 2 ? 'woodLight' : 'wood'), tw); ws.scale.setScalar(0.18 + (w % 3) * 0.04); ws.position.set(Math.cos(w * 2.4) * 0.12, Math.sin(w * 1.7) * 0.12, Math.sin(w * 2.4) * 0.12); }
+    var start = STREETS[Math.floor(Math.random() * STREETS.length)], p0 = start[Math.floor(start.length / 2)];
+    G.node = { si: STREETS.indexOf(start), ti: Math.floor(start.length / 2) };
+    for (var i = 0; i < 3; i++) {
+      var c = this.coyoteBody(i);
+      var g = c.g; g.position.set(p0.x + i * 0.6, groundY(p0.x, p0.z), p0.z + (i % 2) * 0.6); this.world.add(g);
+      var can = null;
+      if (i === 1) {
+        // A bottle of whiskey, swigged on the go.
+        can = new T.Group(); can.position.set(0.07, -0.06, 0.2); c.head.add(can); can.scale.setScalar(0.7);
+        this.part(can, this.geo.cyl, this.mat('trunk'), 0.05, 0.14, 0.05, 0, 0, 0, 'wild:coyotes');
+        this.part(can, this.geo.cyl, this.mat('trunk'), 0.02, 0.07, 0.02, 0, 0.1, 0, 'wild:coyotes');
+        this.part(can, this.geo.box, this.mat('swan', 0), 0.06, 0.05, 0.03, 0, 0, 0.04, 'wild:coyotes');
+      }
+      G.dogs.push({ g: g, legs: c.legs, head: c.head, tail: c.tail, ph: i, stumbleAt: performance.now() + 2000 + i * 1500, stumble: 0, hop: 0, can: can });
+    }
+    return G;
+  };
+  // Lean, long-legged and rangy like Jo the fox, but grizzled grey-tan, with big ears, a long
+  // snout and a bushy black-tipped tail carried low.
+  Town.prototype.coyoteBody = function (k) {
+    var g = new T.Group(), self = this, pick = 'wild:coyotes', m = this.mat('coyote', 0), dark = this.mat('coyote', 1), light = this.mat('coyote', 2);
+    function P(geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || g, geo, mat, sx, sy, sz, x, y, z, pick); }
+    var body = new T.Group(); body.position.y = 0.4; g.add(body);
+    P(this.geo.box, m, 0.17, 0.17, 0.52, 0, 0, 0, body);
+    P(this.geo.box, light, 0.13, 0.08, 0.36, 0, -0.07, 0.03, body);            // pale belly
+    P(this.geo.box, dark, 0.1, 0.03, 0.42, 0, 0.088, -0.02, body);            // darker saddle along the back
+    P(this.geo.box, m, 0.19, 0.19, 0.18, 0, 0.01, 0.17, body);                 // deep chest
+    var head = new T.Group(); head.position.set(0, 0.14, 0.31); body.add(head);
+    P(this.geo.box, m, 0.16, 0.14, 0.15, 0, 0, 0, head);
+    P(this.geo.box, light, 0.07, 0.06, 0.19, 0, -0.04, 0.14, head);            // long snout
+    P(this.geo.box, dark, 0.035, 0.035, 0.03, 0, -0.025, 0.24, head);          // nose
+    [-1, 1].forEach(function (sd) {
+      P(self.geo.cone4, m, 0.05, 0.19, 0.035, sd * 0.055, 0.15, -0.02, head);   // big ears
+      P(self.geo.cone4, dark, 0.028, 0.11, 0.02, sd * 0.055, 0.14, 0.0, head);
+      P(self.geo.box, self.mat('lantern'), 0.03, 0.022, 0.02, sd * 0.045, 0.03, 0.08, head); // yellow eyes
+      P(self.geo.box, self.mat('swan', 2), 0.012, 0.022, 0.022, sd * 0.045, 0.03, 0.082, head);
+    });
+    var tail = new T.Group(); tail.position.set(0, 0.03, -0.26); body.add(tail);
+    [[0.07, -0.06], [0.1, -0.16], [0.12, -0.27], [0.11, -0.37], [0.08, -0.45]].forEach(function (seg, i) { P(self.geo.box, i === 4 ? dark : m, seg[0], seg[0], 0.12, 0, 0, seg[1], tail); });
+    tail.rotation.x = -0.5;
+    var legs = [[-0.055, 0.18], [0.055, 0.18], [-0.055, -0.18], [0.055, -0.18]].map(function (l) {
+      var hip = new T.Group(); hip.position.set(l[0], 0.33, l[1]); g.add(hip);
+      P(self.geo.box, m, 0.045, 0.2, 0.045, 0, -0.1, 0, hip);
+      P(self.geo.box, light, 0.042, 0.13, 0.042, 0, -0.26, 0, hip);
+      return hip;
+    });
+    g.scale.setScalar(1.45);
+    return { g: g, legs: legs, head: head, tail: tail };
+  };
+  Town.prototype.dropGang = function () {
+    var G = this.st.gang, self = this;
+    if (!G) return;
+    G.dogs.forEach(function (c) { if (c.g.parent) c.g.parent.remove(c.g); self.picks = self.picks.filter(function (m) { return m.userData.pick !== 'wild:coyotes'; }); });
+    if (G.weed && G.weed.parent) G.weed.parent.remove(G.weed);
+    this.st.gang = null;
+  };
+  Town.prototype.gangNear = function (P, r) {
+    var G = this.st.gang;
+    if (!G || G.fleeing || G.standoff) return false;
+    return G.dogs.some(function (c) { return Math.hypot(c.g.position.x - P.x, c.g.position.z - P.z) < r; });
+  };
+  Town.prototype.squareUp = function () {
+    var G = this.st.gang, pl = this.player;
+    if (!G || G.standoff || G.fleeing || this.brawl) return;
+    if (pl.seat) this.leaveSeat(pl); if (pl.cook) this.endCook(pl, true); if (pl.fishing) this.stopFishing(pl);
+    pl.dig = null;
+    var c0 = G.dogs[0].g.position; pl.g.rotation.y = Math.atan2(c0.x - pl.g.position.x, c0.z - pl.g.position.z);
+    this.say('HSSSSSSS!', pl.g, 1.0, 1.2); this.sfx('sizzle');
+    this.puff(pl.g.position.x, pl.g.position.y + 0.3, pl.g.position.z, 6, 'dust', 0.2);
+    pl.tail.scale.set(1.6, 1.6, 1.2); pl.vy = 2;
+    var self = this;
+    setTimeout(function () { self.say(['DRAW, varmint', 'this town ain\u2019t big enough for the both of us', 'get \u2019im, boys!', 'reach for the sky, trash panda'][Math.floor(Math.random() * 4)], G.dogs[1].g, 1.1, 1.5); }, 450);
+    G.standoff = performance.now() + 1100;
+  };
+  Town.prototype.gangFight = function () {
+    var G = this.st.gang, pl = this.player, self = this, P = pl.g.position;
+    var at = new T.Vector3(P.x, P.y, P.z);
+    this.startBrawl([pl.g].concat(G.dogs.map(function (c) { return c.g; })), at, [this.mat('coon', 1), this.mat('coyote', 0), this.mat('coyote', 1)], function () {
+      // The lads scatter, howling for their mums.
+      G.fleeing = performance.now() + 4000;
+      G.dogs.forEach(function (c, i) {
+        var a = Math.atan2(c.g.position.x - P.x, c.g.position.z - P.z) + (i - 1) * 0.9 + Math.PI * (Math.random() < 0.5 ? 0 : 0.2);
+        c.vx = Math.sin(a) * 6; c.vz = Math.cos(a) * 6; c.g.rotation.y = a; c.g.rotation.z = 0; c.g.position.set(P.x + Math.sin(a) * 0.6, P.y, P.z + Math.cos(a) * 0.6);
+        c.tail.rotation.x = -0.9;
+        self.say(['MAMA!', 'we\u2019ll be back, varmint!', 'not the hat!', 'RETREAT, BOYS'][Math.floor(Math.random() * 4)], c.g, 1.1, 1.6);
+      });
+      self.victory(pl, ['and STAY out', 'git along, little doggies', 'new sheriff in town', 'that\u2019s right, RUN']);
+    });
+  };
+  // The scrap itself: a whirling ball of dust with paws, tails and stars flying out, everyone
+  // in it hidden till it's over.
+  Town.prototype.startBrawl = function (who, at, mats, onEnd) {
+    var cloud = new T.Group(), self = this, blobs = [], limbs = [], stars = [];
+    cloud.position.copy(at); this.world.add(cloud);
+    for (var i = 0; i < 14; i++) {
+      var b = this.mesh(this.geo.blob, i % 3 ? this.mat('soil') : this.mat('stone', 2), cloud), a = Math.random() * Math.PI * 2, e = (Math.random() - 0.5) * 2;
+      b.userData.home = new T.Vector3(Math.cos(a) * 0.45, 0.6 + e * 0.35, Math.sin(a) * 0.45); b.position.copy(b.userData.home);
+      b.scale.setScalar(0.35 + Math.random() * 0.25); blobs.push(b);
+    }
+    for (var l = 0; l < 14; l++) { var lm = this.mesh(this.geo.box, mats[l % mats.length], cloud); lm.scale.set(0.09, 0.09, 0.42); lm.visible = false; limbs.push(lm); }
+    for (var st = 0; st < 4; st++) { var sm = this.mesh(this.geo.cone4, this.mat('gold'), cloud); sm.scale.set(0.1, 0.12, 0.03); sm.visible = false; stars.push(sm); }
+    who.forEach(function (g) { g.visible = false; });
+    this.brawl = { cloud: cloud, blobs: blobs, limbs: limbs, stars: stars, who: who, t: 0, dur: 3.2, base: at.clone(), onEnd: onEnd, wordAt: 0 };
+    this.say('*SCRAP*', cloud, 1.4, 0.9);
+  };
+  Town.prototype.stepBrawl = function (dt, now) {
+    var B = this.brawl, c = B.cloud;
+    B.t += dt;
+    c.rotation.y += dt * 16;
+    c.position.set(B.base.x + Math.sin(B.t * 3.1) * 0.7, B.base.y + Math.abs(Math.sin(B.t * 9)) * 0.18, B.base.z + Math.cos(B.t * 2.3) * 0.7);
+    var fl = this.floorAt(c.position.x, c.position.z, B.base.y + 1); if (fl > B.base.y - 1) c.position.y += fl - B.base.y;
+    B.blobs.forEach(function (b, i) { var h = b.userData.home; b.position.set(h.x * (1 + Math.sin(now / 60 + i) * 0.15), h.y + Math.sin(now / 45 + i * 2) * 0.08, h.z * (1 + Math.cos(now / 55 + i) * 0.15)); });
+    B.limbs.forEach(function (lm) {
+      if (Math.random() < dt * 9) {
+        lm.visible = Math.random() < 0.7;
+        var a = Math.random() * Math.PI * 2, e = (Math.random() - 0.3) * 1.4, dir = new T.Vector3(Math.cos(a) * Math.cos(e), Math.sin(e), Math.sin(a) * Math.cos(e));
+        lm.position.set(dir.x * 0.62, 0.6 + dir.y * 0.62, dir.z * 0.62); lm.lookAt(lm.position.clone().multiplyScalar(2).add(c.position));
+      }
+    });
+    B.stars.forEach(function (sm, i) { sm.visible = Math.sin(now / 90 + i * 1.7) > 0.6; var a = now / 200 + i * 1.6; sm.position.set(Math.cos(a) * 0.8, 1.15 + Math.sin(a * 2) * 0.1, Math.sin(a) * 0.8); sm.rotation.z = now / 100; });
+    if (now > B.wordAt) {
+      B.wordAt = now + 330 + Math.random() * 200;
+      this.say(['POW!', 'BIFF!', 'WHAM!', 'BONK!', 'OOF', 'ZOK!', '*scratch*', 'KAPOW', 'YIP!'][Math.floor(Math.random() * 9)], c, 1.1 + Math.random() * 0.4, 0.5);
+      this.puff(c.position.x, c.position.y + 0.2, c.position.z, 4, 'dust', 0.5);
+      this.sfx(Math.random() < 0.5 ? 'rustle' : 'clang');
+    }
+    if (B.t > B.dur) {
+      this.world.remove(c);
+      this.puff(c.position.x, c.position.y + 0.4, c.position.z, 24, 'dust', 0.9);
+      var pl = this.player;
+      B.who.forEach(function (g) { g.visible = true; });
+      if (pl) { pl.g.position.x = c.position.x; pl.g.position.z = c.position.z; pl.g.position.y = this.floorAt(c.position.x, c.position.z, c.position.y + 1); pl.vy = 0; pl.idle = 0; }
+      this.brawl = null;
+      if (B.onEnd) B.onEnd();
+    }
+    this.needsRender = true;
+  };
+  // Dusted off, a bit dizzy, stars round its head: still the champ.
+  Town.prototype.victory = function (pl, lines) {
+    var self = this, ring = new T.Group(); ring.position.y = 0.28; pl.head.add(ring);
+    for (var i = 0; i < 4; i++) { var st = this.mesh(this.geo.cone4, this.mat('gold'), ring); st.scale.set(0.05, 0.06, 0.02); var a = i / 4 * Math.PI * 2; st.position.set(Math.cos(a) * 0.17, 0, Math.sin(a) * 0.17); }
+    pl.tail.scale.set(1, 1, 1);
+    var t0 = performance.now();
+    (function spin() { var t = performance.now() - t0; ring.rotation.y = t / 180; if (t < 2600 && ring.parent) requestAnimationFrame(spin); else if (ring.parent) ring.parent.remove(ring); })();
+    setTimeout(function () { self.say(lines[Math.floor(Math.random() * lines.length)], pl.g, 1.0, 1.8); }, 700);
+  };
+  // Hop the fence into the dog pen and the dogs pile on: same dust-up, then you're flung back out.
+  Town.prototype.penCheck = function (now) {
+    var D = this.st.dogs, pl = this.player;
+    if (!D || !D.pen || !pl || this.brawl || !this.explore || now < (D.brawlCool || 0) || pl.air > 0.05 || !D.order.length) return;
+    var loc = D.pen.worldToLocal(pl.g.position.clone());
+    if (Math.abs(loc.x) > DOG_PEN.w / 2 - 0.35 || Math.abs(loc.z) > DOG_PEN.d / 2 - 0.35) { D.inSince = 0; return; }
+    if (!D.inSince) { D.inSince = now; this.say(['uh oh', 'nice doggies...', 'hi guys!'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.0); return; }
+    var close = D.order.filter(function (n) { var g = D.list[n]; return Math.hypot(g.x - loc.x, g.z - loc.z) < 1.2; });
+    if (!close.length && now - D.inSince < 1600) return;
+    D.inSince = 0; D.brawlCool = now + 15000;
+    var self = this, dogs = D.order.map(function (n) { return D.list[n]; }), P = pl.g.position, at = P.clone();
+    if (pl.seat) this.leaveSeat(pl); if (pl.carry) { pl.mouth.remove(pl.carry.m); pl.carry = null; }
+    this.startBrawl([pl.g].concat(dogs.map(function (d) { return d.group; })), at, [this.mat('coon', 1)].concat(dogs.map(function (d) { return self.mat('dog:' + d.name, 0); })), function () {
+      // Out over the fence you go; the dogs think that was the best game ever.
+      var pc = DOG_PEN.c, ax = P.x - pc.x, az = P.z - pc.z, al = Math.hypot(ax, az) || 1, out = Math.max(DOG_PEN.w, DOG_PEN.d) / 2 + 1.4;
+      P.x = pc.x + ax / al * out; P.z = pc.z + az / al * out; P.y = self.floorAt(P.x, P.z, P.y + 3) ; pl.vy = 4.5;
+      dogs.forEach(function (d) { d.wag = 4; d.tx = d.x; d.tz = d.z; d.wait = 2; });
+      D.order.forEach(function (n, i) { setTimeout(function () { self.bark(n, true); }, i * 250); });
+      self.victory(pl, ['worth it', 'they started it', 'good boys... good boys...', 'I regret nothing']);
+    });
   };
 
   // ---- campfires: cook what you catch ------------------------------------------
@@ -7874,7 +8128,7 @@
   Town.prototype.halloweenWeek = function () {
     if (!this.today) return false;
     var m = +this.today.slice(5, 7), d = +this.today.slice(8, 10);
-    return m === 10 && d >= 24;
+    return m === 10 && d === 31; // Halloween itself only
   };
   Town.prototype.dressMice = function (list, spooky, rain) {
     list.forEach(function (m) {
@@ -8464,6 +8718,7 @@
         var MB = s.mtb, nm = MTB_STEPS[MB.n], mb = MTB_STEPS.slice(0, MB.n).map(function (x) { return x[1].toLowerCase(); });
         return { title: 'The bike shop', lines: [plural(MB.rides, 'mountain bike ride') + ' \u00b7 ' + km(MB.km), 'Built: ' + mb.join(', ') + '.', nm ? 'Next: ' + nm[1].toLowerCase() + ' at ' + nm[0] + ' rides.' : 'The bike shop is complete.', 'Mountain bike rides come from Strava, and they sow the farmland too.', tail] };
       case 'wild':
+        if (p[1] === 'coyotes') return { title: 'The Coyote Gang', lines: ['Three lean outlaws who swagger into town some days (and every Friday and Saturday night), whiskey in paw, knocking over bins and causing a ruckus.', 'Get too close and it\u2019s a showdown.'] };
         var sp = WILDLIFE.filter(function (w) { return w.key === p[1]; })[0], seen = WILDLIFE.filter(function (w) { return s.wild.have[w.key]; }).length;
         var nextW = this.nextWildlife();
         return { title: sp ? sp.title : 'Wildlife', lines: [sp ? sp.text : '', sp ? 'Arrived with ' + sp.how + '.' : '', seen + ' of ' + WILDLIFE.length + ' kinds of wildlife in Yukon.' + (nextW ? ' Closest next: ' + nextW.title.toLowerCase() + ', ' + nextW.have + ' of ' + nextW.how + '.' : '')] };
@@ -8671,20 +8926,9 @@
     var c = this.controls;
     if (on) {
       if (!this.player) {
-        var pc = this.critter('raccoon');
-        this.picks = this.picks.filter(function (m) { return pc.g.getObjectById(m.id) == null; });
-        pc.g.traverse(function (m) { if (m.isMesh) m.userData.pick = null; });
-        this.world.remove(pc.g); this.scene.add(pc.g);
-        pc.g.position.set(TOWN_SQ.x + 2.4, 0, TOWN_SQ.z - 0.6);
-        pc.g.rotation.y = Math.PI;
-        pc.g.scale.setScalar(PLAYER_SCALE);
-        pc.hip0 = pc.legs.map(function (l) { return l.position.clone(); });
-        // Little eyes that shine in the dark, like a raccoon's in torchlight.
-        pc.eyeMat = new T.MeshBasicMaterial({ color: '#1a1a1a' });
-        [-0.06, 0.06].forEach(function (x) { var e = new T.Mesh(this.geo.box, pc.eyeMat); e.scale.set(0.045, 0.04, 0.02); e.position.set(x, 0.03, 0.13); pc.head.add(e); }, this);
-        // And a mouth to carry things in.
-        pc.mouth = new T.Group(); pc.mouth.position.set(0, -0.08, 0.27); pc.head.add(pc.mouth);
-        this.player = pc;
+        this.player = this.makePlayer();
+        this.player.g.position.set(TOWN_SQ.x + 2.4, 0, TOWN_SQ.z - 0.6);
+        this.player.g.rotation.y = Math.PI;
       }
       this.player.g.visible = true;
       var P = this.player.g.position;
@@ -8838,11 +9082,27 @@
     return true;
   };
   var PLAYER_SCALE = 1.25, STEP_UP = 0.4, GRAVITY = 17;
+  // The raccoon you walk around as.
+  Town.prototype.makePlayer = function () {
+    var pc = this.critter('raccoon');
+    this.picks = this.picks.filter(function (m) { return pc.g.getObjectById(m.id) == null; });
+    pc.g.traverse(function (m) { if (m.isMesh) m.userData.pick = null; });
+    this.world.remove(pc.g); this.scene.add(pc.g);
+    pc.g.scale.setScalar(PLAYER_SCALE);
+    pc.hip0 = pc.legs.map(function (l) { return l.position.clone(); });
+    // Little eyes that shine in the dark, like a raccoon's in torchlight.
+    pc.eyeMat = new T.MeshBasicMaterial({ color: '#1a1a1a' });
+    [-0.06, 0.06].forEach(function (x) { var e = new T.Mesh(this.geo.box, pc.eyeMat); e.scale.set(0.045, 0.04, 0.02); e.position.set(x, 0.03, 0.13); pc.head.add(e); }, this);
+    // And a mouth to carry things in.
+    pc.mouth = new T.Group(); pc.mouth.position.set(0, -0.08, 0.27); pc.head.add(pc.mouth);
+    return pc;
+  };
   Town.prototype.stepPlayer = function (dt, now) {
     var pl = this.player;
     if (!pl) return false;
     if (!this.solids || now > this.solidAt) { this.buildSolids(); this.solidAt = now + (this.anims.length ? 1500 : 6000); }
     var roam = this.st.critters && this.st.critters.raccoon; if (roam && roam.g.visible) roam.g.visible = false; // you are the raccoon now
+    if (this.brawl) { var bc = this.brawl.cloud; this.stepBrawl(dt, now); this.followCam(bc.position, dt); return true; }
     var K = this.keys, g = pl.g, P = g.position, c = this.controls, cam = this.camera, self = this;
     var mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0) + (this.stick ? this.stick.x : 0);
     var mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0) + (this.stick ? -this.stick.y : 0);
@@ -8975,6 +9235,7 @@
       this.nearWild = wa;
       if (wa) best = 'wild:' + wa.key;
       if (this.fireNear(P, 2.4)) best = 'campfire';
+      if (this.gangNear(P, 3.5)) best = 'coyotes';
       if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
     }
     return moving || air || pl.idle < 60 || mv;
@@ -9018,6 +9279,7 @@
     if (this.fishGame) { this.fishGame.press(); return; }
     if (pl && pl.ride) { this.dismount(pl); return; }
     if (pl && pl.cook) { this.endCook(pl, true); return; }
+    if (pl && this.near === 'coyotes' && this.gangNear(pl.g.position, 3.5)) { this.squareUp(); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'campfire') {
       var cf = this.fireNear(pl.g.position, 2.4);
       if (pl.carry && pl.carry.kind === 'fish') { this.startCook(pl, cf); return; }
@@ -10103,6 +10365,7 @@
     var busy = false, B = this.brush, F = this.fx, self = this;
     this.stepNight(dt, now);
     this.stepFires(dt, now);
+    this.safe('gang', function () { self.stepGang(dt, now); self.penCheck(now); });
     if (this.stepCans(dt, now)) busy = true;
     // Wood smoke from the library chimneys.
     var LC = this.st.library && this.st.library.chimneys;
