@@ -329,7 +329,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v77';
+  var BUILD = 'v78';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -346,7 +346,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   var pixelOn = true;
   try { pixelOn = localStorage.getItem(PIXEL_KEY) !== '0'; } catch (e) {}
   var preferLite = false;
-  try { preferLite = localStorage.getItem(LITE_KEY) === '1'; } catch (e) {}
+  // Lite mode (after a graphics driver reset) lasts a day, then full graphics get another go.
+  try { var liteAt = localStorage.getItem(LITE_KEY); preferLite = !!liteAt && (liteAt === '1' ? false : Date.now() - (+liteAt) < 86400000); if (liteAt === '1') localStorage.removeItem(LITE_KEY); } catch (e) {}
   function glReason() {
     var c = document.createElement('canvas'), why = '';
     c.addEventListener('webglcontextcreationerror', function (e) { why = e.statusMessage || why; }, false);
@@ -385,18 +386,26 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     } else {
       $('notice').append(document.createTextNode((startErr ? startErr.message : 'Unknown error') + ' (build ' + BUILD + ')'));
     }
-    try { localStorage.setItem(LITE_KEY, '1'); } catch (e) {}
+    try { localStorage.setItem(LITE_KEY, String(Date.now())); } catch (e) {}
     return;
   }
   if (town.soft) {
-    $('notice').hidden = false;
-    $('notice').textContent = 'Drawing without graphics acceleration, since this browser has it turned off. Everything works; dragging is a little slower and there are no shadows.';
+    // The browser refused 3D graphics, so the town is drawn the slow, flat way: no animation,
+    // and things can show through each other. Say so plainly, and how to get 3D back.
+    var nt = $('notice'); nt.hidden = false; nt.innerHTML = '';
+    var h = document.createElement('p'); h.style.margin = '0 0 6px'; h.style.fontWeight = '700';
+    h.textContent = '3D graphics are switched off in this browser right now, so the town is in its basic drawing mode: nothing animates, and the ground can show through things.';
+    var how = document.createElement('p'); how.style.margin = '0 0 8px';
+    how.textContent = 'Chrome does this after its graphics crash, until it\u2019s fully restarted. Quit Chrome completely (every window; check the system tray too), reopen this page, and the town comes back as normal. If it doesn\u2019t: Chrome settings \u2192 System \u2192 turn on \u201cUse graphics acceleration when available\u201d.';
+    var again = document.createElement('button'); again.className = 'btn'; again.type = 'button'; again.textContent = 'Try 3D again';
+    again.addEventListener('click', function () { try { localStorage.removeItem(LITE_KEY); } catch (e) {} location.reload(); });
+    nt.append(h, how, again);
     softNote = true;
   }
   // If the graphics driver drops the 3D view, say so and use lite mode from the next load on.
   town.canvas.addEventListener('webglcontextlost', function (e) {
     e.preventDefault();
-    try { localStorage.setItem(LITE_KEY, '1'); } catch (er) {}
+    try { localStorage.setItem(LITE_KEY, String(Date.now())); } catch (er) {}
     setStatus('3D view paused: your graphics driver reset', 'err');
     setNotice('Reload the page to bring the town back. It will use a lighter mode from now on.');
   }, false);
@@ -533,7 +542,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   function setExplore(on) {
     town.setExplore(on); syncExplore(); lsSet(EXPLORE_KEY, on ? '' : 'map');
     // Walking about, tuck the title panel and the ledger away (they're one tap from coming back).
-    if (on && !tucked) { tucked = true; setTimeout(function () { if (!$('title-card').classList.contains('min')) $('title-min').click(); $('ledger').open = false; }, 0); }
+    if (on && !tucked && !softNote) { tucked = true; setTimeout(function () { if (!$('title-card').classList.contains('min')) $('title-min').click(); $('ledger').open = false; }, 0); }
     if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 Space to jump (or climb) \u00b7 E to look \u00b7 knock over bins and dig \u00b7 M for the map'); }
   }
   $('explore').addEventListener('click', function () { setExplore(!town.explore); });
@@ -1154,7 +1163,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   }
   function setNotice(html) {
     var n = $('notice');
-    if (!html) { n.hidden = true; n.innerHTML = ''; return; }
+    if (!html) { if (softNote) return; n.hidden = true; n.innerHTML = ''; return; } // keep the no-3D warning up
     n.innerHTML = html; n.hidden = false;
   }
 
