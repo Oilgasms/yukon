@@ -7927,6 +7927,55 @@
     return pts;
   }
   var SQ_STREET = (function () { var best = null, bd = 1e9; STREETS.forEach(function (st, si) { st.forEach(function (q, ti) { var d = Math.hypot(q.x - TOWN_SQ.x, q.z - TOWN_SQ.z); if (d < bd) { bd = d; best = { si: si, ti: ti }; } }); }); return best; })();
+  // What the mice have to say about your day: today's workouts (from the sheet), a nudge if
+  // there's nothing yet, and the odd call-out about Bible reading or a book overdue.
+  var NOT_WORKOUTS = { drink: 1, weight: 1, social: 1, bible: 1, book: 1, movie: 1 };
+  function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
+  Town.prototype.workoutLine = function (ev) {
+    var km = ev.km ? (Math.round(ev.km * 10) / 10) + ' km' : '', who = ev.friends && ev.friends.length ? ev.friends[0] : null;
+    if (who && Math.random() < 0.4) return pickOne(['saw you out with ' + who + ' today. lovely!', 'you and ' + who + ' again? thick as thieves', 'give ' + who + ' my best, dear']);
+    switch (ev.kind) {
+      case 'lift':
+        if (ev.prCount) return pickOne(['heard you set a PR today! strong as an ox', ev.prCount + ' PR' + (ev.prCount > 1 ? 's' : '') + ' today?! goodness me', 'a new PR! the castle\u2019s growing, look']);
+        if (ev.tonnage) return pickOne(['moved ' + Math.round(ev.tonnage).toLocaleString() + ' lb today? my back hurts just hearing it', 'lifting again! you\u2019ll have arms like Mr. Pemberton']);
+        return pickOne(['good ' + ev.groups.join(' & ') + ' session today?', 'lifting again! you\u2019ll have arms like Mr. Pemberton', 'saw you at the castle today. strong stuff!']);
+      case 'run': return pickOne([km ? km + ' today! my little knees could never' : 'out for a run today? good on you', 'you run past my window every morning, you know', 'the deer say you\u2019re getting quicker']);
+      case 'bike': case 'mtb': return pickOne(['saw you whizz by on the bike' + (km ? ', ' + km + '!' : '!'), 'mind the potholes on that bike, dear', 'off up the trails again?']);
+      case 'commute': return pickOne(['cycled to work again? good for you', 'bike to work today? the planet thanks you']);
+      case 'swim': return pickOne(['been swimming? you smell like the lake, dear', 'a swim today! brr']);
+      case 'hike': return pickOne(['up a mountain today? hope you brought snacks', 'what a hike! the view must\u2019ve been something']);
+      case 'stairs': return 'all those stairs! you must have legs of steel';
+      case 'walk': return pickOne(['nice day for a walk, wasn\u2019t it?', 'out for a stroll' + (km ? ', ' + km + '!' : '!')]);
+      case 'row': return 'out on the water today, eh?';
+      case 'snowboard': case 'xcski': return pickOne(['fresh snow today?', 'up the hill again? mind your knees']);
+      case 'sport': return 'how was ' + (ev.sport || 'the game') + '?';
+      case 'mobility': return pickOne(['a good stretch today! very good for the joints', 'bendy as a willow, you are']);
+    }
+    var lb = (ev.label || 'workout').slice(0, 28);
+    return 'saw your ' + lb + ' today!';
+  };
+  Town.prototype.mouseRemark = function () {
+    var s = this.st, t = this.today;
+    if (!t || !s.byDay) return null;
+    var day = s.byDay[t] || [], work = day.filter(function (e) { return !NOT_WORKOUTS[e.kind]; }), callouts = [], main;
+    if (work.length) main = this.workoutLine(pickOne(work));
+    else {
+      var plan = (this.planned || []).filter(function (e) { return e.date === t; })[0], hr = new Date().getHours();
+      var PLAN_WORDS = { lift: 'a lifting day', run: 'a run', bike: 'a ride', mtb: 'a ride', swim: 'a swim', hike: 'a hike', walk: 'a walk', row: 'a paddle', mobility: 'a stretch', xcski: 'a ski', snowboard: 'a snow day' };
+      var pw = plan && (PLAN_WORDS[plan.kind] || 'a workout');
+      if (plan) main = pickOne(['isn\u2019t ' + pw + ' on the cards today? chop chop!', 'heard you\u2019ve got ' + pw + ' planned today', 'off for ' + pw + ' later, dear?', 'no ' + pw.replace(/^an? /, '') + ' yet? what\u2019s up?']);
+      else main = pickOne(hr < 12 ? ['no workout yet today? what\u2019s up?', 'big plans today, dear?', 'rest day, is it?'] : ['no workout today? what\u2019s up?', 'rest day, is it?', 'skipping today, are we?', 'everything alright, love? haven\u2019t seen you train today', 'what\u2019s up? lazy day?']);
+    }
+    if (day.some(function (e) { return e.kind === 'drink'; }) && Math.random() < 0.5) callouts.push(pickOne(['heard you were at the Slow Pour today\u2026', 'a few drinks today, was it?']));
+    // Bible reading: only if you read it at all.
+    if (s.bible && s.bible.chapters && !day.some(function (e) { return e.kind === 'bible'; })) callouts.push(pickOne(['read your Bible today, dear?', 'a chapter a day keeps the devil away!', 'haven\u2019t seen your Bible out today', 'the vicar was asking after you\u2026']));
+    // Books: nothing finished in a month.
+    if (s.lastBookDate) {
+      var since = Math.round((Date.parse(t) - Date.parse(s.lastBookDate)) / 864e5);
+      if (since > 30) callouts.push(pickOne(['no new book in ' + since + ' days? the library misses you', 'finished a book lately? hmm?', 'the librarian says you\u2019re overdue for a new book', 'still on that same book, are we?']));
+    }
+    return callouts.length && Math.random() < 0.45 ? pickOne(callouts) : main;
+  };
   var MOUSE_JOBS = { postie: 'Percy the postie', barkeep: 'Doris behind the bar', hiker: 'A hiking mouse' };
   Town.prototype.makeMouse = function (k, job) {
     var g = new T.Group(), self = this, name = job ? MOUSE_JOBS[job] + (job === 'hiker' ? ' ' + (k + 1) : '') : MOUSE_NAMES[k % MOUSE_NAMES.length], pick = 'folk:' + name;
@@ -8025,7 +8074,8 @@
       // Greet the raccoon (once in a while), then carry on.
       if (P && m.state !== 'sit' && now > (m.helloAt || 0) && Math.hypot(P.x - g.position.x, P.z - g.position.z) < 1.8) {
         m.helloAt = now + 25000; m.greet = 1.8;
-        var pl = self.player, line = spooky ? 'trick or treat!' : pl.tipsy && now < pl.tipsy ? 'someone\u2019s had a few' : pl.carry && pl.carry.kind === 'beer' ? 'bit early for that, isn\u2019t it?' : pl.cig ? 'filthy habit, that' : night ? 'evening!' : HELLOS[Math.floor(Math.random() * HELLOS.length)];
+        var pl = self.player, remark = Math.random() < 0.65 ? self.mouseRemark() : null;
+        var line = spooky ? 'trick or treat!' : pl.tipsy && now < pl.tipsy ? 'someone\u2019s had a few' : pl.carry && pl.carry.kind === 'beer' ? 'bit early for that, isn\u2019t it?' : pl.cig ? 'filthy habit, that' : remark ? remark : night ? 'evening!' : HELLOS[Math.floor(Math.random() * HELLOS.length)];
         self.say(line, g, 0.65, 2.0);
         // Halloween: a sweet for the raccoon.
         if (spooky && pl) setTimeout(function () { self.carryItem(pl, 'candy'); self.say('a sweetie!', pl.g, 1.0, 1.4); self.sfx('found'); }, 900);
@@ -8467,6 +8517,12 @@
     var s = this.st, self = this;
     var mark = function (k) { s.last[k] = ev; };
     if (ev.date && (!s.lastDate || ev.date > s.lastDate)) s.lastDate = ev.date;
+    // A diary of real days, so the townsfolk know what you've been up to.
+    if (ev.date && !ev.projected && !ev.planned) {
+      var bd = s.byDay || (s.byDay = {});
+      (bd[ev.date] = bd[ev.date] || []).push(ev);
+      if (ev.kind === 'book' && (!s.lastBookDate || ev.date > s.lastBookDate)) s.lastBookDate = ev.date;
+    }
     if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie') { s.sessions++; this.growSquare(delay); }
     switch (ev.kind) {
       case 'lift':
