@@ -8350,7 +8350,10 @@
   // The water surface at x, z, if there's water to swim in there (not under a bridge's deck).
   function waterAt(x, z) {
     if (lakeDist(x, z) < -0.4) return LAKE.y;
-    if (coastSd(x, z) > -0.6) return SEA_Y;
+    var cs = coastSd(x, z);
+    if (cs > -0.6) return SEA_Y;
+    // The shallows: anything near the coast that dips below sea level is under the sea too.
+    if (cs > -16 && x * COAST_N.x + z * COAST_N.z > 96.5 && groundY(x, z) < SEA_Y - 0.03) return SEA_Y; // (where the sea sheet is drawn)
     for (var i = 0; i < TARNS.length; i++) { var t = TARNS[i]; if (Math.hypot(x - t.x, z - t.z) < t.R) return t.y; }
     if (riverDist(x, z) < RIVER_HALF + 0.2 && !nearPath(x, z, 1.1) && !LANE.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 0.9; })) return riverLevel(RIVER_NEAR.i);
     return null;
@@ -8726,13 +8729,19 @@
   };
 
   // ---- paddleboarding: E with water just ahead ---------------------------------------------
+  // Open water a step or so ahead, and you're standing (in the shallows is fine), not swimming.
   Town.prototype.paddleAhead = function (pl) {
-    var P = pl.g.position, a = pl.g.rotation.y, x = P.x + Math.sin(a) * 0.9, z = P.z + Math.cos(a) * 0.9, w = waterAt(x, z);
-    return w != null && !this.deckAt(x, z) && waterAt(P.x, P.z) == null && P.y - w < 1.5;
+    var P = pl.g.position, a = pl.g.rotation.y, wh = this.deckAt(P.x, P.z) ? null : waterAt(P.x, P.z);
+    if (wh != null && P.y < wh - SWIM_SINK + 0.04) return null;
+    for (var d = 0.7; d <= 1.6; d += 0.3) {
+      var x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d, w = waterAt(x, z);
+      if (w != null && !this.deckAt(x, z) && w - groundY(x, z) > 0.15 && P.y - w < 1.5 && Math.hypot(x, z) < 117) return { x: x, z: z };
+    }
+    return null;
   };
   Town.prototype.startPaddle = function (pl) {
     if (pl.fishing) this.stopFishing(pl);
-    var P = pl.g.position, a = pl.g.rotation.y, x = P.x + Math.sin(a) * 0.9, z = P.z + Math.cos(a) * 0.9;
+    var P = pl.g.position, spot = this.paddleAhead(pl) || { x: P.x + Math.sin(pl.g.rotation.y) * 0.9, z: P.z + Math.cos(pl.g.rotation.y) * 0.9 }, x = spot.x, z = spot.z;
     var board = new T.Group(); board.position.y = -0.03; pl.g.add(board);
     this.part(board, this.geo.box, this.mat('flag', 1), 0.3, 0.035, 0.95, 0, 0, 0);
     this.part(board, this.geo.box, this.mat('swan', 0), 0.31, 0.01, 0.4, 0, 0.022, -0.1);
@@ -8761,7 +8770,7 @@
       var c = this.controls, cam = this.camera, fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
       var right = new T.Vector3(-fwd.z, 0, fwd.x), dx = (right.x * mx + fwd.x * mz) * 2.4 * dt, dz = (right.z * mx + fwd.z * mz) * 2.4 * dt;
       // Only on the water: the shore stops you (E to step off).
-      if (waterAt(P.x + dx, P.z + dz) != null && !this.deckAt(P.x + dx, P.z + dz)) { P.x += dx; P.z += dz; }
+      if (waterAt(P.x + dx, P.z + dz) != null && !this.deckAt(P.x + dx, P.z + dz) && Math.hypot(P.x + dx, P.z + dz) < 118 && waterAt(P.x + dx, P.z + dz) - groundY(P.x + dx, P.z + dz) > 0.08) { P.x += dx; P.z += dz; }
       var face = Math.atan2(dx, dz), d = face - g.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 4);
       Pd.ph += dt * 5;
@@ -8783,6 +8792,7 @@
 
   // ---- fishing: a rod, a line, a bobber; wait for a bite ----------------------------------
   var CATCHES = ['a rainbow trout!', 'an arctic grayling!', 'a lake trout!', 'a northern pike!', 'a sockeye salmon!!', 'a tiny minnow', 'an old boot', 'a whitefish', 'a burbot (ugly but tasty)', 'a big ol\u2019 char!'];
+  var SEA_CATCHES = ['a halibut!', 'a chinook salmon!!', 'a rockfish', 'a dungeness crab!', 'a lingcod', 'a sea star', 'a herring', 'an old boot', 'a spot prawn', 'a coho salmon!'];
   Town.prototype.startFishing = function (pl, spot) {
     var F = this.fx || (this.fx = { bits: [], group: null });
     if (!F.group) { F.group = new T.Group(); this.scene.add(F.group); }
@@ -8815,7 +8825,7 @@
       if (Fi.t > 0.9) {
         // Reel it in, or lose it.
         if (Math.random() < 0.65) {
-          var what = CATCHES[Math.floor(Math.random() * CATCHES.length)];
+          var list = sp.y === SEA_Y ? SEA_CATCHES : CATCHES, what = list[Math.floor(Math.random() * list.length)];
           this.loot = (this.loot || 0) + 1; if (this.onLoot) this.onLoot(what, this.loot);
           this.say('caught ' + what, pl.g, 1.0, 2.2); this.sfx('found');
           if (!/boot/.test(what)) this.carryItem(pl, 'fish');
