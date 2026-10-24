@@ -489,7 +489,7 @@
   [-4, 4].forEach(function (dz) { PADS.push({ x: LIBRARY.x - 3.45, z: LIBRARY.z + dz, rIn: 8.4, rOut: 11.5, h: SQ_Y + 0.05 }); });
   PADS.push({ x: CINEMA.x, z: CINEMA.z, rIn: 4.6, rOut: 7.5, h: SQ_Y + 0.05 });
   PADS.push({ x: TOWN_SQ.x, z: TOWN_SQ.z, rIn: 7.2, rOut: 8, h: SQ_Y }); // and the square itself stays dead level
-  pad(PUB, 3, 4.4); pad(SQUARE, 3.6, 5.2); pad(STATUE, 1.5, 2.6); pad(POND, 7.6, 11); // Jo's whole garden, fence and all, sits level
+  pad(PUB, 3.8, 5.3); pad(SQUARE, 3.6, 5.2); pad(STATUE, 1.5, 2.6); pad(POND, 7.6, 11); // Jo's whole garden, fence and all, sits level
   // Level spots for the sauna, the changing hut and the bathhouse down at the water's level, with the
   // shore easing up behind them.
   [[-4.2, -3.2, 2.0, 4.2], [-3.4, -7.6, 1.5, 3.8], [0, -4.6, 2.9, 5.4]].forEach(function (b) { var w = swimWorld(b[0], b[1]); PADS.push({ x: w.x, z: w.z, rIn: b[2], rOut: b[3], h: LAKE.y + 0.55 }); }); // at the lake's level, like the dock
@@ -2659,7 +2659,7 @@
   // It starts as an outdoor movie night (a sheet screen, a projector and benches), then becomes a
   // little single-screen picture house that gains marquee lights, a popcorn cart, a neon sign, a
   // second screen and finally searchlights and a red carpet.
-  var CINEMA_STEPS = [[1, 'An outdoor movie night'], [10, 'A little picture house'], [25, 'Marquee lights'], [50, 'A popcorn cart'], [100, 'A neon sign'], [200, 'A second screen'], [365, 'Searchlights and a red carpet']];
+  var CINEMA_STEPS = [[1, 'An outdoor movie night'], [25, 'A little picture house'], [40, 'Marquee lights'], [50, 'A popcorn cart'], [100, 'A neon sign'], [200, 'A second screen'], [365, 'Searchlights and a red carpet']];
   Town.prototype.addMovie = function (ev) {
     var C = this.st.cinema;
     C.films.push({ title: ev.title, year: ev.year, stars: ev.stars, date: ev.date, rewatch: !!ev.rewatch, projected: !!ev.projected });
@@ -2676,15 +2676,23 @@
     this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
     var glow = this.mat('lantern'), screen = this.screenMat || (this.screenMat = new T.MeshBasicMaterial({ color: '#f4f1e6' }));
-    if (n < 10) {
-      // Movie night: a white sheet between two poles, a projector on a crate, benches and string lights.
+    if (n < 25) {
+      // Movie night: a white sheet between two poles, a projector on a crate, benches and string lights;
+      // more benches, a blanket, deck chairs and a snack crate as the films add up.
       [-1.5, 1.5].forEach(function (x) { P(self.geo.cyl6, self.mat('wood'), 0.06, 2.4, 0.06, x, 1.2, -1.2); });
       var sh = P(this.geo.box, screen, 2.9, 1.6, 0.04, 0, 1.45, -1.2); sh.material = screen;
       P(this.geo.box, this.mat('wood'), 0.5, 0.5, 0.5, 0, 0.25, 2.9);
       P(this.geo.box, this.mat('stoneDark'), 0.36, 0.26, 0.45, 0, 0.63, 2.9);
       P(this.geo.cyl, this.mat('stoneDark'), 0.1, 0.12, 0.1, 0, 0.66, 2.62).rotation.x = Math.PI / 2;
-      for (var b = 0; b < Math.min(3, Math.ceil(n / 3)); b++) { P(this.geo.box, this.mat('wood'), 2.0, 0.08, 0.35, 0, 0.36, 0.6 + b * 0.75); [-0.85, 0.85].forEach(function (x) { P(self.geo.box, self.mat('trunk'), 0.08, 0.36, 0.3, x, 0.18, 0.6 + b * 0.75); }); }
+      for (var b = 0; b < Math.min(3, Math.ceil(n / 4)); b++) { P(this.geo.box, this.mat('wood'), 2.0, 0.08, 0.35, 0, 0.36, 0.6 + b * 0.75); [-0.85, 0.85].forEach(function (x) { P(self.geo.box, self.mat('trunk'), 0.08, 0.36, 0.3, x, 0.18, 0.6 + b * 0.75); }); }
       for (var l = 0; l < 9; l++) P(this.geo.ball, glow, 0.06, 0.06, 0.06, -1.5 + l * 0.375, 2.35 - Math.sin(l / 8 * Math.PI) * 0.2, -1.15);
+      if (n >= 8) { P(this.geo.box, this.mat('canvas', 1), 1.3, 0.03, 1.0, -2.1, 0.02, 0.9); P(this.geo.box, this.mat('canvas', 0), 0.3, 0.12, 0.2, -2.3, 0.08, 0.6); }
+      if (n >= 12) [[2.0, 0.8], [2.1, 1.7]].forEach(function (c, i) {
+        var dc = P(self.geo.box, self.mat('canvas', i + 1), 0.5, 0.05, 0.7, c[0], 0.32, c[1]); dc.rotation.x = -0.45;
+        [-0.22, 0.22].forEach(function (x) { P(self.geo.box, self.mat('wood'), 0.04, 0.34, 0.04, c[0] + x, 0.17, c[1] + 0.15); });
+      });
+      if (n >= 16) { P(this.geo.box, this.mat('woodLight'), 0.45, 0.35, 0.35, -1.0, 0.18, 2.9); for (var pc0 = 0; pc0 < 6; pc0++) P(this.geo.ball, this.mat('plaster', 0), 0.07, 0.07, 0.07, -1.15 + (pc0 % 3) * 0.14, 0.4, 2.85 + Math.floor(pc0 / 3) * 0.1); }
+      if (n >= 20) { [-2.6, 2.6].forEach(function (x) { P(self.geo.cyl6, self.mat('wood'), 0.04, 2.2, 0.04, x, 1.1, 2.0); }); for (var l2 = 0; l2 < 14; l2++) { var t2 = l2 / 13; P(self.geo.ball, glow, 0.05, 0.05, 0.05, -2.6 + t2 * 5.2, 2.15 - Math.sin(t2 * Math.PI) * 0.3, 2.0); } }
       return;
     }
     // The picture house: a brick front with a canopy over the doors, posters either side.
@@ -2700,7 +2708,7 @@
       P(self.geo.box, self.mat('gold'), 0.62, 0.92, 0.05, x, 1.2, 1.41);
       P(self.geo.box, self.mat('flag', i ? 2 : 0), 0.52, 0.8, 0.06, x, 1.2, 1.42);
     });
-    if (n >= 25) {
+    if (n >= 40) {
       for (var m = 0; m < 12; m++) P(this.geo.ball, glow, 0.06, 0.06, 0.06, -1.25 + m * (2.5 / 11), 2.03, 2.26);
       [-1.3, 1.3].forEach(function (x) { for (var mm = 0; mm < 3; mm++) P(self.geo.ball, glow, 0.06, 0.06, 0.06, x, 2.03, 1.3 + mm * 0.45); });
     }
@@ -2863,6 +2871,15 @@
       // Ivy climbing the corner.
       for (var iv = 0; iv < 5; iv++) P(self.geo.blob, self.mat('hedge'), 0.32, 0.38, 0.18, x + wg[1] * 1.55, 0.4 + iv * 0.48, 1.62 - (iv % 2) * 0.2);
     });
+    // Vines climbing the side walls (and the wings' outer walls once they're up), thicker with time.
+    if (wh >= 2.8) {
+      var gv = P0 >= 10000 ? [-2.2, -0.6, 1.0] : [-1.6, 0.6];
+      [-1, 1].forEach(function (sd) {
+        var wx = (sd > 0 ? P0 >= 17000 : P0 >= 22000) ? sd * 7.72 : sd * 4.22;
+        gv.forEach(function (z, k) { self.libVine(P, wx, z, sd, 0, (Math.abs(wx) > 5 ? 2.85 : top) - 0.05, k + (sd > 0 ? 3 : 0)); });
+      });
+      if (P0 >= 13000) [-2.6, 0, 2.6].forEach(function (x, k) { self.libVine(P, x, -3.02, 0, -1, top - 0.05, k + 1); });
+    }
     if (P0 >= 30000) {
       // A stone sundial out in the garden, and ivy all over the front.
       P(this.geo.cyl6, this.mat('stone', 1), 0.22, 0.75, 0.22, -2.4, 0.4, -9.0);
@@ -2948,6 +2965,19 @@
       P(this.geo.blob, this.mat('leaf', 0), 0.9, 0.8, 0.9, -2.9, 1.7, -3.4);
     }
   };
+  // A climbing vine up a wall: a wandering stem with leaves either side and the odd flower.
+  // (x, z) is a point on the wall's face, (nx, nz) the way the wall faces.
+  Town.prototype.libVine = function (P, x, z, nx, nz, h, k) {
+    var tx = -nz, tz = nx, leaf = [this.mat('hedge'), this.mat('leaf', 0), this.mat('leaf', 2)], ax = Math.abs(nx) > 0.5;
+    for (var y = 0.2, i = 0; y < h - 0.1; y += 0.24, i++) {
+      var w = Math.sin(y * 2.1 + k * 1.7) * 0.2, sd = i % 2 ? 1 : -1;
+      P(this.geo.box, this.mat('trunk'), ax ? 0.03 : 0.04, 0.28, ax ? 0.04 : 0.03, x + tx * w + nx * 0.03, y, z + tz * w + nz * 0.03);
+      P(this.geo.blob, leaf[(i + k) % 3], ax ? 0.08 : 0.2, 0.17, ax ? 0.2 : 0.08, x + tx * (w + sd * 0.11) + nx * 0.06, y + 0.06, z + tz * (w + sd * 0.11) + nz * 0.06);
+      if ((i * 3 + k) % 7 === 0) P(this.geo.ball, this.mat('flag', (k + i) % 5), 0.045, 0.045, 0.045, x + tx * (w - sd * 0.1) + nx * 0.1, y + 0.1, z + tz * (w - sd * 0.1) + nz * 0.1);
+    }
+    // A leafy tuft where it tops out.
+    P(this.geo.blob, leaf[k % 3], ax ? 0.12 : 0.3, 0.22, ax ? 0.3 : 0.12, x + nx * 0.07, h, z + nz * 0.07);
+  };
   Town.prototype.smallLibrary = function (P, P0, n, five) {
     var self = this;
     // The reading nook comes with the first book either way.
@@ -2964,6 +2994,9 @@
       if (top > 2.3) [[-0.7, 1.46, 0], [1.66, 0, Math.PI / 2], [-1.66, 0, Math.PI / 2], [0.4, -1.46, 0]].forEach(function (w, k) {
         P(self.geo.box, k < n ? self.mat('window') : self.mat('stoneDark'), 0.5, 0.45, 0.06, w[0], 1.6, w[1]).rotation.y = w[2];
       });
+      // Vines creep up the cabin sides as the pages add up.
+      var cv = [[1.76, -0.7, 1, 0], [-1.76, 0.6, -1, 0], [1.76, 0.75, 1, 0], [-1.76, -0.75, -1, 0], [-0.9, -1.56, 0, -1], [1.0, -1.56, 0, -1]];
+      for (var vi = 0; vi < Math.min(cv.length, Math.floor(P0 / 250)); vi++) this.libVine(P, cv[vi][0], cv[vi][1], cv[vi][2], cv[vi][3], Math.min(top - 0.1, 0.8 + (P0 % 900) / 300 + vi * 0.15), vi);
       if (P0 >= 800) {
         P(this.geo.gable, this.mat('wood'), 2.25, 1.6, 2.2, 0, top, 0).rotation.y = Math.PI / 2;
         P(this.geo.box, this.mat('stone', 1), 0.5, 1.6, 0.5, -1.2, top + 0.6, -0.6);
@@ -3009,6 +3042,9 @@
       P(this.geo.blob, this.mat('leaf', 2), 0.9, 0.8, 0.9, -3.6, 1.7, -1.8);
       for (var r = 0; r < Math.min(6, five); r++) { P(this.geo.blob, this.mat('hedge'), 0.2, 0.18, 0.2, -1.6 + r * 0.32 + (r > 2 ? 1.9 : 0), 0.18, 2.7); P(this.geo.ball, this.mat('flag', 0), 0.07, 0.07, 0.07, -1.6 + r * 0.32 + (r > 2 ? 1.9 : 0), 0.34, 2.75); }
     }
+    // Vines up the brick sides, more as it grows.
+    var bv = [[2.98, -1.3, 1, 0], [-2.98, 1.2, -1, 0], [2.98, 1.1, 1, 0], [-2.98, -1.2, -1, 0], [-2.2, -2.23, 0, -1], [2.2, -2.23, 0, -1]];
+    for (var bvi = 0; bvi < Math.min(bv.length, 2 + Math.floor((P0 - 1500) / 600)); bvi++) this.libVine(P, bv[bvi][0], bv[bvi][1], bv[bvi][2], bv[bvi][3], wh + 0.1, bvi);
   };
 
   // ---- Jo the fox and the raccoon -----------------------------------------
@@ -3174,7 +3210,7 @@
     { key: 'fireflies', title: 'Fireflies', goal: 21, unit: 'days in a row (best streak)', metric: function (s) { return s.bestStreak || 0; }, text: 'Three weeks without a day off! Fireflies glow over the meadows on summer nights.' },
     { key: 'beaver', title: 'A beaver', goal: 30, unit: 'trees in the forest', metric: function (s) { return s.forest.trees.length; }, text: 'A beaver has built a dam on the stream below the lake.' },
     { key: 'ducks', title: 'Ducks and a loon', goal: 5, unit: 'swims, rows or paddles', metric: function (s) { return s.swim.sessions + s.row.sessions; }, text: 'Ducks and a loon have settled on the lake.' },
-    { key: 'deer', title: 'Deer', goal: 100, unit: 'km run', metric: function (s) { return Math.floor(s.forest.km); }, text: 'Deer browse in the clearings between the trees.' },
+    { key: 'deer', title: 'Deer', goal: 250, unit: 'km run', metric: function (s) { return Math.floor(s.forest.km); }, text: 'Deer browse in the clearings between the trees.' },
     { key: 'eagle', title: 'A bald eagle', goal: 3, unit: 'mountain peaks', metric: function (s) { return s.hike.peaks.filter(Boolean).length; }, text: 'A bald eagle soars over the mountain range.' },
     { key: 'owl', title: 'A great horned owl', goal: 10000, unit: 'pages read', metric: function (s) { return s.library.pages; }, text: 'Ten thousand pages! A wise old owl now hunts over the town on clear nights.' },
     { key: 'sled', title: 'A dog sled', goal: 25, unit: 'dog walks', metric: dogWalks, text: 'Minto, Blue and Millie pull a dog sled across the frozen lake in winter, with a raccoon at the back.' },
@@ -3183,7 +3219,7 @@
     { key: 'bear', title: 'A grizzly bear', goal: 300, unit: 'lifting sessions', metric: function (s) { return s.lifts; }, text: 'Strong as a bear: a grizzly fishes for salmon in the river all summer and sleeps through the winter.' },
     { key: 'wolves', title: 'A wolf pack', goal: 150, unit: 'runs', metric: function (s) { return s.forest.runs; }, text: 'A wolf pack roams the edge of the wilderness at night.' },
     { key: 'hoard', title: 'A dragon on its hoard', goal: 50000, unit: 'pages read', metric: function (s) { return s.library.pages; }, text: 'Fifty thousand pages! In a cave out past the river, a great old dragon sleeps on a hoard of books and gold. Mind the smoke.' },
-    { key: 'otters', title: 'River otters', goal: 50, unit: 'workouts with Jo', metric: function (s) { return s.friends.Jo ? s.friends.Jo.n : 0; }, text: 'A pair of river otters has moved onto the lake. They float on their backs holding paws so they don\u2019t drift apart, just like you two.' },
+    { key: 'otters', title: 'Sea otters', goal: 50, unit: 'workouts with Jo', metric: function (s) { return s.friends.Jo ? s.friends.Jo.n : 0; }, text: 'A pair of sea otters has moved into the bay. They float on their backs holding paws so they don\u2019t drift apart, just like you two.' },
     { key: 'orcas', title: 'A killer whale pod', goal: 150, unit: 'workouts with friends (not counting Jo)', metric: function (s) { var n = 0; for (var k in s.friends) if (k !== 'Jo') n += s.friends[k].n; return n; }, text: 'A hundred and fifty workouts with the crew! A pod of killer whales now cruises off the coast. Keep watching: every so often one breaches.' },
     { key: 'ent', title: 'An Ent', goal: 1, unit: 'half marathon (a sequoia)', metric: function (s) { return s.forest.kinds.sequoia || 0; }, text: 'One of the old sequoias has woken up! Now and then it goes for a slow walk round the forest.' }
   ];
@@ -3325,8 +3361,8 @@
         break;
       }
       case 'otters': {
-        // Two otters floating belly-up, paws joined, near the lake shore.
-        var oa = Math.atan2(LAKE.c.z, LAKE.c.x) + 2.2, oc = { x: LAKE.c.x + Math.cos(oa) * LAKE.R * 0.55, z: LAKE.c.z + Math.sin(oa) * LAKE.R * 0.55 };
+        // Two sea otters floating belly-up, paws joined, out in the bay past the harbour.
+        var oc = OTTER_BAY;
         var pair = new T.Group(), pk = 'wild:otters', ot = [];
         [-1, 1].forEach(function (sd, i) {
           var o = new T.Group(); o.position.set(sd * 0.17, 0, 0); pair.add(o);
@@ -3348,7 +3384,7 @@
           ot.push({ g: o, head: hd, shell: shell });
         });
         pair.scale.setScalar(1.3);
-        add({ type: 'otters', g: pair, otters: ot, c: oc, y: LAKE.y + 0.1, summer: true, ph: 0 });
+        add({ type: 'otters', g: pair, otters: ot, c: oc, y: SEA_Y + 0.05, ph: 0 });
         break;
       }
       case 'orcas': {
@@ -3519,13 +3555,17 @@
       if (a.fish) a.fish.visible = false;
       if (!show) return;
       var g = a.g;
+      if (a.react && self.wildReact(a, dt, now)) return;
       if (a.type === 'walk' || a.type === 'ent') {
+        if (a.follow && now < a.follow && self.player && a.wait > 0) a.wait = Math.min(a.wait, 0.4);
         var dx = a.tx - g.position.x, dz = a.tz - g.position.z, d = Math.hypot(dx, dz);
         if (a.wait > 0 || d < 0.05) {
           if (a.wait > 0) a.wait -= dt;
           else {
-            var p = a.ent ? (function () { var tr = self.st.forest.trees; var t = tr[Math.floor(a.r() * tr.length)]; return t ? { x: t.position.x + 1.2, z: t.position.z + 1.2 } : a.home; })() : wildGround(a.home.x, a.home.z, a.rad, a.r);
+            var pp = self.player && self.player.g.position;
+            var p = a.follow && now < a.follow && pp ? { x: pp.x - Math.sin(self.player.g.rotation.y) * 1.6, z: pp.z - Math.cos(self.player.g.rotation.y) * 1.6 } : a.ent ? (function () { var tr = self.st.forest.trees; var t = tr[Math.floor(a.r() * tr.length)]; return t ? { x: t.position.x + 1.2, z: t.position.z + 1.2 } : a.home; })() : wildGround(a.home.x, a.home.z, a.rad, a.r);
             if (a.ent && Math.hypot(p.x - a.home.x, p.z - a.home.z) > a.rad) p = a.home;
+            if (a.follow && now > a.follow) { a.follow = 0; p = a.home; }
             a.tx = p.x; a.tz = p.z; a.wait = a.ent ? 25 + a.r() * 50 : 1 + a.r() * (a.herd ? 3 : 6);
           }
           (a.legs || []).forEach(function (l) { l.rotation.x *= 0.85; });
@@ -3543,7 +3583,7 @@
           return;
         }
         if (a.head) a.head.rotation.x = 0;
-        var step = Math.min(d, dt * a.speed);
+        var step = Math.min(d, dt * a.speed * (a.fast && now < a.fast ? 3.5 : 1));
         g.position.x += dx / d * step; g.position.z += dz / d * step;
         g.position.y = groundY(g.position.x, g.position.z) + (a.hop ? Math.abs(Math.sin(now / 120)) * 0.15 : 0);
         g.rotation.y = Math.atan2(dx, dz);
@@ -3559,7 +3599,7 @@
         // Drifting in a slow circle, bobbing; now and then one rolls under and comes up with a snack.
         var oan = now / 26000;
         g.position.set(a.c.x + Math.cos(oan) * 1.6, a.y + Math.sin(now / 700) * 0.03, a.c.z + Math.sin(oan) * 1.6);
-        g.rotation.y = -oan + Math.sin(now / 5000) * 0.4;
+        g.rotation.y = -oan + Math.sin(now / 5000) * 0.4 + (a.spin && now - a.spin < 1500 ? (now - a.spin) / 1500 * Math.PI * 2 : 0);
         var cyc2 = (now / 1000) % 30;
         a.otters.forEach(function (o, i) {
           o.g.rotation.z = 0; o.g.position.y = 0; o.g.visible = true;
@@ -3622,7 +3662,7 @@
         // Slow breathing, a curl of smoke from the nose, and one eye that opens now and then.
         var br = Math.sin(now / 1800);
         a.head.position.y = 0.35 + br * 0.02;
-        var open = (now / 9000) % 1 < 0.12;
+        var open = (now / 9000) % 1 < 0.12 || (a.wake && now < a.wake);
         a.eye.scale.y = open ? 0.06 : 0.012;
         var pt = (now / 2600) % 1;
         a.puff.position.set(a.nose.x + pt * 0.3, a.nose.y + 0.1 + pt * 1.2, a.nose.z + pt * 0.2);
@@ -3640,6 +3680,261 @@
     this.needsRender = true;
   };
 
+  // ---- saying hello to the wildlife ------------------------------------------
+  // The closest animal the raccoon could walk (or paddle) up to.
+  Town.prototype.wildNear = function (P) {
+    var W = this.st.wild, best = null, bd = 1e9;
+    if (!W) return null;
+    W.list.forEach(function (a) {
+      if (!a.g || !a.g.visible || a.type === 'circle' || a.type === 'fireflies') return;
+      var q = a.type === 'orcas' ? a.pod[0].g.position : a.type === 'flutter' ? a.c : a.g.position;
+      var r = a.type === 'orcas' ? 7 : a.type === 'hoard' ? 5 : a.key === 'moose' || a.key === 'bear' ? 2.8 : 2.2, d = Math.hypot(q.x - P.x, q.z - P.z);
+      if (d < r && d < bd && (a.type !== 'walk' || Math.abs(q.y - P.y) < 2.5)) { bd = d; best = a; }
+    });
+    return best;
+  };
+  Town.prototype.pokeWild = function (a) {
+    var pl = this.player, P = pl.g.position, now = performance.now(), self = this, k = a.key, g = a.g;
+    if (a.react && now < a.react.until) return;
+    function face() { g.rotation.y = Math.atan2(P.x - g.position.x, P.z - g.position.z); }
+    function flee(dist, line) {
+      var ax = g.position.x - P.x, az = g.position.z - P.z, l = Math.hypot(ax, az) || 1;
+      a.tx = g.position.x + ax / l * dist; a.tz = g.position.z + az / l * dist; a.wait = 0; a.fast = now + 2500;
+      if (line) self.say(line, g, 1.2, 1.0);
+    }
+    function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+    var gift = pl.carry && pl.carry.kind === 'fish';
+    switch (k) {
+      case 'bear':
+        face();
+        if (gift) {
+          // A fish for the bear: it sits back, eats it with relish, and tags along for a bit.
+          pl.mouth.remove(pl.carry.m); pl.carry = null;
+          this.say(pick(['for you, big guy', 'peace offering', 'here, fish!']), pl.g, 1.0, 1.4);
+          a.react = { kind: 'eat', t: 0, until: now + 5500 };
+          this.st.bearFish = (this.st.bearFish || 0) + 1;
+          break;
+        }
+        a.react = { kind: pick(['rear', 'rear', 'sniff', 'scratch']), t: 0 };
+        a.react.until = now + (a.react.kind === 'rear' ? 2600 : 3500);
+        break;
+      case 'moose':
+        face(); a.react = { kind: 'bellow', t: 0, until: now + 2200 };
+        this.say('HRROOOOO', g, 2.3, 1.6); this.sfx('roar');
+        break;
+      case 'wolves':
+        this.st.wild.list.forEach(function (w) { if (w.key === 'wolves') { w.react = { kind: 'howl', t: -Math.random() * 0.4, until: now + 2600 }; } });
+        this.say('AWOOOOOO', g, 1.3, 2.0); this.sfx('howl');
+        break;
+      case 'lynx':
+        face(); a.react = { kind: 'hiss', t: 0, until: now + 1300, then: 'flee' };
+        this.say('hsssss!', g, 1.0, 1.0);
+        break;
+      case 'deer': case 'caribou':
+        if (Math.random() < 0.35) { face(); a.react = { kind: 'curious', t: 0, until: now + 3000 }; this.say(pick(['...?', '*ear flick*', '*sniff*']), g, 1.5, 1.2); }
+        else { flee(7); a.hop = true; a.react = null; setTimeout(function () { a.hop = false; }, 2400); if (k === 'caribou') this.st.wild.list.forEach(function (c) { if (c !== a && c.key === 'caribou') { c.tx = c.g.position.x + (c.g.position.x - P.x) * 1.5; c.tz = c.g.position.z + (c.g.position.z - P.z) * 1.5; c.wait = 0; c.fast = now + 2500; } }); }
+        break;
+      case 'hares':
+        flee(6, pick(['!', 'eep!', '*thump thump*']));
+        break;
+      case 'otters':
+        a.spin = now; this.say(pick(['*squeak!*', 'eep eep!', 'hi raccoon!']), g, 0.8, 1.2); this.sfx('squeak'); this.puff(g.position.x, SEA_Y + 0.05, g.position.z, 5, 'splash', 0.2);
+        break;
+      case 'orcas':
+        a.breachAt = 0; this.say(pick(['whoa!!', 'BIG fish', 'hello whales!']), pl.g, 1.0, 1.4);
+        break;
+      case 'beaver':
+        this.say('*SLAP*', g, 0.8, 1.0); this.sfx('splash'); this.puff(g.position.x, g.position.y, g.position.z, 10, 'splash', 0.3);
+        break;
+      case 'ducks':
+        this.say(pick(['quack quack!', 'QUACK', '*loon call*']), g, 0.8, 1.2); this.sfx('quack'); a.sp *= -1;
+        break;
+      case 'ent':
+        face(); a.wait = 6; this.say(pick(['hrrm... hoom...', 'little... raccoon...', 'do not be... hasty']), g, 4.5, 2.4);
+        break;
+      case 'hoard':
+        a.wake = now + 2500; this.say(pick(['WHO DISTURBS MY BOOKS', '...mine...', '*one eye opens*']), g, 3.2, 2.0); this.sfx('roar');
+        for (var hp = 0; hp < 3; hp++) this.puff(g.position.x + a.nose.x, g.position.y + 0.5, g.position.z + a.nose.z, 8, 'smoke', 0.15);
+        pl.vy = 3; this.say('!!', pl.g, 1.0, 0.8);
+        break;
+      case 'butterflies':
+        a.c = { x: P.x, z: P.z }; this.say('ooh, pretty', pl.g, 1.0, 1.4);
+        break;
+      default:
+        this.say('*chirp*', g, 1.0, 1.0);
+    }
+  };
+  // While an animal is reacting it's under this function's control; false hands it back.
+  Town.prototype.wildReact = function (a, dt, now) {
+    var R = a.react, g = a.g, self = this, pl = this.player;
+    if (!R) return false;
+    R.t += dt;
+    var gy = groundY(g.position.x, g.position.z);
+    if (now > R.until) {
+      g.rotation.x = 0; g.position.y = gy; (a.legs || []).forEach(function (l) { l.rotation.x = 0; }); if (a.head) a.head.rotation.set(0, 0, 0);
+      a.react = null;
+      if (R.kind === 'eat') { a.follow = now + 25000; a.wait = 0.2; this.say(['*happy bear noises*', 'friend.', '*BURP*'][Math.floor(Math.random() * 3)], g, 2.0, 1.6); this.hearts(g.position, 2.0); }
+      if (R.then === 'flee' && pl) { var ax = g.position.x - pl.g.position.x, az = g.position.z - pl.g.position.z, l = Math.hypot(ax, az) || 1; a.tx = g.position.x + ax / l * 7; a.tz = g.position.z + az / l * 7; a.wait = 0; a.fast = now + 2500; }
+      return false;
+    }
+    g.rotation.order = 'YXZ';
+    var e = Math.min(1, R.t / 0.35) * Math.min(1, (R.until - now) / 350), L = a.legs || [];
+    switch (R.kind) {
+      case 'rear':
+        // Up on its hind legs, paws swiping the air: RAWR. The raccoon hops back, startled.
+        g.rotation.x = -1.1 * e; g.position.y = gy + 0.63 * e;
+        if (L.length) { L[2].rotation.x = L[3].rotation.x = 1.1 * e; L[0].rotation.x = (-0.4 + Math.sin(R.t * 9) * 0.5) * e; L[1].rotation.x = (-0.4 + Math.sin(R.t * 9 + 1.5) * 0.5) * e; }
+        if (a.head) a.head.rotation.x = 0.6 * e;
+        if (R.t > 0.35 && !R.roared) {
+          R.roared = true; this.say('RRAAWWRR!', g, 2.6, 1.6); this.sfx('roar');
+          if (pl) { pl.vy = 3.4; pl.air = 0.1; this.say(['!!', 'EEP', 'nope nope nope'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.0); }
+        }
+        break;
+      case 'sniff':
+        // Leans right in, snuffles, and gives the raccoon a boop with its nose.
+        if (a.head) { a.head.rotation.x = 0.35 * e; a.head.rotation.y = Math.sin(R.t * 6) * 0.25 * e; }
+        if (R.t > 0.6 && !R.said) { R.said = true; this.say('*sniff sniff*', g, 1.9, 1.3); }
+        if (R.t > 2.2 && !R.boop) { R.boop = true; this.say('*boop*', g, 1.9, 1.1); if (pl) this.hearts(pl.g.position, 1.0); }
+        break;
+      case 'scratch':
+        // Up against an invisible tree, wiggling its back: bliss.
+        g.rotation.x = -0.9 * e; g.position.y = gy + 0.5 * e; g.rotation.z = Math.sin(R.t * 7) * 0.18 * e;
+        if (L.length) { L[2].rotation.x = L[3].rotation.x = 0.9 * e; L[0].rotation.x = L[1].rotation.x = -0.3 * e; }
+        if (R.t > 0.8 && !R.said) { R.said = true; this.say(['ahh, that’s the spot', '*scritch scritch*'][Math.floor(Math.random() * 2)], g, 2.4, 1.6); }
+        if (now > R.until - 400) g.rotation.z = 0;
+        break;
+      case 'eat':
+        // Sits back on its haunches and munches the fish.
+        g.rotation.x = -0.55 * e; g.position.y = gy + 0.3 * e;
+        if (L.length) { L[2].rotation.x = L[3].rotation.x = -0.9 * e; L[0].rotation.x = L[1].rotation.x = (-0.9 + Math.sin(R.t * 10) * 0.1) * e; }
+        if (a.head) a.head.rotation.x = (0.3 + Math.sin(R.t * 12) * 0.15) * e;
+        if (R.t > 0.8 && !R.said) { R.said = true; this.say('*nom nom nom*', g, 2.0, 2.4); }
+        break;
+      case 'bellow':
+        if (a.head) { a.head.rotation.x = -0.7 * e; a.head.rotation.y = Math.sin(R.t * 3) * 0.3 * e; }
+        break;
+      case 'howl':
+        if (R.t < 0) return true;
+        if (a.head) a.head.rotation.x = -1.0 * e;
+        g.rotation.x = -0.25 * e; g.position.y = gy + 0.08 * e;
+        break;
+      case 'hiss':
+        // Low crouch, ears back.
+        g.position.y = gy - 0.08 * e; if (a.head) a.head.rotation.x = 0.25 * e;
+        if (L.length) L.forEach(function (l) { l.rotation.x = 0; });
+        g.rotation.z = Math.sin(R.t * 40) * 0.02;
+        break;
+      case 'curious':
+        if (a.head) { a.head.rotation.x = -0.15 * e; a.head.rotation.z = Math.sin(R.t * 2) * 0.25 * e; }
+        break;
+    }
+    return true;
+  };
+
+  // ---- campfires: cook what you catch ------------------------------------------
+  // One on the lake shore and one up on the beach by the harbour, on flat open ground (plus the
+  // island bonfire once it's built).
+  Town.prototype.buildCampfires = function () {
+    var self = this, list = this.st.campfires = [], tries = [];
+    for (var a = 0; a < 40; a++) { var an = a / 40 * Math.PI * 2; tries.push({ g: 'lake', x: LAKE.c.x + Math.cos(an) * (LAKE.R + 4.5), z: LAKE.c.z + Math.sin(an) * (LAKE.R + 4.5) }); }
+    for (var d = 300; d <= 330; d += 2) { var sp = shoreAt(d); tries.push({ g: 'sea', x: sp.x - COAST_N.x * 4, z: sp.z - COAST_N.z * 4 }); tries.push({ g: 'sea', x: sp.x - COAST_N.x * 6, z: sp.z - COAST_N.z * 6 }); }
+    function ok(x, z) {
+      var y = groundY(x, z);
+      for (var i = 0; i < 8; i++) {
+        var ax = x + Math.cos(i * 0.785) * 1.4, az = z + Math.sin(i * 0.785) * 1.4;
+        if (waterAt(ax, az) != null || Math.abs(groundY(ax, az) - y) > 0.3 || !self.walkable(ax, az, y)) return false;
+      }
+      return !FOREST.hash.near(x, z, 1.8) && !WILD.hash.near(x, z, 1.6) && !nearPath(x, z, 1.2) && self.walkable(x, z, y);
+    }
+    ['lake', 'sea'].forEach(function (grp) {
+      var t = tries.filter(function (q) { return q.g === grp; }).find(function (q) { return ok(q.x, q.z); });
+      if (t) list.push(self.campfire(t.x, t.z));
+    });
+    var isl = this.st.islandFire;
+    if (isl) { var ip = new T.Vector3(); isl.getWorldPosition(ip); list.push({ x: ip.x, y: ip.y, z: ip.z, island: true }); }
+  };
+  Town.prototype.campfire = function (x, z) {
+    var g = new T.Group(), self = this, y = groundY(x, z), pick = 'campfire';
+    g.position.set(x, y, z); this.world.add(g);
+    function P(geo, mat, sx, sy, sz, px, py, pz) { return self.part(g, geo, mat, sx, sy, sz, px, py, pz, pick); }
+    for (var i = 0; i < 9; i++) { var a = i / 9 * Math.PI * 2; P(this.geo.blob, this.mat('rock'), 0.2, 0.14, 0.2, Math.cos(a) * 0.42, 0.06, Math.sin(a) * 0.42); }
+    [0.4, -0.5, 1.6].forEach(function (r) { P(self.geo.cyl6, self.mat('logwood', 0), 0.06, 0.55, 0.06, 0, 0.12, 0).rotation.set(Math.PI / 2 - 0.4, r, 0, 'YXZ'); });
+    P(this.geo.blob, this.mat('stoneDark'), 0.3, 0.05, 0.3, 0, 0.03, 0);
+    var flame = new T.Group(); flame.position.y = 0.1; g.add(flame);
+    self.part(flame, this.geo.cone, this.mat('fire'), 0.22, 0.5, 0.22, 0, 0.25, 0, pick);
+    self.part(flame, this.geo.cone, this.mat('lantern'), 0.12, 0.32, 0.12, 0.03, 0.16, 0.02, pick);
+    // Two log seats and a stack of firewood.
+    [[1.3, 0.3, 0.2], [-0.4, 1.25, 1.4]].forEach(function (sd) { P(self.geo.cyl6, self.mat('logwood', 1), 0.16, 0.9, 0.16, sd[0], 0.16, sd[1]).rotation.set(Math.PI / 2, sd[2], 0, 'YXZ'); });
+    for (var w = 0; w < 4; w++) P(this.geo.cyl6, this.mat('logwood', w % 2), 0.07, 0.6, 0.07, -1.1, 0.07 + Math.floor(w / 2) * 0.12, -0.7 + (w % 2) * 0.15).rotation.x = Math.PI / 2;
+    if (!this.instant) this.pop(g, 0);
+    return { x: x, y: y, z: z, g: g, flame: flame };
+  };
+  Town.prototype.fireNear = function (P, r) {
+    var best = null, bd = r;
+    (this.st.campfires || []).forEach(function (f) { var d = Math.hypot(f.x - P.x, f.z - P.z); if (d < bd && Math.abs(f.y - P.y) < 1.5) { bd = d; best = f; } });
+    return best;
+  };
+  Town.prototype.stepFires = function (dt, now) {
+    var self = this;
+    (this.st.campfires || []).forEach(function (f, i) {
+      if (!f.flame) return;
+      f.flame.scale.set(1 + Math.sin(now / 90 + i) * 0.08, 1 + Math.sin(now / 70 + i * 2) * 0.18 + Math.sin(now / 130) * 0.1, 1 + Math.cos(now / 110 + i) * 0.08);
+      if (!self.reduced && !self.soft && now > (f.smokeAt || 0)) { f.smokeAt = now + 700; self.puff(f.x, f.y + 0.7, f.z, 1, 'smoke', 0.05); }
+    });
+  };
+  // Sit by the fire, fish on a stick, turn it till it's done, then eat it.
+  Town.prototype.startCook = function (pl, f) {
+    var P = pl.g.position, a = Math.atan2(f.x - P.x, f.z - P.z), d = 0.95;
+    P.x = f.x - Math.sin(a) * d; P.z = f.z - Math.cos(a) * d; P.y = this.floorAt(P.x, P.z, P.y + 0.5);
+    pl.g.rotation.y = a; pl.vy = 0; pl.dig = null;
+    if (pl.carry) { pl.mouth.remove(pl.carry.m); pl.carry = null; }
+    var stick = new T.Group(); stick.position.set(0, 0.38, 0.22); stick.rotation.x = 1.45; pl.g.add(stick);
+    this.part(stick, this.geo.cyl6, this.mat('woodLight'), 0.012, 0.75, 0.012, 0, 0.3, 0);
+    var fish = new T.Group(); fish.position.y = 0.62; stick.add(fish);
+    var body = this.part(fish, this.geo.box, this.mat('salmon', 0), 0.06, 0.22, 0.09, 0, 0, 0), tail = this.part(fish, this.geo.cone4, this.mat('salmon', 1), 0.06, 0.07, 0.04, 0, -0.14, 0);
+    pl.cook = { f: f, stick: stick, fish: fish, body: body, tail: tail, t: 0, stage: 0 };
+    this.say(['campfire time', 'dinner!', 'smells good already'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.3);
+  };
+  Town.prototype.endCook = function (pl, giveUp) {
+    var C = pl.cook;
+    if (!C) return;
+    pl.g.remove(C.stick); pl.cook = null; pl.idle = 0;
+    if (giveUp && C.t < 5) this.carryItem(pl, 'fish');
+  };
+  Town.prototype.cookStep = function (pl, dt, now) {
+    var C = pl.cook, f = C.f;
+    C.t += dt;
+    var ep = new T.Vector3();
+    if (C.t < 5) {
+      // Turning it over the flames.
+      C.fish.rotation.y += dt * 2.2; C.stick.rotation.x = 1.45 + Math.sin(C.t * 1.7) * 0.05;
+      if (C.t > 2 && C.stage === 0) { C.stage = 1; C.body.material = this.mat('woodLight'); this.say('*sizzle*', pl.g, 1.0, 1.2); this.sfx('sizzle'); }
+      if (C.t > 4 && C.stage === 1) { C.stage = 2; C.body.material = C.tail.material = this.mat('wood'); this.sfx('sizzle'); }
+      if (now > (C.smokeAt || 0)) { C.smokeAt = now + 350; C.fish.getWorldPosition(ep); this.puff(ep.x, ep.y + 0.05, ep.z, 1, 'smoke', 0.03); }
+    } else {
+      // Done: lift it off the fire and eat it in big bites.
+      if (C.stage === 2) { C.stage = 3; this.say(['perfectly charred!', 'done!', 'golden brown'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.3); }
+      C.stick.rotation.x += (-0.2 - C.stick.rotation.x) * Math.min(1, dt * 6);
+      var bites = Math.floor((C.t - 5.6) / 0.5);
+      if (bites >= 0 && bites !== C.bites) {
+        C.bites = bites; C.fish.scale.setScalar(Math.max(0, 1 - bites * 0.3)); C.fish.getWorldPosition(ep); this.puff(ep.x, ep.y, ep.z, 2, 'dust'); this.sfx('rustle');
+        if (bites === 1) this.say('nom nom', pl.g, 1.0, 1.0);
+      }
+      if (C.t > 7.6) {
+        this.st.cooked = (this.st.cooked || 0) + 1;
+        this.loot = (this.loot || 0) + 1; if (this.onLoot) this.onLoot('a campfire-cooked fish', this.loot);
+        this.say(['best fish in the Yukon', 'mmm. full belly.', '10/10 would cook again', 'chef’s kiss'][Math.floor(Math.random() * 4)], pl.g, 1.0, 2.0);
+        this.hearts(pl.g.position, 0.9);
+        this.endCook(pl, false);
+        return;
+      }
+    }
+    var p = this.sitPose(now / 1000, 'sit');
+    p.legs[0] = p.legs[1] = C.t < 5 ? -1.05 : -1.5; p.front = { y: 0.42, z: 0.08 }; p.hx += C.t < 5 ? 0.2 : 0; p.hy = 0;
+    this.applyPose(pl, p, dt, now / 1000, false);
+    pl.g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+  };
+
   // ---- the harbour: rowing and paddling build it ---------------------------
   // It grows on the coast where the dock used to be: a jetty and rowboat first, then
   // paddleboards, a longer pier, a boathouse, a fish market, a sailboat, a breakwater,
@@ -3647,6 +3942,7 @@
   var HARBOUR_STEPS = [[0.01, 'A jetty and a rowboat'], [20, 'Paddleboards'], [50, 'A longer pier'], [100, 'A boathouse'], [150, 'A fish market'],
     [250, 'A sailboat'], [400, 'A breakwater and harbour light'], [600, 'A second pier'], [900, 'A tall ship at anchor']];
   var HARBOUR = (function () { var p = shoreAt(312); return { x: p.x - COAST_N.x * 3, z: p.z - COAST_N.z * 3 }; })();
+  var OTTER_BAY = (function () { var p = shoreAt(332); return { x: p.x + COAST_N.x * 5, z: p.z + COAST_N.z * 5 }; })(); // close enough to paddle out to
   Town.prototype.growHarbour = function (delay) {
     var R = this.st.row, self = this, pick = 'harbour';
     if (!R.harbour) {
@@ -4311,14 +4607,14 @@
     if (S.t >= 1) { S.t = -1; S.m.visible = false; S.next = now + 20000 + Math.random() * 40000; }
   };
   // Tap Jo and a few hearts float up.
-  Town.prototype.hearts = function () {
-    var c = this.st.critters.fox;
-    if (!c) return;
+  Town.prototype.hearts = function (at, up) {
+    var c = this.st.critters.fox, p = at || (c && c.g.position);
+    if (!p) return;
     this.heartList = this.heartList || [];
     for (var i = 0; i < 6; i++) {
       var h = this.mesh(this.geo.cone4, this.mat('flag', 0), this.world);
       h.scale.set(0.22, 0.28, 0.1); h.rotation.z = Math.PI;
-      h.position.set(c.g.position.x + (Math.random() - 0.5) * 0.6, c.g.position.y + 0.8, c.g.position.z + (Math.random() - 0.5) * 0.6);
+      h.position.set(p.x + (Math.random() - 0.5) * 0.6, p.y + (up || 0.8), p.z + (Math.random() - 0.5) * 0.6);
       this.heartList.push({ m: h, t: -i * 0.12, vx: (Math.random() - 0.5) * 0.4 });
     }
     this.needsRender = true;
@@ -6970,12 +7266,19 @@
       s.pub = g;
       this.animDrop(g, groundY(PUB.x, PUB.z), delay);
     }
-    for (var i = 0; i < count && s.barrels < 21; i++) {
-      var b = s.barrels, row = 0, inRow = b, cap = 6;
+    if (!s.barrelYard) {
+      // A barrel yard of its own off the side of the tavern: a plank floor with a low rail.
+      s.barrelYard = true;
+      this.part(s.pub, this.geo.box, this.mat('woodLight'), 1.2, 0.06, 3.6, -2.25, 0.03, 0.25, 'pub');
+      [-1.55, 2.05].forEach(function (z) { self.part(s.pub, self.geo.box, self.mat('trunk'), 1.2, 0.08, 0.08, -2.25, 0.45, z, 'pub'); [-1.7, -2.8].forEach(function (x) { self.part(s.pub, self.geo.box, self.mat('trunk'), 0.08, 0.5, 0.08, x, 0.25, z, 'pub'); }); });
+    }
+    for (var i = 0; i < count && s.barrels < 28; i++) {
+      var b = s.barrels, row = 0, inRow = b, cap = 7;
       while (inRow >= cap) { inRow -= cap; row++; cap--; }
-      var bar = this.part(s.pub, this.geo.cyl, this.mat('wood'), 0.2, 0.36, 0.2, -1.85, 0, -0.95 + inRow * 0.42 + row * 0.21, 'pub');
+      var bar = this.part(s.pub, this.geo.cyl, this.mat('wood'), 0.2, 0.36, 0.2, -2.25, 0, -1.2 + inRow * 0.46 + row * 0.23, 'pub');
       bar.rotation.x = Math.PI / 2;
-      this.animDrop(bar, 0.2 + row * 0.36, delay + i * 80, 500);
+      this.part(bar, this.geo.cyl, this.mat('stoneDark'), 1.03, 0.08, 1.03, 0, 0.3, 0, 'pub'); this.part(bar, this.geo.cyl, this.mat('stoneDark'), 1.03, 0.08, 1.03, 0, -0.3, 0, 'pub');
+      this.animDrop(bar, 0.26 + row * 0.36, delay + i * 80, 500);
       s.barrels++;
     }
     this.growPub(delay + 300);
@@ -7098,6 +7401,7 @@
           P(self.geo.cyl6, self.mat('stoneDark'), 0.04, 0.4, 0.04, 0, 3.4, 0);
           break;
       }
+      if (st[1] === 'garden' || st[1] === 'lights' || st[1] === 'hops') o.position.x = -0.9; // out past the barrel yard
       s.pub.add(o);
       self.pop(o, delay);
     });
@@ -7255,8 +7559,8 @@
     }
   };
   // ---- the town square grows cozier the more you train ----------------------------------
-  var SQUARE_STEPS = [[20, 'Flower planters in the corners'], [40, 'Hanging baskets on the lamps'], [60, 'Bunting along the boardwalk'], [90, 'Caf\u00e9 tables under umbrellas'],
-    [120, 'Cobbled paving'], [160, 'A second tier on the fountain'], [210, 'Potted trees on the boardwalk'], [270, 'A town clock'], [350, 'Flower beds round the fountain']];
+  var SQUARE_STEPS = [[105, 'Flower planters in the corners'], [125, 'Hanging baskets on the lamps'], [145, 'Bunting along the boardwalk'], [175, 'Caf\u00e9 tables under umbrellas'],
+    [205, 'Cobbled paving'], [245, 'A second tier on the fountain'], [295, 'Potted trees on the boardwalk'], [355, 'A town clock'], [435, 'Flower beds round the fountain']];
   Town.prototype.growSquare = function (delay) {
     var s = this.st, S = s.square || (s.square = { n: 0, g: null });
     while (S.n < SQUARE_STEPS.length && s.sessions >= SQUARE_STEPS[S.n][0]) this.squareStep(S.n++, delay);
@@ -8103,6 +8407,8 @@
         return { title: 'The library', lines: ['Click for your bookshelf: covers, ratings and reviews.', plural(LB.books.length, 'book') + ' · ' + fmtN(LB.pages) + ' pages' + (real.length < LB.books.length ? ' (' + (LB.books.length - real.length) + ' projected)' : ''),
           nextL ? 'Next: ' + nextL[1].toLowerCase() + ' at ' + fmtN(nextL[0]) + ' pages.' : 'The library is complete.'] };
       case 'raccoon': return { title: 'The raccoon', lines: ['That\u2019s you. You follow whichever castle is being built.'] };
+      case 'campfire':
+        return { title: 'Campfire', lines: ['Catch a fish, bring it here and press E to cook it on a stick.', (this.st.cooked || 0) ? plural(this.st.cooked, 'fish') + ' cooked here so far.' : 'Nothing cooked yet.'] };
       case 'townsquare': {
         var SQ = this.st.square || { n: 0 }, done = SQUARE_STEPS.slice(0, SQ.n).map(function (x) { return x[1].toLowerCase(); }), nx = SQUARE_STEPS[SQ.n];
         return { title: 'The town square', lines: ['It gets a little cozier with every workout (' + this.st.sessions + ' so far).', done.length ? 'So far: ' + done.join(', ') + '.' : 'Nothing added yet.', nx ? 'Next: ' + nx[1].toLowerCase() + ' at ' + nx[0] + ' workouts.' : 'The square is complete.'] };
@@ -8210,7 +8516,7 @@
         var pb = PUB_STAGES.filter(function (st) { return s.drinks >= st[0]; }).map(function (st) { return st[2].toLowerCase(); });
         var pn = PUB_STAGES.filter(function (st) { return s.drinks < st[0]; })[0];
         return { title: 'The Slow Pour', lines: [s.drinks + ' drinks logged · ' + s.barrels + ' barrels stacked',
-          pb.length ? 'Added: ' + pb.join(', ') + '.' : 'Every drink stacks a barrel out front (up to 21); after that the tavern gets cosier.',
+          pb.length ? 'Added: ' + pb.join(', ') + '.' : 'Every drink stacks a barrel in the barrel yard (up to 28); after that the tavern gets cosier.',
           pn ? 'Next: ' + pn[2].toLowerCase() + ' at ' + pn[0] + ' drinks.' : 'The Slow Pour is complete.', tail] };
       case 'statue':
         var w = s.weight, diff = w.latest - w.first;
@@ -8547,6 +8853,11 @@
     // Snowboarding and paddleboarding have their own controls.
     if (pl.snow) { this.snowStep(pl, mx, mz, dt, now); this.followCam(P, dt); return true; }
     if (pl.paddle) { this.paddleStep(pl, mx, mz, dt, now); this.followCam(P, dt); return true; }
+    // Cooking at a campfire: stay put till it's done (move to give up and take the fish back).
+    if (pl.cook) {
+      if (moving) this.endCook(pl, true);
+      else { this.cookStep(pl, dt, now); this.followCam(P, dt); return true; }
+    }
     // Riding the train or the chairlift: sit tight and enjoy the view; move to hop off.
     if (pl.ride) {
       if (moving) this.dismount(pl);
@@ -8658,6 +8969,12 @@
       }
       var R = this.st.rail;
       if (R && R.train && R.train[0]) { var lp = R.train[0].position; if (Math.hypot(lp.x - P.x, lp.z - P.z) < 3.2) best = 'railway'; }
+      // Animals you can say hello to, and campfires.
+      if (!this.st.campfires && this.solids) this.buildCampfires();
+      var wa = this.wildNear(P);
+      this.nearWild = wa;
+      if (wa) best = 'wild:' + wa.key;
+      if (this.fireNear(P, 2.4)) best = 'campfire';
       if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
     }
     return moving || air || pl.idle < 60 || mv;
@@ -8700,6 +9017,21 @@
     var pl = this.player, pub = this.st.pub;
     if (this.fishGame) { this.fishGame.press(); return; }
     if (pl && pl.ride) { this.dismount(pl); return; }
+    if (pl && pl.cook) { this.endCook(pl, true); return; }
+    if (pl && !pl.paddle && !pl.seat && this.near === 'campfire') {
+      var cf = this.fireNear(pl.g.position, 2.4);
+      if (pl.carry && pl.carry.kind === 'fish') { this.startCook(pl, cf); return; }
+      this.say(['warm paws', 'cozy.', 'need a fish to cook', 'ahh, toasty'][Math.floor(Math.random() * 4)], pl.g, 1.0, 1.3); this.puff(cf.x, cf.y + 0.6, cf.z, 3, 'smoke', 0.1);
+      return;
+    }
+    // (Standing at the water's edge, E launches the paddleboard rather than greeting the ducks.)
+    if (pl && this.near && /^wild:/.test(this.near) && this.nearWild && !(!pl.paddle && /^(ducks|otters|orcas|beaver)$/.test(this.nearWild.key) && this.paddleAhead(pl))) {
+      this.pokeWild(this.nearWild);
+      // The card about them, the first time you meet.
+      var seen = this.wildSeen = this.wildSeen || {};
+      if (!seen[this.near] && this.onInteract) { seen[this.near] = true; this.onInteract(this.near); }
+      return;
+    }
     if (pl && this.boardNear(pl)) return;
     if (pl && !pl.seat && !(pl.carry && pl.carry.kind === 'beer')) { var sq = this.seatNear(pl.g.position.x, pl.g.position.z); if (sq && Math.abs(sq.y - pl.g.position.y) < 1.2 && Math.hypot(sq.x - pl.g.position.x, sq.z - pl.g.position.z) < 1.1) { this.takeSeat(pl, sq, performance.now()); return; } }
     // Holding a pint: E is a swig. Near the pub: E orders one, whatever else is closer.
@@ -8727,6 +9059,7 @@
   Town.prototype.jump = function () {
     var pl = this.player;
     if (this.fishGame) { this.fishGame.press(); return; }
+    if (pl && pl.cook) { this.endCook(pl, true); return; }
     if (pl && pl.ride) { this.dismount(pl); return; }
     if (pl && pl.snow) { if (!pl.snow.vy && pl.snow.onGround) { pl.snow.vy = 4.2; this.say(['ollie!', 'kickflip!', 'woo!'][Math.floor(Math.random() * 3)], pl.g, 1.0, 0.8); } return; }
     if (pl && pl.paddle) { this.leavePaddle(pl, true); return; }
@@ -9230,6 +9563,11 @@
       case 'gravel': noise('bandpass', 2600, 0.6, 0.12 * v, 0.06, t); noise('bandpass', 4200, 0.8, 0.06 * v, 0.04, t + 0.02); break;
       case 'snow': noise('lowpass', 1300, 0.5, 0.16 * v, 0.11, t); break;
       case 'grass': noise('highpass', 2200, 0.5, 0.05 * v, 0.05, t); break;
+      case 'roar': tone('sawtooth', 120, 55, 0.16, 0.08, 1.0, t, 500); noise('lowpass', 380, 0.8, 0.22, 0.9, t); break;
+      case 'howl': tone('sine', 380, 720, 0.07, 0.35, 1.3, t); tone('sine', 720, 520, 0.06, 0.1, 0.9, t + 1.5); break;
+      case 'sizzle': noise('highpass', 5000, 0.5, 0.05, 0.5, t); break;
+      case 'quack': tone('sawtooth', 520, 380, 0.08, 0.01, 0.14, t, 1600); tone('sawtooth', 500, 360, 0.07, 0.01, 0.12, t + 0.2, 1600); break;
+      case 'squeak': tone('sine', 1400, 2100, 0.06, 0.01, 0.12, t); tone('sine', 1600, 2400, 0.05, 0.01, 0.1, t + 0.16); break;
       case 'bark': tone('square', 520, 260, 0.12, 0.01, 0.12, t, 1400); tone('square', 480, 250, 0.1, 0.01, 0.1, t + 0.16, 1400); break;
       case 'ding': case 'dong': {
         var b = kind === 'ding' ? 660 : 495;
@@ -9464,7 +9802,7 @@
       var fs = new T.Group(); pl.mouth.add(fs); fs.rotation.y = Math.PI / 2; fs.position.y = -0.04;
       this.part(fs, this.geo.box, this.mat('salmon', 0), 0.05, 0.08, 0.2, 0, 0, 0);
       this.part(fs, this.geo.cone4, this.mat('salmon', 1), 0.05, 0.08, 0.04, 0, 0, -0.13).rotation.x = -Math.PI / 2;
-      pl.carry = { m: fs, eat: 0 };
+      pl.carry = { m: fs, eat: 0, kind: 'fish' };
       return;
     }
     if (kind === 'candy') {
@@ -9764,6 +10102,7 @@
   Town.prototype.stepFx = function (dt, now) {
     var busy = false, B = this.brush, F = this.fx, self = this;
     this.stepNight(dt, now);
+    this.stepFires(dt, now);
     if (this.stepCans(dt, now)) busy = true;
     // Wood smoke from the library chimneys.
     var LC = this.st.library && this.st.library.chimneys;
