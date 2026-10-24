@@ -8252,7 +8252,7 @@
       this.camera.zoom = 3.4; this.camera.updateProjectionMatrix();
       this.solidAt = 0;
     } else {
-      if (this.player) { this.player.g.visible = false; this.player.seat = null; this.player.ride = null; }
+      if (this.player) { var pq = this.player; pq.g.visible = false; pq.seat = null; pq.ride = null; if (pq.snow) this.endSnow(pq); if (pq.paddle) this.leavePaddle(pq, false); if (pq.fishing) this.stopFishing(pq); }
       this.wakeHouses();
       var sc3 = this.sun.shadow.camera;
       sc3.left = -75; sc3.right = 75; sc3.top = 75; sc3.bottom = -75; sc3.updateProjectionMatrix();
@@ -8390,6 +8390,9 @@
     pl.vy = pl.vy || 0;
     if (pl.eyeMat) { var glow = this.dark ? '#d9ff7a' : '#1a1a1a'; if (pl.eyeGlow !== glow) { pl.eyeGlow = glow; pl.eyeMat.color.set(glow); } }
     this.stepCarry(pl, dt, now, moving);
+    // Snowboarding and paddleboarding have their own controls.
+    if (pl.snow) { this.snowStep(pl, mx, mz, dt, now); this.followCam(P, dt); return true; }
+    if (pl.paddle) { this.paddleStep(pl, mx, mz, dt, now); this.followCam(P, dt); return true; }
     // Riding the train or the chairlift: sit tight and enjoy the view; move to hop off.
     if (pl.ride) {
       if (moving) this.dismount(pl);
@@ -8535,6 +8538,15 @@
     if (pl && !pl.seat && !(pl.carry && pl.carry.kind === 'beer')) { var sq = this.seatNear(pl.g.position.x, pl.g.position.z); if (sq && Math.abs(sq.y - pl.g.position.y) < 1.2 && Math.hypot(sq.x - pl.g.position.x, sq.z - pl.g.position.z) < 1.1) { this.takeSeat(pl, sq, performance.now()); return; } }
     // Holding a pint: E is a swig. Near the pub: E orders one, whatever else is closer.
     if (pl && pl.carry && (pl.carry.kind === 'beer' || pl.carry.kind === 'coffee')) { this.swig(pl); return; }
+    if (pl && pl.snow) { this.endSnow(pl); return; }
+    if (pl && pl.paddle) {
+      // Land ahead: step off. Otherwise: cast a line (or reel it in).
+      var fa = pl.g.rotation.y, lx = pl.g.position.x + Math.sin(fa) * 0.9, lz = pl.g.position.z + Math.cos(fa) * 0.9;
+      if (waterAt(lx, lz) == null) this.leavePaddle(pl, false); else if (pl.fishing) this.stopFishing(pl); else this.startFishing(pl);
+      return;
+    }
+    if (pl && this.onSkiHill(pl.g.position)) { this.startSnow(pl); return; }
+    if (pl && this.paddleAhead(pl)) { this.startPaddle(pl); return; }
     var shop = this.st.mtb && this.st.mtb.group;
     if (pl && shop && Math.hypot(shop.position.x - pl.g.position.x, shop.position.z - pl.g.position.z) < 5) { this.getCoffee(); return; }
     if (pl && pub && Math.hypot(pub.position.x - pl.g.position.x, pub.position.z - pl.g.position.z) < 4.5) { this.getBeer(); return; }
@@ -8549,6 +8561,8 @@
   Town.prototype.jump = function () {
     var pl = this.player;
     if (pl && pl.ride) { this.dismount(pl); return; }
+    if (pl && pl.snow) { if (!pl.snow.vy && pl.snow.onGround) { pl.snow.vy = 4.2; this.say(['ollie!', 'kickflip!', 'woo!'][Math.floor(Math.random() * 3)], pl.g, 1.0, 0.8); } return; }
+    if (pl && pl.paddle) { this.leavePaddle(pl, true); return; }
     if (!pl || pl.climb || pl.air > 0.05 || pl.vy > 0) return;
     if (pl.idle > 25) { pl.idle = 0; this.say('!', pl.g, 1.0, 0.8); } // woken up
     if (pl.seat) this.leaveSeat(pl);
@@ -8630,6 +8644,7 @@
     } else if (Math.random() < dt * 5) { C.ember.getWorldPosition(wp); this.puff(wp.x, wp.y + 0.02, wp.z, 1, 'smoke', 0.004); }
   };
   Town.prototype.leaveSeat = function (pl) {
+    if (pl.fishing) this.stopFishing(pl);
     if (pl.cig) { var wp = new T.Vector3(); pl.cig.ember.getWorldPosition(wp); pl.mouth.remove(pl.cig.g); pl.cig = null; pl.sipping = false; this.puff(wp.x, wp.y, wp.z, 3, 'dust'); }
     pl.seat = null; pl.idle = 0; pl.seatAt = performance.now() + 2500; pl.vy = 2.2;
   };
@@ -8650,12 +8665,172 @@
     this.applyPose(pl, this.sitPose(now / 1000, seat.low ? 'ledge' : 'sit'), dt, now / 1000, false);
     g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
     if (seat.fish && t >= 1) {
+      // Line in the water off the end of the dock.
+      if (!pl.fishing) this.startFishing(pl, seat.fish);
+      this.fishStep(pl, dt, now);
       pl.fishT += dt;
-      if (pl.fishT > pl.fishAt) { pl.fishT = 0; pl.fishAt = 8 + Math.random() * 10; this.fishJump(seat.fish); this.say('!', g, 1.3, 0.9); }
+      if (pl.fishT > pl.fishAt) { pl.fishT = 0; pl.fishAt = 15 + Math.random() * 15; this.fishJump(seat.fish); }
     }
     this.followCam(P, dt);
     return true;
   };
+  // ---- snowboarding: E anywhere up on the ski hill, and down you go ----------------------------
+  Town.prototype.onSkiHill = function (P) {
+    return Math.hypot(P.x - SNOW.c.x, P.z - SNOW.c.z) < SNOW.R + 8 && P.y > groundY(P.x, P.z) + 1.2;
+  };
+  Town.prototype.startSnow = function (pl) {
+    if (pl.fishing) this.stopFishing(pl);
+    var board = new T.Group(); board.position.y = 0.02; pl.g.add(board);
+    this.part(board, this.geo.box, this.mat('flag', Math.floor(Math.random() * 5)), 0.24, 0.03, 0.78, 0, 0, 0);
+    this.part(board, this.geo.box, this.mat('swan', 2), 0.25, 0.012, 0.12, 0, 0.02, 0.33);
+    this.part(board, this.geo.box, this.mat('swan', 0), 0.25, 0.012, 0.12, 0, 0.02, -0.33);
+    pl.snow = { vx: 0, vz: 0, vy: 0, board: board, t: 0, onGround: true };
+    pl.seat = null; pl.dig = null;
+    this.say(['time to shred', 'send it!', 'here goes nothing'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.3);
+  };
+  Town.prototype.endSnow = function (pl, line) {
+    if (!pl.snow) return;
+    pl.g.remove(pl.snow.board); pl.snow = null; pl.vy = 0; pl.idle = 0;
+    pl.body.rotation.z = 0;
+    this.say(line || 'gnarly!', pl.g, 1.0, 1.2);
+  };
+  Town.prototype.snowStep = function (pl, mx, mz, dt, now) {
+    var S = pl.snow, P = pl.g.position, self = this, e = 0.35;
+    S.t += dt;
+    function h(x, z) { return self.floorAt(x, z, P.y + 2.5); }
+    // Downhill: the slope pulls you along; your steering nudges you across it.
+    var gx = (h(P.x + e, P.z) - h(P.x - e, P.z)) / (2 * e), gz = (h(P.x, P.z + e) - h(P.x, P.z - e)) / (2 * e);
+    S.vx -= gx * 15 * dt; S.vz -= gz * 15 * dt;
+    if (Math.hypot(mx, mz) > 0.15) {
+      var c = this.controls, cam = this.camera, fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
+      var right = new T.Vector3(-fwd.z, 0, fwd.x), ix = right.x * mx + fwd.x * mz, iz = right.z * mx + fwd.z * mz;
+      S.vx += ix * 6 * dt; S.vz += iz * 6 * dt;
+    }
+    var fr = 1 - 0.55 * dt; S.vx *= fr; S.vz *= fr;
+    var sp = Math.hypot(S.vx, S.vz); if (sp > 9) { S.vx *= 9 / sp; S.vz *= 9 / sp; sp = 9; }
+    P.x += S.vx * dt; P.z += S.vz * dt;
+    var floor = h(P.x, P.z);
+    if (S.vy || P.y > floor + 0.3) { S.vy -= GRAVITY * dt; P.y += S.vy * dt; S.onGround = false; if (P.y <= floor) { P.y = floor; S.vy = 0; S.onGround = true; this.puff(P.x, floor, P.z, 6, 'snow', 0.2); } }
+    else { P.y = floor; S.onGround = true; }
+    // Carving: lean into the turn, spray snow off the tail.
+    var face = Math.atan2(S.vx, S.vz);
+    if (sp > 0.3) { var d = face - pl.g.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; pl.g.rotation.y += d * Math.min(1, dt * 8); pl.body.rotation.z = Math.max(-0.5, Math.min(0.5, -d * 1.5)); }
+    if (sp > 2 && Math.random() < dt * sp * 2) this.puff(P.x - Math.sin(face) * 0.4, P.y + 0.05, P.z - Math.cos(face) * 0.4, 2, 'snow', 0.15);
+    // Crouched, arms out for balance.
+    this.applyPose(pl, { pitch: 0.1, by: 0.25, hx: -0.15, tailX: 0.1, legs: [0.5, -0.5, 0.6, -0.6] }, dt, now / 1000, false);
+    pl.vy = 0; pl.air = 0; pl.idle = 0;
+    if (now > (S.whoopAt || 0) && sp > 6) { S.whoopAt = now + 6000; this.say(['WHEEE', 'shredding', 'pow day!'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.0); }
+    // Off the hill and slowed right down: done.
+    if (S.t > 1.5 && sp < 0.35 && (P.y < groundY(P.x, P.z) + 0.4 || Math.hypot(gx, gz) < 0.05)) this.endSnow(pl);
+    if (Math.hypot(P.x, P.z) > 116) this.endSnow(pl, 'whoa');
+  };
+
+  // ---- paddleboarding: E with water just ahead ---------------------------------------------
+  Town.prototype.paddleAhead = function (pl) {
+    var P = pl.g.position, a = pl.g.rotation.y, x = P.x + Math.sin(a) * 0.9, z = P.z + Math.cos(a) * 0.9, w = waterAt(x, z);
+    return w != null && !this.deckAt(x, z) && waterAt(P.x, P.z) == null && P.y - w < 1.5;
+  };
+  Town.prototype.startPaddle = function (pl) {
+    if (pl.fishing) this.stopFishing(pl);
+    var P = pl.g.position, a = pl.g.rotation.y, x = P.x + Math.sin(a) * 0.9, z = P.z + Math.cos(a) * 0.9;
+    var board = new T.Group(); board.position.y = -0.03; pl.g.add(board);
+    this.part(board, this.geo.box, this.mat('flag', 1), 0.3, 0.035, 0.95, 0, 0, 0);
+    this.part(board, this.geo.box, this.mat('swan', 0), 0.31, 0.01, 0.4, 0, 0.022, -0.1);
+    this.part(board, this.geo.cone4, this.mat('flag', 1), 0.15, 0.2, 0.017, 0, 0, 0.55).rotation.x = Math.PI / 2;
+    var paddle = new T.Group(); paddle.position.set(0.12, 0.12, 0.05); pl.body.add(paddle);
+    this.part(paddle, this.geo.cyl6, this.mat('wood'), 0.012, 0.6, 0.012, 0, 0, 0);
+    this.part(paddle, this.geo.box, this.mat('flag', 2), 0.07, 0.15, 0.015, 0, -0.33, 0);
+    pl.paddle = { board: board, paddle: paddle, ph: 0 };
+    P.x = x; P.z = z; P.y = waterAt(x, z) + 0.03; pl.seat = null; pl.dig = null; pl.vy = 0;
+    this.say(['paddle time', 'ahoy!', 'smooth sailing'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.3);
+    this.puff(x, P.y, z, 6, 'splash', 0.3);
+  };
+  Town.prototype.leavePaddle = function (pl, bail) {
+    var Pd = pl.paddle, P = pl.g.position;
+    if (!Pd) return;
+    if (pl.fishing) this.stopFishing(pl);
+    pl.g.remove(Pd.board); pl.body.remove(Pd.paddle); pl.paddle = null; pl.idle = 0;
+    if (bail) { pl.vy = 2.5; this.say('SPLASH', pl.g, 1.0, 1.0); this.puff(P.x, P.y, P.z, 10, 'splash', 0.4); }
+    else { var a = pl.g.rotation.y; P.x += Math.sin(a) * 0.9; P.z += Math.cos(a) * 0.9; P.y = this.floorAt(P.x, P.z, P.y + 1.5); }
+  };
+  Town.prototype.paddleStep = function (pl, mx, mz, dt, now) {
+    var Pd = pl.paddle, P = pl.g.position, g = pl.g, len = Math.hypot(mx, mz), moving = len > 0.15;
+    if (moving) {
+      if (pl.fishing) this.stopFishing(pl);
+      if (len > 1) { mx /= len; mz /= len; }
+      var c = this.controls, cam = this.camera, fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
+      var right = new T.Vector3(-fwd.z, 0, fwd.x), dx = (right.x * mx + fwd.x * mz) * 2.4 * dt, dz = (right.z * mx + fwd.z * mz) * 2.4 * dt;
+      // Only on the water: the shore stops you (E to step off).
+      if (waterAt(P.x + dx, P.z + dz) != null && !this.deckAt(P.x + dx, P.z + dz)) { P.x += dx; P.z += dz; }
+      var face = Math.atan2(dx, dz), d = face - g.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+      g.rotation.y += d * Math.min(1, dt * 4);
+      Pd.ph += dt * 5;
+      if (now > (Pd.wakeAt || 0)) { Pd.wakeAt = now + 300; this.puff(P.x - Math.sin(g.rotation.y) * 0.5, P.y - 0.02, P.z - Math.cos(g.rotation.y) * 0.5, 2, 'ripple'); if (Math.random() < 0.4) this.sfx('paddle'); }
+      pl.idle = 0;
+    } else pl.idle = (pl.idle || 0) + dt;
+    // Stroke on one side, then the other.
+    var sw = Math.sin(Pd.ph);
+    Pd.paddle.position.x = sw > 0 ? 0.13 : -0.13; Pd.paddle.rotation.x = moving ? Math.sin(Pd.ph * 2) * 0.6 - 0.2 : 0.3; Pd.paddle.rotation.z = sw > 0 ? -0.2 : 0.2;
+    var w = waterAt(P.x, P.z);
+    P.y = (w != null ? w : P.y) + 0.03 + Math.sin(now / 600) * 0.012;
+    pl.vy = 0; pl.air = 0;
+    this.applyPose(pl, pl.fishing ? this.sitPose(now / 1000, 'ledge') : { by: 0.32, hx: -0.1, legs: [0, 0, 0, 0] }, dt, now / 1000, false);
+    g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+    // Drift still for a moment and the line goes in.
+    if (!moving && pl.idle > 2.5 && !pl.fishing) this.startFishing(pl);
+    if (pl.fishing) this.fishStep(pl, dt, now);
+  };
+
+  // ---- fishing: a rod, a line, a bobber; wait for a bite ----------------------------------
+  var CATCHES = ['a rainbow trout!', 'an arctic grayling!', 'a lake trout!', 'a northern pike!', 'a sockeye salmon!!', 'a tiny minnow', 'an old boot', 'a whitefish', 'a burbot (ugly but tasty)', 'a big ol\u2019 char!'];
+  Town.prototype.startFishing = function (pl, spot) {
+    var F = this.fx || (this.fx = { bits: [], group: null });
+    if (!F.group) { F.group = new T.Group(); this.scene.add(F.group); }
+    var P = pl.g.position, a = pl.g.rotation.y;
+    if (!spot) { var x = P.x + Math.sin(a) * 1.4, z = P.z + Math.cos(a) * 1.4, w = waterAt(x, z); if (w == null) return; spot = { x: x, z: z, y: w }; }
+    var rod = new T.Group(); rod.position.set(0.06, 0.1, 0.12); rod.rotation.x = -0.9; pl.body.add(rod);
+    this.part(rod, this.geo.cyl6, this.mat('trunk'), 0.01, 0.7, 0.01, 0, 0.35, 0);
+    this.part(rod, this.geo.cyl, this.mat('stoneDark'), 0.025, 0.03, 0.025, 0, 0.1, 0.02);
+    var tip = new T.Object3D(); tip.position.y = 0.7; rod.add(tip);
+    var bob = new T.Group(); this.part(bob, this.geo.ball, this.mat('flag', 0), 0.04, 0.035, 0.04, 0, 0.02, 0); this.part(bob, this.geo.ball, this.mat('swan', 0), 0.04, 0.03, 0.04, 0, -0.01, 0);
+    bob.position.set(spot.x, spot.y, spot.z); F.group.add(bob);
+    var line = new T.Mesh(this.geo.box, this.mat('swan', 0)); F.group.add(line);
+    pl.fishing = { rod: rod, tip: tip, bob: bob, line: line, spot: spot, t: 0, biteAt: 4 + Math.random() * 7, state: 'wait' };
+    this.puff(spot.x, spot.y + 0.02, spot.z, 3, 'ripple');
+  };
+  Town.prototype.stopFishing = function (pl) {
+    var Fi = pl.fishing, F = this.fx;
+    if (!Fi) return;
+    pl.body.remove(Fi.rod); F.group.remove(Fi.bob); F.group.remove(Fi.line); pl.fishing = null;
+  };
+  Town.prototype.fishStep = function (pl, dt, now) {
+    var Fi = pl.fishing;
+    if (!Fi) return;
+    Fi.t += dt;
+    var sp = Fi.spot, dip = 0;
+    if (Fi.state === 'wait' && Fi.t > Fi.biteAt) { Fi.state = 'bite'; Fi.t = 0; this.say('!', pl.g, 1.2, 0.8); this.sfx('splash'); }
+    if (Fi.state === 'bite') {
+      dip = Math.sin(Fi.t * 30) * 0.05 - 0.05;
+      Fi.rod.rotation.x = -0.9 - Math.sin(Fi.t * 20) * 0.15;
+      if (Fi.t > 0.9) {
+        // Reel it in, or lose it.
+        if (Math.random() < 0.65) {
+          var what = CATCHES[Math.floor(Math.random() * CATCHES.length)];
+          this.loot = (this.loot || 0) + 1; if (this.onLoot) this.onLoot(what, this.loot);
+          this.say('caught ' + what, pl.g, 1.0, 2.2); this.sfx('found');
+          if (!/boot/.test(what)) this.carryItem(pl, 'fish');
+          this.puff(sp.x, sp.y + 0.05, sp.z, 6, 'splash', 0.2);
+        } else this.say(['it got away!', 'so close', 'next time'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.4);
+        Fi.state = 'wait'; Fi.t = 0; Fi.biteAt = 6 + Math.random() * 10; Fi.rod.rotation.x = -0.9;
+      }
+    }
+    Fi.bob.position.set(sp.x, sp.y + Math.sin(now / 500) * 0.01 + dip, sp.z);
+    // The line: rod tip down to the bobber.
+    var tw = new T.Vector3(); Fi.tip.getWorldPosition(tw);
+    var b = Fi.bob.position, mid = tw.clone().add(b).multiplyScalar(0.5), dv = b.clone().sub(tw), L = dv.length();
+    Fi.line.position.copy(mid); Fi.line.scale.set(0.006, L, 0.006); Fi.line.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dv.normalize());
+  };
+
   // A fish leaps out of the water in an arc and splashes back in.
   Town.prototype.fishJump = function (w) {
     var F = this.fx || (this.fx = { bits: [], group: null }), fish = new T.Group();
@@ -8968,6 +9143,13 @@
       pl.carry = { m: cup, eat: 0, kind: 'coffee', sips: 0, steam: lip };
       return;
     }
+    if (kind === 'fish') {
+      var fs = new T.Group(); pl.mouth.add(fs); fs.rotation.y = Math.PI / 2; fs.position.y = -0.04;
+      this.part(fs, this.geo.box, this.mat('salmon', 0), 0.05, 0.08, 0.2, 0, 0, 0);
+      this.part(fs, this.geo.cone4, this.mat('salmon', 1), 0.05, 0.08, 0.04, 0, 0, -0.13).rotation.x = -Math.PI / 2;
+      pl.carry = { m: fs, eat: 0 };
+      return;
+    }
     if (kind === 'candy') {
       var cd = new T.Group(); pl.mouth.add(cd);
       this.part(cd, this.geo.box, this.mat('flag', Math.floor(Math.random() * 5)), 0.08, 0.05, 0.05, 0, 0, 0);
@@ -9070,7 +9252,7 @@
       if ((o.userData.u || 0) > 0.48) {
         var a = pl.g.rotation.y;
         pl.ride = null; P.set(top.x + Math.sin(a) * 1.2, top.y, top.z + Math.cos(a) * 1.2); P.y = this.floorAt(P.x, P.z, P.y + 2); pl.vy = 1.5; pl.idle = 0;
-        this.say('made it!', pl.g, 1.0, 1.4);
+        this.say('made it! (E to snowboard)', pl.g, 1.0, 2.2);
         return;
       }
     }
