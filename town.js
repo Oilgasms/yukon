@@ -4138,9 +4138,9 @@
   // ---- the mine: lifting digs it deeper --------------------------------------------------
   // Every pound lifted is a pound of rock dug out of the hills. Walk in and pick away: the
   // deeper it goes, the better the finds (coal near the top, diamonds right at the bottom).
-  var MINE_STEPS = [[50000, 'A mine in the hills'], [100000, 'Rails and an ore cart'], [200000, 'Lanterns along the track'], [300000, 'Ore piles and a pickaxe rack'],
-    [450000, 'A winding tower over a second shaft'], [600000, 'Glowing crystals in the rock'], [800000, 'A miners\u2019 hut'], [1050000, 'A second cart and a longer track'],
-    [1350000, 'A gem-cutter\u2019s bench'], [1700000, 'A golden mine cart']];
+  var MINE_STEPS = [[500000, 'A mine in the hills'], [900000, 'Rails and an ore cart'], [1400000, 'Lanterns along the track'], [2000000, 'Ore piles and a pickaxe rack'],
+    [2700000, 'A winding tower over a second shaft'], [3500000, 'Glowing crystals in the rock'], [4400000, 'A miners\u2019 hut'], [5400000, 'A second cart and a longer track'],
+    [6600000, 'A gem-cutter\u2019s bench'], [8000000, 'A golden mine cart']];
   var MINE_FINDS = [['a lump of coal', 0, 30], ['some copper ore', 0, 24], ['an old miner\u2019s helmet', 0, 4], ['a chunk of iron ore', 1, 20], ['a quartz crystal', 1, 12], ['a fossil!', 2, 6],
     ['a silver nugget', 2, 10], ['a geode!', 3, 6], ['a gold nugget!', 3, 7], ['an amethyst!', 4, 6], ['a topaz!', 5, 5], ['an emerald!!', 6, 3], ['a ruby!!', 7, 2.5], ['a sapphire!!', 8, 2], ['a DIAMOND!!!', 6, 1.2]];
   Town.prototype.growMine = function (delay, ev) {
@@ -4234,7 +4234,7 @@
       }
       if (k !== 0) { var ax = 0, az = 0, cnt = 0; o.children.forEach(function (ch) { ax += ch.position.x; az += ch.position.z; cnt++; }); if (cnt && !o.position.x) this.settle(o, ax / cnt, az / cnt, M.g); else if (cnt) this.settle(o, o.position.x, o.position.z, M.g); }
       if (!this.instant) this.pop(o, (delay || 0) + 300);
-      if (this.onSecret) this.onSecret({ id: 'mine#' + k, title: k ? 'The mine goes deeper' : 'The mine', text: k ? fmtN(MINE_STEPS[k][0]) + ' lb lifted! The mine gets ' + MINE_STEPS[k][1].toLowerCase() + ', and the finds get better.' : '50,000 lb lifted! Somebody\u2019s dug a mine into the hills. Every pound you lift digs it deeper; walk in and see what you find.' }, ev);
+      if (this.onSecret) this.onSecret({ id: 'mine#' + k, title: k ? 'The mine goes deeper' : 'The mine', text: k ? fmtN(MINE_STEPS[k][0]) + ' lb lifted! The mine gets ' + MINE_STEPS[k][1].toLowerCase() + ', and the finds get better.' : fmtN(MINE_STEPS[0][0]) + ' lb lifted! Somebody\u2019s dug a mine into the hills. Every pound you lift digs it deeper; walk in and see what you find.' }, ev);
       this.solidAt = 0;
     }
   };
@@ -5441,11 +5441,17 @@
     { id: 'thousand', title: 'The Golden Raccoon', hint: 'Show up a thousand times.', text: '1,000 workouts! A golden raccoon hoisting a barbell now stands on the town square. Legend.' },
     { id: 'phoenix', title: 'The Phoenix', hint: 'Come back after two weeks off.', text: 'Back after a long break! A phoenix has risen over Yukon, circling the town on wings of fire. Welcome back.' },
     { id: 'bookworm', title: 'The Bookworm', hint: 'Finish twenty-five books.', text: 'Twenty-five books! A giant bookworm in reading glasses has curled up on a stack of books by the library.' },
+    { id: 'thousandclub', title: 'The Thousand-Pound Club', hint: 'Squat, bench and deadlift a thousand pounds between them.', text: 'Squat + bench + deadlift = 1,000 lb! A monument of three giant bumper plates now stands outside town. Welcome to the club.' },
+    { id: 'colossus', title: 'The Colossus', hint: 'Lift three million pounds in one calendar year.', text: 'Three million pounds in a single year! A stone titan kneels in the hills, holding the whole world on his shoulders.' },
+    { id: 'jersey', title: 'The Yellow Jersey', hint: 'Ride 1,500 km in one calendar year.', text: '1,500 km on the bike in one year! A giant golden bicycle now stands on the hill, with a yellow jersey flying over it.' },
+    { id: 'torch', title: 'The Eternal Flame', hint: 'Run 500 km in one calendar year.', text: '500 km run in a single year! A great stone cauldron on a column has been lit, and it will burn forever.' },
+    { id: 'everest', title: 'Everest', hint: 'Climb 8,849 m in one calendar year.', text: 'You\u2019ve climbed the height of Everest this year! A great snowy peak has risen at the end of the range, prayer flags streaming from its summit and your flag on top.' },
     { id: 'mellon', title: 'The Doors of Durin', hint: 'Speak, friend, and enter.', text: 'Mellon! Moonlit runes glow on a hidden door at the foot of the mountains, and it swings open for you.' },
     { id: 'sub20', title: 'The Golden Runner', hint: 'Run 5 km in 20 minutes (on Strava).', big: true,
       text: 'A SUB-20 5K! The whole town is setting off fireworks, and a giant golden runner now strides over the forest. This one is a big deal.' }
   ];
   var PARTY = { maypole: 5, feast: 11 }; // friends needed in one workout
+  var PHOENIX_FROM = '2026-10-25'; // only comebacks from here on raise the phoenix
   var PARTY_DAYS = 7;
   var SECRET_BY_ID = {};
   SECRETS.forEach(function (x) { SECRET_BY_ID[x.id] = x; });
@@ -5466,7 +5472,7 @@
         s.streak = gap === 1 ? s.streak + 1 : 1;
         s.bestStreak = Math.max(s.bestStreak || 0, s.streak);
         s.streakDate = ev.date;
-        if (gap >= 14 && gap < 99) hit('phoenix');
+        if (gap >= 14 && gap < 99 && ev.date >= PHOENIX_FROM) hit('phoenix');
         if (s.streak % 7 === 0) {
           s.streaks = (s.streaks || 0) + 1;
           if ([12, 1, 2].indexOf(+ev.date.slice(5, 7)) >= 0) hit('aurora');
@@ -5494,6 +5500,19 @@
     if (s.sessions >= 100) hit('wizard');
     if (s.sessions >= 500) hit('rainbow');
     if (s.sessions >= 1000) hit('thousand');
+    // Year-long goals: totals per calendar year for lifting, riding, running and climbing.
+    if (ev.date && WORKOUT_KINDS[ev.kind]) {
+      var ys = (s.yearStats = s.yearStats || {})[ev.date.slice(0, 4)] || (s.yearStats[ev.date.slice(0, 4)] = { lb: 0, bike: 0, run: 0, elev: 0 });
+      if (ev.kind === 'lift') ys.lb += ev.tonnage || 0;
+      if (ev.kind === 'bike' || ev.kind === 'mtb' || ev.kind === 'commute') ys.bike += ev.km || 0;
+      if (ev.kind === 'run') ys.run += ev.km || 0;
+      ys.elev += ev.elev || 0;
+      if (ys.lb >= 3e6) hit('colossus');
+      if (ys.bike >= 1500) hit('jersey');
+      if (ys.run >= 500) hit('torch');
+      if (ys.elev >= 8849) hit('everest');
+    }
+    if ((b.squat || 0) + (b.bench || 0) + (b.deadlift || 0) >= 1000) hit('thousandclub');
     if (s.library.books.length >= 25) hit('bookworm');
     if (ev.dogs && ev.dogs.length >= 3) hit('goodboys');
     if (ev.kind === 'run' && ev.km >= 42) hit('marathon');
@@ -5678,6 +5697,80 @@
     function place(p, faceTown) { pos = p; g.position.set(p.x, groundY(p.x, p.z), p.z); if (faceTown) g.rotation.y = Math.atan2(-p.x, -p.z); }
     var stone = this.mat('citDark'), rock = this.mat('rock');
     switch (id) {
+      case 'thousandclub': {
+        // Three giant bumper plates stacked on edge in a stone base, a gold plaque.
+        place(this.secretSpot(GATE_ANGLE + 34, 24, 2.6), true);
+        P(this.geo.box, this.mat('stone', 1), 3.4, 0.5, 1.4, 0, 0.25, 0);
+        P(this.geo.box, this.mat('stone', 2), 3.6, 0.1, 1.55, 0, 0.55, 0);
+        [[-1.0, 'flag', 0], [0, 'flag', 2], [1.0, 'flag', 1]].forEach(function (pl, i) {
+          var r = 1.0 - i * 0.12, d = P(self.geo.cyl, self.mat(pl[1], pl[2]), r, 0.35, r, pl[0], 0.6 + r, 0); d.rotation.x = Math.PI / 2;
+          P(self.geo.cyl, self.mat('silver'), 0.2, 0.37, 0.2, pl[0], 0.6 + r, 0).rotation.x = Math.PI / 2;
+        });
+        var bar2 = P(this.geo.cyl, this.mat('silver'), 0.07, 3.6, 0.07, 0, 1.55, 0); bar2.rotation.z = Math.PI / 2;
+        P(this.geo.box, this.mat('gold'), 1.2, 0.3, 0.04, 0, 0.3, 0.72);
+        break;
+      }
+      case 'colossus': {
+        // A kneeling stone titan with the world on his shoulders.
+        place(this.secretSpot(200, 62, 4.5), true);
+        var tn = this.mat('stone', 1), td = this.mat('stone', 0);
+        P(this.geo.box, rock, 3.6, 0.8, 3.0, 0, 0.4, 0);
+        P(this.geo.box, tn, 1.2, 1.6, 0.9, -0.5, 1.6, 0.6); P(this.geo.box, tn, 0.9, 0.8, 2.0, 0.6, 1.2, 0.1);      // legs: one knee down
+        P(this.geo.box, tn, 1.7, 2.2, 1.2, 0, 3.1, -0.1);                                                          // torso, bent under the weight
+        P(this.geo.ball, td, 0.6, 0.65, 0.6, 0, 4.5, 0.5);                                                         // bowed head
+        [-1, 1].forEach(function (sd) { var arm = P(self.geo.box, tn, 0.45, 2.0, 0.45, sd * 1.1, 4.6, -0.2); arm.rotation.z = sd * -0.4; });
+        P(this.geo.ball, this.mat('water'), 2.0, 2.0, 2.0, 0, 6.3, -0.4);
+        [[0.5, 6.9, 0.5], [-0.7, 6.0, 1.1], [0.9, 5.8, -0.6]].forEach(function (c) { P(self.geo.blob, self.mat('pitch'), 0.9, 0.5, 0.8, c[0], c[1], c[2] - 0.4); });
+        break;
+      }
+      case 'jersey': {
+        // A giant golden bicycle on a low plinth, and a pole flying the yellow jersey.
+        place(this.secretSpot(70, 50, 3.2), true);
+        var gd = this.mat('gold');
+        P(this.geo.box, this.mat('stone', 2), 4.4, 0.3, 1.2, 0, 0.15, 0);
+        [-1.3, 1.3].forEach(function (x) { var w = P(self.geo.torus, gd, 1.0, 1.0, 1.0, x, 1.3, 0); w.rotation.y = Math.PI / 2 * 0; P(self.geo.cyl, gd, 0.08, 0.15, 0.08, x, 1.3, 0).rotation.x = Math.PI / 2; });
+        var ft = P(this.geo.box, gd, 1.6, 0.1, 0.1, -0.35, 2.0, 0); ft.rotation.z = -0.05;
+        P(this.geo.box, gd, 1.3, 0.1, 0.1, 0.0, 1.55, 0).rotation.z = 0.75;
+        P(this.geo.box, gd, 0.1, 0.9, 0.1, -0.5, 1.6, 0).rotation.z = 0.35;
+        P(this.geo.box, gd, 0.1, 1.0, 0.1, 1.1, 1.8, 0).rotation.z = -0.3;
+        P(this.geo.box, gd, 0.5, 0.08, 0.6, 1.25, 2.3, 0);
+        P(this.geo.box, this.mat('stoneDark'), 0.45, 0.1, 0.18, -0.65, 2.2, 0);
+        P(this.geo.cyl6, this.mat('wood'), 0.06, 4.2, 0.06, 2.6, 2.1, 0.4);
+        var jf = new T.Group(); jf.position.set(2.6, 3.6, 0.4); g.add(jf);
+        P(this.geo.box, this.mat('flag', 4), 0.04, 0.9, 1.1, 0, 0, 0.6, jf);
+        [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('flag', 4), 0.04, 0.35, 0.4, 0, 0.25, 0.6 + sd * 0.7, jf); });
+        break;
+      }
+      case 'torch': {
+        // A fluted stone column with a bronze cauldron, burning for good.
+        place(this.secretSpot(330, 42, 2.2), true);
+        P(this.geo.box, this.mat('stone', 2), 2.2, 0.3, 2.2, 0, 0.15, 0);
+        P(this.geo.box, this.mat('stone', 1), 1.6, 0.3, 1.6, 0, 0.45, 0);
+        P(this.geo.cyl, this.mat('stone', 0), 0.5, 3.6, 0.5, 0, 2.4, 0);
+        for (var fl = 0; fl < 8; fl++) { var fa = fl / 8 * Math.PI * 2; P(this.geo.box, this.mat('stone', 2), 0.08, 3.5, 0.08, Math.cos(fa) * 0.5, 2.4, Math.sin(fa) * 0.5); }
+        P(this.geo.cyl, this.mat('copper'), 0.9, 0.5, 0.9, 0, 4.4, 0);
+        P(this.geo.cyl, this.mat('copper'), 0.6, 0.3, 0.6, 0, 4.05, 0);
+        P(this.geo.cone, this.mat('fire'), 0.7, 1.4, 0.7, 0, 5.3, 0);
+        P(this.geo.cone, this.mat('lantern'), 0.4, 0.9, 0.4, 0.05, 5.1, 0.05);
+        break;
+      }
+      case 'everest': {
+        // A new, taller peak at the end of the range, snow-capped, with prayer flags strung down
+        // from the summit and your flag on top.
+        place(this.secretSpot(RIDGE.a + 26, RIDGE.r + 4, 7));
+        var H = 22, Rb = 8;
+        P(this.geo.cone6, this.mat('rock'), Rb * 2, H, Rb * 2, 0, H / 2 - 0.5, 0);
+        P(this.geo.cone6, this.mat('swan', 0), Rb * 0.9, H * 0.42, Rb * 0.9, 0, H - 0.5 - H * 0.21, 0);
+        P(this.geo.cyl6, this.mat('wood'), 0.08, 2.4, 0.08, 0, H + 0.6, 0);
+        P(this.geo.flag, this.mat('flag', 0), 1.6, 1.6, 1.6, 0, H + 1.5, 0);
+        [0.3, 2.4, 4.5].forEach(function (a) {
+          for (var k = 1; k <= 14; k++) {
+            var t = k / 14, rr = t * Rb * 0.7, y = H - 0.5 - (rr / Rb) * H + 1.1 - Math.sin(t * Math.PI) * 0.5;
+            var f = P(self.geo.box, self.mat('flag', k % 5), 0.42, 0.5, 0.03, Math.cos(a) * rr, y - 0.3, Math.sin(a) * rr); f.rotation.y = -a + Math.PI / 2;
+          }
+        });
+        break;
+      }
       case 'thousand':
         // The statue itself is part of the town square (its 1,000-workout step).
         return { x: TOWN_SQ.x + 2.2, z: TOWN_SQ.z - 1.35 };
