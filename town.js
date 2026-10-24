@@ -75,7 +75,7 @@
     glacier: ['#d8eef6', '#aed8ea'],
     wpGreen: '#2f6b45', wpYellow: '#e6bf3c', wpBlack: '#26262b', wpRed: '#a8372b', wpCream: '#efe4c4',
     hare: ['#9b7f62', '#5a4636', '#e8dfd2'], deer: ['#a8754a', '#5a3c26', '#efe6d8'], moose: ['#5a3a24', '#2e1e14', '#d8c49a'], caribou: ['#8a7a66', '#4a3e32', '#eeeae2'],
-    wolf: ['#8d8a86', '#4a4744', '#e2ded8'], coyote: ['#a8927a', '#55473a', '#e6dccb'], lynx: ['#b9a688', '#3a3028', '#e8e0d0'], bear: ['#7a5232', '#3a2616', '#a87a50'], salmon: ['#d9604a', '#a8402c'],
+    wolf: ['#8d8a86', '#4a4744', '#e2ded8'], phoenix: ['#f2603a', '#f2b03a', '#ffe08a'], worm: ['#8cc63f', '#6a9a2c', '#f4ead6'], coyote: ['#a8927a', '#55473a', '#e6dccb'], lynx: ['#b9a688', '#3a3028', '#e8e0d0'], bear: ['#7a5232', '#3a2616', '#a87a50'], salmon: ['#d9604a', '#a8402c'],
     beaver: ['#7a4e2c', '#3a2a1e', '#a87a50'], duck: ['#8a6a4a', '#e8b934', '#2f7a46'], loon: ['#1e1e1e', '#2a2a2a', '#e8e8e8'], raven: ['#1c1c22', '#2a2a30', '#1c1c22'],
     eagle: ['#4a3420', '#e8b934', '#f4f2ec'], owl: ['#8a6e4e', '#e8b934', '#b89a72'],
     brick: ['#a8483a', '#b5553f', '#9a4034'], logwood: ['#8a5a34', '#74492a'], shingle: '#4e3d34', whitewood: '#f3efe6',
@@ -2663,6 +2663,8 @@
   Town.prototype.addMovie = function (ev) {
     var C = this.st.cinema;
     C.films.push({ title: ev.title, year: ev.year, stars: ev.stars, date: ev.date, rewatch: !!ev.rewatch, projected: !!ev.projected });
+    var cs = CINEMA_STEPS.filter(function (x) { return x[0] === C.films.length; })[0];
+    if (cs && cs[0] > 1) this.news(['the picture house has ' + cs[1].toLowerCase() + ' now!', 'fancy a film? ' + cs[1].toLowerCase() + ' at the cinema!'], ev.date);
     this.cinemaDirty = true;
   };
   Town.prototype.buildCinema = function () {
@@ -2810,8 +2812,18 @@
       });
     }
     if (P0 >= 6000) {
-      // A paved courtyard behind, with a fountain.
-      P(this.geo.box, this.mat('cobble'), 8.4, 0.05, 7.0, 0, 0.03, -6.4);
+      // A walled garden behind: lawn, a cross of stone paths, box hedges, shrubs, trees and flowers, round a fountain.
+      P(this.geo.box, this.mat('pitch'), 8.4, 0.05, 7.0, 0, 0.03, -6.4);
+      P(this.geo.box, this.mat('stone', 2), 1.0, 0.06, 7.0, 0, 0.04, -6.4);
+      P(this.geo.box, this.mat('stone', 2), 8.4, 0.06, 0.9, 0, 0.04, -6.4);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c, ci) {
+        var hx = c[0] * 2.3, hz = -6.4 + c[1] * 1.85;
+        P(self.geo.box, self.mat('hedge'), 2.6, 0.32, 0.18, hx, 0.2, -6.4 + c[1] * 0.6);
+        P(self.geo.box, self.mat('hedge'), 0.18, 0.32, 2.2, c[0] * 0.65, 0.2, hz);
+        P(self.geo.blob, self.mat('hedge'), 0.5, 0.55, 0.5, c[0] * 3.6, 0.35, -6.4 + c[1] * 3.0);
+        for (var fl3 = 0; fl3 < 7; fl3++) P(self.geo.ball, self.mat('flag', (fl3 + ci) % 5), 0.08, 0.08, 0.08, c[0] * (1.0 + fl3 * 0.42), 0.16, -6.4 + c[1] * 0.85);
+      });
+      [[-3.3, -4.4], [3.3, -8.6]].forEach(function (t) { P(self.geo.cyl6, self.mat('trunk'), 0.13, 1.4, 0.13, t[0], 0.7, t[1]); P(self.geo.blob, self.mat('leaf', 0), 0.85, 0.8, 0.85, t[0], 1.85, t[1]); P(self.geo.blob, self.mat('leaf', 2), 0.55, 0.5, 0.55, t[0] + 0.35, 2.3, t[1] - 0.2); });
       P(this.geo.cyl, this.mat('stone', 0), 0.9, 0.35, 0.9, 0, 0.2, -6.4);
       P(this.geo.cyl, this.mat('water'), 0.8, 0.05, 0.8, 0, 0.38, -6.4);
       P(this.geo.cyl, this.mat('stone', 1), 0.12, 0.9, 0.12, 0, 0.75, -6.4);
@@ -4085,6 +4097,188 @@
     });
   };
 
+  // ---- the wizard's tower: knock and the wizard casts something on you --------------------
+  var FORTUNES = ['you will lift heavy things', 'a PR lies in your future', 'beware the coyotes on a Friday', 'the fox thinks you\u2019re wonderful', 'a great bin awaits you', 'rest days are spells too', 'you will read a very long book', 'the mine holds a diamond, for the patient'];
+  Town.prototype.wizardSpell = function () {
+    var pl = this.player, now = performance.now(), W = this.st.wiz, P = pl.g.position;
+    if (pl.spell && now < pl.spell.at + 4000) { this.say('the wizard is catching his breath', pl.g, 1.0, 1.4); return; }
+    if (pl.seat) this.leaveSeat(pl);
+    var kinds = ['grow', 'shrink', 'float', 'sparkle', 'fortune'].filter(function (k) { return !pl.spell || k !== pl.spell.kind; }), kind = kinds[Math.floor(Math.random() * kinds.length)];
+    pl.size = 1; pl.floaty = 0; pl.sparkle = 0;
+    this.puff(P.x, P.y + 0.4, P.z, 24, 'snow', 0.6); this.sfx('ding'); this.sfx('found');
+    if (W) this.say(['*ZAP*', 'ABRACADABRA!', 'by my beard!', 'hocus pocus!', '*fizzle*... oops'][Math.floor(Math.random() * 5)], W.group, W.top + 1.5, 1.6);
+    var line;
+    switch (kind) {
+      case 'grow': pl.size = 1.9; line = 'WHOA. I\u2019m HUGE'; break;
+      case 'shrink': pl.size = 0.45; line = 'eep! so tiny!'; break;
+      case 'float': pl.floaty = now + 25000; line = 'I feel... light'; break;
+      case 'sparkle': pl.sparkle = now + 25000; line = 'ooh, I\u2019m sparkly'; break;
+      default: line = 'the wizard says: \u201c' + FORTUNES[Math.floor(Math.random() * FORTUNES.length)] + '\u201d';
+    }
+    pl.spell = { kind: kind, at: now, until: kind === 'fortune' ? now + 4000 : now + 25000 };
+    var self = this; setTimeout(function () { self.say(line, pl.g, 1.0, 2.2); }, 600);
+  };
+  // ---- the windmills: give them a shove and a gust takes you ----------------------------
+  Town.prototype.millGust = function () {
+    var pl = this.player, M = this.st.mill, now = performance.now(), self = this;
+    if (!M || now < (this.gustUntil || 0)) return;
+    if (pl.seat) this.leaveSeat(pl);
+    this.gustUntil = now + 7000;
+    var c = new T.Vector3(); M.group.getWorldPosition(c);
+    var P = pl.g.position, ax = P.x - c.x, az = P.z - c.z, l = Math.hypot(ax, az) || 1;
+    this.say('*creeeak*', pl.g, 1.0, 1.0); this.sfx('rustle');
+    for (var i = 0; i < 4; i++) this.puff(c.x + (Math.random() - 0.5) * 6, c.y + 2, c.z + (Math.random() - 0.5) * 6, 6, 'leaf', 1.0);
+    setTimeout(function () {
+      pl.vy = 7; pl.air = 0.1; pl.push = { vx: ax / l * 7, vz: az / l * 7, until: performance.now() + 2600 };
+      self.say(['WHOOOOAAA', 'WHEEEEE', 'I can FLY'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.4); self.sfx('snow');
+      self.puff(pl.g.position.x, pl.g.position.y + 0.3, pl.g.position.z, 14, 'leaf', 0.6);
+    }, 900);
+  };
+
+  // ---- the mine: lifting digs it deeper --------------------------------------------------
+  // Every pound lifted is a pound of rock dug out of the hills. Walk in and pick away: the
+  // deeper it goes, the better the finds (coal near the top, diamonds right at the bottom).
+  var MINE_STEPS = [[50000, 'A mine in the hills'], [100000, 'Rails and an ore cart'], [200000, 'Lanterns along the track'], [300000, 'Ore piles and a pickaxe rack'],
+    [450000, 'A winding tower over a second shaft'], [600000, 'Glowing crystals in the rock'], [800000, 'A miners\u2019 hut'], [1050000, 'A second cart and a longer track'],
+    [1350000, 'A gem-cutter\u2019s bench'], [1700000, 'A golden mine cart']];
+  var MINE_FINDS = [['a lump of coal', 0, 30], ['some copper ore', 0, 24], ['an old miner\u2019s helmet', 0, 4], ['a chunk of iron ore', 1, 20], ['a quartz crystal', 1, 12], ['a fossil!', 2, 6],
+    ['a silver nugget', 2, 10], ['a geode!', 3, 6], ['a gold nugget!', 3, 7], ['an amethyst!', 4, 6], ['a topaz!', 5, 5], ['an emerald!!', 6, 3], ['a ruby!!', 7, 2.5], ['a sapphire!!', 8, 2], ['a DIAMOND!!!', 6, 1.2]];
+  Town.prototype.growMine = function (delay, ev) {
+    var s = this.st, self = this, pick = 'mine';
+    if (s.tonnage < MINE_STEPS[0][0] && !s.mine) return;
+    if (!s.mine) {
+      var spot = this.secretSpot(52, 64, 5), g = new T.Group();
+      s.secretPos.mine = spot;
+      g.position.set(spot.x, groundY(spot.x, spot.z), spot.z); g.rotation.y = Math.atan2(-spot.x, -spot.z);
+      this.world.add(g);
+      s.mine = { g: g, n: 0, spot: spot };
+    }
+    var M = s.mine;
+    while (M.n < MINE_STEPS.length && s.tonnage >= MINE_STEPS[M.n][0]) {
+      var k = M.n++, o = new T.Group(); M.g.add(o);
+      var P = function (geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || o, geo, mat, sx, sy, sz, x, y, z, pick); };
+      var rock = self.mat('rock');
+      switch (k) {
+        case 0:
+          // A rocky hillock with a timber-framed tunnel mouth, a lantern and a sign.
+          P(self.geo.blob, rock, 4.2, 2.6, 2.6, 0, 0.9, -2.2); P(self.geo.blob, rock, 2.4, 1.9, 1.8, -2.6, 0.6, -1.4); P(self.geo.blob, rock, 2.0, 1.6, 1.6, 2.6, 0.5, -1.5);
+          P(self.geo.box, rock, 2.6, 2.2, 1.0, 0, 1.0, 0.45);   // a cut rock face for the tunnel
+          P(self.geo.blob, self.mat('hedge'), 1.4, 0.5, 1.2, -1.2, 2.9, -2.4); P(self.geo.blob, self.mat('hedge'), 1.0, 0.4, 0.9, 1.6, 2.4, -2.2);
+          P(self.geo.box, self.mat('swan', 2), 1.25, 1.5, 0.6, 0, 0.75, 1.15);
+          [-0.72, 0.72].forEach(function (x) { P(self.geo.box, self.mat('logwood', 0), 0.18, 1.75, 0.18, x, 0.87, 1.5); });
+          P(self.geo.box, self.mat('logwood', 1), 1.8, 0.2, 0.22, 0, 1.75, 1.5);
+          P(self.geo.box, self.mat('woodLight'), 0.9, 0.32, 0.05, 0, 2.05, 1.62);
+          [-0.25, 0, 0.25].forEach(function (x) { P(self.geo.box, self.mat('stoneDark'), 0.14, 0.18, 0.02, x, 2.05, 1.65); });
+          P(self.geo.box, self.mat('lantern'), 0.16, 0.22, 0.16, 0.95, 1.35, 1.6);
+          break;
+        case 1:
+          // Rails running out of the tunnel, and a cart full of ore.
+          [-0.32, 0.32].forEach(function (x) { P(self.geo.box, self.mat('stoneDark'), 0.05, 0.05, 4.6, x, 0.05, 3.2); });
+          for (var sl = 0; sl < 10; sl++) P(self.geo.box, self.mat('wood'), 0.9, 0.04, 0.16, 0, 0.02, 1.2 + sl * 0.45);
+          var cart = new T.Group(); cart.position.set(0, 0.1, 3.6); o.add(cart);
+          P(self.geo.box, self.mat('trunk'), 0.75, 0.45, 0.95, 0, 0.35, 0, cart);
+          [[-0.35, -0.3], [0.35, -0.3], [-0.35, 0.3], [0.35, 0.3]].forEach(function (w) { P(self.geo.cyl, self.mat('stoneDark'), 0.14, 0.06, 0.14, w[0], 0.12, w[1], cart).rotation.z = Math.PI / 2; });
+          for (var or = 0; or < 6; or++) P(self.geo.ball, self.mat(or % 3 ? 'stoneDark' : 'copper'), 0.16, 0.14, 0.16, ((or % 3) - 1) * 0.2, 0.62, (Math.floor(or / 3) - 0.5) * 0.3, cart);
+          break;
+        case 2:
+          [[1.0, 2.4], [-1.0, 4.0], [1.0, 5.4]].forEach(function (l) { P(self.geo.cyl6, self.mat('logwood', 0), 0.05, 1.5, 0.05, l[0], 0.75, l[1]); P(self.geo.box, self.mat('lantern'), 0.14, 0.18, 0.14, l[0], 1.5, l[1]); });
+          break;
+        case 3:
+          [[-1.6, 2.6], [-2.2, 3.3]].forEach(function (op, i) { P(self.geo.blob, self.mat('stoneDark'), 0.7, 0.45, 0.6, op[0], 0.2, op[1]); for (var g3 = 0; g3 < 5; g3++) P(self.geo.ball, self.mat(i ? 'gold' : 'copper'), 0.08, 0.08, 0.08, op[0] + Math.cos(g3 * 1.3) * 0.35, 0.35 + (g3 % 2) * 0.1, op[1] + Math.sin(g3 * 1.3) * 0.3); });
+          P(self.geo.box, self.mat('wood'), 1.2, 0.08, 0.1, 1.9, 0.9, 2.2); [1.4, 2.4].forEach(function (x) { P(self.geo.box, self.mat('wood'), 0.08, 0.9, 0.08, x, 0.45, 2.2); });
+          for (var px = 0; px < 3; px++) { P(self.geo.box, self.mat('woodLight'), 0.04, 0.8, 0.04, 1.55 + px * 0.35, 0.55, 2.28).rotation.z = 0.1; P(self.geo.box, self.mat('silver'), 0.36, 0.06, 0.06, 1.55 + px * 0.35, 0.95, 2.3); }
+          break;
+        case 4:
+          // A timber headframe with a winding wheel over a second shaft.
+          o.position.set(-3.6, 0, 1.4);
+          [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]].forEach(function (lg) { var post = P(self.geo.box, self.mat('logwood', 1), 0.14, 3.6, 0.14, lg[0] * 0.6, 1.8, lg[1] * 0.6); post.rotation.set(lg[1] * 0.12, 0, -lg[0] * 0.12); });
+          [1.2, 2.4].forEach(function (y) { P(self.geo.box, self.mat('logwood', 0), 1.0, 0.1, 0.1, 0, y, 0.45); P(self.geo.box, self.mat('logwood', 0), 1.0, 0.1, 0.1, 0, y, -0.45); });
+          var wh = P(self.geo.torus, self.mat('stoneDark'), 0.55, 0.55, 0.55, 0, 3.6, 0); wh.rotation.y = Math.PI / 2; M.wheel = wh;
+          P(self.geo.box, self.mat('swan', 2), 0.9, 0.05, 0.9, 0, 0.03, 0);
+          P(self.geo.cyl6, self.mat('stoneDark'), 0.01, 3.4, 0.01, 0, 1.9, 0.5);
+          break;
+        case 5:
+          // Crystals pushing out of the rock round the tunnel.
+          [[-1.3, 1.6, 0.6, 0.3], [-1.6, 1.0, 0.9, -0.4], [1.4, 1.8, 0.8, 0.4], [1.7, 1.1, 1.0, -0.3], [0.4, 2.5, 0.4, 0.2], [-0.6, 2.4, 0.5, -0.2]].forEach(function (c, i) {
+            var cr = P(self.geo.cone4, self.mat(i % 2 ? 'elfRoof' : 'glass', i % 2 ? 0 : 3), 0.18, 0.6, 0.18, c[0], c[1], c[2]); cr.rotation.z = c[3];
+            P(self.geo.cone4, self.mat('lantern'), 0.08, 0.35, 0.08, c[0] + 0.12, c[1] - 0.1, c[2] + 0.1).rotation.z = c[3] + 0.3;
+          });
+          break;
+        case 6:
+          o.position.set(3.4, 0, 1.8); o.rotation.y = -0.5;
+          P(self.geo.box, self.mat('logwood', 0), 1.8, 1.2, 1.5, 0, 0.6, 0);
+          P(self.geo.gable, self.mat('wood'), 1.25, 0.9, 1.1, 0, 1.2, 0).rotation.y = Math.PI / 2;
+          P(self.geo.box, self.mat('wood'), 0.4, 0.75, 0.05, -0.4, 0.38, 0.77); P(self.geo.box, self.mat('window'), 0.35, 0.3, 0.05, 0.4, 0.7, 0.77);
+          P(self.geo.box, self.mat('stone', 2), 0.3, 1.0, 0.3, 0.6, 1.6, -0.4);
+          break;
+        case 7:
+          [-0.32, 0.32].forEach(function (x) { P(self.geo.box, self.mat('stoneDark'), 0.05, 0.05, 3.0, x + 1.6, 0.05, 6.4); });
+          for (var s2 = 0; s2 < 7; s2++) P(self.geo.box, self.mat('wood'), 0.9, 0.04, 0.16, 1.6, 0.02, 5.0 + s2 * 0.45);
+          P(self.geo.box, self.mat('stoneDark'), 0.05, 0.05, 1.8, 0.8, 0.05, 5.4).rotation.y = 0.9;
+          var cart2 = new T.Group(); cart2.position.set(1.6, 0.1, 6.6); o.add(cart2);
+          P(self.geo.box, self.mat('trunk'), 0.7, 0.42, 0.9, 0, 0.33, 0, cart2);
+          for (var o2 = 0; o2 < 5; o2++) P(self.geo.ball, self.mat(o2 % 2 ? 'silver' : 'stoneDark'), 0.15, 0.13, 0.15, ((o2 % 3) - 1) * 0.2, 0.58, (o2 % 2 - 0.5) * 0.3, cart2);
+          break;
+        case 8:
+          o.position.set(-2.0, 0, 4.2);
+          P(self.geo.box, self.mat('wood'), 1.2, 0.08, 0.6, 0, 0.75, 0); [-0.5, 0.5].forEach(function (x) { P(self.geo.box, self.mat('wood'), 0.08, 0.75, 0.5, x, 0.37, 0); });
+          P(self.geo.cyl, self.mat('stone', 1), 0.22, 0.08, 0.22, -0.3, 0.84, 0).rotation.x = Math.PI / 2;
+          for (var gm = 0; gm < 5; gm++) P(self.geo.cone4, self.mat(gm % 2 ? 'flag' : 'glass', gm), 0.06, 0.08, 0.06, 0.1 + gm * 0.1, 0.83, (gm % 2) * 0.12 - 0.06);
+          break;
+        case 9:
+          var gc = new T.Group(); gc.position.set(-0.9, 0.1, 5.4); gc.rotation.y = 0.3; o.add(gc);
+          P(self.geo.box, self.mat('gold'), 0.8, 0.5, 1.0, 0, 0.36, 0, gc);
+          [[-0.38, -0.32], [0.38, -0.32], [-0.38, 0.32], [0.38, 0.32]].forEach(function (w) { P(self.geo.cyl, self.mat('stoneDark'), 0.15, 0.06, 0.15, w[0], 0.12, w[1], gc).rotation.z = Math.PI / 2; });
+          for (var gg = 0; gg < 6; gg++) P(self.geo.ball, self.mat(gg % 2 ? 'gold' : 'lantern'), 0.15, 0.13, 0.15, ((gg % 3) - 1) * 0.22, 0.66, (Math.floor(gg / 3) - 0.5) * 0.32, gc);
+          break;
+      }
+      if (k !== 0) { var ax = 0, az = 0, cnt = 0; o.children.forEach(function (ch) { ax += ch.position.x; az += ch.position.z; cnt++; }); if (cnt && !o.position.x) this.settle(o, ax / cnt, az / cnt, M.g); else if (cnt) this.settle(o, o.position.x, o.position.z, M.g); }
+      if (!this.instant) this.pop(o, (delay || 0) + 300);
+      if (this.onSecret) this.onSecret({ id: 'mine#' + k, title: k ? 'The mine goes deeper' : 'The mine', text: k ? fmtN(MINE_STEPS[k][0]) + ' lb lifted! The mine gets ' + MINE_STEPS[k][1].toLowerCase() + ', and the finds get better.' : '50,000 lb lifted! Somebody\u2019s dug a mine into the hills. Every pound you lift digs it deeper; walk in and see what you find.' }, ev);
+      this.solidAt = 0;
+    }
+  };
+  Town.prototype.enterMine = function (pl) {
+    var M = this.st.mine;
+    if (!M) return;
+    if (pl.seat) this.leaveSeat(pl);
+    var door = M.g.localToWorld(new T.Vector3(0, 0, 1.9));
+    pl.mine = { t: 0, door: door, next: 0.5 };
+    pl.g.position.set(door.x, this.floorAt(door.x, door.z, door.y + 2), door.z);
+    pl.g.visible = false;
+    this.say('into the mine!', M.g, 2.6, 1.2);
+  };
+  Town.prototype.mineStep = function (pl, dt, now) {
+    var Mi = pl.mine, M = this.st.mine, d = Mi.door;
+    Mi.t += dt;
+    if (Mi.t > Mi.next) { Mi.next += 0.55; this.say(['*clink*', '*tink*', '*CLANG*', '*chip chip*'][Math.floor(Math.random() * 4)], M.g, 1.6 + Math.random() * 0.6, 0.5); this.sfx('clang'); this.puff(d.x, d.y + 0.8, d.z, 2, 'dust', 0.2); }
+    if (Mi.t < 2.8) return;
+    // Back out, blinking in the daylight, with a find.
+    pl.mine = null; pl.g.visible = true; pl.idle = 0;
+    var depth = M.n, pool = MINE_FINDS.filter(function (f) { return f[1] < depth; }), tot = pool.reduce(function (a, f) { return a + f[2]; }, 0), r = Math.random() * tot, find = pool[0];
+    for (var i = 0; i < pool.length; i++) { r -= pool[i][2]; if (r <= 0) { find = pool[i]; break; } }
+    this.mineFinds = (this.mineFinds || 0) + 1;
+    this.loot = (this.loot || 0) + 1; if (this.onLoot) this.onLoot(find[0], this.loot);
+    this.say('found ' + find[0], pl.g, 1.0, 2.4); this.sfx('found');
+    this.carryItem(pl);
+    var P = pl.g.position, out = M.g.localToWorld(new T.Vector3(0, 0, 2.6)); P.x = out.x; P.z = out.z; P.y = this.floorAt(out.x, out.z, out.y + 2);
+    pl.g.rotation.y = M.g.rotation.y;
+    if (/DIAMOND/.test(find[0]) && !this.crowned) {
+      // A diamond! Royalty.
+      this.crowned = true; this.crown(pl); if (this.onCrown) this.onCrown();
+      this.hearts(P, 1.2);
+      if (this.onSecret) this.onSecret({ id: 'diamond', title: 'Raccoon Royalty', text: 'A DIAMOND from the bottom of the mine! The raccoon has had it set in a little golden crown, and wears it everywhere now.' });
+    }
+  };
+  // A little gold crown with a diamond in front.
+  Town.prototype.crown = function (pl) {
+    if (pl.crownG) return;
+    var c = pl.crownG = new T.Group(); c.position.set(0, 0.12, 0.0); pl.head.add(c);
+    this.part(c, this.geo.cyl, this.mat('gold'), 0.11, 0.06, 0.11, 0, 0, 0);
+    for (var i = 0; i < 5; i++) { var a = i / 5 * Math.PI * 2; this.part(c, this.geo.cone4, this.mat('gold'), 0.03, 0.07, 0.03, Math.cos(a) * 0.09, 0.06, Math.sin(a) * 0.09); }
+    this.part(c, this.geo.cone4, this.mat('swan', 0), 0.03, 0.04, 0.03, 0, 0.01, 0.11).rotation.x = Math.PI / 2;
+  };
+
   // ---- campfires: cook what you catch ------------------------------------------
   // One on the lake shore and one up on the beach by the harbour, on flat open ground (plus the
   // island bonfire once it's built).
@@ -4186,7 +4380,7 @@
     var p = this.sitPose(now / 1000, 'sit');
     p.legs[0] = p.legs[1] = C.t < 5 ? -1.05 : -1.5; p.front = { y: 0.42, z: 0.08 }; p.hx += C.t < 5 ? 0.2 : 0; p.hy = 0;
     this.applyPose(pl, p, dt, now / 1000, false);
-    pl.g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+    pl.g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
   };
 
   // ---- the harbour: rowing and paddling build it ---------------------------
@@ -5244,6 +5438,9 @@
     { id: 'swans', title: 'The Swans', hint: 'Row 100 km.', text: '100 km rowed and paddled! A family of swans has settled on the lake behind the mountains.' },
     { id: 'shipwreck', title: 'The Shipwreck', hint: '365 workouts in one year.', text: '365 workouts in a single year! An old shipwreck has surfaced in the shallows, with a treasure chest glinting on its deck.' },
     { id: 'aurora', title: 'The Northern Lights', hint: 'Keep a seven-day streak in winter.', text: 'A seven-day streak in the dead of winter! On winter nights the northern lights now dance over Yukon.' },
+    { id: 'thousand', title: 'The Golden Raccoon', hint: 'Show up a thousand times.', text: '1,000 workouts! A golden raccoon hoisting a barbell now stands on the town square. Legend.' },
+    { id: 'phoenix', title: 'The Phoenix', hint: 'Come back after two weeks off.', text: 'Back after a long break! A phoenix has risen over Yukon, circling the town on wings of fire. Welcome back.' },
+    { id: 'bookworm', title: 'The Bookworm', hint: 'Finish twenty-five books.', text: 'Twenty-five books! A giant bookworm in reading glasses has curled up on a stack of books by the library.' },
     { id: 'mellon', title: 'The Doors of Durin', hint: 'Speak, friend, and enter.', text: 'Mellon! Moonlit runes glow on a hidden door at the foot of the mountains, and it swings open for you.' },
     { id: 'sub20', title: 'The Golden Runner', hint: 'Run 5 km in 20 minutes (on Strava).', big: true,
       text: 'A SUB-20 5K! The whole town is setting off fireworks, and a giant golden runner now strides over the forest. This one is a big deal.' }
@@ -5269,6 +5466,7 @@
         s.streak = gap === 1 ? s.streak + 1 : 1;
         s.bestStreak = Math.max(s.bestStreak || 0, s.streak);
         s.streakDate = ev.date;
+        if (gap >= 14 && gap < 99) hit('phoenix');
         if (s.streak % 7 === 0) {
           s.streaks = (s.streaks || 0) + 1;
           if ([12, 1, 2].indexOf(+ev.date.slice(5, 7)) >= 0) hit('aurora');
@@ -5295,6 +5493,8 @@
     if ((b.deadlift || 0) >= 405) hit('dragon');
     if (s.sessions >= 100) hit('wizard');
     if (s.sessions >= 500) hit('rainbow');
+    if (s.sessions >= 1000) hit('thousand');
+    if (s.library.books.length >= 25) hit('bookworm');
     if (ev.dogs && ev.dogs.length >= 3) hit('goodboys');
     if (ev.kind === 'run' && ev.km >= 42) hit('marathon');
     if (s.tonnage >= 1e6) hit('hobbit');
@@ -5478,6 +5678,41 @@
     function place(p, faceTown) { pos = p; g.position.set(p.x, groundY(p.x, p.z), p.z); if (faceTown) g.rotation.y = Math.atan2(-p.x, -p.z); }
     var stone = this.mat('citDark'), rock = this.mat('rock');
     switch (id) {
+      case 'thousand':
+        // The statue itself is part of the town square (its 1,000-workout step).
+        return { x: TOWN_SQ.x + 2.2, z: TOWN_SQ.z - 1.35 };
+      case 'phoenix': {
+        // A nest of embers up on a rock spire; the bird itself circles high over the town.
+        place(this.secretSpot(110, 34, 2.2), true);
+        P(this.geo.cone6, rock, 1.4, 4.0, 1.4, 0, 2.0, 0);
+        P(this.geo.torus, this.mat('trunk'), 0.7, 0.7, 0.6, 0, 4.1, 0).rotation.x = Math.PI / 2;
+        P(this.geo.cone, this.mat('fire'), 0.35, 0.5, 0.35, 0, 4.3, 0);
+        var fb = this.bird('phoenix', 'phoenix', 2.0, { head: true });
+        fb.g.scale.multiplyScalar(1.6); this.world.add(fb.g);
+        var tl = new T.Group(); fb.g.add(tl);
+        for (var pf = 0; pf < 4; pf++) { var plume = this.mesh(this.geo.cone4, this.mat(pf % 2 ? 'fire' : 'lantern'), tl); plume.scale.set(0.12, 0.6 - pf * 0.08, 0.05); plume.position.set((pf - 1.5) * 0.08, 0, -0.5 - pf * 0.05); plume.rotation.x = -Math.PI / 2 - 0.2; }
+        this.st.phoenix = { g: fb.g, wings: fb.wings, c: { x: TOWN_SQ.x * 0.5, z: TOWN_SQ.z * 0.5 } };
+        break;
+      }
+      case 'bookworm': {
+        // Three giant books in a stack and a bookworm in round glasses curled on top, reading.
+        place(this.secretSpot(angleOf(LIBRARY.x, LIBRARY.z) - 6, Math.hypot(LIBRARY.x, LIBRARY.z) + 9, 2.4), true);
+        [[2.0, 0.5, 1.5, 'flag', 0, 0.1], [1.8, 0.45, 1.35, 'flag', 2, -0.15], [1.6, 0.42, 1.2, 'flag', 3, 0.2]].forEach(function (b, i) {
+          var bk = P(self.geo.box, self.mat(b[3], b[4]), b[0], b[1], b[2], 0, 0.25 + i * 0.46, 0); bk.rotation.y = b[5];
+          P(self.geo.box, self.mat('paper', 0), b[0] - 0.08, b[1] - 0.08, b[2] + 0.02, 0.05, 0.25 + i * 0.46, 0).rotation.y = b[5];
+        });
+        var wm = this.mat('worm', 0), wt = 1.35;
+        for (var ws = 0; ws < 7; ws++) { var wa = ws / 7 * Math.PI * 1.4 - 0.4; P(this.geo.ball, ws % 2 ? wm : this.mat('worm', 1), 0.42 - ws * 0.025, 0.4 - ws * 0.025, 0.42 - ws * 0.025, Math.cos(wa) * 0.5, wt + 0.18 + (ws === 0 ? 0.5 : 0), Math.sin(wa) * 0.5); }
+        var hd = new T.Group(); hd.position.set(Math.cos(-0.4) * 0.5, wt + 1.05, Math.sin(-0.4) * 0.5); g.add(hd);
+        P(this.geo.ball, wm, 0.5, 0.48, 0.5, 0, 0, 0, hd);
+        [-0.12, 0.12].forEach(function (x) { P(self.geo.torus, self.mat('stoneDark'), 0.11, 0.11, 0.11, x, 0.05, 0.24, hd); P(self.geo.ball, self.mat('swan', 2), 0.05, 0.05, 0.03, x, 0.05, 0.25, hd); });
+        P(this.geo.box, this.mat('stoneDark'), 0.06, 0.015, 0.02, 0, 0.05, 0.25, hd);
+        P(this.geo.box, this.mat('swan', 2), 0.38, 0.05, 0.38, 0, 0.28, 0, hd);                 // a mortarboard
+        P(this.geo.box, this.mat('swan', 2), 0.16, 0.08, 0.16, 0, 0.23, 0, hd);
+        P(this.geo.box, this.mat('gold'), 0.02, 0.18, 0.02, 0.17, 0.2, 0.1, hd);
+        var open = P(this.geo.box, this.mat('paper', 0), 0.5, 0.03, 0.35, 0.1, wt + 0.75, 0.45); open.rotation.x = -0.6;
+        break;
+      }
       case 'argonath': {
         // Two colossal kings on either bank of the river, left hands raised.
         var best = 0, bd = 1e9;
@@ -6105,8 +6340,17 @@
       d.rotation.y = -a;
       d.wings.forEach(function (w) { w.rotation.z = w.side * Math.sin(now / 260) * 0.55; });
     }
-    if (s.mill) s.mill.hubs.forEach(function (h) { h.rotation.z = now / 1400 + h.userData.phase; });
+    if (s.phoenix) {
+      var ph = s.phoenix, pa = now / 7000;
+      ph.g.position.set(ph.c.x + Math.cos(pa) * 24, 18 + Math.sin(now / 1300) * 1.5, ph.c.z + Math.sin(pa) * 24);
+      ph.g.rotation.y = -pa; ph.g.rotation.z = 0.25;
+      ph.wings.forEach(function (w) { w.rotation.z = w.userData.sd * Math.sin(now / 240) * 0.6; });
+      if (!this.reduced && !this.soft && now > (ph.sparkAt || 0)) { ph.sparkAt = now + 140; this.puff(ph.g.position.x, ph.g.position.y, ph.g.position.z, 1, 'smoke', 0.1); }
+    }
+    // Windmills turn steadily, and spin up in a gust.
+    if (s.mill) { var gm = this.gustUntil && now < this.gustUntil ? 9 : 1; s.mill.spin = (s.mill.spin || 0) + Math.min(0.1, (now - (s.mill.spinT || now)) / 1000) * gm * 0.714; s.mill.spinT = now; s.mill.hubs.forEach(function (h) { h.rotation.z = s.mill.spin + h.userData.phase; }); }
     if (s.wiz && s.wiz.crystals) { s.wiz.crystals.rotation.y = now / 2500; s.wiz.crystals.position.y = s.wiz.top - 2 + Math.sin(now / 900) * 0.25; }
+    if (s.mine && s.mine.wheel) s.mine.wheel.rotation.x = now / 900;
     if (s.wiz && s.wiz.island) s.wiz.island.position.y = 9.5 + Math.sin(now / 1300) * 0.35;
     if (s.sheep && s.sheep.list.length) {
       s.sheep.list.forEach(function (sh) {
@@ -7656,6 +7900,7 @@
           break;
       }
       if (st[1] === 'garden' || st[1] === 'lights' || st[1] === 'hops') o.position.x = -0.9; // out past the barrel yard
+      self.news(['the Slow Pour\u2019s got a new ' + st[2].toLowerCase().replace(/^an? /, '') + '!', 'have you been to the Slow Pour lately? ' + st[2].toLowerCase() + '!']);
       s.pub.add(o);
       self.pop(o, delay);
     });
@@ -7813,8 +8058,9 @@
     }
   };
   // ---- the town square grows cozier the more you train ----------------------------------
-  var SQUARE_STEPS = [[105, 'Flower planters in the corners'], [125, 'Hanging baskets on the lamps'], [145, 'Bunting along the boardwalk'], [175, 'Caf\u00e9 tables under umbrellas'],
-    [205, 'Cobbled paving'], [245, 'A second tier on the fountain'], [295, 'Potted trees on the boardwalk'], [355, 'A town clock'], [435, 'Flower beds round the fountain']];
+  var SQUARE_STEPS = [[105, 'Flower planters in the corners'], [125, 'Hanging baskets on the lamps'], [145, 'Bunting along the boardwalk'], [175, 'Lawns and low hedges'],
+    [205, 'Cobbled paths'], [245, 'A second tier on the fountain'], [295, 'Potted trees on the boardwalk'], [355, 'A town clock'], [435, 'Flower beds round the fountain'],
+    [520, 'A big old oak with a ring bench'], [620, 'A rose arbour over the west bench'], [750, 'Wildflower borders and a birdbath'], [1000, 'A golden raccoon statue']];
   Town.prototype.growSquare = function (delay) {
     var s = this.st, S = s.square || (s.square = { n: 0, g: null });
     while (S.n < SQUARE_STEPS.length && s.sessions >= SQUARE_STEPS[S.n][0]) this.squareStep(S.n++, delay);
@@ -7854,16 +8100,14 @@
           }
         });
         break;
-      case 3: // café tables
-        [-1, 1].forEach(function (sd, i) {
-          var x = sd * 2.5, z = -1.4;
-          P(self.geo.cyl, self.mat('wood'), 0.36, 0.05, 0.36, x, top + 0.62, z);
-          P(self.geo.cyl6, self.mat('stoneDark'), 0.04, 0.6, 0.04, x, top + 0.3, z);
-          P(self.geo.cyl6, self.mat('stoneDark'), 0.025, 1.3, 0.025, x, top + 1.25, z);
-          for (var u = 0; u < 8; u++) { var ua = u / 8 * Math.PI * 2; var pan = P(self.geo.cone4, self.mat('canvas', u % 2 ? 0 : 1 + i), 0.36, 0.3, 0.12, x + Math.cos(ua) * 0.32, top + 1.8, z + Math.sin(ua) * 0.32); pan.rotation.y = -ua + Math.PI / 2; pan.rotation.z = Math.PI / 2 - 0.45; }
-          P(self.geo.cone, self.mat('canvas', 1 + i), 0.75, 0.3, 0.75, x, top + 1.92, z);
-          [-0.5, 0.5].forEach(function (dz) { P(self.geo.box, self.mat('woodLight'), 0.3, 0.04, 0.3, x, top + 0.4, z + dz); P(self.geo.box, self.mat('woodLight'), 0.3, 0.32, 0.04, x, top + 0.58, z + dz + Math.sign(dz) * 0.14); });
-          P(self.geo.cyl, self.mat('swan', 0), 0.06, 0.05, 0.06, x + 0.1, top + 0.67, z);
+      case 3: // lawns in the four quarters, edged with low box hedges, a shrub at each inner corner
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c, i) {
+          var x0 = c[0] * 1.05, x1 = c[0] * 4.3, z0 = c[1] * 0.95, z1 = c[1] * 3.35, mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, w = Math.abs(x1 - x0), d = Math.abs(z1 - z0);
+          P(self.geo.box, self.mat('pitch'), w, 0.05, d, mx, top + 0.045, mz);
+          P(self.geo.box, self.mat('hedge'), w, 0.2, 0.16, mx, top + 0.15, z0 + c[1] * 0.08);
+          P(self.geo.box, self.mat('hedge'), 0.16, 0.2, d * 0.55, x0 + c[0] * 0.08, top + 0.15, z1 - c[1] * d * 0.275);
+          P(self.geo.blob, self.mat('hedge'), 0.32, 0.36, 0.32, x0 + c[0] * 0.25, top + 0.3, z0 + c[1] * 0.25);
+          for (var g2 = 0; g2 < 5; g2++) P(self.geo.blob, self.mat('pitch'), 0.08, 0.1, 0.08, mx + Math.cos(g2 * 2.1 + i) * w * 0.3, top + 0.1, mz + Math.sin(g2 * 1.7 + i) * d * 0.3);
         });
         break;
       case 4: // cobbles over the packed earth, and a stone ring round the fountain
@@ -7898,9 +8142,64 @@
       case 8: // flower beds round the fountain
         for (var fb = 0; fb < 28; fb++) { var fa = fb / 28 * Math.PI * 2; P(self.geo.ball, self.mat(fb % 4 ? 'flag' : 'hedge', fb % 5), 0.09, 0.08, 0.09, Math.cos(fa) * 1.32, top + 0.12, Math.sin(fa) * 1.32); }
         break;
+      case 9: { // a big old oak in the south-west lawn, a ring bench round its trunk
+        var ox = -3.0, oz = -1.35;
+        P(self.geo.cyl6, self.mat('trunk'), 0.32, 2.4, 0.32, ox, top + 1.2, oz);
+        [[0.9, 0.4], [-0.7, 0.6], [0.2, -0.8]].forEach(function (b) { var br = P(self.geo.cyl6, self.mat('trunk'), 0.1, 1.3, 0.1, ox + b[0] * 0.5, top + 2.6, oz + b[1] * 0.5); br.rotation.set(b[1] * 0.6, 0, -b[0] * 0.6); });
+        [[0, 3.3, 0, 1.7], [1.0, 3.0, 0.4, 1.1], [-1.0, 3.1, -0.3, 1.2], [0.2, 3.0, 1.0, 1.1], [-0.3, 3.9, -0.4, 1.1], [0.6, 3.6, -0.9, 1.0]].forEach(function (cn, ci) { P(self.geo.blob, self.mat('leaf', ci % 3 === 2 ? 2 : 0), cn[3], cn[3] * 0.75, cn[3], ox + cn[0], top + cn[1], oz + cn[2]); });
+        for (var rb = 0; rb < 8; rb++) { var ra = rb / 8 * Math.PI * 2; var bs = P(self.geo.box, self.mat('wood'), 0.42, 0.06, 0.24, ox + Math.cos(ra) * 0.62, top + 0.42, oz + Math.sin(ra) * 0.62); bs.rotation.y = -ra + Math.PI / 2; P(self.geo.box, self.mat('stoneDark'), 0.05, 0.36, 0.05, ox + Math.cos(ra) * 0.62, top + 0.2, oz + Math.sin(ra) * 0.62); }
+        for (var ac = 0; ac < 4; ac++) P(self.geo.ball, self.mat('wood'), 0.06, 0.07, 0.06, ox + 1.2 + ac * 0.15, top + 0.1, oz + 0.9 - ac * 0.2);
+        break;
+      }
+      case 10: { // a rose arbour over the west bench
+        var axx = -(Q.hx - 0.4);
+        [[1.0], [2.2]].forEach(function (zz) { [-0.4, 0.4].forEach(function (dx) { P(self.geo.box, self.mat('whitewood'), 0.08, 1.9, 0.08, axx + dx, 0.95 + 0.2, zz[0]); }); });
+        for (var ab = 0; ab < 5; ab++) P(self.geo.box, self.mat('whitewood'), 0.95, 0.06, 0.06, axx, 2.15, 0.9 + ab * 0.35);
+        [-0.42, 0.42].forEach(function (dx) { P(self.geo.box, self.mat('whitewood'), 0.06, 0.06, 1.5, axx + dx, 2.1, 1.6); });
+        for (var rs = 0; rs < 16; rs++) {
+          var rx = axx + ((rs % 4) - 1.5) * 0.3, rz = 0.9 + Math.floor(rs / 4) * 0.42, ry = 2.2 + (rs % 2) * 0.08;
+          P(self.geo.blob, self.mat('hedge'), 0.26, 0.16, 0.26, rx, ry, rz);
+          P(self.geo.ball, self.mat('flag', rs % 3 ? 0 : 4), 0.07, 0.07, 0.07, rx + 0.08, ry + 0.09, rz);
+        }
+        [-0.42, 0.42].forEach(function (dx) { for (var cl = 0; cl < 4; cl++) P(self.geo.blob, self.mat('hedge'), 0.12, 0.22, 0.12, axx + dx, 0.5 + cl * 0.42, 1.0 + (cl % 2) * 1.2); });
+        break;
+      }
+      case 11: { // wildflower borders along the lawns, and a stone birdbath
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c, i) {
+          for (var wf = 0; wf < 14; wf++) {
+            var t = wf / 13, x = c[0] * (1.3 + t * 2.9), z = c[1] * 3.2;
+            P(self.geo.cyl6, self.mat('pitch'), 0.02, 0.22, 0.02, x, top + 0.17, z);
+            P(self.geo.ball, self.mat('flag', (wf + i) % 5), 0.065, 0.065, 0.065, x, top + 0.3, z);
+          }
+        });
+        P(self.geo.cyl6, self.mat('stone', 1), 0.12, 0.6, 0.12, -2.8, top + 0.3, 1.9);
+        P(self.geo.cyl, self.mat('stone', 2), 0.38, 0.08, 0.38, -2.8, top + 0.64, 1.9);
+        P(self.geo.cyl, self.mat('water'), 0.32, 0.03, 0.32, -2.8, top + 0.69, 1.9);
+        [0, 2.4].forEach(function (a) { P(self.geo.ball, self.mat('trunk'), 0.07, 0.07, 0.09, -2.8 + Math.cos(a) * 0.32, top + 0.76, 1.9 + Math.sin(a) * 0.32); });
+        break;
+      }
+      case 12: { // the thousandth workout: a golden raccoon hoisting a barbell, on a stone plinth
+        var sx0 = 2.2, sz0 = -1.35, gold = self.mat('gold'), st = new T.Group(); st.position.set(sx0, top, sz0); st.rotation.y = Math.PI / 2 * 0; o.add(st);
+        P(self.geo.box, self.mat('stone', 2), 1.0, 0.75, 1.0, 0, 0.375, 0, st);
+        P(self.geo.box, self.mat('stone', 1), 1.1, 0.08, 1.1, 0, 0.78, 0, st);
+        P(self.geo.box, self.mat('stoneDark'), 0.6, 0.22, 0.03, 0, 0.42, 0.51, st);
+        P(self.geo.box, gold, 0.5, 0.03, 0.04, 0, 0.45, 0.53, st);
+        var rc = new T.Group(); rc.position.y = 0.82; st.add(rc);
+        P(self.geo.box, gold, 0.34, 0.6, 0.3, 0, 0.55, 0, rc);                  // standing tall
+        P(self.geo.box, gold, 0.32, 0.26, 0.28, 0, 1.0, 0.02, rc);              // head
+        P(self.geo.box, gold, 0.14, 0.12, 0.16, 0, 0.96, 0.2, rc);              // snout
+        [-0.1, 0.1].forEach(function (x) { P(self.geo.cone4, gold, 0.07, 0.14, 0.05, x, 1.2, 0, rc); });
+        [-0.1, 0.1].forEach(function (x) { P(self.geo.box, gold, 0.1, 0.3, 0.12, x, 0.15, 0.02, rc); });
+        [-1, 1].forEach(function (sd) { P(self.geo.box, gold, 0.09, 0.42, 0.09, sd * 0.24, 1.05, 0, rc).rotation.z = sd * -0.35; });
+        for (var tr = 0; tr < 6; tr++) P(self.geo.box, gold, 0.16 - Math.abs(tr - 2) * 0.012, 0.14, 0.12, 0, 0.3 + tr * 0.03, -0.2 - tr * 0.09, rc);
+        var bar = P(self.geo.cyl, self.mat('silver'), 0.03, 1.3, 0.03, 0, 1.32, 0, rc); bar.rotation.z = Math.PI / 2;
+        [-0.58, 0.58].forEach(function (x) { P(self.geo.cyl, gold, 0.22, 0.06, 0.22, x, 1.32, 0, rc).rotation.z = Math.PI / 2; });
+        break;
+      }
     }
     this.pop(o, delay || 0);
     this.solidAt = 0;
+    this.news(['did you see the square? ' + SQUARE_STEPS[k][1].toLowerCase() + '!', 'ooh, ' + SQUARE_STEPS[k][1].toLowerCase() + ' on the square. lovely!']);
   };
   // ---- townsfolk: mice in their Sunday best -------------------------------------------------
   // They live in your friends' houses, stroll the streets, pop in on each other, sit on the
@@ -7954,9 +8253,17 @@
     var lb = (ev.label || 'workout').slice(0, 28);
     return 'saw your ' + lb + ' today!';
   };
+  // Something new in town: the mice talk about it for a week after the day it happened.
+  Town.prototype.news = function (lines, date) {
+    var s = this.st, d = date || s.lastDate;
+    if (!d || this.instantNews === false) return;
+    (s.newsList = s.newsList || []).push({ lines: lines, date: d });
+  };
   Town.prototype.mouseRemark = function () {
     var s = this.st, t = this.today;
     if (!t || !s.byDay) return null;
+    var fresh = (s.newsList || []).filter(function (n) { var age = (Date.parse(t) - Date.parse(n.date)) / 864e5; return age >= 0 && age <= 7; });
+    if (fresh.length && Math.random() < 0.45) return pickOne(pickOne(fresh).lines);
     var day = s.byDay[t] || [], work = day.filter(function (e) { return !NOT_WORKOUTS[e.kind]; }), callouts = [], main;
     if (work.length) main = this.workoutLine(pickOne(work));
     else {
@@ -8537,6 +8844,7 @@
         s.lifts++;
         s.prs += ev.prCount || 0;
         s.tonnage += ev.tonnage || 0;
+        this.growMine(delay, ev);
         this.castleMilestones(delay);
         this.markBatch();
         mark('castle');
@@ -8717,6 +9025,10 @@
         return { title: 'The library', lines: ['Click for your bookshelf: covers, ratings and reviews.', plural(LB.books.length, 'book') + ' · ' + fmtN(LB.pages) + ' pages' + (real.length < LB.books.length ? ' (' + (LB.books.length - real.length) + ' projected)' : ''),
           nextL ? 'Next: ' + nextL[1].toLowerCase() + ' at ' + fmtN(nextL[0]) + ' pages.' : 'The library is complete.'] };
       case 'raccoon': return { title: 'The raccoon', lines: ['That\u2019s you. You follow whichever castle is being built.'] };
+      case 'mine': {
+        var Mi = this.st.mine, mn = Mi ? Mi.n : 0, nxM = MINE_STEPS[mn];
+        return { title: 'The mine', lines: ['Every pound you lift digs it deeper: ' + fmtN(Math.round(this.st.tonnage)) + ' lb so far, level ' + mn + ' of ' + MINE_STEPS.length + '.', nxM ? 'Next: ' + nxM[1].toLowerCase() + ' at ' + fmtN(nxM[0]) + ' lb.' : 'The mine is as deep as it goes.', 'Walk up and press E to go digging: the deeper it is, the better the finds.' + (this.mineFinds ? ' Found so far: ' + this.mineFinds + '.' : '')] };
+      }
       case 'campfire':
         return { title: 'Campfire', lines: ['Catch a fish, bring it here and press E to cook it on a stick.', (this.st.cooked || 0) ? plural(this.st.cooked, 'fish') + ' cooked here so far.' : 'Nothing cooked yet.'] };
       case 'townsquare': {
@@ -9151,6 +9463,7 @@
     [-0.06, 0.06].forEach(function (x) { var e = new T.Mesh(this.geo.box, pc.eyeMat); e.scale.set(0.045, 0.04, 0.02); e.position.set(x, 0.03, 0.13); pc.head.add(e); }, this);
     // And a mouth to carry things in.
     pc.mouth = new T.Group(); pc.mouth.position.set(0, -0.08, 0.27); pc.head.add(pc.mouth);
+    if (this.crowned) this.crown(pc);
     return pc;
   };
   Town.prototype.stepPlayer = function (dt, now) {
@@ -9169,6 +9482,16 @@
     // Snowboarding and paddleboarding have their own controls.
     if (pl.snow) { this.snowStep(pl, mx, mz, dt, now); this.followCam(P, dt); return true; }
     if (pl.paddle) { this.paddleStep(pl, mx, mz, dt, now); this.followCam(P, dt); return true; }
+    if (pl.spell && now > pl.spell.until) { pl.spell = null; pl.size = 1; pl.floaty = 0; pl.sparkle = 0; this.puff(P.x, P.y + 0.3, P.z, 10, 'snow', 0.3); this.say('...it wore off', pl.g, 1.0, 1.2); }
+    if (pl.sparkle && now < pl.sparkle && Math.random() < dt * 14) this.puff(P.x + (Math.random() - 0.5) * 0.4, P.y + 0.2 + Math.random() * 0.4, P.z + (Math.random() - 0.5) * 0.4, 1, 'snow', 0.05);
+    if (pl.push && now < pl.push.until) {
+      var gx = P.x + pl.push.vx * dt, gz = P.z + pl.push.vz * dt;
+      if (this.walkable(gx, gz, P.y + 0.3, true)) { P.x = gx; P.z = gz; }
+      pl.push.vx *= 1 - dt * 0.6; pl.push.vz *= 1 - dt * 0.6;
+      if (Math.random() < dt * 10) this.puff(P.x, P.y + 0.3, P.z, 1, 'leaf', 0.3);
+    }
+    // Down the mine: out of sight, picking away, then back out with whatever turned up.
+    if (pl.mine) { this.mineStep(pl, dt, now); this.followCam(P, dt); return true; }
     // Cooking at a campfire: stay put till it's done (move to give up and take the fish back).
     if (pl.cook) {
       if (moving) this.endCook(pl, true);
@@ -9235,7 +9558,7 @@
     // Falling, jumping and landing on whatever's underneath: ground, a roof, a wall, a bench.
     floor = this.floorAt(P.x, P.z, P.y + STEP_UP);
     if (pl.vy > 0 || P.y - floor > STEP_UP) {
-      pl.vy -= GRAVITY * dt; P.y += pl.vy * dt;
+      pl.vy -= GRAVITY * (pl.floaty && now < pl.floaty ? 0.3 : 1) * dt; P.y += pl.vy * dt;
       pl.fallFrom = Math.max(pl.fallFrom || P.y, P.y);
       if (P.y <= floor) {
         var wl = waterAt(P.x, P.z);
@@ -9336,6 +9659,10 @@
     if (pl && pl.ride) { this.dismount(pl); return; }
     if (pl && pl.cook) { this.endCook(pl, true); return; }
     if (pl && this.near === 'coyotes' && this.gangNear(pl.g.position, 3.5)) { this.squareUp(); return; }
+    if (pl && pl.mine) return;
+    if (pl && !pl.paddle && this.near === 'mine') { this.enterMine(pl); return; }
+    if (pl && !pl.paddle && this.near === 'secret:wizard') { this.wizardSpell(); return; }
+    if (pl && !pl.paddle && this.near === 'secret:windmill') { this.millGust(); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'campfire') {
       var cf = this.fireNear(pl.g.position, 2.4);
       if (pl.carry && pl.carry.kind === 'fish') { this.startCook(pl, cf); return; }
@@ -9378,6 +9705,7 @@
     var pl = this.player;
     if (this.fishGame) { this.fishGame.press(); return; }
     if (pl && pl.cook) { this.endCook(pl, true); return; }
+    if (pl && pl.mine) return;
     if (pl && pl.ride) { this.dismount(pl); return; }
     if (pl && pl.snow) { if (!pl.snow.vy && pl.snow.onGround) { pl.snow.vy = 4.2; this.say(['ollie!', 'kickflip!', 'woo!'][Math.floor(Math.random() * 3)], pl.g, 1.0, 0.8); } return; }
     if (pl && pl.paddle) { this.leavePaddle(pl, true); return; }
@@ -9418,7 +9746,7 @@
       P.y = C.y1 + 0.1 + Math.sin(v * Math.PI) * 0.25 - 0.1 * v;
       pl.body.rotation.x += (0 - pl.body.rotation.x) * Math.min(1, dt * 14);
     }
-    pl.g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+    pl.g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
     if (t >= 1) { P.set(C.x1, this.floorAt(C.x1, C.z1, C.y1 + 0.4), C.z1); pl.climb = null; pl.vy = 0; pl.squash = 0.12; pl.idle = 0; }
   };
   Town.prototype.seatNear = function (x, z) {
@@ -9525,7 +9853,7 @@
     var sp = this.sitPose(now / 1000, seat.low ? 'ledge' : 'sit');
     if (pl.paper) { sp.legs[0] = sp.legs[1] = -1.2; sp.front = { y: 0.44, z: 0.08 }; sp.hx += 0.22; sp.hy *= 0.3; }
     this.applyPose(pl, this.fishPose(pl, sp, now), dt, now / 1000, false);
-    g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+    g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
     if (seat.fish && t >= 1) {
       // Line in the water off the end of the dock.
       if (!pl.fishing) this.startFishing(pl, seat.fish);
@@ -9670,7 +9998,7 @@
     pad.rotation.x += (rx - pad.rotation.x) * k; pad.rotation.z += (rz - pad.rotation.z) * k;
     if (pl.fishing) pose = this.sitPose(now / 1000, 'sit');
     this.applyPose(pl, this.fishPose(pl, pose, now), dt, now / 1000, false);
-    g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+    g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
     // Drift still for a moment and the line goes in.
     if (!moving && pl.idle > 2.5 && !pl.fishing) this.startFishing(pl);
     if (pl.fishing) this.fishStep(pl, dt, now);
@@ -9970,7 +10298,7 @@
     var sq = 1;
     if (pl.squash > 0) { pl.squash -= dt; sq = 1 - Math.sin(Math.max(0, pl.squash) / 0.18 * Math.PI) * 0.22; }
     else if (pl.vy !== 0) sq = 1.08;
-    pl.g.scale.set(PLAYER_SCALE / Math.sqrt(sq), PLAYER_SCALE * sq, PLAYER_SCALE / Math.sqrt(sq));
+    var PS = PLAYER_SCALE * (pl.size || 1); pl.g.scale.set(PS / Math.sqrt(sq), PS * sq, PS / Math.sqrt(sq));
   };
   // Sitting bolt upright on its haunches, front paws up by its chest, looking about.
   Town.prototype.sitPose = function (t, kind) {
@@ -10233,7 +10561,7 @@
     pl.vy = 0; pl.air = 0;
     pl.idle = Math.min(20, (pl.idle || 0) + dt);
     this.applyPose(pl, this.sitPose(now / 1000, Rd.kind === 'lift' ? 'ledge' : 'sit'), dt, now / 1000, false);
-    pl.g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+    pl.g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
   };
   // Hop off: to the side of the train, or straight down off the chairlift (it's a raccoon).
   Town.prototype.dismount = function (pl) {

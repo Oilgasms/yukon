@@ -344,7 +344,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v82';
+  var BUILD = 'v83';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -607,7 +607,15 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     };
     el.addEventListener('pointerdown', function (e) { e.preventDefault(); if (town.fishGame) town.fishGame.press(); });
   })();
-  town.onSecret = function (def, ev) { queueSecret(def, ev && ev.projected); };
+  town.onSecret = function (def, ev) {
+    queueSecret(def, ev && ev.projected);
+    // The townsfolk gossip about it for a week.
+    if (!(ev && ev.projected) && town.news) { var t = def.title.replace(/^Wildlife: /, '').toLowerCase(); town.news(['have you heard? ' + t + '!', 'everyone\u2019s talking about ' + t, 'did you see? ' + t + '!'], ev && ev.date); }
+  };
+  // A diamond from the mine: the raccoon keeps its crown from visit to visit.
+  town.crowned = lsGet('fittertown:crown') === '1';
+  town.onCrown = function () { lsSet('fittertown:crown', '1'); };
+  if (town.crowned && town.player && town.crown) town.crown(town.player);
   // If part of the town stops moving, say which part and why (so it can be fixed).
   town.onError = function (part, msg) {
     var n = $('notice'), p = document.createElement('p');
