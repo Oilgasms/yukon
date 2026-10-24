@@ -890,6 +890,8 @@
       else m = new T.MeshToonMaterial({ gradientMap: this.toonSteps });
       if (name === 'fields') { m.vertexColors = true; }
       if (name === 'water') { m.transparent = true; m.opacity = 0.92; }
+      // Water, paths and paving lie almost level with the ground: always draw them on top of it.
+      if (name === 'water' || name === 'path' || name === 'cobble') { m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -4; }
       // See-through panes for the glasshouse, with a faint warm glow at night.
       if (name === 'glasshouse') { m.transparent = true; m.opacity = 0.45; m.depthWrite = false; }
       if (name === 'flag' || name === 'banner') m.side = T.DoubleSide;
@@ -1111,7 +1113,8 @@
     ts.position.set(Q.x, groundY(Q.x, Q.z), Q.z);
     function TS(geo, mat, sx, sy, sz, x, y, z) { var m = new T.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); ts.add(m); return m; }
     TS(this.geo.box, this.mat('stone', 2), W + 0.3, 1.6, D + 0.3, 0, -0.75, 0); // footing, in case the ground dips at an edge
-    TS(this.geo.box, this.mat('path'), W - 2 * BW, 0.1, D - 2 * BW, 0, 0.03, 0);
+    TS(this.geo.box, this.mat('path'), W - 2 * BW, 0.14, D - 2 * BW, 0, 0.03, 0);
+    this.squareY = ts.position.y;
     // Boardwalk: planks across each side, raised a step.
     [[0, -(Q.hz - BW / 2), W, BW], [0, Q.hz - BW / 2, W, BW], [-(Q.hx - BW / 2), 0, BW, D - 2 * BW], [Q.hx - BW / 2, 0, BW, D - 2 * BW]].forEach(function (k, ki) {
       TS(self.geo.box, self.mat('wood'), k[2], 0.22, k[3], k[0], 0.11, k[1]);
@@ -7406,7 +7409,7 @@
         var dx = tgt.x - g.position.x, dz = tgt.z - g.position.z, d = Math.hypot(dx, dz);
         if (d < 0.08) { m.ri++; return; }
         var sp = Math.min(d, dt * 0.95);
-        g.position.x += dx / d * sp; g.position.z += dz / d * sp; g.position.y = groundY(g.position.x, g.position.z);
+        g.position.x += dx / d * sp; g.position.z += dz / d * sp; g.position.y = self.standY(g.position.x, g.position.z);
         var want = Math.atan2(dx, dz), dr = want - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 7);
         m.phase += dt * 11;
         m.legs.forEach(function (l, i) { l.rotation.x = Math.sin(m.phase + i * Math.PI) * 0.6; });
@@ -7496,7 +7499,7 @@
       var g = m.g, dx = tgt.x - g.position.x, dz = tgt.z - g.position.z, d = Math.hypot(dx, dz);
       if (d < 0.08) return true;
       var stp = Math.min(d, dt * (speed || 0.95));
-      g.position.x += dx / d * stp; g.position.z += dz / d * stp; g.position.y = groundY(g.position.x, g.position.z);
+      g.position.x += dx / d * stp; g.position.z += dz / d * stp; g.position.y = self.standY(g.position.x, g.position.z);
       var want = Math.atan2(dx, dz), dr = want - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 7);
       m.phase += dt * 11;
       m.legs.forEach(function (l, i) { l.rotation.x = Math.sin(m.phase + i * Math.PI) * 0.6; });
@@ -8125,6 +8128,13 @@
     this.fitDirty = true;
   };
 
+  Town.prototype.safe = function (name, fn) {
+    try { fn(); }
+    catch (e) {
+      var E = this.errors || (this.errors = {});
+      if (!E[name]) { E[name] = e.message || String(e); console.error('town: ' + name + ' stopped:', e); if (this.onError) this.onError(name, E[name]); }
+    }
+  };
   Town.prototype.loop = function (now) {
     requestAnimationFrame(this.loop);
     var dt = Math.min(0.1, (now - this.lastNow) / 1000);
@@ -8174,18 +8184,26 @@
       this.controls.target.y += dy;
       cam.position.y += dy;
     }
+    // Each moving part runs on its own: if one goes wrong, the rest keep going, and the page
+    // is told what broke.
+    var self = this;
     if (!this.soft) {
-      this.stepWeather(dt, now);
-      if (!this.reduced) this.stepSky(dt, now);
+      this.safe('weather', function () { self.stepWeather(dt, now); });
+      if (!this.reduced) this.safe('sky', function () { self.stepSky(dt, now); });
       else if (this.beam) this.beam.visible = false;
-      if (!this.reduced) { this.walkDogs(dt, now); this.stepMice(dt, now); this.moveChairs(now); this.animateSecrets(dt, now); }
-      if (!this.reduced) this.st.bike.balloons.forEach(function (b) {
-        b.angle += b.speed * dt;
-        b.group.position.set(Math.cos(b.angle) * b.radius, b.height + Math.sin(now / 1500 + b.bob) * 0.4, Math.sin(b.angle) * b.radius);
-      });
+      if (!this.reduced) {
+        this.safe('dogs', function () { self.walkDogs(dt, now); });
+        this.safe('mice', function () { self.stepMice(dt, now); });
+        this.safe('chairlift', function () { self.moveChairs(now); });
+        this.safe('animals', function () { self.animateSecrets(dt, now); });
+        this.safe('balloons', function () { self.st.bike.balloons.forEach(function (b) {
+          b.angle += b.speed * dt;
+          b.group.position.set(Math.cos(b.angle) * b.radius, b.height + Math.sin(now / 1500 + b.bob) * 0.4, Math.sin(b.angle) * b.radius);
+        }); });
+      }
     }
-    if (this.explore) { if (this.stepPlayer(dt, now)) moved = true; }
-    if (this.stepFx(dt, now)) moved = true;
+    if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
+    this.safe('effects', function () { if (self.stepFx(dt, now)) moved = true; });
     // Keyboard: WASD or arrows move across the ground, Q and E turn.
     var K = this.explore ? {} : this.keys, mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0), mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0);
     var turn = (K.e ? 1 : 0) - (K.q ? 1 : 0);
@@ -8489,8 +8507,12 @@
     if (this.sunBase && !this.soft) {
       var sun = this.sun, sc2 = sun.shadow.camera;
       if (sc2.right !== 34) { sc2.left = -34; sc2.right = 34; sc2.top = 34; sc2.bottom = -34; sc2.updateProjectionMatrix(); if (!sun.target.parent) this.scene.add(sun.target); }
-      sun.target.position.set(P.x, 0, P.z);
-      sun.position.set(P.x + this.sunBase.x, this.sunBase.y, P.z + this.sunBase.z);
+      // Move it in whole shadow-map pixels (in the light's own frame), or shadows shimmer as you walk.
+      var L = this.sunBase.clone().normalize(), rt = new T.Vector3(0, 1, 0).cross(L).normalize(), upL = L.clone().cross(rt), texel = 68 / sun.shadow.mapSize.x;
+      var a = P.x * rt.x + P.z * rt.z, b = P.x * upL.x + P.z * upL.z, da = Math.round(a / texel) * texel - a, db = Math.round(b / texel) * texel - b;
+      var sx = P.x + rt.x * da + upL.x * db, sz = P.z + rt.z * da + upL.z * db, sy = rt.y * da + upL.y * db;
+      sun.target.position.set(sx, sy, sz);
+      sun.position.set(sx + this.sunBase.x, this.sunBase.y + sy, sz + this.sunBase.z);
     }
     var mv = this.followCam(P, dt);
     // What's close enough to look at.
@@ -8509,9 +8531,16 @@
   };
   // The highest thing to stand on at x, z, no higher than fromY: the ground (or a dock), or the
   // top of a roof, a wall, a fence, a bench, a treetop.
+  // Standing height on the town square: the paving, or the boardwalk round its edge.
+  Town.prototype.squareTop = function (x, z) {
+    if (this.squareY == null || !inTownSquare(x, z, 0)) return -1e9;
+    var Q = TOWN_SQ, edge = Math.abs(x - Q.x) > Q.hx - 1.1 || Math.abs(z - Q.z) > Q.hz - 1.1;
+    return this.squareY + (edge ? 0.225 : 0.1);
+  };
+  Town.prototype.standY = function (x, z) { return Math.max(groundY(x, z), this.squareTop(x, z)); };
   Town.prototype.floorAt = function (x, z, fromY) {
     var deck = this.deckAt(x, z), w = deck ? null : waterAt(x, z);
-    var base = deck ? deck.y : w != null ? Math.max(w - SWIM_SINK, groundY(x, z)) : surfaceY(x, z), C = this.climbGrid;
+    var base = deck ? deck.y : w != null ? Math.max(w - SWIM_SINK, groundY(x, z)) : Math.max(surfaceY(x, z), this.squareTop(x, z)), C = this.climbGrid;
     if (!C || fromY <= base) return base;
     var cell = C[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
     if (!cell) return base;

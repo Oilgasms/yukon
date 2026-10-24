@@ -329,7 +329,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v76';
+  var BUILD = 'v77';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -565,6 +565,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   town.loot = +lsGet('fittertown:loot') || 0;
   town.onLoot = function (what, n) { lsSet('fittertown:loot', String(n)); };
   town.onSecret = function (def, ev) { queueSecret(def, ev && ev.projected); };
+  // If part of the town stops moving, say which part and why (so it can be fixed).
+  town.onError = function (part, msg) {
+    var n = $('notice'), p = document.createElement('p');
+    p.textContent = 'Part of the town stopped moving (' + part + '): ' + msg + ' \u00b7 build ' + BUILD;
+    n.append(p); n.hidden = false;
+  };
   // Pixel-art rendering is on by default; the button switches to a smooth render.
   function syncPixelButton() { $('pixel').setAttribute('aria-pressed', String(pixelOn)); $('pixel').textContent = pixelOn ? 'Pixel: on' : 'Pixel: off'; }
   syncPixelButton();
