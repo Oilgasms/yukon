@@ -2740,7 +2740,7 @@
     L.group = g;
     this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
-    var warm = function (i) { return self.mat('holdStone', i); }, tile = this.mat('roofTavern'), five = L.books.filter(function (b) { return b.stars >= 4.5; }).length; // 4.5 stars and up plant roses
+    var warm = function (i) { return self.mat('holdStone', i); }, tile = this.mat('shingle'), five = L.books.filter(function (b) { return b.stars >= 4.5; }).length; // 4.5 stars and up plant roses
     // A log reading cabin, then a brick library, before the grand library takes over at 6,000 pages.
     if (P0 < 6000) { this.smallLibrary(P, P0, n, five); return this.finishGrowth(g, 'libraryPop'); }
     P0 = libEff(P0);
@@ -2773,8 +2773,18 @@
     if (P0 >= 3000) {
       P(this.geo.box, warm(2), 8.8, 0.2, 5.4, 0, top + 0.1, -0.5);
       P(this.geo.gable, tile, 5.4, 2.2, 3.5, 0, top + 0.2, -0.5).rotation.y = 0;
-      P(this.geo.box, this.mat('stone', 2), 0.45, 1.4, 0.45, 2.6, top + 1.5, -1.6);
-      P(this.geo.box, this.mat('stone', 2), 0.45, 1.4, 0.45, -2.6, top + 1.5, 0.6);
+      // Two brick chimneys, smoking gently; dormer windows along the roof.
+      L.chimneys = [];
+      [[2.6, -1.6], [-2.6, 0.6]].forEach(function (cp) {
+        P(self.geo.box, self.mat('brick', 0), 0.45, 1.4, 0.45, cp[0], top + 1.5, cp[1]);
+        P(self.geo.box, self.mat('stone', 2), 0.55, 0.12, 0.55, cp[0], top + 2.24, cp[1]);
+        var cm = new T.Object3D(); cm.position.set(cp[0], top + 2.35, cp[1]); g.add(cm); L.chimneys.push(cm);
+      });
+      [-1.6, 1.6].forEach(function (x) {
+        P(self.geo.box, warm(1), 0.7, 0.55, 0.5, x, top + 0.8, 1.05);
+        P(self.geo.gable, tile, 0.5, 0.35, 0.4, x, top + 1.07, 1.05);
+        P(self.geo.box, self.mat('window'), 0.36, 0.3, 0.04, x, top + 0.78, 1.31);
+      });
     }
     if (P0 >= 4500) {
       // Columned portico and steps at the front.
@@ -2783,6 +2793,13 @@
       for (var c = 0; c < 4; c++) P(this.geo.cyl, this.mat('plaster', 0), 0.16, 2.8, 0.16, -1.65 + c * 1.1, 1.7, 3.2);
       P(this.geo.box, warm(2), 4.4, 0.3, 1.4, 0, 3.2, 2.8);
       P(this.geo.gable, warm(1), 2.65, 0.9, 0.95, 0, 3.35, 2.8);
+      // Lanterns either side of the door, and flower boxes under the front windows.
+      [-0.95, 0.95].forEach(function (x) { P(self.geo.cyl6, self.mat('stoneDark'), 0.03, 0.4, 0.03, x, 2.35, 2.12); P(self.geo.box, self.mat('lantern'), 0.16, 0.22, 0.16, x, 2.05, 2.16); });
+      [-3.2, -1.92, 1.92, 3.2].forEach(function (x, i) {
+        P(self.geo.box, self.mat('wood'), 0.7, 0.14, 0.18, x, 0.72, 2.12);
+        for (var fl = 0; fl < 4; fl++) P(self.geo.ball, self.mat('flag', (fl + i) % 5), 0.07, 0.07, 0.07, x - 0.24 + fl * 0.16, 0.83, 2.13);
+        P(self.geo.blob, self.mat('hedge'), 0.3, 0.1, 0.1, x, 0.68, 2.2);
+      });
     }
     if (P0 >= 6000) {
       // A paved courtyard behind, with a fountain.
@@ -2796,7 +2813,7 @@
       // Cloister arcades round three sides of the courtyard.
       [[-4.0, -6.4, 7.0, true], [4.0, -6.4, 7.0, true], [0, -9.9, 8.4, false]].forEach(function (cl) {
         var along = cl[2], vert = cl[3];
-        P(self.geo.box, tile, vert ? 1.3 : along, 0.12, vert ? along : 1.3, cl[0] + (vert ? (cl[0] > 0 ? 0 : 0) : 0), 2.2, cl[1]).rotation[vert ? 'z' : 'x'] = (vert ? (cl[0] > 0 ? 0.25 : -0.25) : 0.25);
+        P(self.geo.box, tile, vert ? 1.3 : along, 0.07, vert ? along : 1.3, cl[0] + (vert ? (cl[0] > 0 ? 0 : 0) : 0), 2.2, cl[1]).rotation[vert ? 'z' : 'x'] = (vert ? (cl[0] > 0 ? 0.25 : -0.25) : 0.25);
         for (var a2 = 0; a2 < Math.round(along / 1.1); a2++) {
           var t = -along / 2 + 0.55 + a2 * 1.1;
           P(self.geo.cyl, self.mat('plaster', 0), 0.09, 1.9, 0.09, vert ? cl[0] - Math.sign(cl[0]) * 0.55 : t, 1.0, vert ? cl[1] + t : cl[1] + 0.55);
@@ -2815,8 +2832,10 @@
     }
     if (P0 >= 10000) {
       // The reading garden: a big old oak, benches and lanterns.
-      P(this.geo.cyl6, this.mat('trunk'), 0.28, 1.6, 0.28, 2.6, 0.8, -8.2);
-      P(this.geo.blob, this.mat('leaf', 1), 1.0, 0.85, 1.0, 2.6, 2.2, -8.2);
+      // A modest old apple tree in the corner, with fruit.
+      P(this.geo.cyl6, this.mat('trunk'), 0.18, 1.3, 0.18, 2.6, 0.65, -8.2);
+      P(this.geo.blob, this.mat('hedge'), 0.75, 0.62, 0.75, 2.6, 1.75, -8.2);
+      for (var ap = 0; ap < 6; ap++) P(this.geo.ball, this.mat('flag', 0), 0.07, 0.07, 0.07, 2.6 + Math.cos(ap) * 0.6, 1.6 + (ap % 3) * 0.2, -8.2 + Math.sin(ap) * 0.6);
       [[-2.4, -5.0], [-2.4, -7.8], [1.2, -4.2]].forEach(function (b2) {
         P(self.geo.box, self.mat('wood'), 1.0, 0.08, 0.35, b2[0], 0.4, b2[1]);
         P(self.geo.cyl6, self.mat('stoneDark'), 0.03, 1.2, 0.03, b2[0] + 0.7, 0.6, b2[1]);
@@ -2824,22 +2843,32 @@
       });
     }
     if (P0 >= 13000) {
-      P(this.geo.cyl, warm(2), 1.4, 1.2, 1.4, 0, top + 1.9, -0.5);
-      for (var dw = 0; dw < 8; dw++) { var da = dw / 8 * Math.PI * 2; P(this.geo.box, this.mat('window'), 0.22, 0.6, 0.05, Math.cos(da) * 1.41, top + 1.9, -0.5 + Math.sin(da) * 1.41).rotation.y = -da + Math.PI / 2; }
-      P(this.geo.ball, this.mat('elfRoof', 0), 1.45, 1.2, 1.45, 0, top + 2.5, -0.5);
-      P(this.geo.cone, this.mat('gold'), 0.12, 0.6, 0.12, 0, top + 3.9, -0.5);
+      // A little reading-room cupola on the ridge: lit windows, a copper cap, a weathervane.
+      P(this.geo.cyl6, warm(2), 0.75, 0.9, 0.75, 0, top + 2.35, -0.5);
+      for (var dw = 0; dw < 6; dw++) { var da = dw / 6 * Math.PI * 2 + Math.PI / 6; P(this.geo.box, this.mat('window'), 0.26, 0.42, 0.05, Math.cos(da) * 0.66, top + 2.38, -0.5 + Math.sin(da) * 0.66).rotation.y = -da + Math.PI / 2; }
+      P(this.geo.cone6, this.mat('copper'), 0.95, 0.8, 0.95, 0, top + 3.2, -0.5);
+      P(this.geo.cyl6, this.mat('stoneDark'), 0.02, 0.5, 0.02, 0, top + 3.8, -0.5);
+      P(this.geo.box, this.mat('stoneDark'), 0.3, 0.08, 0.02, 0.06, top + 3.95, -0.5);
     }
     [[17000, 1], [22000, -1]].forEach(function (wg) {
       if (P0 < wg[0]) return;
       var x = wg[1] * 6.0;
       P(self.geo.box, warm(1), 3.4, 2.6, 4.0, x, 1.55, -0.3);
       P(self.geo.gable, tile, 2.3, 1.4, 2.75, x, 2.85, -0.3);
-      for (var ww = 0; ww < 3; ww++) P(self.geo.box, self.mat('window'), 0.45, 1.2, 0.06, x - 1.0 + ww, 1.5, 1.72);
+      for (var ww = 0; ww < 3; ww++) {
+        P(self.geo.box, self.mat('window'), 0.45, 1.2, 0.06, x - 1.0 + ww, 1.5, 1.72);
+        P(self.geo.box, self.mat('wood'), 0.55, 0.1, 0.15, x - 1.0 + ww, 0.86, 1.78);
+        for (var fl2 = 0; fl2 < 3; fl2++) P(self.geo.ball, self.mat('flag', (fl2 + ww) % 5), 0.06, 0.06, 0.06, x - 1.15 + ww + fl2 * 0.15, 0.95, 1.79);
+      }
+      // Ivy climbing the corner.
+      for (var iv = 0; iv < 5; iv++) P(self.geo.blob, self.mat('hedge'), 0.32, 0.38, 0.18, x + wg[1] * 1.55, 0.4 + iv * 0.48, 1.62 - (iv % 2) * 0.2);
     });
     if (P0 >= 30000) {
-      P(this.geo.box, this.mat('stone', 1), 0.5, 0.6, 0.5, 0, 1.6, -6.4);
-      P(this.geo.ball, this.mat('gold'), 0.32, 0.4, 0.3, 0, 2.2, -6.4);
-      [-0.13, 0.13].forEach(function (x) { P(self.geo.ball, self.mat('lantern'), 0.08, 0.08, 0.05, x, 2.35, -6.12); P(self.geo.cone4, self.mat('gold'), 0.07, 0.18, 0.05, x * 1.3, 2.62, -6.4); });
+      // A stone sundial out in the garden, and ivy all over the front.
+      P(this.geo.cyl6, this.mat('stone', 1), 0.22, 0.75, 0.22, -2.4, 0.4, -9.0);
+      P(this.geo.cyl, this.mat('stone', 2), 0.42, 0.06, 0.42, -2.4, 0.8, -9.0);
+      P(this.geo.box, this.mat('copper'), 0.03, 0.22, 0.28, -2.4, 0.92, -9.0).rotation.x = 0.5;
+      [-3.9, -3.3, 3.3, 3.9].forEach(function (x, i) { for (var iv2 = 0; iv2 < 4; iv2++) P(self.geo.blob, self.mat('hedge'), 0.3, 0.36, 0.15, x, 0.5 + iv2 * 0.55, 2.02 + (iv2 % 2) * 0.05); });
     }
     this.finishGrowth(g, 'libraryPop');
   };
@@ -3785,7 +3814,7 @@
           [-0.35, 0.35].forEach(function (x) { P(self.geo.cyl6, self.mat('silver'), 0.04, 1.2, 0.04, x, 0.4, 6.6); });
           var dm = swimWorld(0, 3), de = swimWorld(0, 6.1), dw = swimWorld(0, 8.2);
           (this.st.decks = this.st.decks || []).push({ cx: dm.x, cz: dm.z, ux: Math.sin(SWIM.rot), uz: Math.cos(SWIM.rot), hl: 3.6, hw: 0.62, y: LAKE.y + 0.67 });
-          (this.st.seats = this.st.seats || []).push({ x: de.x, z: de.z, y: LAKE.y + 0.67, rot: SWIM.rot, fish: { x: dw.x, z: dw.z, y: LAKE.y }, low: true });
+          (this.st.seats = this.st.seats || []).push({ x: de.x, z: de.z, y: LAKE.y + 0.67, rot: SWIM.rot, fish: { x: dw.x, z: dw.z, y: LAKE.y + 0.12 }, low: true });
           for (var rg = 0; rg < 3; rg++) P(this.geo.box, this.mat('silver'), 0.7, 0.04, 0.08, 0, 0.05 + rg * 0.25, 6.62);
           break;
         case 1:
@@ -7225,6 +7254,96 @@
       this.pop(j, delay + 300);
     }
   };
+  // ---- the town square grows cozier the more you train ----------------------------------
+  var SQUARE_STEPS = [[20, 'Flower planters in the corners'], [40, 'Hanging baskets on the lamps'], [60, 'Bunting along the boardwalk'], [90, 'Caf\u00e9 tables under umbrellas'],
+    [120, 'Cobbled paving'], [160, 'A second tier on the fountain'], [210, 'Potted trees on the boardwalk'], [270, 'A town clock'], [350, 'Flower beds round the fountain']];
+  Town.prototype.growSquare = function (delay) {
+    var s = this.st, S = s.square || (s.square = { n: 0, g: null });
+    while (S.n < SQUARE_STEPS.length && s.sessions >= SQUARE_STEPS[S.n][0]) this.squareStep(S.n++, delay);
+  };
+  Town.prototype.squareStep = function (k, delay) {
+    var s = this.st, S = s.square, self = this, Q = TOWN_SQ, pick = 'townsquare';
+    if (!S.g) { S.g = new T.Group(); S.g.position.set(Q.x, this.squareY != null ? this.squareY : groundY(Q.x, Q.z), Q.z); this.world.add(S.g); }
+    var o = new T.Group(); S.g.add(o);
+    function P(geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || o, geo, mat, sx, sy, sz, x, y, z, pick); }
+    var top = 0.1, cx = Q.hx - 0.35, cz = Q.hz - 0.35;
+    switch (k) {
+      case 0: // planters
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c, i) {
+          var x = c[0] * 3.85, z = c[1] * 2.85;
+          P(self.geo.box, self.mat('wood'), 0.62, 0.3, 0.62, x, top + 0.15, z);
+          P(self.geo.blob, self.mat('hedge'), 0.3, 0.2, 0.3, x, top + 0.38, z);
+          for (var f = 0; f < 6; f++) P(self.geo.ball, self.mat('flag', (f + i) % 5), 0.07, 0.07, 0.07, x + Math.cos(f) * 0.2, top + 0.47, z + Math.sin(f) * 0.2);
+        });
+        break;
+      case 1: // hanging baskets on the corner lamps
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c, i) {
+          var x = c[0] * cx - c[0] * 0.28, z = c[1] * cz - c[1] * 0.28;
+          P(self.geo.box, self.mat('stoneDark'), 0.3, 0.02, 0.02, c[0] * cx - c[0] * 0.14, 1.55, c[1] * cz - c[1] * 0.14).rotation.y = Math.atan2(c[1], c[0]) * -1 + Math.PI / 4 * 0;
+          P(self.geo.ball, self.mat('wood'), 0.14, 0.09, 0.14, x, 1.3, z);
+          P(self.geo.blob, self.mat('hedge'), 0.16, 0.12, 0.16, x, 1.4, z);
+          for (var f = 0; f < 5; f++) P(self.geo.ball, self.mat('flag', (f + i) % 5), 0.05, 0.05, 0.05, x + Math.cos(f * 1.3) * 0.14, 1.36 - (f % 2) * 0.08, z + Math.sin(f * 1.3) * 0.14);
+        });
+        break;
+      case 2: // bunting along the east and west boardwalks
+        [-1, 1].forEach(function (sd) {
+          var x = sd * cx, z0 = -cz, z1 = cz, prev = null, up = new T.Vector3(0, 1, 0);
+          for (var b = 0; b <= 16; b++) {
+            var t = b / 16, q = new T.Vector3(x, 2.25 - Math.sin(t * Math.PI) * 0.45, z0 + (z1 - z0) * t);
+            if (prev) { var dv = q.clone().sub(prev), w = P(self.geo.cyl6, self.mat('stoneDark'), 0.01, dv.length(), 0.01, (q.x + prev.x) / 2, (q.y + prev.y) / 2, (q.z + prev.z) / 2); w.quaternion.setFromUnitVectors(up, dv.normalize()); }
+            if (b && b < 16) { var fl = P(self.geo.cone4, self.mat('flag', b), 0.09, 0.16, 0.02, q.x, q.y - 0.09, q.z); fl.rotation.x = Math.PI; fl.rotation.y = Math.PI / 2; }
+            prev = q;
+          }
+        });
+        break;
+      case 3: // café tables
+        [-1, 1].forEach(function (sd, i) {
+          var x = sd * 2.5, z = -1.4;
+          P(self.geo.cyl, self.mat('wood'), 0.36, 0.05, 0.36, x, top + 0.62, z);
+          P(self.geo.cyl6, self.mat('stoneDark'), 0.04, 0.6, 0.04, x, top + 0.3, z);
+          P(self.geo.cyl6, self.mat('stoneDark'), 0.025, 1.3, 0.025, x, top + 1.25, z);
+          for (var u = 0; u < 8; u++) { var ua = u / 8 * Math.PI * 2; var pan = P(self.geo.cone4, self.mat('canvas', u % 2 ? 0 : 1 + i), 0.36, 0.3, 0.12, x + Math.cos(ua) * 0.32, top + 1.8, z + Math.sin(ua) * 0.32); pan.rotation.y = -ua + Math.PI / 2; pan.rotation.z = Math.PI / 2 - 0.45; }
+          P(self.geo.cone, self.mat('canvas', 1 + i), 0.75, 0.3, 0.75, x, top + 1.92, z);
+          [-0.5, 0.5].forEach(function (dz) { P(self.geo.box, self.mat('woodLight'), 0.3, 0.04, 0.3, x, top + 0.4, z + dz); P(self.geo.box, self.mat('woodLight'), 0.3, 0.32, 0.04, x, top + 0.58, z + dz + Math.sign(dz) * 0.14); });
+          P(self.geo.cyl, self.mat('swan', 0), 0.06, 0.05, 0.06, x + 0.1, top + 0.67, z);
+        });
+        break;
+      case 4: // cobbles over the packed earth, and a stone ring round the fountain
+        P(self.geo.box, self.mat('cobble'), Q.hx * 2 - 2.2, 0.03, Q.hz * 2 - 2.2, 0, top + 0.015, 0);
+        P(self.geo.cyl, self.mat('stone', 2), 1.7, 0.035, 1.7, 0, top + 0.02, 0);
+        for (var cb = 0; cb < 40; cb++) P(self.geo.box, self.mat('stone', cb % 3), 0.32, 0.04, 0.26, ((cb * 37) % 80) / 10 - 4, top + 0.025, ((cb * 53) % 60) / 10 - 3).rotation.y = cb;
+        break;
+      case 5: // a second tier on the fountain
+        P(self.geo.cyl6, self.mat('stone', 1), 0.12, 0.5, 0.12, 0, 1.1, 0);
+        P(self.geo.cyl, self.mat('stone', 1), 0.5, 0.12, 0.5, 0, 1.38, 0);
+        P(self.geo.cyl, self.mat('water'), 0.43, 0.03, 0.43, 0, 1.45, 0);
+        P(self.geo.ball, self.mat('water'), 0.1, 0.2, 0.1, 0, 1.62, 0);
+        break;
+      case 6: // potted trees on the boardwalk
+        [[0, -(Q.hz - 0.5)], [0, Q.hz - 0.5], [-(Q.hx - 0.5), 0], [Q.hx - 0.5, 0]].forEach(function (c) {
+          P(self.geo.cyl, self.mat('brick', 1), 0.24, 0.35, 0.24, c[0], 0.4, c[1]);
+          P(self.geo.cyl6, self.mat('trunk'), 0.05, 0.6, 0.05, c[0], 0.85, c[1]);
+          P(self.geo.blob, self.mat('hedge'), 0.36, 0.42, 0.36, c[0], 1.35, c[1]);
+        });
+        break;
+      case 7: // a town clock on a post
+        var ck = new T.Group(); ck.position.set(3.9, 0, -1.2); o.add(ck);
+        P(self.geo.cyl6, self.mat('stoneDark'), 0.07, 2.4, 0.07, 0, top + 1.2, 0, ck);
+        P(self.geo.box, self.mat('stoneDark'), 0.5, 0.5, 0.16, 0, top + 2.5, 0, ck);
+        [-1, 1].forEach(function (sd) {
+          var face = P(self.geo.cyl, self.mat('swan', 0), 0.2, 0.02, 0.2, 0, top + 2.5, sd * 0.09, ck); face.rotation.x = Math.PI / 2;
+          P(self.geo.box, self.mat('swan', 2), 0.02, 0.15, 0.01, 0, top + 2.55, sd * 0.1, ck);
+          P(self.geo.box, self.mat('swan', 2), 0.1, 0.02, 0.01, 0.04, top + 2.5, sd * 0.1, ck);
+        });
+        P(self.geo.ball, self.mat('gold'), 0.07, 0.07, 0.07, 0, top + 2.82, 0, ck);
+        break;
+      case 8: // flower beds round the fountain
+        for (var fb = 0; fb < 28; fb++) { var fa = fb / 28 * Math.PI * 2; P(self.geo.ball, self.mat(fb % 4 ? 'flag' : 'hedge', fb % 5), 0.09, 0.08, 0.09, Math.cos(fa) * 1.32, top + 0.12, Math.sin(fa) * 1.32); }
+        break;
+    }
+    this.pop(o, delay || 0);
+    this.solidAt = 0;
+  };
   // ---- townsfolk: mice in their Sunday best -------------------------------------------------
   // They live in your friends' houses, stroll the streets, pop in on each other, sit on the
   // square's benches with the paper, greet you (and each other), and are all home by dark.
@@ -7790,7 +7909,7 @@
     var s = this.st, self = this;
     var mark = function (k) { s.last[k] = ev; };
     if (ev.date && (!s.lastDate || ev.date > s.lastDate)) s.lastDate = ev.date;
-    if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie') s.sessions++;
+    if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie') { s.sessions++; this.growSquare(delay); }
     switch (ev.kind) {
       case 'lift':
         ev.groups.forEach(function (g, i) {
@@ -7984,6 +8103,10 @@
         return { title: 'The library', lines: ['Click for your bookshelf: covers, ratings and reviews.', plural(LB.books.length, 'book') + ' · ' + fmtN(LB.pages) + ' pages' + (real.length < LB.books.length ? ' (' + (LB.books.length - real.length) + ' projected)' : ''),
           nextL ? 'Next: ' + nextL[1].toLowerCase() + ' at ' + fmtN(nextL[0]) + ' pages.' : 'The library is complete.'] };
       case 'raccoon': return { title: 'The raccoon', lines: ['That\u2019s you. You follow whichever castle is being built.'] };
+      case 'townsquare': {
+        var SQ = this.st.square || { n: 0 }, done = SQUARE_STEPS.slice(0, SQ.n).map(function (x) { return x[1].toLowerCase(); }), nx = SQUARE_STEPS[SQ.n];
+        return { title: 'The town square', lines: ['It gets a little cozier with every workout (' + this.st.sessions + ' so far).', done.length ? 'So far: ' + done.join(', ') + '.' : 'Nothing added yet.', nx ? 'Next: ' + nx[1].toLowerCase() + ' at ' + nx[0] + ' workouts.' : 'The square is complete.'] };
+      }
       case 'square': return { title: 'The town square', lines: ['The library, the picture house and the Slow Pour all open onto it.', 'Have a seat by the fountain.'] };
       case 'rink': return { title: 'The hockey rink', lines: ['Kept clear for your winter hockey. Your first game floods the rink.', 'Write "hockey" in a Morning or Evening cell, or log it in Strava.'] };
       case 'castle':
@@ -8367,14 +8490,24 @@
   };
   // The water surface at x, z, if there's water to swim in there (not under a bridge's deck).
   function waterAt(x, z) {
-    if (lakeDist(x, z) < -0.4) return LAKE.y;
+    if (lakeDist(x, z) < -0.4) return LAKE.y + 0.12; // the surface as drawn
     var cs = coastSd(x, z);
     if (cs > -0.6) return SEA_Y;
     // The shallows: anything near the coast that dips below sea level is under the sea too.
     if (cs > -16 && x * COAST_N.x + z * COAST_N.z > 96.5 && groundY(x, z) < SEA_Y - 0.03) return SEA_Y; // (where the sea sheet is drawn)
     for (var i = 0; i < TARNS.length; i++) { var t = TARNS[i]; if (Math.hypot(x - t.x, z - t.z) < t.R) return t.y; }
-    if (riverDist(x, z) < RIVER_HALF + 0.2 && !nearPath(x, z, 1.1) && !LANE.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 0.9; })) return riverLevel(RIVER_NEAR.i);
+    if (riverDist(x, z) < RIVER_HALF + 0.2 && !nearPath(x, z, 1.1) && !LANE.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 0.9; })) return riverWaterY(x, z);
     return null;
+  }
+  // The river's surface as drawn: the level eased along the nearest stretch, not just the nearest point.
+  function riverWaterY(x, z) {
+    var i = RIVER_NEAR.i, best = riverLevel(i), bd = 1e9;
+    for (var a = i - 1; a <= i; a++) {
+      if (a < 0 || a + 1 >= RIVER.length) continue;
+      var p = RIVER[a], q = RIVER[a + 1], dx = q.x - p.x, dz = q.z - p.z, t = Math.max(0, Math.min(1, ((x - p.x) * dx + (z - p.z) * dz) / (dx * dx + dz * dz || 1))), d = Math.hypot(p.x + dx * t - x, p.z + dz * t - z);
+      if (d < bd) { bd = d; best = riverLevel(p.i) + (riverLevel(q.i) - riverLevel(p.i)) * t; }
+    }
+    return best;
   }
   var SWIM_SINK = 0.24;
   // Docks and jetties: planks you can walk out on over the water.
@@ -8565,6 +8698,7 @@
   };
   Town.prototype.interact = function () {
     var pl = this.player, pub = this.st.pub;
+    if (this.fishGame) { this.fishGame.press(); return; }
     if (pl && pl.ride) { this.dismount(pl); return; }
     if (pl && this.boardNear(pl)) return;
     if (pl && !pl.seat && !(pl.carry && pl.carry.kind === 'beer')) { var sq = this.seatNear(pl.g.position.x, pl.g.position.z); if (sq && Math.abs(sq.y - pl.g.position.y) < 1.2 && Math.hypot(sq.x - pl.g.position.x, sq.z - pl.g.position.z) < 1.1) { this.takeSeat(pl, sq, performance.now()); return; } }
@@ -8592,6 +8726,7 @@
   };
   Town.prototype.jump = function () {
     var pl = this.player;
+    if (this.fishGame) { this.fishGame.press(); return; }
     if (pl && pl.ride) { this.dismount(pl); return; }
     if (pl && pl.snow) { if (!pl.snow.vy && pl.snow.onGround) { pl.snow.vy = 4.2; this.say(['ollie!', 'kickflip!', 'woo!'][Math.floor(Math.random() * 3)], pl.g, 1.0, 0.8); } return; }
     if (pl && pl.paddle) { this.leavePaddle(pl, true); return; }
@@ -8649,6 +8784,7 @@
     // Benches have room for two: the raccoon takes the right-hand end.
     if (!seat.low && !seat.party) { var ca = Math.cos(seat.rot), sa = Math.sin(seat.rot); seat = Object.assign({}, seat, { x: seat.x + ca * 0.28, z: seat.z - sa * 0.28 }); }
     pl.seat = seat; pl.seatT = 0; pl.from = { x: P.x, y: P.y, z: P.z }; pl.fishT = 0; pl.fishAt = 6 + Math.random() * 7;
+    pl.seatAct = Math.random() < 0.5 ? 'paper' : 'smoke';
     pl.air = 0; pl.vy = 0;
   };
   Town.prototype.smokeStep = function (pl, dt, now) {
@@ -8675,9 +8811,50 @@
       if (Math.random() < 0.25) this.say(['*puff*', 'ahh.', 'long day', 'this town, man'][Math.floor(Math.random() * 4)], pl.g, 1.1, 1.3);
     } else if (Math.random() < dt * 5) { C.ember.getWorldPosition(wp); this.puff(wp.x, wp.y + 0.02, wp.z, 1, 'smoke', 0.004); }
   };
+  // The morning paper: held up in both paws, a page turned now and then, the odd headline read aloud.
+  var HEADLINES = ['RACCOON SIGHTED IN BINS', 'hm.', 'they built WHAT?', 'LOCAL FOX: STILL CUTE', 'BIN DAY MOVED TO THURSDAY', 'pfft.', 'TRAIN LATE AGAIN',
+    'huh. a new house', 'WHO KEEPS KNOCKING OVER THE CANS?', 'ooh, a coupon', 'weather: bins', 'MOUSE WINS PIE CONTEST', 'crossword… 7 down… TRASH', 'lol'];
+  Town.prototype.paperStep = function (pl, dt, now) {
+    var self = this;
+    if (!pl.paper) {
+      if (pl.seatT < 1.2) return;
+      var pg = new T.Group(); pg.position.set(0, 0.42, 0.3); pl.g.add(pg);
+      function page(r, photo) {
+        var pp = new T.Group(); pp.rotation.y = r; pg.add(pp);
+        self.part(pp, self.geo.box, self.mat('paper', 0), 0.17, 0.23, 0.006, 0.085, 0, 0);
+        [-0.004, 0.004].forEach(function (z) {
+          self.part(pp, self.geo.box, self.mat('paper', 1), 0.14, 0.024, 0.003, 0.085, 0.085, z);
+          for (var ln = 0; ln < 5; ln++) self.part(pp, self.geo.box, self.mat('paper', 1), photo && ln < 2 ? 0.07 : 0.14, 0.006, 0.003, photo && ln < 2 ? 0.12 : 0.085, 0.04 - ln * 0.03, z);
+          if (photo) self.part(pp, self.geo.box, self.mat('coon', 1), 0.055, 0.05, 0.003, 0.04, 0.03, z);
+        });
+        return pp;
+      }
+      // Two pages pivot on the spine; a third sweeps across when a page turns.
+      var L = page(Math.PI - 0.35, true), R = page(0.35), turn = page(0.35); turn.visible = false;
+      pl.paper = { g: pg, left: L, right: R, turn: turn, next: now + 3500 + Math.random() * 3000, flip: -1 };
+      this.say('*rustle*', pl.g, 1.0, 0.8);
+      return;
+    }
+    var Pp = pl.paper;
+    Pp.g.rotation.z = Math.sin(now / 1700) * 0.04; Pp.g.rotation.x = -0.15 + Math.sin(now / 2300) * 0.03;
+    if (Pp.flip < 0 && now > Pp.next) {
+      Pp.flip = 0; Pp.next = now + 5000 + Math.random() * 5000; Pp.turn.visible = true;
+      if (Math.random() < 0.45) {
+        var hl = HEADLINES.slice(); if (this.st && this.st.sessions) hl.push('TOWN LOGS ' + this.st.sessions + ' WORKOUTS', 'GYM RAT SPOTTED AGAIN');
+        this.say(hl[Math.floor(Math.random() * hl.length)], pl.g, 1.15, 2.0);
+      }
+    }
+    if (Pp.flip >= 0) {
+      Pp.flip += dt / 0.55;
+      var k = Math.min(1, Pp.flip), e = k * k * (3 - 2 * k);
+      Pp.turn.rotation.y = 0.35 + (Math.PI - 0.7) * e; Pp.turn.rotation.x = -Math.sin(k * Math.PI) * 0.25;
+      if (k >= 1) { Pp.flip = -1; Pp.turn.visible = false; }
+    }
+  };
   Town.prototype.leaveSeat = function (pl) {
     if (pl.fishing) this.stopFishing(pl);
     if (pl.cig) { var wp = new T.Vector3(); pl.cig.ember.getWorldPosition(wp); pl.mouth.remove(pl.cig.g); pl.cig = null; pl.sipping = false; this.puff(wp.x, wp.y, wp.z, 3, 'dust'); }
+    if (pl.paper) { pl.g.remove(pl.paper.g); pl.paper = null; this.say('*fold*', pl.g, 1.0, 0.8); }
     pl.seat = null; pl.idle = 0; pl.seatAt = performance.now() + 2500; pl.vy = 2.2;
   };
   // Hop across onto the seat, then sit; on the end of a dock, now and then a fish jumps.
@@ -8691,10 +8868,12 @@
     while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
     g.rotation.y += d * Math.min(1, dt * 10);
     pl.idle = Math.min(20, (pl.idle || 0) + dt);
-    // On a bench or a chair, after a moment: a cigarette.
-    if (!seat.low && t >= 1) this.smokeStep(pl, dt, now);
+    // On a bench or a chair, after a moment: a cigarette, or the paper.
+    if (!seat.low && t >= 1) { if (pl.seatAct === 'paper') this.paperStep(pl, dt, now); else this.smokeStep(pl, dt, now); }
     // Sitting bolt upright (on the edge of a dock, with its legs swinging).
-    this.applyPose(pl, this.sitPose(now / 1000, seat.low ? 'ledge' : 'sit'), dt, now / 1000, false);
+    var sp = this.sitPose(now / 1000, seat.low ? 'ledge' : 'sit');
+    if (pl.paper) { sp.legs[0] = sp.legs[1] = -1.2; sp.front = { y: 0.44, z: 0.08 }; sp.hx += 0.22; sp.hy *= 0.3; }
+    this.applyPose(pl, this.fishPose(pl, sp, now), dt, now / 1000, false);
     g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
     if (seat.fish && t >= 1) {
       // Line in the water off the end of the dock.
@@ -8771,15 +8950,18 @@
   Town.prototype.startPaddle = function (pl) {
     if (pl.fishing) this.stopFishing(pl);
     var P = pl.g.position, spot = this.paddleAhead(pl) || { x: P.x + Math.sin(pl.g.rotation.y) * 0.9, z: P.z + Math.cos(pl.g.rotation.y) * 0.9 }, x = spot.x, z = spot.z;
-    var board = new T.Group(); board.position.y = -0.03; pl.g.add(board);
-    this.part(board, this.geo.box, this.mat('flag', 1), 0.3, 0.035, 0.95, 0, 0, 0);
-    this.part(board, this.geo.box, this.mat('swan', 0), 0.31, 0.01, 0.4, 0, 0.022, -0.1);
-    this.part(board, this.geo.cone4, this.mat('flag', 1), 0.15, 0.2, 0.017, 0, 0, 0.55).rotation.x = Math.PI / 2;
-    var paddle = new T.Group(); paddle.position.set(0.12, 0.12, 0.05); pl.body.add(paddle);
-    this.part(paddle, this.geo.cyl6, this.mat('wood'), 0.012, 0.6, 0.012, 0, 0, 0);
-    this.part(paddle, this.geo.box, this.mat('flag', 2), 0.07, 0.15, 0.015, 0, -0.33, 0);
-    pl.paddle = { board: board, paddle: paddle, ph: 0 };
-    P.x = x; P.z = z; P.y = waterAt(x, z) + 0.03; pl.seat = null; pl.dig = null; pl.vy = 0;
+    var board = new T.Group(); board.position.y = -0.04; pl.g.add(board);
+    this.part(board, this.geo.box, this.mat('canvas', 0), 0.32, 0.05, 0.95, 0, 0.01, 0);
+    this.part(board, this.geo.box, this.mat('canvas', 1), 0.33, 0.012, 0.08, 0, 0.03, 0.3);
+    this.part(board, this.geo.box, this.mat('woodLight'), 0.26, 0.01, 0.36, 0, 0.037, -0.1);
+    this.part(board, this.geo.cone4, this.mat('canvas', 0), 0.16, 0.2, 0.05, 0, 0.01, 0.55).rotation.x = Math.PI / 2;
+    // The paddle, gripped in both front paws at chest height: shaft, T-grip, blade.
+    var paddle = new T.Group(); paddle.position.set(0, 0.42, 0.2); pl.g.add(paddle);
+    this.part(paddle, this.geo.cyl6, this.mat('wood'), 0.012, 0.74, 0.012, 0, -0.06, 0);
+    this.part(paddle, this.geo.box, this.mat('wood'), 0.07, 0.018, 0.018, 0, 0.31, 0);
+    var blade = this.part(paddle, this.geo.box, this.mat('flag', 2), 0.08, 0.18, 0.016, 0, -0.4, 0);
+    pl.paddle = { board: board, paddle: paddle, blade: blade, ph: 0, side: 1, u: 0 };
+    P.x = x; P.z = z; P.y = waterAt(x, z) + 0.09; pl.seat = null; pl.dig = null; pl.vy = 0;
     this.say(['paddle time', 'ahoy!', 'smooth sailing'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.3);
     this.puff(x, P.y, z, 6, 'splash', 0.3);
   };
@@ -8787,7 +8969,7 @@
     var Pd = pl.paddle, P = pl.g.position;
     if (!Pd) return;
     if (pl.fishing) this.stopFishing(pl);
-    pl.g.remove(Pd.board); pl.body.remove(Pd.paddle); pl.paddle = null; pl.idle = 0;
+    pl.g.remove(Pd.board); pl.g.remove(Pd.paddle); pl.paddle = null; pl.idle = 0;
     if (bail) { pl.vy = 2.5; this.say('SPLASH', pl.g, 1.0, 1.0); this.puff(P.x, P.y, P.z, 10, 'splash', 0.4); }
     else { var a = pl.g.rotation.y; P.x += Math.sin(a) * 0.9; P.z += Math.cos(a) * 0.9; P.y = this.floorAt(P.x, P.z, P.y + 1.5); }
   };
@@ -8802,17 +8984,41 @@
       if (waterAt(P.x + dx, P.z + dz) != null && !this.deckAt(P.x + dx, P.z + dz) && Math.hypot(P.x + dx, P.z + dz) < 118 && waterAt(P.x + dx, P.z + dz) - groundY(P.x + dx, P.z + dz) > 0.08) { P.x += dx; P.z += dz; }
       var face = Math.atan2(dx, dz), d = face - g.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 4);
-      Pd.ph += dt * 5;
-      if (now > (Pd.wakeAt || 0)) { Pd.wakeAt = now + 300; this.puff(P.x - Math.sin(g.rotation.y) * 0.5, P.y - 0.02, P.z - Math.cos(g.rotation.y) * 0.5, 2, 'ripple'); if (Math.random() < 0.4) this.sfx('paddle'); }
+      if (now > (Pd.wakeAt || 0)) { Pd.wakeAt = now + 300; this.puff(P.x - Math.sin(g.rotation.y) * 0.5, P.y - 0.02, P.z - Math.cos(g.rotation.y) * 0.5, 2, 'ripple'); }
       pl.idle = 0;
     } else pl.idle = (pl.idle || 0) + dt;
-    // Stroke on one side, then the other.
-    var sw = Math.sin(Pd.ph);
-    Pd.paddle.position.x = sw > 0 ? 0.13 : -0.13; Pd.paddle.rotation.x = moving ? Math.sin(Pd.ph * 2) * 0.6 - 0.2 : 0.3; Pd.paddle.rotation.z = sw > 0 ? -0.2 : 0.2;
     var w = waterAt(P.x, P.z);
-    P.y = (w != null ? w : P.y) + 0.03 + Math.sin(now / 600) * 0.012;
+    P.y = (w != null ? w : P.y) + 0.09 + Math.sin(now / 600) * 0.012;
     pl.vy = 0; pl.air = 0;
-    this.applyPose(pl, pl.fishing ? this.sitPose(now / 1000, 'ledge') : { by: 0.32, hx: -0.1, legs: [0, 0, 0, 0] }, dt, now / 1000, false);
+    // Strokes: dig in up front, sweep back past the hip, lift and swing across to the other side.
+    // Let go of the stick mid-stroke and it finishes the stroke, then rests the paddle across its lap.
+    var pad = Pd.paddle, k = Math.min(1, dt * 14), tx = 0, ty = 0.42, tz = 0.2, rx = 0, rz = 0, pose, body = pl.body;
+    if (moving || Pd.u > 0.02) {
+      var u0 = Pd.u;
+      Pd.u += dt * 1.25;
+      if (Pd.u >= 1) { Pd.u = moving ? Pd.u - 1 : 0; Pd.side = -Pd.side; }
+      var u = Pd.u, sd = Pd.side;
+      if (u < 0.6) { var q = u / 0.6; rx = -0.75 + 1.5 * q; rz = sd * 0.5; ty = 0.37; tx = sd * 0.05; }
+      else { var r = (u - 0.6) / 0.4; rx = 0.75 - 1.5 * r; rz = sd * 0.5 * Math.cos(Math.PI * r); ty = 0.37 + Math.sin(Math.PI * r) * 0.1; tx = sd * 0.05 * Math.cos(Math.PI * r); }
+      if (u0 < 0.06 && u >= 0.06 && moving) {
+        // The blade bites the water.
+        var bw = new T.Vector3(); Pd.blade.getWorldPosition(bw);
+        this.puff(bw.x, (w != null ? w : bw.y) + 0.02, bw.z, 4, 'splash', 0.12); this.sfx('paddle');
+      }
+      if (u0 < 0.55 && u >= 0.55 && moving) { var bw2 = new T.Vector3(); Pd.blade.getWorldPosition(bw2); this.puff(bw2.x, (w != null ? w : bw2.y), bw2.z, 1, 'ripple'); }
+      // Twist through the stroke (round the spine, standing up), head steady.
+      var twist = u < 0.6 ? sd * 0.25 * (1 - 2 * (u / 0.6)) : 0, reach = -1.15, sw = rx * 0.45 * sd;
+      pose = { pitch: -1.28, by: 0.38, bz: -0.06, hx: 1.15, hy: -twist * 0.6, sway: twist, tailX: 1.5, front: { y: 0.42, z: 0.12 }, legs: [reach - sw, reach + sw, 1.2, 1.2] };
+    } else {
+      // Resting: kneeling, the paddle laid across its lap.
+      ty = 0.33; tz = 0.22; rz = Math.PI / 2;
+      pose = this.sitPose(now / 1000, 'sit'); pose.legs[0] = pose.legs[1] = -0.7;
+    }
+    pad.visible = !pl.fishing;
+    pad.position.x += (tx - pad.position.x) * k; pad.position.y += (ty - pad.position.y) * k; pad.position.z += (tz - pad.position.z) * k;
+    pad.rotation.x += (rx - pad.rotation.x) * k; pad.rotation.z += (rz - pad.rotation.z) * k;
+    if (pl.fishing) pose = this.sitPose(now / 1000, 'sit');
+    this.applyPose(pl, this.fishPose(pl, pose, now), dt, now / 1000, false);
     g.scale.set(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
     // Drift still for a moment and the line goes in.
     if (!moving && pl.idle > 2.5 && !pl.fishing) this.startFishing(pl);
@@ -8827,46 +9033,118 @@
     if (!F.group) { F.group = new T.Group(); this.scene.add(F.group); }
     var P = pl.g.position, a = pl.g.rotation.y;
     if (!spot) { var x = P.x + Math.sin(a) * 1.4, z = P.z + Math.cos(a) * 1.4, w = waterAt(x, z); if (w == null) return; spot = { x: x, z: z, y: w }; }
-    var rod = new T.Group(); rod.position.set(0.06, 0.1, 0.12); rod.rotation.x = -0.9; pl.body.add(rod);
-    this.part(rod, this.geo.cyl6, this.mat('trunk'), 0.01, 0.7, 0.01, 0, 0.35, 0);
-    this.part(rod, this.geo.cyl, this.mat('stoneDark'), 0.025, 0.03, 0.025, 0, 0.1, 0.02);
-    var tip = new T.Object3D(); tip.position.y = 0.7; rod.add(tip);
+    // The rod, held out in both front paws: cork grip, reel, a long whippy blank.
+    var rod = new T.Group(); rod.position.set(0.02, 0.34, 0.26); rod.rotation.x = 0.9; pl.g.add(rod);
+    this.part(rod, this.geo.cyl6, this.mat('trunk'), 0.01, 0.72, 0.01, 0, 0.26, 0);
+    this.part(rod, this.geo.cyl6, this.mat('woodLight'), 0.02, 0.14, 0.02, 0, -0.04, 0);
+    var reel = new T.Group(); reel.position.set(0.035, 0.02, 0); rod.add(reel);
+    this.part(reel, this.geo.cyl, this.mat('stoneDark'), 0.035, 0.022, 0.035, 0, 0, 0).rotation.z = Math.PI / 2;
+    this.part(reel, this.geo.box, this.mat('silver'), 0.008, 0.008, 0.045, 0.015, 0, 0.015);
+    var tip = new T.Object3D(); tip.position.y = 0.62; rod.add(tip);
     var bob = new T.Group(); this.part(bob, this.geo.ball, this.mat('flag', 0), 0.04, 0.035, 0.04, 0, 0.02, 0); this.part(bob, this.geo.ball, this.mat('swan', 0), 0.04, 0.03, 0.04, 0, -0.01, 0);
-    bob.position.set(spot.x, spot.y, spot.z); F.group.add(bob);
+    // A fish on the hook, hidden until one's landed.
+    var hook = new T.Group(); hook.position.y = -0.14; hook.visible = false; bob.add(hook);
+    this.part(hook, this.geo.box, this.mat('salmon', 0), 0.05, 0.16, 0.08, 0, 0, 0);
+    this.part(hook, this.geo.cone4, this.mat('salmon', 0), 0.06, 0.06, 0.02, 0, -0.1, 0).rotation.z = Math.PI;
+    F.group.add(bob);
     var line = new T.Mesh(this.geo.box, this.mat('swan', 0)); F.group.add(line);
-    pl.fishing = { rod: rod, tip: tip, bob: bob, line: line, spot: spot, t: 0, biteAt: 4 + Math.random() * 7, state: 'wait' };
-    this.puff(spot.x, spot.y + 0.02, spot.z, 3, 'ripple');
+    pl.fishing = { rod: rod, tip: tip, reel: reel, bob: bob, hook: hook, line: line, spot: spot, t: 0, biteAt: 4 + Math.random() * 7, state: 'cast', from: new T.Vector3() };
+    pl.fishing.tip.getWorldPosition(bob.position);
   };
   Town.prototype.stopFishing = function (pl) {
     var Fi = pl.fishing, F = this.fx;
     if (!Fi) return;
-    pl.body.remove(Fi.rod); F.group.remove(Fi.bob); F.group.remove(Fi.line); pl.fishing = null;
+    if (this.fishGame && this.fishGame.fi === Fi) this.fishGame.finish(false, false, true);
+    pl.g.remove(Fi.rod); F.group.remove(Fi.bob); F.group.remove(Fi.line); pl.fishing = null;
+  };
+  // Arms follow the rod: up and back for the cast, out front while waiting, cranking on a fish.
+  Town.prototype.fishPose = function (pl, p, now) {
+    var Fi = pl.fishing;
+    if (!Fi || !p) return p;
+    var hold = -1.55 + Fi.rod.rotation.x * 0.45, crank = Fi.state === 'game' || Fi.state === 'reel' ? Math.sin(now / 45) * 0.25 : 0;
+    p.legs = [hold + crank, hold - crank, p.legs ? p.legs[2] : 1.45, p.legs ? p.legs[3] : 1.45];
+    p.front = { y: 0.42, z: 0.08 };
+    p.hx = (p.hx || 0) + (Fi.state === 'cast' ? -0.1 : 0.15); p.hy = 0;
+    return p;
+  };
+  // A bite: with the game on the page, a timing bar (sea fish are quicker); otherwise the luck of the draw.
+  Town.prototype.startFishGame = function (pl) {
+    var Fi = pl.fishing, sea = Fi.spot.y === SEA_Y, self = this, wd = sea ? 0.15 : 0.22, c = 0.2 + Math.random() * 0.6;
+    var G = { sea: sea, zone: [c - wd / 2, c + wd / 2], sweet: [c - 0.035, c + 0.035], speed: (sea ? 1.3 : 0.85) * (0.9 + Math.random() * 0.3), t0: performance.now(), fi: Fi, over: false, limit: 5 };
+    G.pos = function () { var u = ((performance.now() - G.t0) / 1000 * G.speed) % 2; return u < 1 ? u : 2 - u; };
+    G.press = function () { if (G.over) return; var x = G.pos(); G.finish(x >= G.zone[0] && x <= G.zone[1], x >= G.sweet[0] && x <= G.sweet[1]); };
+    G.finish = function (ok, perfect, quiet) {
+      if (G.over) return;
+      G.over = true; if (self.fishGame === G) self.fishGame = null;
+      if (G.onEnd) G.onEnd(ok, perfect);
+      if (!quiet && pl.fishing === Fi) self.fishResult(pl, ok, perfect);
+    };
+    this.fishGame = G; Fi.state = 'game'; Fi.t = 0;
+    this.onFishBite(G);
+  };
+  Town.prototype.fishResult = function (pl, ok, perfect) {
+    var Fi = pl.fishing, sp = Fi.spot, what = null;
+    if (ok) {
+      var list = sp.y === SEA_Y ? SEA_CATCHES : CATCHES, pool = perfect ? list.filter(function (w) { return /!/.test(w); }) : list;
+      what = pool[Math.floor(Math.random() * pool.length)];
+      this.loot = (this.loot || 0) + 1; if (this.onLoot) this.onLoot(what, this.loot);
+      this.say((perfect ? 'PERFECT! ' : '') + 'caught ' + what, pl.g, 1.0, 2.2); this.sfx('found');
+      this.puff(sp.x, sp.y + 0.05, sp.z, 6, 'splash', 0.2);
+      Fi.hook.visible = !/boot/.test(what);
+    } else { this.say(['it got away!', 'so close', 'next time', 'NOOO'][Math.floor(Math.random() * 4)], pl.g, 1.0, 1.4); this.puff(sp.x, sp.y + 0.03, sp.z, 4, 'splash', 0.15); }
+    Fi.got = !!what && !/boot/.test(what);
+    Fi.state = 'reel'; Fi.t = 0;
   };
   Town.prototype.fishStep = function (pl, dt, now) {
     var Fi = pl.fishing;
     if (!Fi) return;
     Fi.t += dt;
-    var sp = Fi.spot, dip = 0;
-    if (Fi.state === 'wait' && Fi.t > Fi.biteAt) { Fi.state = 'bite'; Fi.t = 0; this.say('!', pl.g, 1.2, 0.8); this.sfx('splash'); }
-    if (Fi.state === 'bite') {
-      dip = Math.sin(Fi.t * 30) * 0.05 - 0.05;
-      Fi.rod.rotation.x = -0.9 - Math.sin(Fi.t * 20) * 0.15;
-      if (Fi.t > 0.9) {
-        // Reel it in, or lose it.
-        if (Math.random() < 0.65) {
-          var list = sp.y === SEA_Y ? SEA_CATCHES : CATCHES, what = list[Math.floor(Math.random() * list.length)];
-          this.loot = (this.loot || 0) + 1; if (this.onLoot) this.onLoot(what, this.loot);
-          this.say('caught ' + what, pl.g, 1.0, 2.2); this.sfx('found');
-          if (!/boot/.test(what)) this.carryItem(pl, 'fish');
-          this.puff(sp.x, sp.y + 0.05, sp.z, 6, 'splash', 0.2);
-        } else this.say(['it got away!', 'so close', 'next time'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.4);
-        Fi.state = 'wait'; Fi.t = 0; Fi.biteAt = 6 + Math.random() * 10; Fi.rod.rotation.x = -0.9;
+    var sp = Fi.spot, b = Fi.bob.position, tw = new T.Vector3(), rod = Fi.rod, ra = 0.95, k;
+    Fi.tip.getWorldPosition(tw);
+    if (Fi.state === 'cast') {
+      // Wind up over the shoulder, flick forward, and the bobber sails out and plops in.
+      var t = Fi.t;
+      if (t < 0.3) { k = t / 0.3; ra = 0.9 - 1.4 * k * k; }
+      else if (t < 0.5) { k = (t - 0.3) / 0.2; ra = -0.5 + 1.7 * k; }
+      else { k = Math.min(1, (t - 0.5) / 0.4); ra = 1.2 - 0.25 * k; }
+      if (t < 0.42) { b.copy(tw); Fi.from.copy(tw); }
+      else {
+        k = Math.min(1, (t - 0.42) / 0.55);
+        b.set(Fi.from.x + (sp.x - Fi.from.x) * k, Fi.from.y + (sp.y - Fi.from.y) * k + Math.sin(k * Math.PI) * 0.7, Fi.from.z + (sp.z - Fi.from.z) * k);
+        if (k >= 1) { Fi.state = 'wait'; Fi.t = 0; this.puff(sp.x, sp.y + 0.02, sp.z, 3, 'ripple'); this.puff(sp.x, sp.y + 0.02, sp.z, 3, 'splash', 0.05); this.sfx('paddle'); }
+      }
+      if (t > 0.3 && t - dt <= 0.3) this.sfx('paddle');
+    } else if (Fi.state === 'wait') {
+      ra = 0.95 + Math.sin(now / 900) * 0.03;
+      b.set(sp.x, sp.y + Math.sin(now / 500) * 0.01, sp.z);
+      if (Fi.t > Fi.biteAt) {
+        this.say('!', pl.g, 1.2, 0.8); this.sfx('splash');
+        if (this.onFishBite) this.startFishGame(pl); else { Fi.state = 'bite'; Fi.t = 0; }
+      }
+    } else if (Fi.state === 'bite' || Fi.state === 'game') {
+      // Tug, tug: the bobber's dragged under and the rod bends.
+      ra = 1.15 + Math.sin(Fi.t * 22) * 0.12;
+      b.set(sp.x + Math.sin(Fi.t * 7) * 0.06, sp.y + Math.sin(Fi.t * 30) * 0.05 - 0.05, sp.z + Math.cos(Fi.t * 5) * 0.06);
+      Fi.reel.rotation.x += dt * 25;
+      if (Math.random() < dt * 6) this.puff(b.x, sp.y + 0.02, b.z, 1, 'ripple');
+      if (Fi.state === 'bite' && Fi.t > 0.9) this.fishResult(pl, Math.random() < 0.65, false);
+      else if (Fi.state === 'game' && Fi.t > (this.fishGame ? this.fishGame.limit : 0)) { if (this.fishGame) this.fishGame.finish(false, false); else this.fishResult(pl, false, false); }
+    } else if (Fi.state === 'reel') {
+      // Haul it in: rod up, reel spinning, bobber (and the fish) swung in to the paws.
+      k = Math.min(1, Fi.t / 0.8);
+      ra = 0.95 - 0.85 * Math.sin(k * Math.PI * 0.5);
+      Fi.reel.rotation.x += dt * 40;
+      b.set(sp.x + (tw.x - sp.x) * k, sp.y + (tw.y - 0.15 - sp.y) * k + Math.sin(k * Math.PI) * 0.4, sp.z + (tw.z - sp.z) * k);
+      Fi.hook.rotation.z = Math.sin(Fi.t * 25) * 0.5;
+      if (k >= 1) {
+        if (Fi.got) this.carryItem(pl, 'fish');
+        Fi.hook.visible = false; Fi.got = false;
+        Fi.state = 'cast'; Fi.t = 0; Fi.biteAt = 6 + Math.random() * 10;
       }
     }
-    Fi.bob.position.set(sp.x, sp.y + Math.sin(now / 500) * 0.01 + dip, sp.z);
+    rod.rotation.x += (ra - rod.rotation.x) * Math.min(1, dt * (Fi.state === 'cast' ? 30 : 12));
     // The line: rod tip down to the bobber.
-    var tw = new T.Vector3(); Fi.tip.getWorldPosition(tw);
-    var b = Fi.bob.position, mid = tw.clone().add(b).multiplyScalar(0.5), dv = b.clone().sub(tw), L = dv.length();
+    var mid = tw.clone().add(b).multiplyScalar(0.5), dv = b.clone().sub(tw), L = Math.max(0.001, dv.length());
     Fi.line.position.copy(mid); Fi.line.scale.set(0.006, L, 0.006); Fi.line.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dv.normalize());
   };
 
@@ -9487,6 +9765,13 @@
     var busy = false, B = this.brush, F = this.fx, self = this;
     this.stepNight(dt, now);
     if (this.stepCans(dt, now)) busy = true;
+    // Wood smoke from the library chimneys.
+    var LC = this.st.library && this.st.library.chimneys;
+    if (LC && this.st.library.group && !this.soft && !this.reduced && now > (this.libSmokeAt || 0)) {
+      this.libSmokeAt = now + 450;
+      var cw = new T.Vector3();
+      LC.forEach(function (c) { if (c.parent) { c.getWorldPosition(cw); self.puff(cw.x, cw.y, cw.z, 1, 'smoke', 0.05); } });
+    }
     if (B && B.wob.length) {
       busy = true;
       var m4 = new T.Matrix4(), rot = new T.Matrix4(), tr = new T.Matrix4(), back = new T.Matrix4(), axis = new T.Vector3(), dirty = [];

@@ -169,6 +169,20 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   font-family: var(--display); font-weight: 700; font-size: 15px; z-index: 4; touch-action: manipulation;
 }
 .act.jump { right: calc(98px + env(safe-area-inset-right, 0px)); }
+/* Fishing minigame: stop the marker in the green */
+.fishgame {
+  position: fixed; left: 50%; top: calc(19% + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: min(340px, 88vw); padding: 12px 16px 10px;
+  text-align: center; z-index: 6; touch-action: manipulation; cursor: pointer; user-select: none;
+}
+.fishgame b { font-family: var(--display); font-size: 19px; display: block; margin-bottom: 8px; }
+.fishgame small { display: block; margin-top: 7px; opacity: 0.75; font-size: 12px; }
+.fg-bar { position: relative; height: 22px; border: 3px solid var(--line); border-radius: 8px; background: #cfe3ea; overflow: hidden; }
+.fg-bar i { position: absolute; top: 0; bottom: 0; }
+.fg-zone { background: #7cc46a; }
+.fg-sweet { background: #f2d23a; }
+.fg-mark { width: 6px; margin-left: -3px; background: #2a2a2a; border-radius: 2px; top: -2px; bottom: -2px; }
+.fishgame.win .fg-bar { border-color: #3f8a3a; }
+.fishgame.lose .fg-bar { border-color: #b8483a; }
 @media (max-width: 640px) { .tl-top { flex-wrap: wrap; row-gap: 6px; } }
 /* Secret unlocked card */
 .secret-card {
@@ -301,6 +315,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <div class="stick" id="stick" hidden><i></i></div>
 <button class="card act" id="act" type="button" hidden>Look</button>
 <button class="card act jump" id="jump" type="button" hidden>Jump</button>
+<div class="card fishgame" id="fishgame" role="dialog" aria-live="assertive" hidden><b id="fg-title">Fish on!</b><div class="fg-bar"><i class="fg-zone" id="fg-zone"></i><i class="fg-sweet" id="fg-sweet"></i><i class="fg-mark" id="fg-mark"></i></div><small id="fg-help">Press E, Space or tap when the marker's in the green (gold is perfect)</small></div>
 <section class="card shelf" id="shelf" role="dialog" aria-label="Bookshelf" hidden>
   <button class="close" type="button" id="shelf-close" aria-label="Close the bookshelf">&times;</button>
   <h2 id="shelf-title">The Yukon Library</h2>
@@ -329,7 +344,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v78';
+  var BUILD = 'v79';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -573,6 +588,25 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   // Treasures the raccoon digs out of the bins are kept from visit to visit.
   town.loot = +lsGet('fittertown:loot') || 0;
   town.onLoot = function (what, n) { lsSet('fittertown:loot', String(n)); };
+  // A bite: a timing bar. Stop the marker in the green to land it; in the gold for something good.
+  (function () {
+    var el = $('fishgame'), mark = $('fg-mark'), game = null, hideT = 0;
+    function pct(a, b) { return { left: a * 100 + '%', width: (b - a) * 100 + '%' }; }
+    town.onFishBite = function (g) {
+      game = g; clearTimeout(hideT);
+      Object.assign($('fg-zone').style, pct(g.zone[0], g.zone[1])); Object.assign($('fg-sweet').style, pct(g.sweet[0], g.sweet[1]));
+      $('fg-title').textContent = g.sea ? 'Something big on the line!' : 'Fish on!';
+      $('fg-help').textContent = (coarse ? 'Tap' : 'Press E or Space') + ' when the marker’s in the green (gold is perfect)';
+      el.classList.remove('win', 'lose'); el.hidden = false;
+      g.onEnd = function (ok, perfect) {
+        el.classList.add(ok ? 'win' : 'lose');
+        $('fg-title').textContent = ok ? (perfect ? 'Perfect!' : 'Got it!') : 'It got away…';
+        hideT = setTimeout(function () { if (game === g) el.hidden = true; }, 900);
+      };
+      (function tick() { if (game !== g) return; mark.style.left = g.pos() * 100 + '%'; if (!g.over) requestAnimationFrame(tick); })();
+    };
+    el.addEventListener('pointerdown', function (e) { e.preventDefault(); if (town.fishGame) town.fishGame.press(); });
+  })();
   town.onSecret = function (def, ev) { queueSecret(def, ev && ev.projected); };
   // If part of the town stops moving, say which part and why (so it can be fixed).
   town.onError = function (part, msg) {
