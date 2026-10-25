@@ -344,7 +344,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v88';
+  var BUILD = 'v89';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -1658,6 +1658,15 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       var dup = acts.some(function (b) { return b.kind === a.kind && b.date === a.date && (b.sport || '') === (a.sport || '') && Math.abs(new Date(b.when).getTime() - t) < 20 * 60000; });
       if (!dup) acts.push(a);
     });
+    // A commute is there and back: Strava's legs on the same day make one commute, distances added.
+    var legs = {}, merged = [];
+    acts.forEach(function (a) {
+      if (a.kind !== 'commute') { merged.push(a); return; }
+      var first = legs[a.date];
+      if (!first) { first = legs[a.date] = Object.assign({}, a); merged.push(first); return; }
+      first.km = (first.km || 0) + (a.km || 0); first.elev = (first.elev || 0) + (a.elev || 0); if (a.when < first.when) first.when = a.when;
+    });
+    acts = merged;
     // A sheet run, ride, swim or ski is replaced by Strava's only when Strava has one that day
     // (paired one for one), so nothing is counted twice and nothing on the sheet alone goes missing.
     var FAMILY = { run: 'run', commute: 'ride', bike: 'ride', mtb: 'ride', swim: 'swim', xcski: 'xcski', hike: 'foot', walk: 'foot', stairs: 'foot' };
