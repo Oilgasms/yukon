@@ -344,7 +344,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v89';
+  var BUILD = 'v90';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -1672,6 +1672,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     var FAMILY = { run: 'run', commute: 'ride', bike: 'ride', mtb: 'ride', swim: 'swim', xcski: 'xcski', hike: 'foot', walk: 'foot', stairs: 'foot' };
     var claim = acts.filter(function (a) { return fromStrava[a.kind]; }).map(function (a) { return { fam: FAMILY[a.kind], date: a.date, used: false }; });
     all.forEach(function (e) {
+      if (e.kind === 'commute') { dropped.push(e); return; } // commutes come from Strava only
       if (!fromStrava[e.kind]) { kept.push(e); return; }
       var c = claim.filter(function (q) { return !q.used && q.fam === FAMILY[e.kind] && q.date === e.date; })[0];
       if (c) { c.used = true; dropped.push(e); } else kept.push(e);
