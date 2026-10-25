@@ -244,7 +244,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     <div class="eyebrow">Fit(ter) by 30</div>
     <h1>Yukon</h1>
     <div class="season" id="season" hidden><b id="season-name">Fall</b><span id="season-why"></span><span id="weather-now"></span></div>
-    <div><button class="clock" id="clock" type="button" title="Tap to preview dawn, day, golden hour, dusk and night">&#9728; Day</button></div>
+    <div><button class="clock" id="clock" type="button" title="Tap to preview dawn, day, golden hour, dusk and night">&#9728; Day</button> <button class="clock" id="refresh-all" type="button" title="Reload your workouts, Strava, Bible log, reading log and films">&#10227; Refresh everything</button></div>
+    <div class="sync" id="update-row" hidden><span style="font-size:12.5px;color:var(--muted)">This page reads the copies saved twice a day. <a id="update-now" href="https://github.com/Oilgasms/yukon/actions/workflows/update.yml" target="_blank" rel="noopener">Fetch fresh data now</a> (press <b>Run workflow</b>), then refresh here in a minute or two.</span></div>
     <div class="sync"><span class="dot" id="dot"></span><span id="status">Connecting to your sheet…</span><button id="refresh" type="button" hidden>Refresh</button></div>
     <div class="sync"><span class="dot" id="sdot"></span><span id="sstatus">Strava not connected</span><button id="strava" type="button">Connect Strava</button></div>
     <div class="sync"><span class="dot" id="bdot"></span><span id="bstatus">Bible log: waiting for your sheet</span></div>
@@ -344,7 +345,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v91';
+  var BUILD = 'v92';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -1631,6 +1632,35 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   }
   $('strava').addEventListener('click', function () { setNotice(''); connectStrava(); });
 
+  // ---- Refresh everything: the workout sheet, Strava, the Bible log, the reading log and films ----
+  function refreshAll() {
+    setNotice('');
+    var b = $('refresh-all'); b.disabled = true; b.textContent = '\u27F3 Refreshing\u2026';
+    setTimeout(function () { b.disabled = false; b.innerHTML = '&#10227; Refresh everything'; }, 4000);
+    bibleEvents = null; readingEvents = null; movieEvents = null;
+    manualSync();
+    loadBible();
+    loadReading();
+    if (lsGet(MOVIE_KEY)) loadMovies();
+    if (stravaWanted()) connectStrava();
+    // On the website the Letterboxd diary is a saved file too: read the latest copy.
+    if (window.SITE_MODE) {
+      var sc = document.createElement('script');
+      sc.src = 'data/films.js?v=' + Date.now();
+      sc.onload = function () {
+        if (window.SITE_FILMS) snapFilms = window.SITE_FILMS.map(function (f) {
+          return { kind: 'movie', title: f[0], year: f[1] ? String(f[1]) : '', stars: f[3], rewatch: !!f[4], date: f[2],
+            day: new Date(f[2] + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }), label: f[0], phase: 'Films', friends: [], dogs: [] };
+        });
+        if (!lsGet(MOVIE_KEY)) snapStatus();
+        if (sheetData) applyEvents(withBible(mergeStrava(sheetData.events)), sheetData.phases, true);
+      };
+      document.head.appendChild(sc);
+    }
+  }
+  $('refresh-all').addEventListener('click', refreshAll);
+  if (window.SITE_MODE) $('update-row').hidden = false;
+
   function dayLabel(date) { return new Date(date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }); }
   function clone(e) { var c = {}; for (var k in e) c[k] = e[k]; return c; }
 
@@ -1649,7 +1679,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       if (e.date) lastT = new Date(e.date + 'T00:00:00').getTime();
       e._t = lastT != null ? lastT + i / 1e6 : since + (firstT - since) * (i / Math.max(1, firstIdx));
     });
-    var fromStrava = { run: 1, commute: 1, bike: 1, swim: 1, xcski: 1, mtb: 1 }, kept = [], dropped = [];
+    var fromStrava = { run: 1, commute: 1, bike: 1, swim: 1, xcski: 1, mtb: 1 }, STRAVA_ONLY = { run: 1, bike: 1, mtb: 1, commute: 1 }, kept = [], dropped = [];
     // The same activity uploaded twice (a watch and a phone, say): same kind, same day, started
     // within 20 minutes of each other. Keep the longer one.
     var acts = [];
@@ -1672,7 +1702,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     var FAMILY = { run: 'run', commute: 'ride', bike: 'ride', mtb: 'ride', swim: 'swim', xcski: 'xcski', hike: 'foot', walk: 'foot', stairs: 'foot' };
     var claim = acts.filter(function (a) { return fromStrava[a.kind]; }).map(function (a) { return { fam: FAMILY[a.kind], date: a.date, used: false }; });
     all.forEach(function (e) {
-      if (e.kind === 'commute') { dropped.push(e); return; } // commutes come from Strava only
+      // All riding (road, mountain bike, commute) and all runs come from Strava only.
+      if (STRAVA_ONLY[e.kind]) { dropped.push(e); return; }
       if (!fromStrava[e.kind]) { kept.push(e); return; }
       var c = claim.filter(function (q) { return !q.used && q.fam === FAMILY[e.kind] && q.date === e.date; })[0];
       if (c) { c.used = true; dropped.push(e); } else kept.push(e);

@@ -13,14 +13,14 @@
     localStorage.setItem('fittertown:strava', '1');
   } catch (e) {}
 
-  var bust = '?v=' + Date.now();
+  window.SITE_MODE = true;
   function base64(buf) {
     var bytes = new Uint8Array(buf), s = '';
     for (var i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
     return btoa(s);
   }
   function file(path, as) {
-    return fetch(path + bust).then(function (r) {
+    return fetch(path + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error(path + ': ' + r.status);
       return as === 'json' ? r.json() : r.arrayBuffer();
     });
