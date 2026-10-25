@@ -245,7 +245,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     <h1>Yukon</h1>
     <div class="season" id="season" hidden><b id="season-name">Fall</b><span id="season-why"></span><span id="weather-now"></span></div>
     <div><button class="clock" id="clock" type="button" title="Tap to preview dawn, day, golden hour, dusk and night">&#9728; Day</button> <button class="clock" id="refresh-all" type="button" title="Reload your workouts, Strava, Bible log, reading log and films">&#10227; Refresh everything</button></div>
-    <div class="sync" id="update-row" hidden><span style="font-size:12.5px;color:var(--muted)">This page reads the copies saved twice a day. <a id="update-now" href="https://github.com/Oilgasms/yukon/actions/workflows/update.yml" target="_blank" rel="noopener">Fetch fresh data now</a> (press <b>Run workflow</b>), then refresh here in a minute or two.</span></div>
+    <div class="sync" id="update-row" hidden><span style="font-size:12.5px;color:var(--muted)"><b id="data-time">Checking for saved data…</b> This page reads the copies saved twice a day and picks up new ones by itself. <a id="update-now" href="https://github.com/Oilgasms/yukon/actions/workflows/update.yml" target="_blank" rel="noopener">Fetch fresh data now</a> (press <b>Run workflow</b>), then refresh here in a minute or two.</span></div>
     <div class="sync"><span class="dot" id="dot"></span><span id="status">Connecting to your sheet…</span><button id="refresh" type="button" hidden>Refresh</button></div>
     <div class="sync"><span class="dot" id="sdot"></span><span id="sstatus">Strava not connected</span><button id="strava" type="button">Connect Strava</button></div>
     <div class="sync"><span class="dot" id="bdot"></span><span id="bstatus">Bible log: waiting for your sheet</span></div>
@@ -346,7 +346,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v94';
+  var BUILD = 'v95';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -1475,7 +1475,10 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</
     (movieEvents || []).concat(snapFilms).forEach(function (f) { if (!f.date || f.date < LB_START) return; var k = f.title.toLowerCase() + '|' + f.date; if (!seen[k]) { seen[k] = 1; out.push(f); } });
     return out.sort(function (a, b) { return (a.date || '') < (b.date || '') ? -1 : 1; });
   }
-  function snapStatus() { setMovies('Films: ' + allFilms().length + ' from Letterboxd (' + LB_USER + ')', 'live'); $('films-open').hidden = false; }
+  function snapStatus() {
+    var fl = allFilms(), last = fl[fl.length - 1];
+    setMovies('Films: ' + fl.length + ' from Letterboxd' + (last ? ' \u00b7 latest: ' + last.title + ' (' + last.day + ')' : ''), 'live'); $('films-open').hidden = false;
+  }
   function setMovies(text, state) { $('mstatus').textContent = text; $('mdot').className = 'dot' + (state ? ' ' + state : ''); }
   // A Letterboxd export is a CSV. Converted to a Google Sheet it exports as xlsx; left as a CSV
   // file Drive hands it over as-is, so try both.
@@ -1660,7 +1663,20 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</
     }
   }
   $('refresh-all').addEventListener('click', refreshAll);
-  if (window.SITE_MODE) $('update-row').hidden = false;
+  if (window.SITE_MODE) {
+    // Watch for a new data update (the twice-daily one, or a Run workflow): when it lands, refresh.
+    $('update-row').hidden = false;
+    var lastRan = null;
+    var checkData = function () {
+      fetch('data/status.json?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+        var when = new Date(j.ran);
+        $('data-time').textContent = 'Data saved ' + when.toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/\.$/, '') + '.';
+        if (lastRan && j.ran !== lastRan) refreshAll();
+        lastRan = j.ran;
+      }).catch(function () {});
+    };
+    checkData(); setInterval(checkData, 90000);
+  }
 
   function dayLabel(date) { return new Date(date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }); }
   function clone(e) { var c = {}; for (var k in e) c[k] = e[k]; return c; }
