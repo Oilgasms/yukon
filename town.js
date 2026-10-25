@@ -5495,7 +5495,7 @@
   var PARTY_DAYS = 7;
   var SECRET_BY_ID = {};
   SECRETS.forEach(function (x) { SECRET_BY_ID[x.id] = x; });
-  var WORKOUT_KINDS = { lift: 1, run: 1, bike: 1, commute: 1, row: 1, hike: 1, stairs: 1, walk: 1, sport: 1, mobility: 1, snowboard: 1, swim: 1, xcski: 1, mtb: 1 };
+  var WORKOUT_KINDS = { lift: 1, run: 1, bike: 1, commute: 1, row: 1, hike: 1, stairs: 1, sport: 1, mobility: 1, snowboard: 1, swim: 1, xcski: 1, mtb: 1 };
   Town.prototype.checkSecrets = function (ev, delay) {
     var s = this.st, self = this, b = s.best;
     function hit(id) {
@@ -8363,7 +8363,7 @@
   var SQ_STREET = (function () { var best = null, bd = 1e9; STREETS.forEach(function (st, si) { st.forEach(function (q, ti) { var d = Math.hypot(q.x - TOWN_SQ.x, q.z - TOWN_SQ.z); if (d < bd) { bd = d; best = { si: si, ti: ti }; } }); }); return best; })();
   // What the mice have to say about your day: today's workouts (from the sheet), a nudge if
   // there's nothing yet, and the odd call-out about Bible reading or a book overdue.
-  var NOT_WORKOUTS = { drink: 1, weight: 1, social: 1, bible: 1, book: 1, movie: 1 };
+  var NOT_WORKOUTS = { drink: 1, weight: 1, social: 1, bible: 1, book: 1, movie: 1, walk: 1 };
   function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
   Town.prototype.workoutLine = function (ev) {
     var km = ev.km ? (Math.round(ev.km * 10) / 10) + ' km' : '', who = ev.friends && ev.friends.length ? ev.friends[0] : null;
@@ -9027,7 +9027,8 @@
       (bd[ev.date] = bd[ev.date] || []).push(ev);
       if (ev.kind === 'book' && (!s.lastBookDate || ev.date > s.lastBookDate)) s.lastBookDate = ev.date;
     }
-    if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie') { s.sessions++; this.growSquare(delay); }
+    // Walks build the walking path but aren't workouts.
+    if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie' && ev.kind !== 'walk') { s.sessions++; this.growSquare(delay); }
     switch (ev.kind) {
       case 'lift':
         ev.groups.forEach(function (g, i) {

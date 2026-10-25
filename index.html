@@ -344,7 +344,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v87';
+  var BUILD = 'v88';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -1650,9 +1650,25 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       e._t = lastT != null ? lastT + i / 1e6 : since + (firstT - since) * (i / Math.max(1, firstIdx));
     });
     var fromStrava = { run: 1, commute: 1, bike: 1, swim: 1, xcski: 1, mtb: 1 }, kept = [], dropped = [];
-    all.forEach(function (e) { (fromStrava[e.kind] ? dropped : kept).push(e); });
+    // The same activity uploaded twice (a watch and a phone, say): same kind, same day, started
+    // within 20 minutes of each other. Keep the longer one.
+    var acts = [];
+    stravaActs.slice().sort(function (x, y) { return (y.km || 0) - (x.km || 0); }).forEach(function (a) {
+      var t = new Date(a.when).getTime();
+      var dup = acts.some(function (b) { return b.kind === a.kind && b.date === a.date && (b.sport || '') === (a.sport || '') && Math.abs(new Date(b.when).getTime() - t) < 20 * 60000; });
+      if (!dup) acts.push(a);
+    });
+    // A sheet run, ride, swim or ski is replaced by Strava's only when Strava has one that day
+    // (paired one for one), so nothing is counted twice and nothing on the sheet alone goes missing.
+    var FAMILY = { run: 'run', commute: 'ride', bike: 'ride', mtb: 'ride', swim: 'swim', xcski: 'xcski', hike: 'foot', walk: 'foot', stairs: 'foot' };
+    var claim = acts.filter(function (a) { return fromStrava[a.kind]; }).map(function (a) { return { fam: FAMILY[a.kind], date: a.date, used: false }; });
+    all.forEach(function (e) {
+      if (!fromStrava[e.kind]) { kept.push(e); return; }
+      var c = claim.filter(function (q) { return !q.used && q.fam === FAMILY[e.kind] && q.date === e.date; })[0];
+      if (c) { c.used = true; dropped.push(e); } else kept.push(e);
+    });
     var added = [];
-    stravaActs.forEach(function (a) {
+    acts.forEach(function (a) {
       if (fromStrava[a.kind]) {
         var ev = { kind: a.kind, km: a.km != null ? Math.round(a.km * 10) / 10 : 5, elev: a.elev, date: a.date, day: dayLabel(a.date),
           label: a.name, phase: 'Strava', strava: true, friends: [], dogs: [], sub: a.sub, secs: a.secs, exactKm: a.km };
@@ -1671,7 +1687,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
         return;
       }
       var kind = a.kind === 'climb' ? 'sport' : a.kind, sportName = a.kind === 'climb' ? 'Climbing' : a.sport;
-      var match = kept.filter(function (e) { return !e.strava && e.date === a.date && e.kind === kind && (kind !== 'sport' || e.sport === sportName); })[0];
+      var match = kept.filter(function (e) { return !e.strava && e.date === a.date && e.kind === kind && (kind !== 'sport' || e.sport === sportName); })[0]
+        || (FAMILY[kind] === 'foot' ? kept.filter(function (e) { return !e.strava && e.date === a.date && FAMILY[e.kind] === 'foot'; })[0] : null);
       // New sports, yoga and stair sessions that are only in Strava still count.
       if (!match && (a.sport || kind === 'mobility' || kind === 'stairs' || kind === 'hike' || kind === 'walk' || kind === 'row')) {
         added.push({ kind: kind, sport: sportName || undefined, km: a.km != null ? Math.round(a.km * 10) / 10 : ({ hike: 8, walk: 2, row: 3 }[kind] || 0), elev: a.elev || 0, date: a.date, day: dayLabel(a.date), label: a.name, phase: 'Strava', strava: true, friends: [], dogs: [],
