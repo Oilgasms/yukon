@@ -7138,7 +7138,9 @@
     }
   };
 
+  var NO_VENUE = { Dance: 1, Spikeball: 1 };
   Town.prototype.addSport = function (name, delay) {
+    if (NO_VENUE[name]) return;
     var sp = this.st.sports[name];
     if (!sp) {
       var others = this.st.sportOrder.filter(function (n) { return n !== 'Hockey'; }).length, extra = name !== 'Hockey' && others >= SPORT_SLOTS.length;
@@ -8416,6 +8418,23 @@
     }
     return callouts.length && Math.random() < 0.45 ? pickOne(callouts) : main;
   };
+  var PUB_STREET = (function () { var best = null, bd = 1e9; STREETS.forEach(function (st, si) { st.forEach(function (q, ti) { var d = Math.hypot(q.x - PUB.x, q.z - PUB.z); if (d < bd) { bd = d; best = { si: si, ti: ti }; } }); }); return best; })();
+  // Friday and Saturday nights, from dark till midnight: the whole town's down the Slow Pour.
+  Town.prototype.pubNight = function () {
+    if (!this.dark || !this.st.pub) return false;
+    var d = new Date(), dow = d.getDay(), h = d.getHours();
+    return (dow === 5 || dow === 6) && h >= 12;
+  };
+  // Seats at the picnic tables out front, then standing room round them.
+  Town.prototype.pubSpot = function (i) {
+    var pub = this.st.pub, loc, rot;
+    if (i < 8) { var t = i >> 2, sd = (i >> 1) & 1 ? 1 : -1, end = i & 1 ? 0.25 : -0.25, front = t === 0; loc = new T.Vector3(sd * 1.1 + end, 0, front ? 1.6 : 2.4); rot = front ? 0 : Math.PI; }
+    else { var a = (i - 8) * 0.9; loc = new T.Vector3(Math.sin(a) * 2.6, 0, 2.2 + Math.cos(a) * 1.1); rot = Math.atan2(-loc.x, 2.0 - loc.z); }
+    pub.updateMatrixWorld(true);
+    var w = pub.localToWorld(loc.clone());
+    return { x: w.x, z: w.z, rot: pub.rotation.y + rot, sit: i < 8, y: i < 8 ? groundY(PUB.x, PUB.z) + 0.25 : null };
+  };
+  var PUB_LINES = ['cheers!', 'another round!', 'ha! good one', '*hic*', '\u266a la la la \u266a', 'to Yukon!', 'who\u2019s buying?', 'one more, then home', 'love this song', 'Doris! two more!'];
   var MOUSE_JOBS = { postie: 'Percy the postie', barkeep: 'Doris behind the bar', hiker: 'A hiking mouse' };
   Town.prototype.makeMouse = function (k, job) {
     var g = new T.Group(), self = this, name = job ? MOUSE_JOBS[job] + (job === 'hiker' ? ' ' + (k + 1) : '') : MOUSE_NAMES[k % MOUSE_NAMES.length], pick = 'folk:' + name;
@@ -8498,7 +8517,7 @@
         return m;
       }));
     }
-    var folk = s.folk, night = this.dark, P = this.explore && this.player ? this.player.g.position : null;
+    var folk = s.folk, night = this.dark, P = this.explore && this.player ? this.player.g.position : null, pubNow = this.pubNight();
     folk.forEach(function (m) {
       if (m.owl == null) m.owl = m.k % 3 === 1;
       if (!m.owl) return;
@@ -8524,7 +8543,7 @@
       if (m.state === 'inside') {
         g.visible = false;
         m.wait -= dt;
-        if (m.wait <= 0 && (!night || m.owl)) { m.state = 'idle'; g.visible = true; g.position.set(m.home.door.x, groundY(m.home.door.x, m.home.door.z), m.home.door.z); self.pop(g, 0); }
+        if (m.wait <= 0 && (!night || m.owl || pubNow)) { m.state = 'idle'; g.visible = true; g.position.set(m.home.door.x, groundY(m.home.door.x, m.home.door.z), m.home.door.z); self.pop(g, 0); }
         return;
       }
       // Greet the raccoon (once in a while), then carry on.
@@ -8551,11 +8570,21 @@
         g.rotation.y = Math.atan2(sm.x - g.position.x, sm.z - g.position.z);
         m.arms.forEach(function (a, i) { a.rotation.x = -1.2 + Math.sin(now / 160 + i * 2) * 0.5; });
         m.body.rotation.x = 0.3;
-        if (sm.prog >= 1 || (night && !m.owl)) {
+        if (sm.prog >= 1 || (night && !m.owl) || pubNow) {
           sm.builder = null; m.body.rotation.x = 0; m.arms.forEach(function (a) { a.rotation.x = 0; });
           if (sm.prog >= 1) self.say(['ta-da!', 'a fine fellow', 'needs a scarf'][Math.floor(Math.random() * 3)], g, 0.65, 1.6);
           m.state = 'idle';
         }
+        return;
+      }
+      if (m.state === 'pub') {
+        // Down the pub: pint raised now and then, a laugh, a song, swaying a little later on.
+        if (!pubNow) { m.state = 'idle'; if (m.pint) m.pint.visible = false; m.body.position.y = 0.13; m.body.rotation.z = 0; m.head.rotation.x = 0; m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; }); m.g.position.y = groundY(g.position.x, g.position.z); return; }
+        var cheer = Math.sin(now / 1300 + m.k * 1.9);
+        m.arms[1].rotation.x = cheer > 0.85 ? -2.4 : -1.1 + Math.sin(now / 700 + m.k) * 0.1;
+        m.body.rotation.z = Math.sin(now / 900 + m.k) * 0.06;
+        m.head.rotation.x = cheer > 0.85 ? -0.3 : 0.05;
+        if (Math.random() < dt * 0.035) self.say(PUB_LINES[Math.floor(Math.random() * PUB_LINES.length)], g, 0.65, 1.6);
         return;
       }
       if (m.state === 'sit') {
@@ -8564,7 +8593,7 @@
         m.paper.rotation.y = Math.sin(now / 1800 + m.k) * 0.15; m.head.rotation.x = night ? -0.45 + Math.sin(now / 3000 + m.k) * 0.15 : 0.25 + Math.sin(now / 2500 + m.k) * 0.1; // stargazing after dark
         if (night && m.owl && Math.random() < dt * 0.04) self.say(['look, a shooting star!', 'there\u2019s the Big Dipper', 'lovely night', '*yawn*', 'is that the aurora?'][Math.floor(Math.random() * 5)], g, 0.65, 2.0);
         if (Math.floor(now / 4000 + m.k) % 5 === 0) m.paper.rotation.z = Math.sin(now / 120) * 0.08; else m.paper.rotation.z = 0;
-        if (m.wait <= 0 || (night && !m.owl)) {
+        if (m.wait <= 0 || (night && !m.owl) || pubNow) {
           m.state = 'idle'; m.paper.visible = false; m.seat.taken = null; m.seat = null; m.body.position.y = 0.13; m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; }); m.head.rotation.x = 0;
         }
         return;
@@ -8573,7 +8602,8 @@
         // Decide where to next: a neighbour's, a bench on the square, or home (always home by dark).
         var r = Math.random(), dest, route, from = m.at || { si: m.home.si, ti: m.home.ti };
         var needs = winter && s.snowmen ? s.snowmen.filter(function (sm) { return sm.prog < 1 && !sm.builder; }) : [];
-        if (night && !m.owl) dest = { kind: 'home' };
+        if (pubNow) dest = { kind: 'pub', spot: self.pubSpot(folk.indexOf(m)) };
+        else if (night && !m.owl) dest = { kind: 'home' };
         else if (night && r < 0.35) { var nb = (self.seats || []).filter(function (q) { return !q.taken && inTownSquare(q.x, q.z, 1); })[Math.floor(Math.random() * 4)]; dest = nb ? { kind: 'bench', seat: nb } : { kind: 'home' }; }
         else if (night && r < 0.65) { var ow = folk.filter(function (o) { return o.owl && o !== m; }); dest = { kind: 'visit', who: ow.length ? ow[Math.floor(Math.random() * ow.length)] : m }; }
         else if (night && r < 0.85) dest = { kind: 'stroll' };
@@ -8583,10 +8613,10 @@
         else if (r < 0.75) { var other = folk[Math.floor(Math.random() * folk.length)]; dest = { kind: 'visit', who: other }; }
         else dest = { kind: 'home' };
         if (dest.kind === 'stroll') { var si = Math.floor(Math.random() * STREETS.length); dest.to = { si: si, ti: Math.floor(Math.random() * STREETS[si].length) }; }
-        var to = dest.kind === 'stroll' ? dest.to : dest.kind === 'bench' || dest.kind === 'snowman' ? SQ_STREET : dest.kind === 'visit' ? { si: dest.who.home.si, ti: dest.who.home.ti } : { si: m.home.si, ti: m.home.ti };
+        var to = dest.kind === 'pub' ? PUB_STREET : dest.kind === 'stroll' ? dest.to : dest.kind === 'bench' || dest.kind === 'snowman' ? SQ_STREET : dest.kind === 'visit' ? { si: dest.who.home.si, ti: dest.who.home.ti } : { si: m.home.si, ti: m.home.ti };
         var start = from.door || (m.at ? null : m.home.door);
         route = (m.state === 'idle' && g.position ? [{ x: g.position.x, z: g.position.z }] : []).concat(streetRoute(from, to));
-        var end = dest.kind === 'stroll' ? STREETS[dest.to.si][dest.to.ti] : dest.kind === 'snowman' ? { x: dest.sm.x + 0.45, z: dest.sm.z + 0.2 } : dest.kind === 'bench' ? dest.seat : dest.kind === 'visit' ? dest.who.home.door : m.home.door;
+        var end = dest.kind === 'pub' ? dest.spot : dest.kind === 'stroll' ? STREETS[dest.to.si][dest.to.ti] : dest.kind === 'snowman' ? { x: dest.sm.x + 0.45, z: dest.sm.z + 0.2 } : dest.kind === 'bench' ? dest.seat : dest.kind === 'visit' ? dest.who.home.door : m.home.door;
         route.push({ x: end.x, z: end.z });
         if (dest.kind === 'bench') { dest.seat.taken = m; }
         m.route = route; m.ri = 1; m.dest = dest; m.state = 'walk'; m.at = to;
@@ -8621,6 +8651,17 @@
       m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; });
       if (D.kind === 'snowman') { m.state = 'build'; return; }
       if (D.kind === 'stroll') { m.state = 'idle'; return; }
+      if (D.kind === 'pub') {
+        // Pull up a bench (or lean on the table) with a pint.
+        var sp = D.spot; m.g.rotation.y = sp.rot; m.state = 'pub';
+        if (sp.sit) { m.g.position.y = sp.y; m.body.position.y = 0.06; m.legs.forEach(function (l) { l.rotation.x = -1.4; }); }
+        if (!m.pint) {
+          var pt = m.pint = new T.Group(); pt.position.set(0, -0.12, 0.03); m.arms[1].add(pt);
+          self.part(pt, self.geo.cyl, self.mat('beer', 0), 0.03, 0.06, 0.03, 0, 0, 0); self.part(pt, self.geo.cyl, self.mat('beer', 1), 0.032, 0.02, 0.032, 0, 0.038, 0);
+        }
+        m.pint.visible = true;
+        return;
+      }
       if (D.kind === 'bench') {
         // Sit, open the paper.
         var q = D.seat;

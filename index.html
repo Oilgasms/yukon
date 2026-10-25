@@ -344,7 +344,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v86';
+  var BUILD = 'v87';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -375,7 +375,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     old.parentNode.replaceChild(c, old);
     return c;
   }
-  var town, startErr = null, softNote = false;
+  var town, startErr = null, softNote = false, mellonOpen = false;
   if (!window.THREE || !THREE.OrbitControls) startErr = new Error('The 3D library didn\u2019t load.');
   else if (!window.FitParser || !window.Town) startErr = new Error('The town\u2019s own scripts didn\u2019t load.');
   else {
@@ -843,7 +843,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     stop();
     syncSeason(n);
     town.build(events, n);
-    if (lsGet('fittertown:mellon')) town.unlockSecret('mellon', true);
+    if (mellonOpen) town.unlockSecret('mellon', true);
     town.setPlanned(!future && n === events.length ? plannedNow() : []);
     shown = n;
     $('scrub').value = n;
@@ -871,7 +871,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     stop();
     town.setPlanned([]);
     town.build(events, from);
-    if (lsGet('fittertown:mellon')) town.unlockSecret('mellon', true);
+    if (mellonOpen) town.unlockSecret('mellon', true);
     shown = from;
     $('play').textContent = 'Pause';
     (function next() {
@@ -999,11 +999,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   addEventListener('keydown', function (e) { if (e.key === 'Escape') $('shelf').hidden = true; });
 
   // Speak, friend, and enter.
-  var MELLON_KEY = 'fittertown:mellon', typed = '';
+  // The door has to be opened again on every visit (it stays open while you're here).
+  var typed = '';
   addEventListener('keydown', function (e) {
     if (!e.key || e.key.length !== 1 || /input|textarea/i.test((e.target && e.target.tagName) || '')) return;
     typed = (typed + e.key.toLowerCase()).slice(-6);
-    if (typed === 'mellon' && town) { lsSet(MELLON_KEY, '1'); town.unlockSecret('mellon'); renderLedger(); }
+    if (typed === 'mellon' && town) { mellonOpen = true; town.unlockSecret('mellon'); renderLedger(); }
   });
   $('scene').addEventListener('click', function (e) {
     var k = town && town.pick(e.clientX, e.clientY);
