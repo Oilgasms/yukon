@@ -98,7 +98,8 @@ async function letterboxd() {
     const title = tag(item, 'filmTitle'), date = tag(item, 'watchedDate');
     if (!title || !date) continue; // lists and other non-diary posts
     const rating = parseFloat(tag(item, 'memberRating'));
-    fresh.push([title, +tag(item, 'filmYear') || null, date, isNaN(rating) ? null : rating, tag(item, 'rewatch') === 'Yes' ? 1 : 0]);
+    const poster = (item.match(/<img src="([^"]+)"/) || [])[1] || '';
+    fresh.push([title, +tag(item, 'filmYear') || null, date, isNaN(rating) ? null : rating, tag(item, 'rewatch') === 'Yes' ? 1 : 0, poster.replace(/&amp;/g, '&')]);
   }
   const path = new URL('films.js', DATA);
   let films = [];
@@ -106,7 +107,7 @@ async function letterboxd() {
   const key = (f) => f[0].toLowerCase() + '|' + f[2];
   const known = new Map(films.map((f) => [key(f), f]));
   let added = 0;
-  for (const f of fresh) { if (!known.has(key(f))) added++; known.set(key(f), f); } // a changed rating replaces the old one
+  for (const f of fresh) { if (!known.has(key(f))) added++; known.set(key(f), f); } // a changed rating (or a poster) replaces the old one
   films = [...known.values()].sort((a, b) => (a[2] < b[2] ? -1 : 1));
   await writeFile(path, 'window.SITE_FILMS = ' + JSON.stringify(films) + ';\n');
   return `${films.length} films (${added} new)`;

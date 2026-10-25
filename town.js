@@ -2662,7 +2662,7 @@
   var CINEMA_STEPS = [[1, 'An outdoor movie night'], [25, 'A little picture house'], [40, 'Marquee lights'], [50, 'A popcorn cart'], [100, 'A neon sign'], [200, 'A second screen'], [365, 'Searchlights and a red carpet']];
   Town.prototype.addMovie = function (ev) {
     var C = this.st.cinema;
-    C.films.push({ title: ev.title, year: ev.year, stars: ev.stars, date: ev.date, rewatch: !!ev.rewatch, projected: !!ev.projected });
+    C.films.push({ title: ev.title, year: ev.year, stars: ev.stars, date: ev.date, rewatch: !!ev.rewatch, projected: !!ev.projected, cover: ev.cover || '' });
     var cs = CINEMA_STEPS.filter(function (x) { return x[0] === C.films.length; })[0];
     if (cs && cs[0] > 1) this.news(['the picture house has ' + cs[1].toLowerCase() + ' now!', 'fancy a film? ' + cs[1].toLowerCase() + ' at the cinema!'], ev.date);
     this.cinemaDirty = true;
