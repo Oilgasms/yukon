@@ -346,7 +346,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v96';
+  var BUILD = 'v97';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -589,7 +589,11 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</
   town.onWeather = function (label) { $('weather-now').textContent = label === 'clear' ? '' : '\u00b7 ' + label; };
   // Treasures the raccoon digs out of the bins are kept from visit to visit.
   town.loot = +lsGet('fittertown:loot') || 0;
-  town.onLoot = function (what, n) { lsSet('fittertown:loot', String(n)); };
+  town.onLoot = function (what, n) { lsSet('fittertown:loot', String(n)); if (town.collect) town.collect(what); };
+  // Coins, hats, errands and the den's treasures, kept from visit to visit.
+  try { town.store = JSON.parse(lsGet('fittertown:store') || '{}'); } catch (e) { town.store = {}; }
+  town.onStore = function (st) { lsSet('fittertown:store', JSON.stringify(st)); };
+  if (town.dressPlayer) town.dressPlayer();
   // A bite: a timing bar. Stop the marker in the green to land it; in the gold for something good.
   (function () {
     var el = $('fishgame'), mark = $('fg-mark'), game = null, hideT = 0;
