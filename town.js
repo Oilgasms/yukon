@@ -4023,10 +4023,12 @@
   Town.prototype.startBrawl = function (who, at, mats, onEnd) {
     var cloud = new T.Group(), self = this, blobs = [], limbs = [], stars = [];
     cloud.position.copy(at); this.world.add(cloud);
-    for (var i = 0; i < 14; i++) {
-      var b = this.mesh(this.geo.blob, i % 3 ? this.mat('soil') : this.mat('stone', 2), cloud), a = Math.random() * Math.PI * 2, e = (Math.random() - 0.5) * 2;
-      b.userData.home = new T.Vector3(Math.cos(a) * 0.45, 0.6 + e * 0.35, Math.sin(a) * 0.45); b.position.copy(b.userData.home);
-      b.scale.setScalar(0.35 + Math.random() * 0.25); blobs.push(b);
+    // A big, thick, churning ball of dust: an inner core and a puffier outer layer.
+    var dustMats = [this.mat('soil'), this.mat('stone', 2), this.mat('sand'), this.mat('woodLight')];
+    for (var i = 0; i < 30; i++) {
+      var outer = i >= 12, b = this.mesh(this.geo.blob, dustMats[i % dustMats.length], cloud), a = Math.random() * Math.PI * 2, e = (Math.random() - 0.5) * 2, rr = outer ? 0.75 + Math.random() * 0.25 : 0.35;
+      b.userData.home = new T.Vector3(Math.cos(a) * rr, 0.7 + e * (outer ? 0.5 : 0.3), Math.sin(a) * rr); b.position.copy(b.userData.home);
+      b.scale.setScalar(outer ? 0.32 + Math.random() * 0.3 : 0.45 + Math.random() * 0.25); b.castShadow = false; blobs.push(b);
     }
     for (var l = 0; l < 14; l++) { var lm = this.mesh(this.geo.box, mats[l % mats.length], cloud); lm.scale.set(0.09, 0.09, 0.42); lm.visible = false; limbs.push(lm); }
     for (var st = 0; st < 4; st++) { var sm = this.mesh(this.geo.cone4, this.mat('gold'), cloud); sm.scale.set(0.1, 0.12, 0.03); sm.visible = false; stars.push(sm); }
@@ -4040,24 +4042,29 @@
     c.rotation.y += dt * 16;
     c.position.set(B.base.x + Math.sin(B.t * 3.1) * 0.7, B.base.y + Math.abs(Math.sin(B.t * 9)) * 0.18, B.base.z + Math.cos(B.t * 2.3) * 0.7);
     var fl = this.floorAt(c.position.x, c.position.z, B.base.y + 1); if (fl > B.base.y - 1) c.position.y += fl - B.base.y;
-    B.blobs.forEach(function (b, i) { var h = b.userData.home; b.position.set(h.x * (1 + Math.sin(now / 60 + i) * 0.15), h.y + Math.sin(now / 45 + i * 2) * 0.08, h.z * (1 + Math.cos(now / 55 + i) * 0.15)); });
+    B.blobs.forEach(function (b, i) { var h = b.userData.home, pu = 1 + Math.sin(now / 60 + i) * 0.22; b.position.set(h.x * pu, h.y + Math.sin(now / 45 + i * 2) * 0.12, h.z * (1 + Math.cos(now / 55 + i) * 0.22)); b.rotation.y = now / 200 + i; });
+    // Dust everywhere: kicked up off the ground all round, drifting off the top, trailing behind.
+    if (Math.random() < dt * 40) { var ka = Math.random() * Math.PI * 2; this.puff(c.position.x + Math.cos(ka) * 1.0, c.position.y + 0.1, c.position.z + Math.sin(ka) * 1.0, 3, 'dust', 0.6); }
+    if (Math.random() < dt * 14) this.puff(c.position.x, c.position.y + 1.4, c.position.z, 2, 'dust', 0.8);
+    if (Math.random() < dt * 10) this.puff(c.position.x, c.position.y + 0.6, c.position.z, 2, 'smoke', 0.5);
     B.limbs.forEach(function (lm) {
       if (Math.random() < dt * 9) {
         lm.visible = Math.random() < 0.7;
         var a = Math.random() * Math.PI * 2, e = (Math.random() - 0.3) * 1.4, dir = new T.Vector3(Math.cos(a) * Math.cos(e), Math.sin(e), Math.sin(a) * Math.cos(e));
-        lm.position.set(dir.x * 0.62, 0.6 + dir.y * 0.62, dir.z * 0.62); lm.lookAt(lm.position.clone().multiplyScalar(2).add(c.position));
+        lm.position.set(dir.x * 0.95, 0.7 + dir.y * 0.8, dir.z * 0.95); lm.lookAt(lm.position.clone().multiplyScalar(2).add(c.position));
       }
     });
     B.stars.forEach(function (sm, i) { sm.visible = Math.sin(now / 90 + i * 1.7) > 0.6; var a = now / 200 + i * 1.6; sm.position.set(Math.cos(a) * 0.8, 1.15 + Math.sin(a * 2) * 0.1, Math.sin(a) * 0.8); sm.rotation.z = now / 100; });
     if (now > B.wordAt) {
       B.wordAt = now + 330 + Math.random() * 200;
       this.say(['POW!', 'BIFF!', 'WHAM!', 'BONK!', 'OOF', 'ZOK!', '*scratch*', 'KAPOW', 'YIP!'][Math.floor(Math.random() * 9)], c, 1.1 + Math.random() * 0.4, 0.5);
-      this.puff(c.position.x, c.position.y + 0.2, c.position.z, 4, 'dust', 0.5);
+      this.puff(c.position.x, c.position.y + 0.2, c.position.z, 8, 'dust', 0.9);
       this.sfx(Math.random() < 0.5 ? 'rustle' : 'clang');
     }
     if (B.t > B.dur) {
       this.world.remove(c);
-      this.puff(c.position.x, c.position.y + 0.4, c.position.z, 24, 'dust', 0.9);
+      this.puff(c.position.x, c.position.y + 0.4, c.position.z, 40, 'dust', 1.4);
+      this.puff(c.position.x, c.position.y + 0.8, c.position.z, 14, 'smoke', 0.9);
       var pl = this.player;
       B.who.forEach(function (g) { g.visible = true; });
       if (pl) { pl.g.position.x = c.position.x; pl.g.position.z = c.position.z; pl.g.position.y = this.floorAt(c.position.x, c.position.z, c.position.y + 1); pl.vy = 0; pl.idle = 0; }
