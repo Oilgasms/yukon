@@ -345,7 +345,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v92';
+  var BUILD = 'v93';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -1702,7 +1702,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     var FAMILY = { run: 'run', commute: 'ride', bike: 'ride', mtb: 'ride', swim: 'swim', xcski: 'xcski', hike: 'foot', walk: 'foot', stairs: 'foot' };
     var claim = acts.filter(function (a) { return fromStrava[a.kind]; }).map(function (a) { return { fam: FAMILY[a.kind], date: a.date, used: false }; });
     all.forEach(function (e) {
-      // All riding (road, mountain bike, commute) and all runs come from Strava only.
+      // All riding (road, mountain bike, commute) and all runs come from Strava only. (Hikes and walks
+      // come from both, matched up by day below so the same outing never counts twice.)
       if (STRAVA_ONLY[e.kind]) { dropped.push(e); return; }
       if (!fromStrava[e.kind]) { kept.push(e); return; }
       var c = claim.filter(function (q) { return !q.used && q.fam === FAMILY[e.kind] && q.date === e.date; })[0];
@@ -1720,6 +1721,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
         added.push(ev);
         return;
       }
+      // Basketball, hockey, climbing and every other sport come from the sheet only.
+      if (a.kind === 'hockey' || a.kind === 'climb' || a.kind === 'sport') return;
       if (a.kind === 'hockey') {
         var hm = kept.filter(function (e) { return !e.strava && e.date === a.date && e.kind === 'sport' && e.sport === 'Hockey'; })[0];
         if (hm) { hm.strava = true; hm.label += ' · Strava'; }
