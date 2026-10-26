@@ -294,7 +294,7 @@
   // Village: a main street from the castle to the square, and two side streets beyond it.
   // Houses line both sides, facing each other across the street.
   var STREETS = [
-    bezierPath(polar(262, RING_ROAD), polar(258, 18), polar(246, 21), SQUARE),
+    bezierPath(polar(GATE_ANGLE - 360 / 7, RING_ROAD), polar(248, 18), polar(244, 21), SQUARE),
     bezierPath(SQUARE, polar(228, 28), polar(218, 31), polar(212, 36.5)),
     bezierPath(SQUARE, polar(248, 29), polar(255, 32), polar(257, 37)),
     // Lanes branching off the side streets as the village fills.
@@ -326,7 +326,7 @@
           if (inTownSquare(p.x, p.z, 2.6)) return;
           if (Math.hypot(p.x - DOG_PEN.c.x, p.z - DOG_PEN.c.z) < 7.5 || Math.hypot(p.x - POND.x, p.z - POND.z) < 7.5 || Math.hypot(p.x - OFFICE.x, p.z - OFFICE.z) < 5.5) return;
           if (STREETS.some(function (st) { return st.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 2.3; }); })) return;
-          if (hash.near(p.x, p.z, 3.9)) return;
+          if (hash.near(p.x, p.z, 4.4)) return;
           if (FIELDS_NEAR(p)) return;
           // Door faces the street.
           p.face = Math.atan2(-nx * side, -nz * side);
@@ -631,7 +631,7 @@
   }
   // The commuter lane runs in a gentle S from the ring road, over the river, to the office
   // (clear of the library path, which leaves the ring road further round).
-  var LANE = bezierPath(polar(28, RING_ROAD), polar(31, 27), polar(25, 39), polar(30, 55 - 3.4), LANE_STONES);
+  var LANE = bezierPath(polar(GATE_ANGLE + 720 / 7, RING_ROAD), polar(38, 27), polar(25, 39), polar(30, 55 - 3.4), LANE_STONES);
   // Paths: every destination gets its own path from the ring road; each field gate joins
   // the farm track at the nearest point already on it.
   var LODGE = (function () { var a = SNOW_FACE - 0.35, d = SNOW.R + 2.6; return { x: SNOW.c.x + Math.cos(a) * d, z: SNOW.c.z + Math.sin(a) * d }; })();
@@ -643,7 +643,13 @@
     var dx = to.x - from.x, dz = to.z - from.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l * wiggle, nz = dx / l * wiggle;
     return bezierPath(from, { x: from.x + dx * 0.33 + nx, z: from.z + dz * 0.33 + nz }, { x: from.x + dx * 0.66 - nx * 0.6, z: from.z + dz * 0.66 - nz * 0.6 }, to);
   }
-  function fromRing(to, wiggle) { var a = angleOf(to.x, to.z); return trail(polar(a, RING_ROAD), to, wiggle == null ? 1.2 : wiggle); }
+  // Paths out into the country leave town from the end of the nearest of Whitehorse's seven streets.
+  function streetEnd(a) {
+    var best = GATE_ANGLE, bd = 1e9;
+    for (var i = 0; i < 7; i++) { var sa = GATE_ANGLE + i * 360 / 7, d = Math.abs(((a - sa) % 360 + 540) % 360 - 180); if (d < bd) { bd = d; best = sa; } }
+    return polar(best, RING_ROAD);
+  }
+  function fromRing(to, wiggle) { return trail(streetEnd(angleOf(to.x, to.z)), to, wiggle == null ? 1.2 : wiggle); }
   var RING = (function () {
     var out = [], n = Math.round(2 * Math.PI * RING_ROAD / 0.55);
     for (var i = 0; i < n; i++) { var a = i / n * 360, p = polar(a, RING_ROAD); p.rot = (a + 90) * D2R; out.push(p); }
@@ -655,7 +661,7 @@
     out.push({ kind: 'path', pts: fromRing(polar(FARM.angle, FARM.r - 0.8), 0.4) });
     out.push({ kind: 'path', pts: fromRing(polar(angleOf(DOG_PEN.c.x, DOG_PEN.c.z), Math.hypot(DOG_PEN.c.x, DOG_PEN.c.z) - DOG_PEN.d / 2 - 0.3), 0.6) });
     out.push({ kind: 'path', pts: fromRing(FOREST_SEED, 1.5) });
-    out.push({ kind: 'road', pts: fromRing(LODGE, 2.5) });
+    out.push({ kind: 'road', pts: fromRing(LODGE, 2.5), lodge: true }); // laid with the lodge
     out.push({ kind: 'path', pts: fromRing(polar(RIDGE.a, RIDGE.r - 14), 2) });
     out.push({ kind: 'path', pts: trail(SQUARE, polar(angleOf(POND.x, POND.z) + 4, Math.hypot(POND.x, POND.z) - 5.5), 1) });
     SPORT_SLOTS.forEach(function (sl, i) { var p = polar(sl[0], sl[1] - 2.2); out.push({ kind: 'path', pts: fromRing(p, i % 2 ? 0.8 : -0.8), sport: i }); });
@@ -668,7 +674,7 @@
     // Farm tracks: the drove road runs out from the ring road down the middle of the farmland,
     // reaching each band when its first field opens; each field's gate joins the track along
     // the inside of its band, at the nearest gate or the drove road.
-    var spineAt = polar(FARM_SPINE, RING_ROAD), reached = -1, bandNodes = {};
+    var spineAt = streetEnd(FARM_SPINE), reached = -1, bandNodes = {};
     FIELDS.forEach(function (f, fi) {
       var g = fieldGate(f), pts = [];
       var sn = polar(FARM_SPINE, 30 + f.band * FIELD_BAND - (FIELD_ROWS * FIELD_TILE + 0.5) / 2 - 0.6);
@@ -704,7 +710,7 @@
   var CASTLE_ROADS = CASTLE_SITES.map(function (site, ci) {
     if (!ci) return null;
     var gp = polar(angleOf(-site.x, -site.z), 13.8);
-    return trail(polar(angleOf(site.x, site.z), RING_ROAD), { x: site.x + gp.x, z: site.z + gp.z }, 3);
+    return trail(streetEnd(angleOf(site.x, site.z)), { x: site.x + gp.x, z: site.z + gp.z }, 3);
   });
   FOREST = FOREST.filter(function (p) { return !nearPath(p.x, p.z, 1.3); });
   FOREST = FOREST.filter(function (p) { return !LANE.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 1.6; }); });
@@ -1177,7 +1183,7 @@
     // Roads and paths: cobbles for the roads, dirt for the rest. Village streets
     // and the paths to fields and pitches are laid later, as those get built.
     var cobbles = [], dirt = [], self = this; // (no ring road round Whitehorse any more: the city's streets meet the paths)
-    PATHS.forEach(function (pa) { if (pa.field || pa.sport != null || pa.castle) return; pa.pts.forEach(function (p) { (pa.kind === 'road' ? cobbles : dirt).push(p); }); });
+    PATHS.forEach(function (pa) { if (pa.field || pa.sport != null || pa.castle || pa.lodge) return; pa.pts.forEach(function (p) { (pa.kind === 'road' ? cobbles : dirt).push(p); }); });
     // A road out to every town up the line, there from the start (each town grows at the end of it).
     CASTLE_ROADS.forEach(function (rd, ci) {
       if (!rd) return;
@@ -1187,7 +1193,7 @@
     this.layTiles(dirt, 'path', 0.95, base);
     var lamps = [];
     function lampsAlong(pts, every, off) { lampPoints(pts, every, off, 0).forEach(function (l) { lamps.push(l); }); }
-    PATHS.forEach(function (pa) { if (!pa.field && pa.sport == null && !pa.castle) lampsAlong(pa.pts, 13, 1.0); });
+    PATHS.forEach(function (pa) { if (!pa.field && pa.sport == null && !pa.castle && !pa.lodge) lampsAlong(pa.pts, 13, 1.0); });
     lamps.forEach(function (l) { self.lamp(l.x, l.z, base); });
 
     // The village square: a cobbled circle with a well and an old oak.
@@ -7477,7 +7483,7 @@
     if (!MTB_HILL) return null;
     var ry = Math.atan2(-MTB_HILL.x, -MTB_HILL.z), lx = 0, lz = 6.4;
     var end = { x: MTB_HILL.x + lx * Math.cos(ry) + lz * Math.sin(ry), z: MTB_HILL.z - lx * Math.sin(ry) + lz * Math.cos(ry) };
-    var a = angleOf(end.x, end.z), start = polar(a + 4, RING_ROAD + 1.2), d = Math.hypot(end.x, end.z), mid1 = polar(a + 6, RING_ROAD + (d - RING_ROAD) * 0.35), mid2 = polar(a - 3, RING_ROAD + (d - RING_ROAD) * 0.7);
+    var a = angleOf(end.x, end.z), start = streetEnd(a + 4), d = Math.hypot(end.x, end.z), mid1 = polar(a + 6, RING_ROAD + (d - RING_ROAD) * 0.35), mid2 = polar(a - 3, RING_ROAD + (d - RING_ROAD) * 0.7);
     var raw = [], n = 600;
     for (var i = 0; i <= n; i++) {
       var t = i / n, u = 1 - t;
@@ -11390,6 +11396,7 @@
     lodge.add(roof);
     this.world.add(lodge);
     S.lodge = { group: lodge, roof: roof };
+    this.layPath(PATHS.filter(function (pa) { return pa.lodge; })[0], 0);
     this.addLodgeFloor(delay);
   };
   Town.prototype.addLiftTower = function (delay) {
@@ -13652,7 +13659,7 @@
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
-  Town.layout = { RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS };
+  Town.layout = { PATHS: PATHS, RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS };
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
