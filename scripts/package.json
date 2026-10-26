@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Dependencies for update.mjs (the Claude SDK, for writing book lines).",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  }
+}

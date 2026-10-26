@@ -9028,6 +9028,11 @@
     if (!(since >= 0 && since <= 45)) return null;
     var T0 = B.title, low = T0.toLowerCase(), lines = [];
     BOOK_TALK.forEach(function (b) { if (b[0].test(low)) lines = lines.concat(b[1]); });
+    // Lines written for this very book (data/booklines.js): most of the time, those.
+    var own = (window.BOOK_LINES || {})[low.trim()] || [];
+    var S0 = this.keep(), seen0 = S0.theo || {}, t0 = Date.parse(t);
+    var ownFresh = own.filter(function (x) { return !seen0[x] || t0 - seen0[x] > 14 * 864e5; });
+    if (ownFresh.length && Math.random() < 0.7) { var lo = pickOne(ownFresh); (S0.theo = seen0)[lo] = t0; this.saveStore(); return lo; }
     lines.push('finished ' + T0 + '? what did you make of the ending?', 'the library mice are still talking about ' + T0, 'have you lent ' + T0 + ' to anyone yet? I’m next', 'I keep thinking about ' + T0, 'what are you reading after ' + T0 + '?');
     if (B.author) lines.push('I’ve only read the one ' + B.author.split(/\s+/).pop() + '. was it good?', B.author + '! a fine choice, dear');
     if (B.stars >= 4.5) lines.push(B.stars + ' stars for ' + T0 + '! high praise');

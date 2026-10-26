@@ -113,8 +113,73 @@ async function letterboxd() {
   return `${films.length} films (${added} new)`;
 }
 
+// Book lines: when a book is finished, Claude writes a few things the mice might say about it,
+// saved in data/booklines.js (lines already there, including hand-written ones, are kept).
+// Needs the ANTHROPIC_API_KEY repository secret; without it, this step just skips.
+const BOOK_PROMPT = `You write dialogue for the mice in a cozy pixel town game. The player (a raccoon) just finished reading a book.
+Write 5 short things a friendly, slightly old-fashioned mouse might say about this particular book: specific to its characters, places, plot, themes or author (no spoilers beyond what a reader who finished it knows). Where it fits, warmly respond to the player's own review.
+Each line under 110 characters, lowercase except names, no emoji, the voice of a chatty village mouse ("dear", "love" now and then). Only say things you are confident are true of this book; if you don't know the book, write lines that respond to the title, author and review instead.`;
+async function bookLines() {
+  const path = new URL('booklines.js', DATA);
+  let text = '', lines = {};
+  try { text = await readFile(path, 'utf8'); lines = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch {}
+  const csv = await fetch(`https://docs.google.com/spreadsheets/d/${SHEETS['books.xlsx']}/export?format=csv`).then((r) => {
+    if (!r.ok) throw new Error('books sheet ' + r.status);
+    return r.text();
+  });
+  // A small CSV reader: quoted fields, doubled quotes, commas and newlines inside quotes.
+  const rows = [];
+  let row = [], cell = '', q = false;
+  for (let i = 0; i < csv.length; i++) {
+    const c = csv[i];
+    if (q) { if (c === '"' && csv[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && csv[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  const head = (rows.shift() || []).map((h) => h.trim().toLowerCase());
+  const col = (re) => head.findIndex((h) => re.test(h));
+  const ti = col(/title/), au = col(/author/), rv = col(/review/), dt = col(/date|complete|finish/);
+  const todo = rows.filter((r) => r[ti] && r[ti].trim() && (dt < 0 || (r[dt] || '').trim()) && !lines[r[ti].trim().toLowerCase()]);
+  if (!todo.length) return `${Object.keys(lines).length} books (none new)`;
+  if (!process.env.ANTHROPIC_API_KEY) return `${todo.length} new book(s) waiting - add the ANTHROPIC_API_KEY secret to write lines for them`;
+  const { default: Anthropic } = await import('@anthropic-ai/sdk');
+  const client = new Anthropic();
+  let added = 0;
+  for (const r of todo.slice(0, 10)) {
+    const title = r[ti].trim(), author = au >= 0 ? (r[au] || '').trim() : '', review = rv >= 0 ? (r[rv] || '').trim() : '';
+    let res;
+    try {
+      res = await client.beta.messages.create({
+        model: 'claude-opus-5-5',
+        max_tokens: 16000,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        output_config: {
+          effort: 'medium',
+          format: { type: 'json_schema', schema: { type: 'object', properties: { lines: { type: 'array', items: { type: 'string' } } }, required: ['lines'], additionalProperties: false } },
+        },
+        system: BOOK_PROMPT,
+        messages: [{ role: 'user', content: `Title: ${title}\nAuthor: ${author || 'unknown'}\nThe player's review: ${review || '(none)'}` }],
+      });
+    } catch (e) { console.error(`book lines: ${title}: ${e.message}`); continue; } // try again next run
+    if (res.stop_reason === 'refusal' || res.stop_reason === 'max_tokens') { console.error(`book lines: ${title}: stopped (${res.stop_reason})`); continue; }
+    const out = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    try {
+      const got = JSON.parse(out).lines.filter((l) => typeof l === 'string' && l.length > 4 && l.length < 160).slice(0, 6);
+      if (got.length) { lines[title.toLowerCase()] = got; added++; }
+    } catch { console.error(`book lines: ${title}: unreadable reply`); }
+  }
+  const header = '// Things the mice say about particular books, keyed by lower-case title. Written by hand for the\n// first few; scripts/update.mjs asks Claude for lines about any newly finished book.\n';
+  await writeFile(path, header + 'window.BOOK_LINES = ' + JSON.stringify(lines, null, 2) + ';\n');
+  return `${Object.keys(lines).length} books (${added} new)`;
+}
+
 await step('Google Sheets', sheets);
 await step('Strava', strava);
 await step('Letterboxd', letterboxd);
+await step('Book lines', bookLines);
 await writeFile(new URL('status.json', DATA), JSON.stringify(status, null, 2) + '\n');
-if (failed === 3) process.exit(1);
+if (['Google Sheets', 'Strava', 'Letterboxd'].every((k) => String(status[k]).startsWith('FAILED'))) process.exit(1);

@@ -27,10 +27,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Fetch sheets, Strava and Letterboxd
+      - name: Install the updater's dependencies
+        if: github.event_name != 'push'
+        run: npm install --prefix scripts --no-audit --no-fund
+      - name: Fetch sheets, Strava, Letterboxd and book lines
         if: github.event_name != 'push'
         run: node scripts/update.mjs
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_CODE: ${{ secrets.STRAVA_CODE }}

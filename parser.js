@@ -434,6 +434,11 @@
       var pages = cols.pages >= 0 ? parseInt(String(row[cols.pages]).replace(/[^\d]/g, ''), 10) : NaN;
       var st = cols.stars >= 0 ? String(row[cols.stars] || '') : '', stars = null;
       if (/★|⭐/.test(st)) stars = (st.match(/★|⭐/g) || []).length;
+      else if (/^\d{5}(\.\d+)?$/.test(st.trim())) {
+        // Google Sheets turns a typed "4/5" into the date April 5 (a day number like 46117): read it back.
+        var sd = new Date(Date.UTC(1899, 11, 30) + Math.floor(+st) * 864e5), smo = sd.getUTCMonth() + 1, sdy = sd.getUTCDate();
+        if (sdy === 5) stars = smo; else if (sdy === 10) stars = smo / 2;
+      }
       else { var sm = st.match(/(\d+(?:\.\d+)?)/); if (sm) stars = Math.min(5, parseFloat(sm[1])); }
       var dt = cols.date >= 0 ? String(row[cols.date] || '').trim() : '', date = null;
       var dm = dt.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);

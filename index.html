@@ -340,13 +340,14 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   }, true);
 </script>
 <script>// Always the latest saved Letterboxd diary, never a copy the browser remembers.
-document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</script>
+document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
+document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script src="parser.js"></script>
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v102';
+  var BUILD = 'v103';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
