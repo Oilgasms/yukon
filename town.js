@@ -4405,24 +4405,64 @@
   // ---- the den: a burrow door by the castle gate, leading down to a room of your own ------
   // The room itself sits far off the map and high above it, in the dark, so going in really is going somewhere else.
   var DEN_ROOM = { x: -700, z: -700, base: 600, hx: 3.4, hz: 2.9, y: 0.1 };
+  // Warm, unlit materials for flames and lamp glass, so they glow day or night.
+  Town.prototype.glowMats = function () {
+    return this.glowM || (this.glowM = {
+      flame: new T.MeshBasicMaterial({ color: '#ffb43a' }), core: new T.MeshBasicMaterial({ color: '#fff1b0' }), lamp: new T.MeshBasicMaterial({ color: '#ffd27a' }),
+      ember: new T.MeshBasicMaterial({ color: '#ff6a2a' }),
+      halo: new T.MeshBasicMaterial({ color: '#ffb35a', transparent: true, opacity: 0.13, depthWrite: false, blending: T.AdditiveBlending })
+    });
+  };
+  // A candle with a flickering flame and a soft halo; flames are kept in list to flicker.
+  Town.prototype.candle = function (par, x, y, z, h, list) {
+    var G = this.glowMats(), c = new T.Group(); c.position.set(x, y, z); par.add(c);
+    var wax = this.part(c, this.geo.cyl, this.mat('whitewood'), 0.035, h, 0.035, 0, h / 2, 0); wax.castShadow = false;
+    this.part(c, this.geo.cyl, this.mat('whitewood'), 0.045, 0.02, 0.045, 0, 0.01, 0).castShadow = false;
+    var f = new T.Mesh(this.geo.cone, G.flame); f.scale.set(0.022, 0.06, 0.022); f.position.y = h + 0.04; c.add(f);
+    var core = new T.Mesh(this.geo.ball, G.core); core.scale.setScalar(0.012); core.position.y = h + 0.025; c.add(core);
+    var halo = new T.Mesh(this.geo.ball, G.halo); halo.scale.setScalar(0.11); halo.position.y = h + 0.05; c.add(halo);
+    if (list) list.push({ f: f, halo: halo, ph: Math.random() * 10 });
+    return c;
+  };
   Town.prototype.buildDen = function () {
-    // Outside: a grassy bank with a round little door in it, a lamp and a sign.
-    var self = this, spot = this.secretSpot(GATE_ANGLE + 14, 16, 1.6), g = new T.Group(), pick = 'den';
+    // Outside: a small, secret burrow in a grassy bank near the town square: a little round green
+    // door, a lit window, one lantern and a wisp of smoke from the chimney are the only clues.
+    var self = this, sqA = Math.atan2(-TOWN_SQ.z, TOWN_SQ.x) / D2R, spot = this.secretSpot(sqA + 3, Math.hypot(TOWN_SQ.x, TOWN_SQ.z) + 9, 2.0), g = new T.Group(), pick = 'den', G = this.glowMats();
     this.st.secretPos.den = spot;
-    g.position.set(spot.x, groundY(spot.x, spot.z), spot.z); g.rotation.y = Math.atan2(-spot.x, -spot.z); this.world.add(g);
+    g.position.set(spot.x, groundY(spot.x, spot.z), spot.z); g.rotation.y = Math.atan2(TOWN_SQ.x - spot.x, TOWN_SQ.z - spot.z); g.scale.setScalar(0.6); this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
-    P(this.geo.blob, this.mat('dirt'), 1.05, 0.7, 0.85, 0, 0.25, -0.25);
-    P(this.geo.blob, this.mat('hedge'), 0.95, 0.42, 0.78, 0, 0.6, -0.32);
-    var fr = P(this.geo.cyl, this.mat('logwood', 0), 0.38, 0.05, 0.38, 0, 0.38, 0.5); fr.rotation.x = Math.PI / 2;
-    var dr = P(this.geo.cyl, this.mat('hobbitDoor'), 0.31, 0.05, 0.31, 0, 0.38, 0.53); dr.rotation.x = Math.PI / 2;
-    P(this.geo.ball, this.mat('gold'), 0.035, 0.035, 0.035, 0.16, 0.36, 0.57);
-    P(this.geo.box, this.mat('canvas', 1), 0.5, 0.02, 0.34, 0, 0.02, 0.85);
-    P(this.geo.cyl6, this.mat('wood'), 0.03, 0.7, 0.03, 0.62, 0.35, 0.6); P(this.geo.box, this.mat('lantern'), 0.1, 0.12, 0.1, 0.62, 0.74, 0.6);
-    P(this.geo.cyl6, this.mat('wood'), 0.03, 0.6, 0.03, -0.62, 0.3, 0.62); var sg = P(this.geo.box, this.mat('woodLight'), 0.42, 0.2, 0.03, -0.62, 0.62, 0.64); sg.rotation.z = -0.12;
-    P(this.geo.box, this.mat('stoneDark'), 0.26, 0.03, 0.01, -0.62, 0.62, 0.66);
-    this.st.den = { g: g, door: new T.Vector3(0, 0, 1.2) };
+    P(this.geo.blob, this.mat('dirt'), 1.5, 1.0, 1.2, 0, 0.35, -0.35);
+    P(this.geo.blob, this.mat('hedge'), 1.35, 0.6, 1.1, 0, 0.85, -0.45);
+    [[-0.9, 0.95], [0.7, 1.05], [0.1, 1.2]].forEach(function (f, i) { P(self.geo.ball, self.mat('flag', i), 0.06, 0.06, 0.06, f[0], f[1], -0.1); });
+    var fr = P(this.geo.cyl, this.mat('logwood', 0), 0.52, 0.06, 0.52, 0, 0.52, 0.72); fr.rotation.x = Math.PI / 2;
+    var dr = P(this.geo.cyl, this.mat('hobbitDoor'), 0.44, 0.06, 0.44, 0, 0.52, 0.76); dr.rotation.x = Math.PI / 2;
+    P(this.geo.ball, this.mat('gold'), 0.045, 0.045, 0.045, 0.22, 0.5, 0.82);
+    // A round window, glowing.
+    var wf = P(this.geo.cyl, this.mat('logwood', 1), 0.2, 0.05, 0.2, 0.85, 0.62, 0.5); wf.rotation.x = Math.PI / 2; wf.rotation.z = 0.5;
+    var wn = new T.Mesh(this.geo.cyl, G.lamp); wn.scale.set(0.15, 0.06, 0.15); wn.position.set(0.86, 0.62, 0.52); wn.rotation.x = Math.PI / 2; g.add(wn);
+    // A doormat and a single lantern on a post.
+    P(this.geo.box, this.mat('canvas', 1), 0.6, 0.02, 0.4, 0, 0.02, 1.05);
+    [-0.75].forEach(function (x) {
+      P(self.geo.cyl6, self.mat('wood'), 0.035, 0.85, 0.035, x, 0.42, 1.0);
+      var lb = new T.Mesh(self.geo.box, G.lamp); lb.scale.set(0.13, 0.15, 0.13); lb.position.set(x, 0.92, 1.0); g.add(lb);
+      P(self.geo.cone4, self.mat('stoneDark'), 0.12, 0.07, 0.12, x, 1.03, 1.0);
+      var h = new T.Mesh(self.geo.ball, G.halo); h.scale.setScalar(0.3); h.position.set(x, 0.92, 1.0); g.add(h);
+    });
+    // The chimney, with smoke from the fire below.
+    P(this.geo.box, this.mat('stone', 1), 0.22, 0.5, 0.22, -0.55, 1.15, -0.6);
+    var chim = new T.Object3D(); chim.position.set(-0.55, 1.45, -0.6); g.add(chim);
+    this.st.den = { g: g, door: new T.Vector3(0, 0, 1.4), chim: chim };
     this.buildDenRoom();
     this.solidAt = 0;
+  };
+  // H: pop straight home, wherever you are.
+  Town.prototype.goHome = function () {
+    var pl = this.player;
+    if (!pl || !this.explore || pl.inDen || pl.ride || pl.mine || pl.snow || pl.paddle || this.brawl) return false;
+    if (!this.st.den && this.solids) this.buildDen();
+    if (!this.st.den) return false;
+    if (pl.cook) this.endCook(pl, true);
+    this.enterDen(pl); return true;
   };
   // Inside: an earthen room with a plank floor. Only the two walls at the back are drawn (the
   // others would block the view), and whichever walls face the camera fade out as it turns.
@@ -4474,22 +4514,45 @@
     P(this.geo.cyl, this.mat('canvas', 0), 1.1, 0.025, 0.75, 0.6, F + 0.012, 0.6);
     P(this.geo.cyl, this.mat('woodLight'), 0.55, 0.06, 0.55, 0.9, F + 0.72, 0.5);
     P(this.geo.cyl6, this.mat('wood'), 0.07, 0.66, 0.07, 0.9, F + 0.36, 0.5);
-    P(this.geo.cyl, this.mat('whitewood'), 0.04, 0.16, 0.04, 0.72, F + 0.83, 0.38);
-    var flame = P(this.geo.cone, this.mat('fire'), 0.03, 0.08, 0.03, 0.72, F + 0.95, 0.38);
     var jar = new T.Group(); jar.position.set(1.08, F + 0.75, 0.62); g.add(jar);
     var coins = P(this.geo.cyl, this.mat('gold'), 0.1, 1, 0.1, 0, 0.01, 0, jar);
     var glass = P(this.geo.cyl, this.mat('ice'), 0.12, 0.28, 0.12, 0, 0.14, 0, jar); glass.material = glass.material.clone(); glass.material.transparent = true; glass.material.opacity = 0.45;
     P(this.geo.cyl, this.mat('copper'), 0.09, 0.04, 0.09, 0, 0.3, 0, jar);
     block(0.3, 1.5, -0.1, 1.1); spots.push({ k: 'jar', x: 1.0, z: 1.3, r: 0.9 });
     [[0.15, 1.15], [1.75, 0.05]].forEach(function (s) { P(self.geo.cyl6, self.mat('wood'), 0.17, 0.42, 0.17, s[0], F + 0.21, s[1]); block(s[0] - 0.2, s[0] + 0.2, s[1] - 0.2, s[1] + 0.2); });
-    // Lanterns on the walls, a sampler, and a warm light that only reaches in here.
-    [[-1.6, -R.hz + 0.12, 0], [-R.hx + 0.12, 1.0, 1]].forEach(function (l) { P(self.geo.box, self.mat('logwood', 1), l[2] ? 0.25 : 0.04, 0.04, l[2] ? 0.04 : 0.25, l[0], F + 1.9, l[1]); P(self.geo.box, self.mat('lantern'), 0.16, 0.2, 0.16, l[0] + (l[2] ? 0.12 : 0), F + 1.75, l[1] + (l[2] ? 0 : 0.12)); });
-    P(this.geo.box, this.mat('canvas', 0), 0.03, 0.45, 0.6, -R.hx + 0.03, F + 1.45, -1.5);
-    P(this.geo.box, this.mat('flag', 0), 0.035, 0.12, 0.3, -R.hx + 0.04, F + 1.48, -1.5);
-    var lamp = new T.PointLight('#ffd2a0', 0.5, 9, 1.5); lamp.position.set(0, 2.2, 0); g.add(lamp);
+    // The cozy bits: a fire in a little stone hearth, candles everywhere, fairy lights along the
+    // beams, and lanterns; the daylight is shut out while you're in here.
+    var G = this.glowMats(), flames = [];
+    P(this.geo.box, this.mat('stone', 1), 0.55, 1.15, 1.0, -3.12, F + 0.57, -1.25);
+    P(this.geo.box, this.mat('stoneDark'), 0.3, 0.55, 0.6, -2.93, F + 0.3, -1.25).material = new T.MeshBasicMaterial({ color: '#1a0f0a' });
+    P(this.geo.box, this.mat('logwood', 1), 0.7, 0.08, 1.15, -3.0, F + 1.18, -1.25);
+    [-0.12, 0.12].forEach(function (z) { var lg = P(self.geo.cyl6, self.mat('logwood', 0), 0.05, 0.4, 0.05, -2.85, F + 0.1, -1.25 + z); lg.rotation.x = Math.PI / 2; lg.rotation.z = z * 3; });
+    var fire = [];
+    [[-2.88, -1.3, 0.13], [-2.86, -1.15, 0.1], [-2.9, -1.22, 0.17]].forEach(function (q, i) { var fl = new T.Mesh(self.geo.cone, i === 2 ? G.ember : G.flame); fl.scale.set(0.09, q[2] * 2, 0.09); fl.position.set(q[0], F + 0.15 + q[2], q[1]); g.add(fl); fire.push({ m: fl, h: q[2] * 2, ph: i * 1.7 }); });
+    var fh = new T.Mesh(this.geo.ball, G.halo); fh.scale.setScalar(0.32); fh.position.set(-2.85, F + 0.35, -1.25); g.add(fh);
+    block(-3.4, -2.8, -1.75, -0.75); spots.push({ k: 'fire', x: -2.3, z: -1.25, r: 0.7 });
+    [-1.6, -1.25, -0.9].forEach(function (z, i) { self.candle(g, -2.95, F + 1.22, z, 0.1 + (i % 2) * 0.06, flames); });
+    this.candle(g, 0.72, F + 0.75, 0.38, 0.14, flames); this.candle(g, 0.88, F + 0.75, 0.3, 0.09, flames);
+    [[-0.6, 2.125, -2.6], [2.6, 2.125, -2.6], [0.4, 1.575, -2.55], [-1.25, 0, -2.6], [-1.15, 0, -2.4], [-1.35, 0, -2.35]].forEach(function (c, i) { self.candle(g, c[0], F + c[1], c[2], 0.08 + (i % 3) * 0.05, flames); });
+    block(-1.45, -1.05, -2.7, -2.25);
+    // Fairy lights strung along the top of the walls, sagging between the nails.
+    walls.forEach(function (w) {
+      var along = w.nz !== 0, len = along ? R.hx * 2 : R.hz * 2;
+      for (var i = 0; i <= 20; i++) {
+        var t = i / 20 - 0.5, sag = Math.abs(Math.sin(i / 20 * Math.PI * 5)) * 0.1, b2 = new T.Mesh(self.geo.ball, i % 3 ? G.lamp : G.core);
+        b2.scale.setScalar(0.03); b2.position.set(along ? t * len : w.nx * (R.hx - 0.04), F + 2.32 - sag, along ? w.nz * (R.hz - 0.04) : t * len); w.g.add(b2);
+      }
+    });
+    [[-1.6, -R.hz + 0.12, 0], [-R.hx + 0.12, 1.0, 1]].forEach(function (l) {
+      P(self.geo.box, self.mat('logwood', 1), l[2] ? 0.25 : 0.04, 0.04, l[2] ? 0.04 : 0.25, l[0], F + 1.9, l[1]);
+      var lb = new T.Mesh(self.geo.box, G.lamp); lb.scale.set(0.15, 0.18, 0.15); lb.position.set(l[0] + (l[2] ? 0.12 : 0), F + 1.75, l[1] + (l[2] ? 0 : 0.12)); g.add(lb);
+      var lh = new T.Mesh(self.geo.ball, G.halo); lh.scale.setScalar(0.24); lh.position.copy(lb.position); g.add(lh);
+    });
+    var lamp = new T.PointLight('#ffb06a', 0.9, 10, 1.2); lamp.position.set(0.4, 2.0, 0); g.add(lamp);
+    var fireLight = new T.PointLight('#ff8a3a', 1.2, 6, 1.5); fireLight.position.set(-2.5, F + 0.6, -1.25); g.add(fireLight);
     // The hoard: overflow piles up on the floor in the back right corner.
     var pile = new T.Group(); g.add(pile); block(2.2, 3.4, -2.4, -1.0);
-    D.room = { g: g, walls: walls, posts: posts, solid: solid, spots: spots, pile: pile, pegs: pegs, flame: flame, coins: coins, lamp: lamp, bed: new T.Vector3(-2.2, F + 0.25, -2.2) };
+    D.room = { g: g, walls: walls, posts: posts, solid: solid, spots: spots, pile: pile, pegs: pegs, flames: flames, fire: fire, fireHalo: fh, fireLight: fireLight, coins: coins, lamp: lamp, bed: new T.Vector3(-2.2, F + 0.25, -2.2) };
     this.denPile();
   };
   // One trinket for each kind of thing found: along the shelves first, then heaped on the floor.
@@ -4535,6 +4598,7 @@
   Town.prototype.leaveDen = function (pl) {
     var D = this.st.den, P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
     pl.inDen = false; pl.napping = 0;
+    this.applyPalette();
     var out = D.g.localToWorld(D.door.clone());
     P.set(out.x, this.floorAt(out.x, out.z, out.y + 2), out.z); pl.g.rotation.y = D.g.rotation.y;
     var c = this.controls, cam = this.camera;
@@ -4577,8 +4641,14 @@
     var cx = cam.position.x - c.target.x, cz = cam.position.z - c.target.z;
     D.walls.forEach(function (w) { w.g.visible = w.nx * cx + w.nz * cz < 0; });
     D.posts.forEach(function (q) { q.m.visible = q.cx * cx < 0 && q.cz * cz < 0; });
-    D.flame.scale.set(0.03 + Math.sin(now / 90) * 0.005, 0.08 + Math.sin(now / 130) * 0.015, 0.03);
-    D.lamp.intensity = 0.5 + Math.sin(now / 170) * 0.03 + Math.sin(now / 53) * 0.02;
+    // Candlelight: every flame flickers on its own, the fire dances, and the daylight's shut out.
+    D.flames.forEach(function (f) { var k = 1 + Math.sin(now / 90 + f.ph) * 0.12 + Math.sin(now / 37 + f.ph * 2) * 0.08; f.f.scale.y = 0.06 * k; f.f.rotation.z = Math.sin(now / 160 + f.ph) * 0.12; f.halo.scale.setScalar(0.1 + k * 0.02); });
+    D.fire.forEach(function (f) { f.m.scale.y = f.h * (1 + Math.sin(now / 70 + f.ph) * 0.25 + Math.sin(now / 29 + f.ph) * 0.1); f.m.rotation.z = Math.sin(now / 110 + f.ph) * 0.15; });
+    D.fireHalo.scale.setScalar(0.3 + Math.sin(now / 80) * 0.03);
+    D.fireLight.intensity = 1.1 + Math.sin(now / 70) * 0.15 + Math.sin(now / 23) * 0.08;
+    D.lamp.intensity = 0.85 + Math.sin(now / 170) * 0.04 + Math.sin(now / 53) * 0.03;
+    if (Math.random() < dt * 3) { var ep = D.g.localToWorld(new T.Vector3(-2.88, DEN_ROOM.y + 0.4, -1.25 + (Math.random() - 0.5) * 0.3)); this.puff(ep.x, ep.y, ep.z, 1, 'smoke', 0.02); }
+    this.hemi.color.set('#a67a52'); this.hemi.groundColor.set('#3a2216'); this.hemi.intensity = 0.32; this.sun.intensity = 0.04;
     // What's close enough to use.
     if (now > (this.nearAt || 0)) {
       this.nearAt = now + 200;
@@ -4602,6 +4672,7 @@
       S.hat = list[(i + 1) % list.length]; this.saveStore(); this.dressPlayer(); this.denPile();
       this.say(S.hat ? 'the ' + S.hat + ' today' : 'no hat today', pl.g, 1.1, 1.6); return;
     }
+    if (k === 'fire') { pl.g.rotation.y = -Math.PI / 2; this.say(['ahh, toasty', '*warms paws*', 'crackle crackle', 'nothing like a fire'][Math.floor(Math.random() * 4)], pl.g, 1.0, 1.6); return; }
     if (k === 'jar') { this.say(S.coins ? S.coins + ' coin' + (S.coins === 1 ? '' : 's') + ' in the jar' : 'the jar is empty. go busk!', pl.g, 1.1, 1.8); this.sfx('found'); return; }
     if (k === 'shelf') {
       var dk = Object.keys(S.den).sort(function (a, b) { return S.den[b] - S.den[a]; });
@@ -6996,6 +7067,7 @@
     if (s.mill) { var gm = this.gustUntil && now < this.gustUntil ? 9 : 1; s.mill.spin = (s.mill.spin || 0) + Math.min(0.1, (now - (s.mill.spinT || now)) / 1000) * gm * 0.714; s.mill.spinT = now; s.mill.hubs.forEach(function (h) { h.rotation.z = s.mill.spin + h.userData.phase; }); }
     if (s.wiz && s.wiz.crystals) { s.wiz.crystals.rotation.y = now / 2500; s.wiz.crystals.position.y = s.wiz.top - 2 + Math.sin(now / 900) * 0.25; }
     if (s.mine && s.mine.wheel) s.mine.wheel.rotation.x = now / 900;
+    if (s.den && s.den.chim && !this.soft && now > (s.den.smokeAt || 0)) { s.den.smokeAt = now + 900; var cp = s.den.chim.getWorldPosition(new T.Vector3()); this.puff(cp.x, cp.y, cp.z, 1, 'smoke', 0.02); }
     if (s.weasel) {
       var Wz = s.weasel; Wz.body.rotation.z = Math.sin(now / 700) * 0.08; Wz.head.rotation.y = Math.sin(now / 1100) * 0.5; Wz.tail.rotation.y = Math.sin(now / 300) * 0.5;
       var pw = this.explore && this.player && this.player.g.position;
@@ -9917,7 +9989,7 @@
       }
       case 'den': {
         var DS = this.keep(), dk = Object.keys(DS.den).sort(function (a, b) { return DS.den[b] - DS.den[a]; }), dt0 = dk.reduce(function (a, k) { return a + DS.den[k]; }, 0);
-        return { title: 'The raccoon\u2019s den', lines: ['A little round door in the bank. Press E to go down inside.', 'Everything you find ends up in here: ' + dt0 + ' treasures, ' + dk.length + ' kinds.', 'Coins: ' + DS.coins + ' \u00b7 errands run: ' + DS.errands + '.'] };
+        return { title: 'The raccoon\u2019s den', lines: ['Your secret burrow. Press E to go in (or press H from anywhere to pop home).', 'Everything you find ends up in here: ' + dt0 + ' treasures, ' + dk.length + ' kinds.', 'Coins: ' + DS.coins + ' \u00b7 errands run: ' + DS.errands + '.'] };
       }
       case 'lunch': return { title: 'A mouse\u2019s sandwich', lines: ['Sneak up from behind and press E to nick it.', 'Get spotted and they\u2019ll chase you round town.'] };
       case 'errand': {
@@ -9931,6 +10003,7 @@
         if (p[1] === 'jar') return { title: 'The coin jar', lines: [RS.coins + ' coin' + (RS.coins === 1 ? '' : 's') + '. Busk on the square and run errands for more.'] };
         if (p[1] === 'shelf') return { title: 'The treasure shelves', lines: [Object.keys(RS.den).length + ' kinds of treasure on show. Press E to admire them.'] };
         if (p[1] === 'door') return { title: 'The door out', lines: ['Back up into town.'] };
+        if (p[1] === 'fire') return { title: 'The fire', lines: ['Crackling away. Press E to warm your paws.'] };
         return null;
       }
       case 'campfire':

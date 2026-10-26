@@ -346,7 +346,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v97';
+  var BUILD = 'v98';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -560,7 +560,8 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</
     town.setExplore(on); syncExplore(); lsSet(EXPLORE_KEY, on ? '' : 'map');
     // Walking about, tuck the title panel and the ledger away (they're one tap from coming back).
     if (on && !tucked && !softNote) { tucked = true; setTimeout(function () { if (!$('title-card').classList.contains('min')) $('title-min').click(); $('ledger').open = false; }, 0); }
-    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 Space to jump (or climb) \u00b7 E to look \u00b7 knock over bins and dig \u00b7 M for the map'); }
+    if (on && !lsGet('fittertown:walkHint')) { lsSet('fittertown:walkHint', '1'); toast(coarse ? 'Drag the circle to walk, tap Look to look around' : 'WASD or arrows to walk \u00b7 Shift to run \u00b7 Space to jump (or climb) \u00b7 E to look \u00b7 knock over bins and dig \u00b7 H to go home to your den \u00b7 M for the map'); }
+    else if (on && !lsGet('fittertown:denHint')) { lsSet('fittertown:denHint', '1'); setTimeout(function () { toast(coarse ? 'Psst\u2026 your den is a tiny secret door in a grassy bank near the square. Follow the chimney smoke' : 'Psst\u2026 your den is a tiny secret door in a grassy bank near the square. Follow the chimney smoke, or press H to pop home'); }, 1500); }
   }
   $('explore').addEventListener('click', function () { setExplore(!town.explore); });
   // M swaps views, after a moment, so typing a word that starts with M (mellon...) doesn't.
@@ -569,6 +570,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');</
     if (/input|textarea|select/i.test((e.target && e.target.tagName) || '') || e.repeat) return;
     clearTimeout(mTimer);
     if (e.key === 'm' || e.key === 'M') mTimer = setTimeout(function () { setExplore(!town.explore); }, 450);
+    if ((e.key === 'h' || e.key === 'H') && town.explore && town.goHome) town.goHome();
   });
   // The joystick: drag from the circle; the farther out, the faster (all the way out runs).
   (function () {
