@@ -84,11 +84,23 @@
 
   function cell(v) { return v == null ? '' : String(v).trim(); }
 
-  function parseHeaderDate(s) {
-    var m = s.match(/^(\d{1,2})\.(\d{1,2})\.+(\d{4})/);
-    if (!m) return null;
-    return new Date(+m[3], +m[1] - 1, +m[2]);
+  // A week's header: "09.07.2026" (month.day.year), or a written date like "Week 1 Jan. 26",
+  // "July 3rd" or ":August 12th" (the year worked out from today). Any day of the week will do:
+  // it's moved back to that week's Monday.
+  var MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  function parseHeaderDate(s, today) {
+    var d = null, m = s.match(/^(\d{1,2})\.(\d{1,2})\.+(\d{4})/);
+    if (m) d = new Date(+m[3], +m[1] - 1, +m[2]);
+    else {
+      var w = s.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*(\d{1,2})(?:st|nd|rd|th)?\b/i);
+      if (!w) return null;
+      var now = today || new Date(), mo = MONTHS.indexOf(w[1].toLowerCase());
+      d = new Date(now.getFullYear(), mo, +w[2]);
+      if (d - now > 7 * 864e5) d = new Date(now.getFullYear() - 1, mo, +w[2]);
+    }
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7);
   }
+  function isoDay(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 
   function friendsIn(text) {
     // "w/ Everyone - AlexHayli, Katie Joel": everyone is the whole crew, Jo included.
@@ -217,6 +229,17 @@
     // This week (Monday to Sunday): uncoloured workouts here are still to do.
     var wk0 = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (today.getDay() + 6) % 7), wk1 = new Date(wk0.getFullYear(), wk0.getMonth(), wk0.getDate() + 7);
     var cols = null, weekDate = null, found = false;
+    // Every week's Monday, worked out up front. A header that can't be read (or was copied from
+    // an earlier week, so it goes backwards) is a week after the one before it, or a week before
+    // the one after it.
+    var weekAt = {}, heads = [];
+    rows.forEach(function (r, ri) {
+      var f = cell(r[0]);
+      if (f && DAYS.indexOf(f.toLowerCase()) < 0 && rows[ri + 1] && DAYS.indexOf(cell(rows[ri + 1][0]).toLowerCase()) === 0) heads.push({ ri: ri, d: parseHeaderDate(f, today) });
+    });
+    heads.forEach(function (h, i) { var pv = heads[i - 1]; if (pv && pv.d && (!h.d || h.d <= pv.d)) h.d = new Date(pv.d.getFullYear(), pv.d.getMonth(), pv.d.getDate() + 7); });
+    for (var hi = heads.length - 2; hi >= 0; hi--) if (!heads[hi].d && heads[hi + 1].d) { var nx = heads[hi + 1].d; heads[hi].d = new Date(nx.getFullYear(), nx.getMonth(), nx.getDate() - 7); }
+    heads.forEach(function (h) { weekAt[h.ri] = h.d; });
     rows.forEach(function (r, ri) {
       r = r.map(cell);
       // A header row has a cell that is just "Morning" (not a workout like "Morning bike w/ Mark").
@@ -235,7 +258,7 @@
       var first = r[0] || '';
       var day = DAYS.indexOf(first.toLowerCase());
       if (day < 0) {
-        if (first) weekDate = parseHeaderDate(first);
+        if (first) weekDate = ri in weekAt ? weekAt[ri] : parseHeaderDate(first, today);
         return;
       }
       if (!cols) return;
@@ -256,7 +279,7 @@
         if (status === 'rest' || status === 'missed') return;
         if (status !== 'done' && thisWeek) {
           if (text.trim() && planned) classify(text).forEach(function (ev) {
-            ev.label = text; ev.slot = slot[0]; ev.day = dayLabel; ev.date = date.toISOString().slice(0, 10); ev.planned = true; planned.push(ev);
+            ev.label = text; ev.slot = slot[0]; ev.day = dayLabel; ev.date = isoDay(date); ev.planned = true; planned.push(ev);
           });
           return;
         }
@@ -269,7 +292,7 @@
           ev.dogs = k === 0 ? dogs : [];
           ev.phase = name;
           ev.day = dayLabel;
-          ev.date = date ? date.toISOString().slice(0, 10) : null;
+          ev.date = date ? isoDay(date) : null;
           dayEvents.push(ev);
         });
       });
@@ -280,7 +303,7 @@
         if (written) written.km = COMMUTE_KM;
         else dayEvents.push({
           kind: 'commute', km: COMMUTE_KM, label: r[cols.commute] ? 'Commute · ' + r[cols.commute] : 'Bike commute', slot: 'AM',
-          friends: [], phase: name, day: dayLabel, date: date ? date.toISOString().slice(0, 10) : null
+          friends: [], phase: name, day: dayLabel, date: date ? isoDay(date) : null
         });
       }
       var lifts = dayEvents.filter(function (e) { return e.kind === 'lift'; });
@@ -321,11 +344,11 @@
       // Weigh-ins (pounds) shape the statue.
       var weight = cols.weight >= 0 ? parseFloat(r[cols.weight]) : NaN;
       if (weight > 80 && weight < 500) {
-        events.push({ kind: 'weight', value: weight, phase: name, day: dayLabel, date: date ? date.toISOString().slice(0, 10) : null, label: weight + ' lb' });
+        events.push({ kind: 'weight', value: weight, phase: name, day: dayLabel, date: date ? isoDay(date) : null, label: weight + ' lb' });
       }
       var drinks = cols.drinks >= 0 ? parseFloat(r[cols.drinks]) : NaN;
       if (drinks > 0 && drinks < 50) {
-        events.push({ kind: 'drink', count: drinks, phase: name, day: dayLabel, label: drinks + ' drink' + (drinks > 1 ? 's' : '') });
+        events.push({ kind: 'drink', count: drinks, phase: name, day: dayLabel, date: date ? isoDay(date) : null, label: drinks + ' drink' + (drinks > 1 ? 's' : '') });
       }
     });
     return found;
