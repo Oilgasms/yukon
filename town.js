@@ -9071,16 +9071,16 @@
     var s = this.st, t = this.today;
     if (!t || !s.byDay) return null;
     var fresh = (s.newsList || []).filter(function (n) { var age = (Date.parse(t) - Date.parse(n.date)) / 864e5; return age >= 0 && age <= 7; });
-    if (fresh.length && Math.random() < 0.45) return pickOne(pickOne(fresh).lines);
+    if (fresh.length && Math.random() < 0.25) return pickOne(pickOne(fresh).lines);
     var day = s.byDay[t] || [], work = day.filter(function (e) { return !NOT_WORKOUTS[e.kind]; }), callouts = [], main;
     // Read your Bible today? About an eighth of greetings are about the passage (a remark is
     // used for ~65% of greetings, so 0.19 of those), never repeating a line within a fortnight.
     var readT = day.filter(function (e) { return e.kind === 'bible' && e.book; });
-    var theo = readT.length && Math.random() < 0.19 ? this.bibleLine(pickOne(readT)) : null;
+    var theo = readT.length && Math.random() < 0.35 ? this.bibleLine(pickOne(readT)) : null;
     if (theo) return theo;
-    var bk = Math.random() < 0.12 ? this.bookLine() : null;
+    var bk = Math.random() < 0.3 ? this.bookLine() : null;
     if (bk) return bk;
-    var fm = Math.random() < 0.12 ? this.filmLine() : null;
+    var fm = Math.random() < 0.3 ? this.filmLine() : null;
     if (fm) return fm;
     if (work.length) main = this.workoutLine(pickOne(work));
     else {
@@ -9196,12 +9196,13 @@
   Town.prototype.stepMice = function (dt, now) {
     var s = this.st, self = this;
     if (this.soft) return;
-    if (!s.folk || (now > (this.folkAt || 0) && s.folk.length < 10)) {
+    var houseMice = (s.folk || []).filter(function (m) { return !m.char; }).length;
+    if (!s.folk || (now > (this.folkAt || 0) && houseMice < 10)) {
       // A mouse for each house on a street (up to ten); new houses get theirs as they go up.
       this.folkAt = now + 3000;
-      var have = (s.folk || []).map(function (m) { return m.house; });
+      var have = (s.folk || []).filter(function (m) { return !m.char; }).map(function (m) { return m.house; });
       var homes = Object.keys(s.friends).map(function (k) { return s.friends[k]; }).filter(function (f) { return f.group && !f.tent && !f.jo && f.spot && f.spot.si != null && have.indexOf(f) < 0; });
-      s.folk = (s.folk || []).concat(homes.slice(0, 10 - (s.folk || []).length).map(function (f, k0) {
+      s.folk = (s.folk || []).concat(homes.slice(0, 10 - houseMice).map(function (f, k0) {
         var k = have.length + k0;
         var m = self.makeMouse(k), sp = f.spot, fx = Math.sin(sp.face), fz = Math.cos(sp.face);
         m.home = { door: { x: sp.x + fx * 1.0, z: sp.z + fz * 1.0 }, si: sp.si, ti: sp.ti };
@@ -9212,6 +9213,7 @@
         return m;
       }));
     }
+    if (s.folk.length >= 3 && !s.chars) this.addCharacters();
     var folk = s.folk, night = this.mouseNight(), dark = this.dark, P = this.explore && this.player ? this.player.g.position : null, pubNow = this.pubNight();
     folk.forEach(function (m) {
       if (m.owl == null) m.owl = m.k % 3 === 1;
@@ -9243,12 +9245,14 @@
         return;
       }
       if (m.state === 'chase') { self.chaseStep(m, dt, now); return; }
+      if (m.state === 'pal') { self.palStep(m, dt, now); return; }
       // Greet the raccoon (once in a while), then carry on.
       if (P && m.state !== 'sit' && m.state !== 'picnic' && now > (m.helloAt || 0) && Math.hypot(P.x - g.position.x, P.z - g.position.z) < 1.8) {
-        m.helloAt = now + 25000; m.greet = 1.8;
-        var pl = self.player, remark = Math.random() < 0.65 ? self.mouseRemark() : null;
+        m.helloAt = now + 15000; m.greet = 2.4;
+        var pl = self.player, remark = Math.random() < 0.9 ? self.mouseRemark() : null;
         var line = spooky ? 'trick or treat!' : pl.tipsy && now < pl.tipsy ? 'someone\u2019s had a few' : pl.carry && pl.carry.kind === 'beer' ? 'bit early for that, isn\u2019t it?' : pl.cig ? 'filthy habit, that' : remark ? remark : night ? ['evening!', 'lovely night for it', 'can\u2019t sleep either?', 'look at all those stars', 'mind the coyotes, dear', 'out late, aren\u2019t we?'][Math.floor(Math.random() * 6)] : HELLOS[Math.floor(Math.random() * HELLOS.length)];
-        self.say(line, g, 0.65, 2.0);
+        if (m.char && !spooky && Math.random() < 0.6) line = self.charLine(m);
+        self.say(line, g, 0.65, 3.5);
         // Halloween: a sweet for the raccoon.
         if (spooky && pl) setTimeout(function () { self.carryItem(pl, 'candy'); self.say('a sweetie!', pl.g, 1.0, 1.4); self.sfx('found'); }, 900);
       }
@@ -9315,13 +9319,15 @@
         else if (night && r < 0.85) dest = { kind: 'stroll' };
         else if (night) dest = { kind: 'home' };
         else if (needs.length && r < 0.5) { var sm0 = needs[Math.floor(Math.random() * needs.length)]; sm0.builder = m; dest = { kind: 'snowman', sm: sm0 }; }
+        else if (r < 0.06 && self.ranToday()) dest = { kind: 'stroll', jog: true };
         else if (r < 0.35) { var bench = (self.seats || []).filter(function (q) { return !q.taken && inTownSquare(q.x, q.z, 1); })[Math.floor(Math.random() * 4)]; dest = bench ? { kind: 'bench', seat: bench } : { kind: 'home' }; }
         else if (r < 0.5 && s.pub) {
           var tk = s.picnic || (s.picnic = []), free = [0, 1, 2, 3, 4, 5, 6, 7].filter(function (i) { return !tk[i]; });
           if (free.length) { var pi = free[Math.floor(Math.random() * free.length)]; tk[pi] = m; dest = { kind: 'picnic', i: pi, spot: self.pubSpot(pi) }; } else dest = { kind: 'home' };
         }
         else if (r < 0.75) { var other = folk[Math.floor(Math.random() * folk.length)]; dest = { kind: 'visit', who: other }; }
-        else dest = { kind: 'home' };
+        else if (r < 0.87) dest = { kind: 'home' };
+        else dest = { kind: 'stroll' };
         if (dest.kind === 'stroll') { var si = Math.floor(Math.random() * STREETS.length); dest.to = { si: si, ti: Math.floor(Math.random() * STREETS[si].length) }; }
         var to = dest.kind === 'pub' || dest.kind === 'picnic' ? PUB_STREET : dest.kind === 'stroll' ? dest.to : dest.kind === 'bench' || dest.kind === 'snowman' ? SQ_STREET : dest.kind === 'visit' ? { si: dest.who.home.si, ti: dest.who.home.ti } : { si: m.home.si, ti: m.home.ti };
         var start = from.door || (m.at ? null : m.home.door);
@@ -9330,6 +9336,14 @@
         route.push({ x: end.x, z: end.z });
         if (dest.kind === 'bench') { dest.seat.taken = m; }
         m.route = route; m.ri = 1; m.dest = dest; m.state = 'walk'; m.at = to;
+        if (dest.jog) self.startJog(m);
+        // Now and then a neighbour comes along for the walk, and they chat on the way.
+        else if (dest.kind !== 'pub' && dest.kind !== 'picnic' && !m.pal && Math.random() < 0.35) {
+          var pal = folk.filter(function (o) { return o !== m && o.g.visible && (o.state === 'idle' || o.state === 'walk') && !o.lead && !o.pal && !o.jogging && Math.hypot(o.g.position.x - g.position.x, o.g.position.z - g.position.z) < 6; })[0];
+          if (pal && pal.state === 'walk' && pal.dest && pal.dest.kind === 'bench' && pal.dest.seat) pal.dest.seat.taken = null;
+          if (pal && pal.dest && pal.dest.kind === 'picnic' && s.picnic) s.picnic[pal.dest.i] = null;
+          if (pal) { pal.state = 'pal'; pal.lead = m; m.pal = pal; m.palChat = now + 2500; self.say(pickOne(PAL_HELLO), g, 0.65, 2.0); }
+        }
         return;
       }
       if (m.state === 'walk') {
@@ -9337,13 +9351,15 @@
         if (!tgt) { arrive(m); return; }
         var dx = tgt.x - g.position.x, dz = tgt.z - g.position.z, d = Math.hypot(dx, dz);
         if (d < 0.08) { m.ri++; return; }
-        var sp = Math.min(d, dt * 0.95);
+        var sp = Math.min(d, dt * (m.jogging ? 2.1 : 0.95));
         g.position.x += dx / d * sp; g.position.z += dz / d * sp; g.position.y = self.standY(g.position.x, g.position.z);
+        if (m.jogging && now > (m.puffAt || 0)) { m.puffAt = now + 4000 + Math.random() * 3000; self.say(pickOne(JOG_LINES), g, 0.65, 1.8); }
+        if (m.pal && now > (m.palChat || 0)) { var pm = m.pal; m.palChat = now + 7000 + Math.random() * 5000; self.say(pickOne(PAL_CHAT), g, 0.65, 3); setTimeout(function () { if (pm.state === 'pal') self.say(pickOne(PAL_CHAT), pm.g, 0.65, 3); }, 2200); }
         var want = Math.atan2(dx, dz), dr = want - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 7);
-        m.phase += dt * 11;
-        m.legs.forEach(function (l, i) { l.rotation.x = Math.sin(m.phase + i * Math.PI) * 0.6; });
-        m.arms.forEach(function (a, i) { a.rotation.x = Math.sin(m.phase + (1 - i) * Math.PI) * 0.4; });
-        m.body.position.y = 0.13 + Math.abs(Math.sin(m.phase)) * 0.015;
+        m.phase += dt * (m.jogging ? 22 : 11);
+        m.legs.forEach(function (l, i) { l.rotation.x = Math.sin(m.phase + i * Math.PI) * (m.jogging ? 0.9 : 0.6); });
+        m.arms.forEach(function (a, i) { a.rotation.x = Math.sin(m.phase + (1 - i) * Math.PI) * (m.jogging ? 0.8 : 0.4); });
+        m.body.position.y = 0.13 + Math.abs(Math.sin(m.phase)) * (m.jogging ? 0.04 : 0.015);
         m.tail.rotation.y = Math.sin(m.phase * 0.5) * 0.3;
         // Passing a neighbour in the street: a word or two.
         folk.forEach(function (o) {
@@ -9360,7 +9376,7 @@
       var D = m.dest;
       m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; });
       if (D.kind === 'snowman') { m.state = 'build'; return; }
-      if (D.kind === 'stroll') { m.state = 'idle'; return; }
+      if (D.kind === 'stroll') { if (m.jogging) self.stopJog(m); m.state = 'idle'; return; }
       if (D.kind === 'picnic') {
         var ps = D.spot; m.g.rotation.y = ps.rot; m.g.position.y = ps.y; m.body.position.y = 0.06; m.legs.forEach(function (l) { l.rotation.x = -1.4; });
         m.state = 'picnic'; m.wait = 25 + Math.random() * 25; self.giveLunch(m);
@@ -9394,6 +9410,104 @@
     }
     this.needsRender = true;
   };
+  // ---- walking together, jogging, and the town's characters ---------------------------------
+  var PAL_HELLO = ['wait for me!', 'mind if I join you?', 'ooh, where are we off to?', 'I’ll walk with you, dear', 'two’s company!'];
+  var PAL_CHAT = ['did you see the raccoon today?', 'the cheese at the market’s gone up again', 'I hear the weasel’s raising prices', 'my knees aren’t what they were', 'lovely bit of weather', 'have you tried the Slow Pour’s new ale?',
+    'that raccoon’s been training ever so hard', 'Doris says the pub’s getting a new barrel', 'they say there’s a dragon past the river!', 'my nephew’s taken up hockey', 'I’m reading a mystery. I think the butler did it',
+    'did you hear the church bell this morning?', 'the coyotes were out again last night', 'I could murder a cup of tea', 'shall we go to the pictures on Friday?', 'oh, I know! and then she said…'];
+  var JOG_LINES = ['*puff puff*', 'the raccoon inspired me!', 'one more lap!', 'feel the burn!', 'is this what running feels like?', 'my legs!', 'personal best, here I come'];
+  Town.prototype.ranToday = function () { var d = this.st.byDay && this.st.byDay[this.today]; return !!d && d.some(function (e) { return e.kind === 'run'; }); };
+  Town.prototype.startJog = function (m) {
+    m.jogging = true;
+    if (!m.band) { m.band = this.part(m.head, this.geo.cyl, this.mat('flag', 0), 0.064, 0.022, 0.06, 0, 0.04, 0); }
+    m.band.visible = true;
+    this.say(pickOne(['off for a run! you inspired me', 'going for a jog, like the raccoon!', 'time for my 5k. well, my 0.5k']), m.g, 0.65, 2.4);
+  };
+  Town.prototype.stopJog = function (m) { m.jogging = false; if (m.band) m.band.visible = false; this.say(pickOne(['*pant pant* lovely', 'that was ever so good', 'same time tomorrow!']), m.g, 0.65, 2.0); };
+  // Walking alongside a friend: a step to their right, keeping pace, until they get where they're going.
+  Town.prototype.palStep = function (o, dt, now) {
+    var L = o.lead, g = o.g;
+    if (!L || L.state !== 'walk' || !L.g.visible) {
+      o.state = 'idle'; o.lead = null; if (L) L.pal = null;
+      o.legs.forEach(function (l) { l.rotation.x = 0; }); o.arms.forEach(function (a) { a.rotation.x = 0; }); o.body.position.y = 0.13;
+      return;
+    }
+    var ry = L.g.rotation.y, tx = L.g.position.x + Math.cos(ry) * 0.3 - Math.sin(ry) * 0.05, tz = L.g.position.z - Math.sin(ry) * 0.3 - Math.cos(ry) * 0.05;
+    var dx = tx - g.position.x, dz = tz - g.position.z, d = Math.hypot(dx, dz);
+    if (d > 0.02) { var sp = Math.min(d, dt * (d > 0.6 ? 1.6 : 1.0)); g.position.x += dx / d * sp; g.position.z += dz / d * sp; }
+    g.position.y = this.standY(g.position.x, g.position.z);
+    var want = d > 0.3 ? Math.atan2(dx, dz) : ry, dr = want - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 7);
+    o.phase += dt * 11;
+    o.legs.forEach(function (l, i) { l.rotation.x = Math.sin(o.phase + i * Math.PI) * 0.6; });
+    o.arms.forEach(function (a, i) { a.rotation.x = i === 0 ? -0.5 : Math.sin(o.phase + Math.PI) * 0.4; }); // arm in arm
+    o.body.position.y = 0.13 + Math.abs(Math.sin(o.phase)) * 0.015;
+    o.head.rotation.y = Math.sin(now / 1500 + o.k) * 0.35 - 0.3; // turning to chat
+  };
+  // A few unusual townsfolk, each with their own outfit and things to say.
+  var CHARACTERS = [
+    { key: 'prof', name: 'Professor Quill', k: 31, owl: false },
+    { key: 'captain', name: 'Captain Barnacle', k: 33, owl: true },
+    { key: 'zelda', name: 'Madame Zelda', k: 30, owl: true },
+    { key: 'mayor', name: 'Mayor Fitzwilliam', k: 35, owl: false }
+  ];
+  Town.prototype.addCharacters = function () {
+    var s = this.st, self = this, hosts = s.folk.filter(function (m) { return !m.char; });
+    s.chars = CHARACTERS.map(function (C, i) {
+      var m = self.makeMouse(C.k), host = hosts[(i * 2 + 1) % hosts.length], H = m.head, B = m.body, dark = self.mat('swan', 2);
+      function P(par, geo, mat, sx, sy, sz, x, y, z) { var pt = self.part(par, geo, mat, sx, sy, sz, x, y, z); pt.userData.pick = 'folk:' + C.name; self.picks.push(pt); return pt; }
+      if (C.key === 'prof') {
+        // Tweed, spectacles, a bow tie and a book under the arm.
+        P(B, self.geo.box, self.mat('trunk'), 0.14, 0.12, 0.11, 0, 0.1, 0);
+        [-1, 1].forEach(function (sd) { var lens = P(H, self.geo.cyl, self.mat('gold'), 0.025, 0.005, 0.025, sd * 0.032, 0.015, 0.06); lens.rotation.x = Math.PI / 2; });
+        P(H, self.geo.box, self.mat('gold'), 0.03, 0.004, 0.004, 0, 0.015, 0.062);
+        P(B, self.geo.box, self.mat('flag', 0), 0.05, 0.025, 0.02, 0, 0.165, 0.06);
+        P(m.arms[0], self.geo.box, self.mat('flag', 2), 0.02, 0.09, 0.07, 0.02, -0.07, 0.02);
+      } else if (C.key === 'captain') {
+        // A navy coat with brass buttons, a captain's cap, a white beard and a pipe.
+        P(B, self.geo.box, self.mat('flag', 2), 0.14, 0.13, 0.11, 0, 0.09, 0);
+        [0.05, 0.1].forEach(function (y) { P(B, self.geo.ball, self.mat('gold'), 0.01, 0.01, 0.01, 0.03, y, 0.058); });
+        P(H, self.geo.cyl, self.mat('swan', 0), 0.065, 0.04, 0.065, 0, 0.075, 0); P(H, self.geo.box, dark, 0.07, 0.008, 0.05, 0, 0.058, 0.06);
+        P(H, self.geo.box, self.mat('swan', 0), 0.09, 0.05, 0.04, 0, -0.05, 0.07);
+        var pipe = P(H, self.geo.cyl6, self.mat('wood'), 0.008, 0.07, 0.008, 0.03, -0.04, 0.12); pipe.rotation.x = Math.PI / 2;
+        P(H, self.geo.cyl6, self.mat('wood'), 0.016, 0.03, 0.016, 0.03, -0.03, 0.16);
+      } else if (C.key === 'zelda') {
+        // A purple shawl, a headscarf, gold hoops and a crystal ball.
+        P(B, self.geo.cone, self.mat('rainbow', 5), 0.13, 0.12, 0.13, 0, 0.13, 0);
+        P(H, self.geo.ball, self.mat('rainbow', 5), 0.07, 0.04, 0.07, 0, 0.05, -0.01);
+        [-1, 1].forEach(function (sd) { var hoop = P(H, self.geo.cyl, self.mat('gold'), 0.015, 0.004, 0.015, sd * 0.062, -0.02, 0); hoop.rotation.z = Math.PI / 2; });
+        var orb = new T.Mesh(self.geo.ball, self.glowMats().halo); orb.scale.setScalar(0.04); orb.position.set(0, -0.12, 0.05); m.arms[1].add(orb);
+        P(m.arms[1], self.geo.ball, self.mat('glass', 4), 0.03, 0.03, 0.03, 0, -0.12, 0.05);
+      } else if (C.key === 'mayor') {
+        // A top hat, a red sash and the chain of office.
+        P(H, self.geo.cyl, dark, 0.06, 0.1, 0.06, 0, 0.1, 0); P(H, self.geo.cyl, dark, 0.085, 0.008, 0.085, 0, 0.056, 0);
+        var sash = P(B, self.geo.box, self.mat('flag', 0), 0.03, 0.2, 0.11, 0, 0.1, 0); sash.rotation.z = 0.6;
+        P(B, self.geo.box, self.mat('gold'), 0.1, 0.012, 0.015, 0, 0.16, 0.055); P(B, self.geo.ball, self.mat('gold'), 0.02, 0.02, 0.01, 0, 0.13, 0.06);
+      }
+      m.g.traverse(function (o) { if (o.userData && o.userData.pick) o.userData.pick = 'folk:' + C.name; });
+      m.name = C.name; m.char = C.key; m.owl = C.owl;
+      m.home = { door: host.home.door, si: host.home.si, ti: host.home.ti }; m.homeName = host.homeName; m.house = host.house;
+      m.state = 'inside'; m.wait = 6 + i * 5; m.g.visible = false;
+      s.folk.push(m);
+      return m;
+    });
+  };
+  Town.prototype.charLine = function (m) {
+    var s = this.st, t = this.today, day = (s.byDay && s.byDay[t]) || [], work = day.filter(function (e) { return !NOT_WORKOUTS[e.kind]; });
+    var n = s.sessions || 0, tom = new Date(Date.parse(t) + 864e5).toISOString().slice(0, 10), plan = (this.planned || []).filter(function (e) { return e.date === tom; })[0];
+    var L = {
+      prof: ['“we are what we repeatedly do” — Will Durant, summing up Aristotle. so do your squats', 'Seneca: it is not that we have a short time to live, but that we waste a lot of it', 'Marcus Aurelius kept a journal every night. you keep a workout sheet. same thing really',
+        'a hummingbird’s heart beats over a thousand times a minute. yours needn’t', 'I’m writing a monograph on the raccoon’s training. chapter ' + Math.max(1, Math.floor(n / 10)) + ' so far', 'the library has acquired a first edition! well, a paperback',
+        'muscles grow while you rest, you know. the mitochondria are very busy', 'Pascal said all of humanity’s problems come from not sitting quietly in a room. I disagree, I’ve tried'],
+      captain: ['arr! I once rowed from Skagway to Carcross. or dreamt it', 'red sky at night, sailor’s delight. red sky in the morning, back to bed', 'the orcas wave at me, you know. old friends', 'a raccoon aboard is good luck. or bad. I forget which',
+        'never trust a gull that talks', 'I lost this leg to a shark. no, wait, I’ve still got both', 'the sea’s calm today. calm as a millpond with a hangover', 'in my day we paddled uphill both ways'],
+      zelda: [plan ? 'the cards say… ' + (plan.label || 'a workout').toLowerCase() + ' tomorrow. I see it clearly' : 'the crystal ball is foggy. it’s the Yukon', 'I see a long run in your future… or a long nap', 'beware the coyote who smiles',
+        'the tea leaves say you’ll read a chapter before bed', 'I sense… a personal best. soon. very soon', 'cross my palm with a coin and I’ll tell you more. no? suit yourself', 'the spirits say drink more water'],
+      mayor: ['as mayor, I declare today a fine day for a workout', n + ' workouts! I’ll have a plaque made', 'vote Fitzwilliam! I’m the only candidate', 'the fountain is my proudest achievement. you paid for it, technically',
+        work.length ? 'the council commends your ' + (work[0].label || 'workout').toLowerCase() + ' today. motion carried!' : 'no workout today? I’ll have to raise it at the council meeting', 'a town is only as fit as its raccoon, I always say', 'I’ve proclaimed next Tuesday Raccoon Appreciation Day']
+    }[m.char];
+    return L ? pickOne(L) : pickOne(HELLOS);
+  };
+
   // ---- picnics, sandwich thieves and errands ------------------------------------------------
   // A sandwich in the right paw, for lunch on a bench or at the pub tables.
   Town.prototype.giveLunch = function (m) {
@@ -10063,7 +10177,9 @@
           nextC ? 'Next: ' + nextC[1].toLowerCase() + ' at ' + fmtN(nextC[0]) + ' chapters.' : 'The church is complete.', s.last.church ? 'Last: ' + s.last.church.day + ' · ' + s.last.church.label : ''] };
       case 'folk': {
         var mo = (this.st.folk || []).filter(function (q) { return q.name === p[1]; })[0];
-        return mo ? { title: mo.name, lines: ['Lives at the ' + mo.homeName + ' house.', mo.state === 'sit' ? 'Reading the paper.' : mo.state === 'inside' ? 'Popped indoors.' : 'Out and about.'] } : null;
+        var CHAR_NOTE = { prof: 'A retired professor of almost everything. Lodges at the ' + (mo && mo.homeName) + ' house.', captain: 'An old sea captain with a great many stories, some of them true.', zelda: 'Fortune teller. Out late, reading the stars.', mayor: 'Mayor of Yukon, unopposed, for life.' };
+        var doing = !mo ? '' : mo.state === 'sit' ? (mo.hasLunch ? 'Having lunch on the bench.' : 'Reading the paper.') : mo.state === 'picnic' ? 'Having a picnic lunch.' : mo.state === 'pal' ? 'Out for a walk with ' + (mo.lead ? mo.lead.name : 'a friend') + '.' : mo.jogging ? 'Out for a jog!' : mo.state === 'chase' ? 'Chasing a sandwich thief!' : mo.state === 'pub' ? 'Down the Slow Pour.' : mo.state === 'inside' ? 'Popped indoors.' : 'Out and about.';
+        return mo ? { title: mo.name, lines: [mo.char ? CHAR_NOTE[mo.char] : 'Lives at the ' + mo.homeName + ' house.', doing] } : null;
       }
       case 'fox': return { title: 'Jo the fox', lines: ['Jo, mostly round her house, sometimes off exploring.'] };
       case 'library':
@@ -11846,6 +11962,8 @@
     var aspect = W / 160;
     sp.scale.set(1.5 * aspect, 0.68, 1); sp.renderOrder = 10;
     this.scene.add(sp);
+    // Long lines stay up long enough to read.
+    if (text.length > 14) dur = Math.max(dur || 2, Math.min(9, 2 + text.length / 11));
     bubbles.push({ sp: sp, obj: obj, y: yOff, t: 0, dur: dur, drift: drift, aspect: aspect });
     this.needsRender = true;
   };
