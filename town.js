@@ -68,6 +68,14 @@
     keepStone: ['#87837d', '#77736d', '#68645f'], keepDark: '#4d4a46', keepRoof: ['#575b62', '#4b4f56'], keepAccent: '#e6a93a', keepBanner: ['#7a2a24', '#2a4a7a'],
     elfStone: ['#f2e8d2', '#e8dbc0', '#dccdae'], elfDark: '#bcae90', elfRoof: ['#4fa08c', '#62b29c'], elfAccent: '#d5ece2', elfBanner: ['#4f8f7c', '#f2e8d2'],
     houseplant: ['#4f9e3a', '#3f8a32', '#68b544', '#5aa83e'],
+    // The towns up the line: Klondike paint, trim and tin roofs.
+    tpaint: ['#e2b13c', '#3f8f8a', '#b8432f', '#a58cc4', '#9fd1b0', '#e8907a', '#f1e6c8', '#7fb2d8', '#f4f2ec', '#4f7a4a', '#e7a3b8', '#c9873a', '#9a9a94', '#3a4a72', '#7a5236', '#f2df8c'],
+    ttrim: ['#f6f3ea', '#2f4f3a', '#6e2a2a', '#4a3322', '#d9a441', '#2a2a2a'],
+    troof: ['#9a5a3a', '#8a9096', '#4f6e4a', '#a8382c', '#5a4a40', '#6f9a4a'],
+    tstreet: ['#b9935e', '#a49d90'],
+    // The townsfolk's own fur and Sunday-best cloth: everyone in town dresses a little differently.
+    mfur: ['#9c928a', '#8a6a4e', '#c8b49a', '#f2ece2', '#6e5a4a', '#bfb8b0', '#d9a46a', '#4a4440'],
+    mcloth: ['#c8506a', '#e8a33a', '#4f7fb8', '#6a9e4a', '#8a5ab0', '#d8763a', '#3f6e6a', '#f2e2b8', '#7a4a2a', '#2e3b5e', '#e8c8d8', '#b83a2a', '#d9c27a', '#5a5a62', '#e0e6ea', '#f2d23a'],
     // White Pass & Yukon Route: green coaches with gold trim, a black engine, red roofs and cowcatcher.
     // Jo's Japanese garden house.
     jpTile: ['#4a5058', '#3c4148'], jpTimber: '#3b2c24', jpPlaster: '#f4f0e6', bamboo: ['#b9b45a', '#9d9a48'], maple: ['#c8402c', '#de5a2e'],
@@ -134,8 +142,9 @@
     }
     return RIVER_LEVELS[i];
   }
-  // Extra castles start here once the first one's towers can't grow any taller: each sits on a raised hill.
-  var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(42, 80), { lift: 4.5 }), Object.assign(polar(302, 84), { lift: 4 }), Object.assign(polar(135, 88), { lift: 4 }), Object.assign(polar(250, 86), { lift: 4.5 })];
+  // The towns up the line start here once the castle's towers can't grow any taller: Dawson City by
+  // the river, Atlin by the lake, Haines Junction behind the ranges, Skagway on the coast, then Haines.
+  var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(42, 80), { lift: 1.2 }), Object.assign(polar(238, 84), { lift: 0.8 }), Object.assign(polar(135, 88), { lift: 1.5 }), Object.assign(polar(302, 84), { lift: 0.6 }), Object.assign(polar(274, 86), { lift: 0.8 })];
   var MAX_LAYERS = 36;
   // How fast the castles rise. The first castle's towers may climb a layer every MAIN_CAP_EVERY
   // lifting sessions; each session builds CASTLE_PACE.mainBailey of its halls and turrets, and
@@ -1615,6 +1624,574 @@
     this.pop(g, delay);
     return C;
   };
+  // ---- towns up the line ------------------------------------------------------------------
+  // Once the castle's towers are full, lifting builds real towns on the far hills instead of more
+  // castles, one piece a session per muscle group: Dawson City, then Atlin, Haines Junction,
+  // Skagway and Haines. Each starts as a few cabins along a dirt street and grows into itself,
+  // landmarks and all. A finished town gets its own station on the railway.
+  // Lots along the main street (row A), behind it (row B) and out at the edge (row C). The street
+  // runs along local z, out to the road home at +z; a lot's building faces the street.
+  var TOWN_ROWS = { A: { x: 4.3, z: [10, 7.5, 5, 2.5, 0, -2.5, -5, -7.5, -10] }, B: { x: 8.6, z: [8, 5.2, 2.4, -0.4, -3.2, -6, -8.8] }, C: { x: 12.2, z: [3.5, 0, -3.5] } };
+  function lot(row, side, i) { return { x: side * TOWN_ROWS[row].x, z: TOWN_ROWS[row].z[i], r: side > 0 ? -90 : 90 }; }
+  function lot2(row, side, i) { var a = lot(row, side, i), b = lot(row, side, i + 1); return { x: a.x, z: (a.z + b.z) / 2, r: a.r }; }
+  function at(x, z, r) { return { x: x, z: z, r: r || 0 }; }
+  var A = function (s, i) { return lot('A', s, i); }, B = function (s, i) { return lot('B', s, i); }, Cr = function (s, i) { return lot('C', s, i); };
+  // Each piece: [kind, where, options, landmark name (if it is one)].
+  var TOWNS = [null,
+    { key: 'dawson', name: 'Dawson City', vibe: 'Klondike gold-rush boomtown: false fronts in every colour, boardwalks, dirt streets, a sternwheeler on the bank and a gold dredge.', street: 'dirt', walks: true,
+      plan: [
+        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['front', A(1, 1), { c: 0, t: 2 }], ['front', A(-1, 1), { c: 1, t: 0 }], ['house', B(1, 0), { c: 5 }],
+        ['cabin', B(-1, 0), { antlers: true, c: 2 }, 'Robert Service’s cabin'], ['front', A(1, 2), { c: 2, t: 0, two: true }], ['front', A(-1, 2), { c: 3, t: 0 }],
+        ['front', lot2('A', 1, 3), { c: 6, t: 2, two: true, w: 4.5, lights: true, sign: 4 }, 'Diamond Tooth Gerties'],
+        ['house', B(1, 1), { c: 4 }], ['house', B(-1, 1), { c: 10 }], ['front', A(-1, 3), { c: 7, t: 0 }], ['front', A(-1, 4), { c: 15, t: 2 }],
+        ['kissing', A(1, 5), {}, 'The kissing buildings'],
+        ['front', lot2('A', -1, 5), { c: 15, t: 3, two: true, w: 4.5, cols: true, sign: 2 }, 'The Palace Grand Theatre'],
+        ['front', A(1, 6), { c: 9, t: 0, two: true }], ['house', B(1, 2), { c: 1 }], ['house', B(-1, 2), { c: 0 }],
+        ['boat', at(-12.1, 0), { wheel: true, c: 8, t: 3 }, 'The S.S. Keno'],
+        ['church', at(0, -11.6), { c: 8, roof: 1 }, 'St. Paul’s Church'],
+        ['front', A(1, 7), { c: 12, t: 0, two: true, tin: true }, 'The Bank of Commerce'], ['front', A(-1, 7), { c: 5, t: 0 }],
+        ['front', A(1, 8), { c: 8, t: 1, two: true, cupola: true }, 'The old post office'], ['front', A(-1, 8), { c: 3, t: 0, two: true, w: 2.3, sign: 4 }, 'The Downtown Hotel'],
+        ['house', B(1, 3), { c: 7 }], ['house', B(-1, 3), { c: 11 }], ['house', B(1, 4), { c: 10 }], ['house', B(-1, 4), { c: 4 }], ['house', B(1, 5), { c: 15 }], ['house', B(-1, 5), { c: 2 }],
+        ['dredge', at(11.6, -0.6, 0), {}, 'Dredge No. 4'],
+        ['house', B(1, 6), { c: 3 }], ['house', B(-1, 6), { c: 6 }], ['cabin', at(-11.6, 5.0, 90), { c: 1 }], ['cabin', at(-11.6, -5.0, 90), {}],
+        ['lamps', null, {}, 'Lamps along Front Street']
+      ] },
+    { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town on the shore of Atlin Lake: painted clapboard houses, the M.V. Tarahne on the beach and float planes at the dock.', street: 'dirt',
+      plan: [
+        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, {}, 'The Atlin Lake shore'], ['front', A(1, 1), { c: 9, t: 0 }, 'The Atlin Trading Post'],
+        ['house', A(-1, 1), { c: 10 }], ['house', B(-1, 0), { c: 7 }], ['front', A(1, 2), { c: 11, t: 0 }], ['house', A(-1, 2), { c: 7, porch: true }],
+        ['church', A(-1, 3), { c: 8, roof: 3, small: true }, 'St. Martin’s Church'],
+        ['boat', at(8.9, -0.6), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'],
+        ['house', lot2('A', 1, 3), { c: 8, w: 3.6, two: true, cupola: true, roof: 1 }, 'The courthouse'], ['house', A(-1, 4), { c: 4 }],
+        ['plane', at(12.2, 1.2, 180), { floats: true }, 'A float plane at the dock'], ['front', A(1, 5), { c: 5, t: 0, two: true }], ['house', A(-1, 5), { c: 10, porch: true }],
+        ['house', B(-1, 1), { c: 15 }], ['house', B(-1, 2), { c: 3 }], ['sluice', B(1, 0), {}, 'The Pine Creek sluice box'],
+        ['house', A(1, 6), { c: 1 }], ['house', A(-1, 6), { c: 9 }], ['house', B(1, 5), { c: 4 }], ['house', B(-1, 3), { c: 5 }], ['cabin', B(1, 6), {}],
+        ['house', B(-1, 4), { c: 11 }], ['house', A(1, 7), { c: 0 }], ['house', A(-1, 7), { c: 7 }], ['houseboats', null, {}, 'Houseboats on the lake'],
+        ['house', B(-1, 5), { c: 10 }], ['house', A(1, 8), { c: 3 }], ['house', A(-1, 8), { c: 4 }], ['house', B(-1, 6), { c: 1 }],
+        ['cabin', Cr(-1, 0), { c: 1 }], ['cabin', Cr(-1, 2), {}], ['canoes', null, {}, 'Canoes on the beach'], ['lamps', null, {}, 'Lamps along the main street']
+      ] },
+    { key: 'hj', name: 'Haines Junction', vibe: 'Where the Alaska Highway meets the Haines Road, under the St. Elias Mountains: log buildings, a Quonset-hut church, the bakery and bush planes for Kluane.', street: 'gravel',
+      plan: [
+        ['signpost', at(2.4, 12.2), {}, 'The junction signpost'], ['cabin', A(-1, 1), {}], ['log', A(1, 1), { deck: true }, 'The Village Bakery'], ['house', A(-1, 2), { c: 12, roof: 2 }],
+        ['muffin', at(-4.3, 10.2), {}, 'The Village Monument (“the muffin”)'], ['cabin', B(1, 1), { c: 1 }],
+        ['quonset', A(1, 3), {}, 'Our Lady of the Way'], ['gas', A(1, 0), {}], ['house', A(-1, 3), { c: 9, roof: 1 }],
+        ['kluane', at(0, -11.2), {}, 'The Kluane National Park visitor centre'], ['log', lot2('A', 1, 4), { w: 4.4, motel: true }, 'The log motel'], ['house', A(-1, 4), { c: 13, roof: 1 }],
+        ['house', B(-1, 1), { c: 11, roof: 0 }], ['strip', null, {}, 'The airstrip'], ['plane', at(12.0, -1.2, 180), {}, 'A flightseeing plane'],
+        ['house', A(-1, 5), { c: 7, roof: 2 }], ['rv', B(-1, 5), {}, 'The RV park'], ['house', B(1, 2), { c: 6, roof: 1 }],
+        ['house', A(1, 6), { c: 4, roof: 2 }], ['house', A(-1, 6), { c: 2, roof: 1 }], ['cabin', B(1, 3), {}], ['house', B(-1, 2), { c: 14, roof: 0 }],
+        ['house', A(1, 7), { c: 9, roof: 1 }], ['house', A(-1, 7), { c: 12, roof: 2 }], ['cabin', B(1, 4), { c: 1 }], ['house', B(-1, 3), { c: 0, roof: 1 }],
+        ['house', A(1, 8), { c: 13, roof: 2 }], ['house', A(-1, 8), { c: 11, roof: 1 }], ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 7, roof: 2 }],
+        ['cabin', B(1, 0), { c: 1 }], ['house', B(-1, 0), { c: 4, roof: 1 }],
+        ['peaks', null, {}, 'The St. Elias Mountains'], ['lamps', null, {}, 'Lamps along the highway']
+      ] },
+    { key: 'skagway', name: 'Skagway', vibe: 'The gold-rush port at the head of the Lynn Canal: Broadway’s false fronts and boardwalks, the driftwood Arctic Brotherhood Hall, the White Pass depot and cruise ships at the dock.', street: 'dirt', walks: true,
+      plan: [
+        ['front', A(1, 0), { c: 1, t: 0 }], ['front', A(-1, 0), { c: 5, t: 0 }], ['front', A(1, 1), { c: 15, t: 2, two: true }], ['front', A(-1, 1), { c: 4, t: 0 }],
+        ['front', A(1, 2), { drift: true, two: true, c: 14 }, 'The Arctic Brotherhood Hall'], ['front', A(-1, 2), { c: 7, t: 0 }],
+        ['front', A(-1, 3), { c: 2, t: 4, two: true, balcony: true, redlamps: true }, 'The Red Onion Saloon'], ['house', B(1, 0), { c: 8 }], ['front', A(1, 3), { c: 3, t: 0 }],
+        ['depot', lot2('A', 1, 4), {}, 'The White Pass & Yukon Route depot'], ['front', A(-1, 4), { c: 15, t: 3, two: true, dome: true }, 'The Golden North Hotel'],
+        ['house', B(-1, 0), { c: 6 }], ['dock', null, {}, 'The cruise ship dock'], ['front', A(-1, 5), { c: 9, t: 0, sign: 4 }, 'The Mascot Saloon'],
+        ['front', A(1, 6), { c: 10, t: 0, two: true }], ['house', B(1, 1), { c: 10 }], ['house', B(-1, 1), { c: 7 }], ['front', A(-1, 6), { c: 0, t: 2 }],
+        ['cemetery', at(0, -11.8), {}, 'The Gold Rush Cemetery'], ['house', B(1, 2), { c: 4 }], ['house', B(-1, 2), { c: 11 }],
+        ['front', A(1, 7), { c: 13, t: 0 }], ['front', A(-1, 7), { c: 5, t: 0, two: true }], ['house', B(1, 6), { c: 8, porch: true, cabin: true }, 'The Moore House'],
+        ['ship', null, {}, 'A cruise ship in port'], ['house', B(1, 3), { c: 3 }], ['house', B(-1, 3), { c: 5 }], ['front', A(1, 8), { c: 11, t: 0 }], ['front', A(-1, 8), { c: 1, t: 0 }],
+        ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['house', B(1, 5), { c: 1 }], ['house', B(-1, 5), { c: 10 }], ['house', B(-1, 6), { c: 4 }],
+        ['lamps', null, {}, 'Lamps along Broadway']
+      ] },
+    { key: 'haines', name: 'Haines', vibe: 'A fishing town on the Chilkat: the white officers’ houses of Fort Seward round their parade ground, totem poles, the Hammer Museum, a cannery and bald eagles in the cottonwoods.', street: 'gravel',
+      plan: [
+        ['cabin', A(1, 0), {}], ['house', A(-1, 0), { c: 7 }], ['front', A(1, 1), { c: 9, t: 0 }], ['lawn', null, {}, 'The Fort Seward parade ground'],
+        ['house', at(-4.3, 5, 90 + 180), { c: 8, roof: 3, porch: true, two: true }], ['house', at(-4.3, 2.5, 270), { c: 8, roof: 3, porch: true, two: true }, 'The officers’ row'],
+        ['hammer', A(1, 2), {}, 'The Hammer Museum'], ['house', at(-4.3, 0, 270), { c: 8, roof: 3, porch: true, two: true }], ['totems', at(2.4, 1.25), {}, 'Totem poles'],
+        ['front', A(1, 4), { c: 4, t: 0 }], ['house', at(-4.3, -2.5, 270), { c: 8, roof: 3, porch: true, two: true }], ['house', at(-4.3, -5, 270), { c: 8, roof: 3, porch: true, two: true }],
+        ['hall', at(0, -11.4), {}, 'The Chilkat Center'], ['eagles', null, {}, 'Bald eagles in the cottonwoods'], ['front', A(1, 5), { c: 13, t: 0, two: true }],
+        ['house', A(-1, 1), { c: 5 }], ['house', B(1, 0), { c: 10 }], ['house', at(-9.9, -6.7, 0), { c: 8, roof: 3, porch: true, two: true }],
+        ['house', at(-9.9, 6.7, 180), { c: 8, roof: 3, porch: true, two: true }, 'The commanding officer’s house'], ['front', A(1, 6), { c: 1, t: 0 }],
+        ['house', B(1, 1), { c: 15 }], ['cannery', at(8.8, -3.8, -90), {}, 'The cannery'], ['house', A(1, 7), { c: 11 }], ['house', A(-1, 7), { c: 4 }],
+        ['house', B(1, 2), { c: 7 }], ['boat', at(8.6, -8.6), { fish: true, c: 7, t: 0 }, 'A fishing boat on blocks'], ['house', A(1, 8), { c: 3 }], ['house', A(-1, 8), { c: 10 }],
+        ['house', B(1, 5), { c: 6 }], ['house', A(1, 3), { c: 5, small: true }], ['lamps', null, {}, 'Lamps along Main Street']
+      ] }
+  ];
+  Town.towns = TOWNS;
+  var TOWN_FLAG_Z = 11.6;
+  // A town on its hill: a dirt street out to the road home, and a string of pennants across the
+  // street (one per muscle group) that fly while that group's latest session here set a PR.
+  Town.prototype.ensureTown = function (ci, delay) {
+    var C = this.st.castles[ci];
+    if (C) return C;
+    var D = TOWNS[ci], site = CASTLE_SITES[ci], g = new T.Group(), y = groundY(site.x, site.z), self = this, pick = 'town:' + ci;
+    g.position.set(site.x, y, site.z);
+    var hx = -site.x, hz = -site.z, hl = Math.hypot(hx, hz);
+    g.rotation.y = Math.atan2(hx / hl, hz / hl);
+    this.world.add(g);
+    C = this.st.castles[ci] = { ci: ci, site: site, group: g, town: D, built: 0, lifts: 0, done: {}, towers: {}, name: D.name, chims: [], gate: angleOf(hx, hz) };
+    var streetMat = this.mat('tstreet', D.street === 'gravel' ? 1 : 0);
+    // The street reaches as far into town as the buildings do.
+    C.street = this.part(g, this.geo.box, streetMat, 3.0, 0.06, 1, 0, 0.03, 0, pick);
+    C.reach = 6;
+    this.townStreet(C);
+    // Pennants across the street, between two poles.
+    var fl = new T.Group(); fl.position.set(0, 0, TOWN_FLAG_Z); g.add(fl);
+    [-1, 1].forEach(function (sd) { self.part(fl, self.geo.cyl6, self.mat('wood'), 0.06, 2.6, 0.06, sd * 1.8, 1.3, 0, pick); });
+    this.part(fl, this.geo.box, this.mat('stoneDark'), 3.6, 0.02, 0.02, 0, 2.5, 0, pick);
+    TOWERS.concat([this.st.towers.full.def]).forEach(function (t, i) {
+      var p = self.part(fl, self.geo.flag, self.mat('flag', i), 0.9, 0.9, 0.9, -1.5 + i * 0.48, 2.48, 0, 'prflag:' + t.key + ':' + ci);
+      p.rotation.y = -Math.PI / 2; p.visible = false;
+      C.towers[t.key] = { def: t, n: 0, prs: 0, flag: p, flying: false, pick: pick, features: [], castle: C };
+    });
+    this.layPath({ kind: 'road', pts: CASTLE_ROADS[ci] }, delay);
+    this.pop(g, delay);
+    this.news(['have you heard? there’s a new town going up: ' + D.name + '!', D.name + ' is on the map! a few cabins so far', 'my cousin’s moving to ' + D.name + '. brave mouse']);
+    return C;
+  };
+  Town.prototype.townStreet = function (C) {
+    var L = 13.8 - C.reach + 1.2;
+    C.street.scale.z = L; C.street.position.z = 13.8 - L / 2;
+  };
+  // One more piece of the town.
+  Town.prototype.townStep = function (C, delay) {
+    var D = C.town, piece = D.plan[C.built];
+    if (!piece) return false;
+    C.built++;
+    var o = this.townPiece(C, piece[0], piece[1], piece[2] || {}, C.built);
+    if (piece[1] && piece[1].z < C.reach) { C.reach = Math.max(-11, piece[1].z); this.townStreet(C); }
+    if (o) this.pop(o, delay + 200);
+    if (piece[3]) {
+      C.done[piece[3]] = true;
+      this.news(['did you see? ' + piece[3] + ' in ' + D.name + '!', 'they’ve built ' + piece[3].replace(/^The /, 'the ') + ' over in ' + D.name, D.name + ' is coming along. ' + piece[3] + ' now!']);
+    }
+    if (C.built >= D.plan.length) {
+      this.addStation(C.ci);
+      this.news([D.name + ' is finished! there’s a train station and everything', 'all aboard for ' + D.name + '!']);
+    }
+    this.needsRender = true;
+    return true;
+  };
+  // Builds one piece. Local +z on each building is its front; a lot turns it to face the street.
+  Town.prototype.townPiece = function (C, kind, where, o, seq) {
+    var self = this, g = C.group, pick = 'town:' + C.ci, base = g.position.y, site = C.site, rot = g.rotation.y;
+    var h = new T.Group();
+    if (where) { h.position.set(where.x, 0, where.z); h.rotation.y = (where.r || 0) * D2R; }
+    g.add(h);
+    function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, pick); }
+    function M(n, i) { return self.mat(n, i); }
+    var paint = function (i) { return M('tpaint', i == null ? seq : i); }, trim = function (i) { return M('ttrim', i || 0); }, roofM = function (i) { return M('troof', i == null ? seq % 3 : i); };
+    var win = M('window'), wood = M('wood'), dark = M('stoneDark');
+    // Ground height at a town-local point (for things that reach past the level town site).
+    function localGround(x, z) { var c = Math.cos(rot), s = Math.sin(rot); return groundY(site.x + x * c + z * s, site.z - x * s + z * c) - base; }
+    function chimney(par, x, y, z) { P(par, self.geo.box, M('brick'), 0.22, 0.5, 0.22, x, y, z); var cm = new T.Object3D(); cm.position.set(x, y + 0.3, z); par.add(cm); C.chims.push(cm); }
+    function pipe(par, x, y, z) { P(par, self.geo.cyl6, dark, 0.05, 0.5, 0.05, x, y, z); var cm = new T.Object3D(); cm.position.set(x, y + 0.28, z); par.add(cm); C.chims.push(cm); }
+    function gable(par, mat, w, d, rh, y, alongX) {
+      var r = P(par, self.geo.gable, mat, (alongX ? d : w) / 1.7, rh / 0.75, (alongX ? w : d) / 1.5, 0, y, 0);
+      if (alongX) r.rotation.y = Math.PI / 2;
+      return r;
+    }
+    function door(par, x, y, z, c) { P(par, self.geo.box, c || wood, 0.36, 0.62, 0.04, x, y + 0.31, z); }
+    function windows(par, n, w, y, z, size) { for (var i = 0; i < n; i++) P(par, self.geo.box, win, size || 0.32, (size || 0.32) * 1.25, 0.04, -w / 2 + (i + 0.5) * w / n, y, z); }
+    function lantern(par, x, y, z) { P(par, self.geo.cyl6, dark, 0.04, y, 0.04, x, y / 2, z); P(par, self.geo.box, M('lantern'), 0.16, 0.2, 0.16, x, y + 0.08, z); }
+    function spruce(par, x, z, s) { s = s || 1; P(par, self.geo.cyl6, M('trunk'), 0.1 * s, 0.6 * s, 0.1 * s, x, 0.3 * s, z); [[0.7, 0.9, 0.75], [0.55, 0.85, 1.25], [0.38, 0.8, 1.7]].forEach(function (c) { P(par, self.geo.cone6, M('pine'), c[0] * s, c[1] * s, c[0] * s, x, c[2] * s, z); }); }
+    switch (kind) {
+      case 'front': {
+        // A false-front store: a tall square facade hiding a gabled building, a sign board,
+        // display windows, and a plank boardwalk out front.
+        var w = o.w || 2.1, d = 2.0, hh = o.two ? 2.3 : 1.45, fh = 0.55, fz = d / 2;
+        P(h, self.geo.box, paint(o.c), w, hh, d, 0, hh / 2, 0);
+        gable(h, roofM(o.tin ? 1 : null), w * 0.96, d * 0.95, 0.45, hh, false);
+        var fac = o.drift ? M('logwood') : paint(o.c);
+        P(h, self.geo.box, fac, w + 0.06, hh + fh, 0.12, 0, (hh + fh) / 2, fz + 0.04);
+        P(h, self.geo.box, trim(o.t), w + 0.24, 0.12, 0.26, 0, hh + fh, fz + 0.06);
+        P(h, self.geo.box, trim(o.t), w + 0.1, 0.07, 0.16, 0, o.two ? 1.2 : 0.02, fz + 0.06);
+        [-1, 1].forEach(function (sd) { P(h, self.geo.box, trim(o.t), 0.08, hh + fh, 0.16, sd * (w / 2 + 0.02), (hh + fh) / 2, fz + 0.06); });
+        if (!o.drift) {
+          P(h, self.geo.box, M('tpaint', o.sign != null ? o.sign : 6), w * 0.72, 0.34, 0.05, 0, hh + fh * 0.42, fz + 0.13);
+          P(h, self.geo.box, trim(5), w * 0.5, 0.07, 0.03, 0, hh + fh * 0.42, fz + 0.16);
+        }
+        door(h, 0, 0, fz + 0.11, trim(o.t === 0 ? 3 : o.t));
+        [-1, 1].forEach(function (sd) { P(h, self.geo.box, win, w * 0.26, 0.55, 0.04, sd * w * 0.3, 0.55, fz + 0.11); });
+        if (o.two) windows(h, o.w > 3 ? 4 : 2, w * 0.9, 1.75, fz + 0.11);
+        if (o.drift) {
+          // The Arctic Brotherhood Hall: thousands of driftwood sticks nailed across the front.
+          for (var dr = 0; dr < 46; dr++) {
+            var dx = -w / 2 + 0.12 + ((dr * 37) % 23) / 23 * (w - 0.24), dy = 0.15 + ((dr * 53) % 29) / 29 * (hh + fh - 0.3);
+            if (Math.abs(dx) < 0.3 && dy < 0.75) continue;
+            P(h, self.geo.box, M(dr % 3 ? 'woodLight' : 'trunk'), 0.05, 0.36, 0.03, dx, dy, fz + 0.13).rotation.z = ((dr * 29) % 7 - 3) * 0.35;
+          }
+          P(h, self.geo.box, M('gold'), 0.6, 0.18, 0.04, 0, hh + 0.2, fz + 0.15);
+        }
+        if (o.cols) [-1, -0.33, 0.33, 1].forEach(function (f) { P(h, self.geo.cyl, trim(0), 0.07, hh, 0.07, f * w * 0.42, hh / 2, fz + 0.25); });
+        if (o.cols) { var ped = P(h, self.geo.gable, trim(o.t), w * 0.35 / 1.7, 0.5 / 0.75, 0.1 / 1.5, 0, hh + fh, fz + 0.06); }
+        if (o.balcony) {
+          P(h, self.geo.box, wood, w, 0.07, 0.7, 0, 1.2, fz + 0.45);
+          P(h, self.geo.box, trim(0), w, 0.25, 0.04, 0, 1.36, fz + 0.8);
+          [-1, 1].forEach(function (sd) { P(h, self.geo.cyl6, wood, 0.04, 1.2, 0.04, sd * (w / 2 - 0.05), 0.6, fz + 0.78); });
+        }
+        if (o.redlamps) [-1, 1].forEach(function (sd) { P(h, self.geo.ball, M('tpaint', 2), 0.08, 0.1, 0.08, sd * w * 0.3, 1.55, fz + 0.2); P(h, self.geo.ball, M('lantern'), 0.05, 0.05, 0.05, sd * w * 0.3, 1.55, fz + 0.23); });
+        if (o.lights) for (var li = 0; li < 11; li++) P(h, self.geo.ball, M('lantern'), 0.05, 0.05, 0.05, -w / 2 + li * w / 10, hh + fh + 0.1, fz + 0.2);
+        if (o.cupola) { P(h, self.geo.cyl6, trim(0), 0.32, 0.5, 0.32, w * 0.3, hh + fh + 0.25, fz - 0.2); P(h, self.geo.cone6, roofM(3), 0.4, 0.4, 0.4, w * 0.3, hh + fh + 0.7, fz - 0.2); }
+        if (o.dome) { P(h, self.geo.cyl, trim(0), 0.36, 0.45, 0.36, w / 2 - 0.2, hh + fh + 0.22, fz - 0.15); P(h, self.geo.ball, M('gold'), 0.38, 0.42, 0.38, w / 2 - 0.2, hh + fh + 0.45, fz - 0.15); P(h, self.geo.cone, M('gold'), 0.06, 0.3, 0.06, w / 2 - 0.2, hh + fh + 0.95, fz - 0.15); }
+        if (o.tin) for (var tb = 0; tb < 5; tb++) P(h, self.geo.box, trim(0), w * 0.95, 0.03, 0.03, 0, 0.3 + tb * 0.45, fz + 0.12);
+        if (C.town.walks || o.walk) {
+          P(h, self.geo.box, wood, w + 0.3, 0.08, 0.8, 0, 0.04, fz + 0.5);
+          if (!o.balcony) { P(h, self.geo.box, roofM(o.tin ? 1 : null), w + 0.1, 0.05, 0.75, 0, o.two ? 1.15 : 1.05, fz + 0.48).rotation.x = 0.18; [-1, 1].forEach(function (sd) { P(h, self.geo.cyl6, wood, 0.035, o.two ? 1.12 : 1.0, 0.035, sd * (w / 2 + 0.05), (o.two ? 1.12 : 1.0) / 2, fz + 0.82); }); }
+        }
+        pipe(h, -w * 0.3, hh + 0.4, -0.4);
+        break;
+      }
+      case 'house': {
+        // A clapboard house with a pitched roof; some with a porch or a second storey.
+        var hw = o.w || (o.small ? 1.5 : 1.8), hd = o.small ? 1.4 : 1.6, ht = o.two ? 1.9 : 1.1, rf = roofM(o.roof);
+        P(h, self.geo.box, paint(o.c), hw, ht, hd, 0, ht / 2, 0);
+        gable(h, rf, hw + 0.25, hd + 0.3, 0.7, ht, true);
+        [-1, 1].forEach(function (sd) { P(h, self.geo.box, trim(0), 0.06, ht, 0.06, sd * hw / 2, ht / 2, hd / 2); });
+        door(h, hw * 0.22, 0, hd / 2 + 0.02);
+        P(h, self.geo.box, win, 0.34, 0.4, 0.04, -hw * 0.22, 0.6, hd / 2 + 0.02);
+        if (o.two) windows(h, hw > 3 ? 4 : 2, hw * 0.8, 1.45, hd / 2 + 0.02);
+        if (o.porch) {
+          P(h, self.geo.box, wood, hw * 0.9, 0.1, 0.6, 0, 0.05, hd / 2 + 0.3);
+          P(h, self.geo.box, rf, hw * 0.95, 0.05, 0.65, 0, 0.95, hd / 2 + 0.32).rotation.x = 0.2;
+          [-1, 1].forEach(function (sd) { P(h, self.geo.cyl6, trim(0), 0.035, 0.92, 0.035, sd * hw * 0.42, 0.46, hd / 2 + 0.58); });
+        }
+        if (o.cupola) { P(h, self.geo.box, trim(0), 0.4, 0.4, 0.4, 0, ht + 0.85, 0); P(h, self.geo.cone4, rf, 0.38, 0.4, 0.38, 0, ht + 1.25, 0).rotation.y = Math.PI / 4; }
+        if (o.cabin) { var cb = new T.Group(); cb.position.set(-1.5, 0, -0.2); h.add(cb); P(cb, self.geo.box, M('logwood'), 1.0, 0.75, 1.0, 0, 0.375, 0); gable(cb, roofM(4), 1.2, 1.2, 0.5, 0.75, true); }
+        chimney(h, hw * 0.28, ht + 0.45, -0.2);
+        if (seq % 3 === 0) spruce(h, -hw / 2 - 0.1, -1.25, 0.6 + (seq % 4) * 0.06);
+        break;
+      }
+      case 'cabin': {
+        // A log cabin with a tin or sod roof and a stovepipe.
+        var cw = 1.5, cd = 1.4, chh = 0.85;
+        P(h, self.geo.box, M('logwood'), cw, chh, cd, 0, chh / 2, 0);
+        for (var lg = 0; lg < 4; lg++) P(h, self.geo.cyl6, M('trunk'), 0.06, cw + 0.12, 0.06, 0, 0.12 + lg * 0.21, cd / 2 + 0.01).rotation.z = Math.PI / 2;
+        gable(h, o.c === 1 ? M('troof', 5) : roofM(1), cw + 0.3, cd + 0.3, 0.55, chh, true);
+        door(h, 0.25, 0, cd / 2 + 0.04);
+        P(h, self.geo.box, win, 0.3, 0.3, 0.04, -0.35, 0.5, cd / 2 + 0.05);
+        if (o.antlers) [-1, 1].forEach(function (sd) { var an = P(h, self.geo.box, M('whitewood'), 0.3, 0.04, 0.04, sd * 0.16, 1.05, cd / 2 + 0.06); an.rotation.z = sd * 0.5; P(h, self.geo.box, M('whitewood'), 0.04, 0.16, 0.04, sd * 0.3, 1.18, cd / 2 + 0.06); });
+        pipe(h, -0.4, chh + 0.55, -0.2);
+        if (seq % 2) spruce(h, cw / 2 + 0.2, -1.1, 0.6);
+        break;
+      }
+      case 'log': {
+        // A big log building: the bakery (with a deck and tables), or a long motel.
+        var lw = o.w || 2.2, ld = 1.8, lh = 1.2;
+        P(h, self.geo.box, M('logwood'), lw, lh, ld, 0, lh / 2, 0);
+        for (var lr = 0; lr < 5; lr++) P(h, self.geo.cyl6, M('trunk'), 0.06, lw + 0.12, 0.06, 0, 0.12 + lr * 0.23, ld / 2 + 0.01).rotation.z = Math.PI / 2;
+        gable(h, roofM(2), lw + 0.3, ld + 0.35, 0.7, lh, true);
+        if (o.motel) { for (var md = 0; md < 4; md++) { door(h, -lw / 2 + 0.45 + md * (lw - 0.9) / 3, 0, ld / 2 + 0.04, M('tpaint', 2)); P(h, self.geo.box, win, 0.28, 0.3, 0.04, -lw / 2 + 0.75 + md * (lw - 0.9) / 3, 0.6, ld / 2 + 0.04); } P(h, self.geo.box, M('tpaint', 2), 1.2, 0.3, 0.05, 0, lh + 0.25, ld / 2 + 0.2); }
+        else {
+          door(h, 0.4, 0, ld / 2 + 0.04); windows(h, 2, lw * 0.5, 0.65, ld / 2 + 0.04, 0.38);
+          P(h, self.geo.box, M('tpaint', 0), 1.2, 0.3, 0.05, 0, lh + 0.25, ld / 2 + 0.2);
+          if (o.deck) {
+            P(h, self.geo.box, wood, lw + 0.2, 0.1, 1.0, 0, 0.06, ld / 2 + 0.55);
+            [-0.55, 0.45].forEach(function (x) { P(h, self.geo.cyl, M('woodLight'), 0.22, 0.04, 0.22, x, 0.42, ld / 2 + 0.6); P(h, self.geo.cyl6, dark, 0.03, 1.0, 0.03, x, 0.6, ld / 2 + 0.6); P(h, self.geo.cone, M('tpaint', x < 0 ? 2 : 9), 0.4, 0.2, 0.4, x, 1.12, ld / 2 + 0.6); });
+          }
+        }
+        pipe(h, lw * 0.3, lh + 0.6, -0.3);
+        break;
+      }
+      case 'church': {
+        // White clapboard church with a front steeple.
+        var sc = o.small ? 0.8 : 1, bw = 1.8 * sc, bd = 2.8 * sc, bh = 1.6 * sc;
+        P(h, self.geo.box, paint(o.c), bw, bh, bd, 0, bh / 2, 0);
+        gable(h, roofM(o.roof), bw + 0.25, bd + 0.2, 0.95 * sc, bh, false);
+        [-1, 1].forEach(function (sd) { for (var cw2 = 0; cw2 < 3; cw2++) P(h, self.geo.box, win, 0.04, 0.6 * sc, 0.26 * sc, sd * (bw / 2 + 0.01), bh * 0.55, -bd * 0.3 + cw2 * bd * 0.3); });
+        var tz = bd / 2 + 0.3 * sc;
+        P(h, self.geo.box, paint(o.c), 0.75 * sc, bh + 0.9 * sc, 0.75 * sc, 0, (bh + 0.9 * sc) / 2, tz);
+        P(h, self.geo.box, trim(5), 0.4 * sc, 0.4 * sc, 0.04, 0, bh + 0.5 * sc, tz + 0.38 * sc);
+        P(h, self.geo.cone4, roofM(o.roof), 0.6 * sc, 1.4 * sc, 0.6 * sc, 0, bh + 0.9 * sc + 0.7 * sc, tz).rotation.y = Math.PI / 4;
+        P(h, self.geo.box, M('gold'), 0.05, 0.4, 0.05, 0, bh + 2.75 * sc, tz); P(h, self.geo.box, M('gold'), 0.22, 0.05, 0.05, 0, bh + 2.82 * sc, tz);
+        door(h, 0, 0, tz + 0.38 * sc);
+        break;
+      }
+      case 'quonset': {
+        // Our Lady of the Way: a wartime Quonset hut turned into a church, with a cross on top.
+        var q = P(h, self.geo.cyl, roofM(1), 1.05, 3.0, 1.05, 0, 0, 0); q.rotation.x = Math.PI / 2;
+        for (var rb = 0; rb < 6; rb++) { var ribm = P(h, self.geo.torus, M('stoneDark'), 1.06, 1.06, 1.2, 0, 0, -1.3 + rb * 0.52); ribm.scale.z = 0.2; }
+        P(h, self.geo.box, M('whitewood'), 1.5, 1.0, 0.06, 0, 0.5, 1.5);
+        door(h, 0, 0, 1.54); P(h, self.geo.box, win, 0.18, 0.32, 0.04, -0.45, 0.6, 1.54); P(h, self.geo.box, win, 0.18, 0.32, 0.04, 0.45, 0.6, 1.54);
+        P(h, self.geo.box, M('whitewood'), 0.06, 0.6, 0.06, 0, 1.35, 1.2); P(h, self.geo.box, M('whitewood'), 0.32, 0.06, 0.06, 0, 1.48, 1.2);
+        break;
+      }
+      case 'kissing': {
+        // Two old storefronts slumped into each other as the permafrost under them thawed.
+        [-1, 1].forEach(function (sd, i) {
+          var kg = new T.Group(); kg.position.set(sd * 0.55, 0, 0); kg.rotation.z = -sd * 0.12; h.add(kg);
+          P(kg, self.geo.box, M('tpaint', i ? 7 : 4), 1.0, 2.3, 1.7, 0, 1.15, 0);
+          P(kg, self.geo.box, trim(0), 1.06, 0.1, 1.76, 0, 2.3, 0);
+          windows(kg, 1, 0.8, 1.7, 0.86); windows(kg, 1, 0.8, 0.9, 0.86);
+          door(kg, sd * -0.25, 0, 0.86);
+        });
+        break;
+      }
+      case 'boat': {
+        // A sternwheeler (the S.S. Keno) or lake steamer (the M.V. Tarahne) up on cribbing, or a fishing boat on blocks.
+        var bl = o.fish ? 2.6 : 5.2, bw2 = o.fish ? 0.9 : 1.35, by = 0.45;
+        for (var cr = 0; cr < 4; cr++) P(h, self.geo.box, wood, bw2 * 0.7, by, 0.3, 0, by / 2, -bl * 0.35 + cr * bl * 0.23);
+        if (o.fish) {
+          P(h, self.geo.box, paint(o.c), bw2, 0.55, bl, 0, by + 0.27, 0);
+          P(h, self.geo.box, paint(o.c), bw2 * 0.707, 0.55, bw2 * 0.707, 0, by + 0.27, bl / 2).rotation.y = Math.PI / 4;
+          P(h, self.geo.box, M('whitewood'), bw2 * 0.8, 0.55, 0.9, 0, by + 0.82, 0.3); windows(h, 2, 0.6, by + 0.9, 0.76, 0.2);
+          P(h, self.geo.cyl6, wood, 0.03, 1.4, 0.03, 0, by + 1.2, -0.6); P(h, self.geo.box, wood, 0.03, 0.03, 0.9, 0, by + 1.5, -0.9).rotation.x = 0.5;
+          for (var cp2 = 0; cp2 < 5; cp2++) P(h, self.geo.box, M('stoneDark'), 0.35, 0.25, 0.35, -1.3 + (cp2 % 2) * 0.4, 0.13 + Math.floor(cp2 / 2) * 0.26, -1.6 + cp2 * 0.15);
+          break;
+        }
+        P(h, self.geo.box, paint(o.c), bw2, 0.5, bl, 0, by + 0.25, 0);
+        P(h, self.geo.box, trim(o.t), bw2 + 0.04, 0.08, bl + 0.04, 0, by + 0.04, 0);
+        P(h, self.geo.box, paint(o.c), bw2 * 0.96, 0.55, bl * 0.9, 0, by + 0.78, -bl * 0.03);
+        P(h, self.geo.box, paint(o.c), bw2 * 0.72, 0.45, bl * 0.56, 0, by + 1.28, -bl * 0.06);
+        P(h, self.geo.box, paint(o.c), 0.6, 0.38, 0.6, 0, by + 1.68, bl * 0.18);
+        windows(h, 1, 0.5, by + 1.68, bl * 0.18 + 0.31, 0.38);
+        [-1, 1].forEach(function (sd) { for (var wn = 0; wn < 6; wn++) P(h, self.geo.box, win, 0.04, 0.2, 0.26, sd * bw2 * 0.49, by + 0.8, -bl * 0.35 + wn * bl * 0.13); });
+        [by + 0.52, by + 1.06].forEach(function (yy) { P(h, self.geo.box, trim(o.t), bw2 + 0.06, 0.05, bl * 0.9, 0, yy, -bl * 0.03); });
+        P(h, self.geo.cyl, o.c2 != null ? M('tpaint', o.c2) : dark, 0.12, 1.1, 0.12, 0, by + 2.0, bl * 0.06);
+        P(h, self.geo.box, trim(o.t), 0.3, 0.12, 0.05, 0, by + 1.95, bl * 0.18 + 0.32);
+        if (o.wheel) {
+          var wh = new T.Group(); wh.position.set(0, by + 0.6, -bl / 2 - 0.35); h.add(wh);
+          var drum = P(wh, self.geo.cyl, M('tpaint', 2), 0.55, bw2 * 0.9, 0.55, 0, 0, 0); drum.rotation.z = Math.PI / 2;
+          for (var pd = 0; pd < 8; pd++) { var pa = pd / 8 * Math.PI; var bb = P(wh, self.geo.box, trim(3), bw2 * 0.92, 0.04, 1.2, 0, 0, 0); bb.rotation.x = pa; }
+          P(h, self.geo.box, paint(o.c), bw2 * 0.9, 0.1, 0.9, 0, by + 1.08, -bl / 2 - 0.3);
+        } else {
+          P(h, self.geo.box, paint(o.c), bw2 * 0.707, 0.5, bw2 * 0.707, 0, by + 0.25, bl / 2).rotation.y = Math.PI / 4;
+        }
+        break;
+      }
+      case 'dredge': {
+        // Dredge No. 4: a huge wooden hulk on a pond of tailings, its bucket line reaching forward.
+        P(h, self.geo.blob, M('tstreet', 1), 2.6, 0.5, 3.4, 0, 0, 0);
+        P(h, self.geo.box, M('tpaint', 12), 2.4, 1.6, 3.4, 0, 1.2, 0);
+        P(h, self.geo.box, M('tpaint', 12), 1.8, 1.0, 2.2, 0, 2.5, -0.3);
+        gable(h, roofM(0), 1.9, 2.3, 0.45, 3.0, false);
+        windows(h, 3, 2.0, 1.4, 1.71, 0.28);
+        var boom = P(h, self.geo.box, M('trunk'), 0.4, 0.3, 3.6, 0, 1.4, 2.8); boom.rotation.x = 0.5;
+        for (var bk = 0; bk < 7; bk++) P(h, self.geo.box, dark, 0.45, 0.16, 0.2, 0, 1.0 + -bk * 0.0 + Math.sin(0.5) * (-0.2), 1.4 + bk * 0.44).position.y = 2.15 - bk * 0.24;
+        var stk = P(h, self.geo.box, M('trunk'), 0.3, 0.25, 3.0, 0, 2.2, -2.6); stk.rotation.x = -0.35;
+        break;
+      }
+      case 'lake': {
+        // Atlin Lake lapping at the edge of town: a pebble beach, the water, and a dock.
+        [[11.4, 3.2, 2.6, 3.4], [12.0, -1.0, 2.4, 3.6], [11.6, -4.4, 2.3, 2.4]].forEach(function (e) {
+          P(h, self.geo.cyl, M('sand'), e[2] + 0.8, 0.05, e[3] + 0.6, e[0] - 0.4, 0.04, e[1]);
+          P(h, self.geo.cyl, M('water'), e[2], 0.06, e[3], e[0] + 0.3, 0.07, e[1]);
+        });
+        for (var rk = 0; rk < 6; rk++) P(h, self.geo.blob, M('rock'), 0.18, 0.12, 0.16, 9.6 + (rk % 2) * 0.4, 0.06, -5.5 + rk * 2.1);
+        var dk = P(h, self.geo.box, wood, 2.6, 0.08, 0.7, 11.5, 0.2, 3.2);
+        [10.5, 11.5, 12.5].forEach(function (x) { [2.9, 3.5].forEach(function (z) { P(h, self.geo.cyl6, M('trunk'), 0.05, 0.3, 0.05, x, 0.1, z); }); });
+        break;
+      }
+      case 'houseboats': {
+        [-2.4, -4.6].forEach(function (z, i) {
+          var hb = new T.Group(); hb.position.set(12.0, 0.1, z); h.add(hb);
+          P(hb, self.geo.box, wood, 1.2, 0.14, 1.6, 0, 0, 0);
+          P(hb, self.geo.box, M('tpaint', i ? 10 : 7), 0.9, 0.6, 1.0, 0, 0.37, -0.1);
+          gable(hb, roofM(3), 1.05, 1.15, 0.3, 0.67, true); P(hb, self.geo.box, win, 0.04, 0.22, 0.3, -0.46, 0.4, 0);
+        });
+        break;
+      }
+      case 'canoes': {
+        [0, 1, 2].forEach(function (i) { var cn = P(h, self.geo.ball, M('tpaint', [2, 0, 9][i]), 0.22, 0.1, 0.9, 10.2 + i * 0.1, 0.12, -5.3 + i * 0.45); cn.rotation.y = 0.2; });
+        break;
+      }
+      case 'plane': {
+        // A de Havilland Beaver: high wing, a stubby nose, floats for the lake or wheels for the strip.
+        var pl = new T.Group(); pl.position.set(0, o.floats ? 0.32 : 0.35, 0); h.add(pl);
+        var col = M('tpaint', o.floats ? 15 : 2);
+        P(pl, self.geo.box, col, 0.36, 0.38, 1.6, 0, 0.3, 0);
+        P(pl, self.geo.box, col, 2.4, 0.05, 0.42, 0, 0.52, 0.18);
+        P(pl, self.geo.box, col, 0.9, 0.04, 0.26, 0, 0.42, -0.72);
+        P(pl, self.geo.box, col, 0.04, 0.34, 0.28, 0, 0.6, -0.72);
+        P(pl, self.geo.box, win, 0.38, 0.14, 0.4, 0, 0.42, 0.35);
+        P(pl, self.geo.cyl, dark, 0.14, 0.1, 0.14, 0, 0.3, 0.84).rotation.x = Math.PI / 2;
+        P(pl, self.geo.box, dark, 0.04, 0.6, 0.04, 0, 0.3, 0.9);
+        if (o.floats) [-1, 1].forEach(function (sd) { P(pl, self.geo.box, M('whitewood'), 0.14, 0.12, 1.5, sd * 0.36, -0.2, 0.05); P(pl, self.geo.box, dark, 0.03, 0.3, 0.03, sd * 0.3, -0.05, 0.3); });
+        else [-1, 1].forEach(function (sd) { P(pl, self.geo.cyl, dark, 0.09, 0.06, 0.09, sd * 0.3, -0.25, 0.3).rotation.z = Math.PI / 2; P(pl, self.geo.box, dark, 0.03, 0.3, 0.03, sd * 0.22, -0.1, 0.3); });
+        break;
+      }
+      case 'sluice': {
+        // A placer sluice box on trestle legs, with a little spoil heap and a gold pan.
+        var sl = P(h, self.geo.box, wood, 0.5, 0.25, 3.0, 0, 0.75, 0); sl.rotation.x = 0.12;
+        for (var sg = 0; sg < 4; sg++) [-0.2, 0.2].forEach(function (x) { P(h, self.geo.box, M('trunk'), 0.06, 0.6 + sg * 0.1, 0.06, x, (0.6 + sg * 0.1) / 2, 1.2 - sg * 0.8); });
+        P(h, self.geo.box, M('water'), 0.4, 0.03, 2.9, 0, 0.88, 0).rotation.x = 0.12;
+        P(h, self.geo.blob, M('tstreet', 1), 0.9, 0.4, 0.8, 0.9, 0.1, -1.4);
+        P(h, self.geo.cyl, M('stoneDark'), 0.25, 0.04, 0.25, -0.7, 0.02, 1.0);
+        break;
+      }
+      case 'signpost': {
+        // A post stuck all over with arrows: Whitehorse, Haines, Fairbanks, Kluane…
+        P(h, self.geo.cyl6, wood, 0.08, 2.4, 0.08, 0, 1.2, 0);
+        for (var sp = 0; sp < 7; sp++) { var ar = P(h, self.geo.box, M('tpaint', [6, 9, 2, 7, 15, 13, 5][sp]), 0.9, 0.18, 0.04, 0.3, 0.9 + sp * 0.21, 0); ar.rotation.y = sp * 0.9; ar.position.x = Math.cos(sp * 0.9) * 0.35; ar.position.z = -Math.sin(sp * 0.9) * 0.35; }
+        break;
+      }
+      case 'muffin': {
+        // The Village Monument: a mountain of sculpted peaks crawling with Kluane's animals.
+        P(h, self.geo.cyl, M('stone'), 1.15, 0.3, 1.15, 0, 0.15, 0);
+        P(h, self.geo.blob, M('rock'), 1.0, 0.9, 1.0, 0, 0.75, 0);
+        [[0, 1.5, 0, 0.45, 0.9], [0.4, 1.25, 0.3, 0.32, 0.6], [-0.4, 1.2, -0.2, 0.35, 0.65], [0.15, 1.15, -0.5, 0.28, 0.5]].forEach(function (pk) {
+          P(h, self.geo.cone6, M('rock'), pk[3], pk[4], pk[3], pk[0], pk[1], pk[2]); P(h, self.geo.cone6, M('snow'), pk[3] * 0.5, pk[4] * 0.4, pk[3] * 0.5, pk[0], pk[1] + pk[4] * 0.3, pk[2]);
+        });
+        [[0.75, 0.85, 0.3, 'whitewood'], [-0.7, 0.75, 0.4, 'bear'], [0.3, 0.9, 0.8, 'moose'], [-0.3, 1.25, 0.6, 'whitewood'], [0.6, 0.5, -0.6, 'bear']].forEach(function (an) { P(h, self.geo.box, M(an[3]), 0.18, 0.14, 0.26, an[0], an[1], an[2]); P(h, self.geo.box, M(an[3]), 0.09, 0.1, 0.1, an[0], an[1] + 0.08, an[2] + 0.15); });
+        break;
+      }
+      case 'gas': {
+        P(h, self.geo.box, M('whitewood'), 1.6, 0.9, 1.2, 0.2, 0.45, -0.4);
+        gable(h, roofM(3), 1.8, 1.4, 0.4, 0.9, true); door(h, 0.5, 0, 0.21); P(h, self.geo.box, win, 0.6, 0.4, 0.04, -0.2, 0.55, 0.21);
+        P(h, self.geo.box, M('tpaint', 2), 1.8, 0.14, 1.0, 0, 1.4, 0.9);
+        [-0.75, 0.75].forEach(function (x) { P(h, self.geo.box, M('whitewood'), 0.08, 1.35, 0.08, x, 0.68, 1.2); });
+        [-0.3, 0.3].forEach(function (x) { P(h, self.geo.box, M('tpaint', 2), 0.2, 0.55, 0.16, x, 0.28, 0.9); P(h, self.geo.box, M('whitewood'), 0.14, 0.12, 0.17, x, 0.45, 0.9); });
+        break;
+      }
+      case 'kluane': {
+        // The visitor centre: timber and big windows under a swooping shed roof.
+        P(h, self.geo.box, M('woodLight'), 4.0, 1.2, 1.9, 0, 0.6, 0);
+        var sr = P(h, self.geo.box, roofM(1), 4.4, 0.1, 2.5, 0, 1.45, 0.05); sr.rotation.x = -0.18;
+        P(h, self.geo.box, win, 3.0, 0.8, 0.04, -0.2, 0.6, 0.96);
+        door(h, 1.6, 0, 0.97);
+        for (var kc = 0; kc < 4; kc++) P(h, self.geo.cyl6, M('trunk'), 0.07, 1.5, 0.07, -1.8 + kc * 1.2, 0.75, 1.25);
+        P(h, self.geo.box, M('tpaint', 14), 1.6, 0.4, 0.06, -2.6, 0.4, 1.4); P(h, self.geo.box, M('ttrim', 4), 1.2, 0.1, 0.03, -2.6, 0.45, 1.44);
+        break;
+      }
+      case 'strip': {
+        P(h, self.geo.box, M('tstreet', 1), 1.8, 0.05, 9.4, 12.0, 0.03, 0);
+        for (var sm = 0; sm < 5; sm++) P(h, self.geo.box, M('whitewood'), 0.08, 0.06, 0.6, 12.0, 0.05, -3.6 + sm * 1.8);
+        var ws = new T.Group(); ws.position.set(10.6, 0, 4.0); h.add(ws);
+        P(ws, self.geo.cyl6, dark, 0.03, 1.4, 0.03, 0, 0.7, 0); var sock = P(ws, self.geo.cone, M('tpaint', 5), 0.1, 0.45, 0.1, 0.22, 1.32, 0); sock.rotation.z = Math.PI / 2;
+        break;
+      }
+      case 'rv': {
+        [-1.4, 0, 1.4].forEach(function (z, i) {
+          var rv = new T.Group(); rv.position.set(0, 0, z); h.add(rv);
+          P(rv, self.geo.box, M('whitewood'), 1.8, 0.7, 0.75, 0, 0.5, 0); P(rv, self.geo.box, M('tpaint', [2, 9, 13][i]), 1.82, 0.12, 0.77, 0, 0.45, 0);
+          P(rv, self.geo.box, win, 0.4, 0.2, 0.78, 0.55, 0.65, 0);
+          [-0.5, 0.5].forEach(function (x) { P(rv, self.geo.cyl, dark, 0.13, 0.8, 0.13, x, 0.13, 0).rotation.x = Math.PI / 2; });
+        });
+        lantern(h, -1.2, 0.9, 0);
+        break;
+      }
+      case 'peaks': {
+        // The front ranges of the St. Elias, rising out past either side of town.
+        [[-19.5, -4, 5, 9], [-17.5, -11, 4, 7], [19.5, -5, 4.5, 8.5], [17.5, -12, 4, 7.5]].forEach(function (pk) {
+          var y0 = localGround(pk[0], pk[1]) - 0.5;
+          P(h, self.geo.cone6, M('rock'), pk[2], pk[3], pk[2], pk[0], y0 + pk[3] / 2, pk[1]);
+          P(h, self.geo.cone6, M('snow'), pk[2] * 0.45, pk[3] * 0.45, pk[2] * 0.45, pk[0], y0 + pk[3] * 0.78, pk[1]);
+        });
+        break;
+      }
+      case 'depot': {
+        // The White Pass & Yukon Route depot on Broadway, in the railway's cream, green and red.
+        var dw = 4.4, dd = 2.0, dh = 1.5;
+        P(h, self.geo.box, M('wpCream'), dw, dh, dd, 0, dh / 2, 0);
+        gable(h, M('wpRed'), dw + 0.4, dd + 0.4, 0.8, dh, true);
+        [-1, 0, 1].forEach(function (f) { P(h, self.geo.box, M('wpGreen'), 0.08, dh, 0.08, f * dw / 2, dh / 2, dd / 2); });
+        windows(h, 4, dw * 0.8, 0.8, dd / 2 + 0.02, 0.36); door(h, 0, 0, dd / 2 + 0.03, M('wpGreen'));
+        P(h, self.geo.box, M('wpCream'), 1.0, 0.7, 0.04, 0, dh + 0.45, dd / 2 + 0.05);
+        P(h, self.geo.box, M('wpYellow'), 2.2, 0.3, 0.05, 0, dh + 0.1, dd / 2 + 0.1);
+        P(h, self.geo.box, M('wpBlack'), 1.8, 0.07, 0.03, 0, dh + 0.1, dd / 2 + 0.13);
+        P(h, self.geo.box, wood, dw + 0.4, 0.08, 0.9, 0, 0.04, dd / 2 + 0.55);
+        break;
+      }
+      case 'cemetery': {
+        // Up the hill past the end of Broadway: headstones and wooden markers in a picket fence.
+        for (var fz2 = 0; fz2 < 4; fz2++) { var side2 = fz2 < 2 ? 1 : -1, along = fz2 % 2; P(h, self.geo.box, M('whitewood'), along ? 0.05 : 3.6, 0.4, along ? 2.4 : 0.05, along ? side2 * 1.8 : 0, 0.2, along ? 0 : side2 * 1.2); }
+        for (var hs = 0; hs < 9; hs++) {
+          var hx2 = -1.3 + (hs % 4) * 0.85, hz2 = -0.8 + Math.floor(hs / 4) * 0.8;
+          if (hs % 3 === 0) { P(h, self.geo.box, M('wood'), 0.06, 0.4, 0.04, hx2, 0.2, hz2); P(h, self.geo.box, M('wood'), 0.22, 0.05, 0.04, hx2, 0.3, hz2); }
+          else P(h, self.geo.box, M('stone'), 0.24, 0.32, 0.08, hx2, 0.16, hz2);
+        }
+        spruce(h, -2.4, -0.5, 0.8); spruce(h, 2.4, 0.4, 0.7);
+        break;
+      }
+      case 'dock':
+      case 'ship': {
+        // Out in the Lynn Canal: the dock, then a cruise ship tied up alongside.
+        var sa = angleOf(site.x, site.z) - 4, sh = shoreAt(sa), sea = new T.Group();
+        var tx = COAST_T.x, tz2 = COAST_T.z, nx = COAST_N.x, nz = COAST_N.z;
+        sea.position.set(sh.x - site.x, SEA_Y - base, sh.z - site.z);
+        // Undo the town's own turn so the pier and ship line up with the coast.
+        var hold = new T.Group(); hold.rotation.y = -rot; hold.add(sea); h.add(hold);
+        sea.rotation.y = Math.atan2(nx, nz);
+        if (kind === 'dock') {
+          P(sea, self.geo.box, wood, 1.4, 0.12, 9.5, 0, 1.0, 3.5);
+          for (var pp = 0; pp < 8; pp++) [-0.6, 0.6].forEach(function (x) { P(sea, self.geo.cyl6, M('trunk'), 0.07, 1.6, 0.07, x, 0.3, -0.5 + pp * 1.2); });
+          P(sea, self.geo.box, wood, 4.0, 0.12, 1.2, 1.3, 1.0, 8.0);
+        } else {
+          var s2 = new T.Group(); s2.position.set(-2.8, 0, 8.0); s2.rotation.y = Math.PI / 2; sea.add(s2);
+          P(s2, self.geo.box, M('whitewood'), 2.2, 1.4, 13, 0, 0.6, 0);
+          P(s2, self.geo.box, M('whitewood'), 1.556, 1.4, 1.556, 0, 0.6, 6.5).rotation.y = Math.PI / 4; P(s2, self.geo.box, M('tpaint', 13), 1.58, 0.5, 1.58, 0, 0.1, 6.5).rotation.y = Math.PI / 4;
+          P(s2, self.geo.box, M('tpaint', 13), 2.24, 0.5, 13.05, 0, 0.1, 0);
+          [0, 1, 2].forEach(function (dk2) { P(s2, self.geo.box, M('whitewood'), 2.0 - dk2 * 0.2, 0.55, 10.5 - dk2 * 1.6, 0, 1.55 + dk2 * 0.55, -0.6 - dk2 * 0.3); [-1, 1].forEach(function (sd) { P(s2, self.geo.box, win, 0.04, 0.16, 9.8 - dk2 * 1.6, sd * (1.0 - dk2 * 0.1), 1.55 + dk2 * 0.55, -0.6 - dk2 * 0.3); }); });
+          [-1, 1].forEach(function (sd) { P(s2, self.geo.box, win, 0.04, 0.14, 12, sd * 1.11, 1.0, 0); });
+          P(s2, self.geo.box, M('tpaint', 2), 0.8, 1.0, 1.4, 0, 3.6, -3.2);
+          P(s2, self.geo.box, M('tpaint', 13), 0.82, 0.25, 1.42, 0, 4.0, -3.2);
+          for (var lb = 0; lb < 6; lb++) P(s2, self.geo.box, M('tpaint', 15), 0.3, 0.2, 0.4, 1.12, 1.5, -4 + lb * 1.6);
+        }
+        break;
+      }
+      case 'lawn': {
+        // Fort Seward's parade ground: a big green with a flagpole in the middle.
+        P(h, self.geo.box, M('grassDeep'), 5.4, 0.05, 10.6, -9.9, 0.04, 0);
+        P(h, self.geo.cyl6, M('whitewood'), 0.05, 3.2, 0.05, -9.9, 1.6, 0);
+        var fg = P(h, self.geo.flag, M('flag', 0), 1.1, 1.1, 1.1, -9.9, 3.15, 0); fg.rotation.y = Math.PI / 2;
+        [-1, 1].forEach(function (sd) { lantern(h, -7.0, 1.0, sd * 4.8); });
+        break;
+      }
+      case 'hammer': {
+        // The Hammer Museum, with the giant hammer standing out front.
+        P(h, self.geo.box, M('tpaint', 6), 1.8, 1.2, 1.6, 0, 0.6, -0.3);
+        gable(h, roofM(3), 2.0, 1.9, 0.6, 1.2, true);
+        door(h, 0.3, 0, 0.52); P(h, self.geo.box, win, 0.4, 0.4, 0.04, -0.4, 0.62, 0.52);
+        P(h, self.geo.box, M('tpaint', 2), 1.0, 0.25, 0.05, 0, 1.0, 0.54);
+        P(h, self.geo.cyl6, M('woodLight'), 0.1, 2.6, 0.1, 0, 1.3, 1.5);
+        P(h, self.geo.box, M('stoneDark'), 0.9, 0.36, 0.36, 0, 2.7, 1.5);
+        P(h, self.geo.cone4, M('stoneDark'), 0.16, 0.4, 0.16, -0.62, 2.75, 1.5).rotation.z = Math.PI / 2;
+        break;
+      }
+      case 'totems': {
+        [-0.6, 0.6].forEach(function (x, i) {
+          var tg = new T.Group(); tg.position.set(x, 0, 0); h.add(tg);
+          for (var tf = 0; tf < 5; tf++) {
+            P(tg, self.geo.box, M('tpaint', [2, 13, 9, 14, 2][(tf + i) % 5]), 0.42, 0.5, 0.42, 0, 0.25 + tf * 0.5, 0);
+            P(tg, self.geo.box, M('ttrim', 5), 0.3, 0.06, 0.04, 0, 0.36 + tf * 0.5, 0.22);
+            [-1, 1].forEach(function (sd) { P(tg, self.geo.box, M('ttrim', 0), 0.08, 0.08, 0.04, sd * 0.1, 0.4 + tf * 0.5, 0.22); });
+          }
+          [-1, 1].forEach(function (sd) { var wg = P(tg, self.geo.box, M('tpaint', 2), 0.6, 0.12, 0.08, sd * 0.4, 2.35, 0); wg.rotation.z = sd * 0.35; });
+        });
+        break;
+      }
+      case 'hall': {
+        // The Chilkat Center: Fort Seward's old cable house, big and white with a red roof.
+        P(h, self.geo.box, M('whitewood'), 3.8, 1.8, 2.2, 0, 0.9, 0);
+        gable(h, roofM(3), 4.1, 2.5, 0.9, 1.8, true);
+        windows(h, 4, 3.2, 1.25, 1.12, 0.36); windows(h, 3, 2.6, 0.55, 1.12, 0.36); door(h, 0, 0, 1.12);
+        P(h, self.geo.box, wood, 1.4, 0.1, 0.6, 0, 0.05, 1.4);
+        break;
+      }
+      case 'eagles': {
+        // Cottonwoods at the edge of town, with bald eagles perched in them.
+        [[12.0, 3.5], [12.4, -0.5], [11.6, -6.2], [12.0, 6.4]].forEach(function (tp, i) {
+          var tg = new T.Group(); tg.position.set(tp[0], 0, tp[1]); h.add(tg);
+          P(tg, self.geo.cyl6, M('trunk'), 0.16, 1.8, 0.16, 0, 0.9, 0);
+          P(tg, self.geo.blob, M('leaf', i % 3), 1.0, 1.0, 1.0, 0, 2.3, 0); P(tg, self.geo.blob, M('leaf', (i + 1) % 3), 0.7, 0.7, 0.7, 0.4, 2.8, 0.2);
+          P(tg, self.geo.box, M('trunk'), 0.9, 0.06, 0.06, 0.3, 1.7, 0.3);
+          P(tg, self.geo.box, M('eagle', 0), 0.18, 0.24, 0.14, 0.55, 1.88, 0.3); P(tg, self.geo.box, M('whitewood'), 0.13, 0.12, 0.12, 0.55, 2.04, 0.32); P(tg, self.geo.box, M('ttrim', 4), 0.05, 0.03, 0.06, 0.55, 2.03, 0.4);
+        });
+        break;
+      }
+      case 'cannery': {
+        // The cannery on its pilings, with crab pots and a tall stack.
+        for (var pi2 = 0; pi2 < 6; pi2++) [-0.9, 0.9].forEach(function (x) { P(h, self.geo.cyl6, M('trunk'), 0.07, 0.5, 0.07, x, 0.25, -1.6 + pi2 * 0.64); });
+        P(h, self.geo.box, M('tpaint', 2), 2.0, 1.3, 3.6, 0, 1.15, 0);
+        gable(h, roofM(1), 2.3, 3.8, 0.7, 1.8, false);
+        door(h, 0, 0.5, 1.81); windows(h, 3, 1.6, 1.3, 1.81, 0.3);
+        P(h, self.geo.cyl, dark, 0.14, 1.6, 0.14, 0.6, 2.7, -1.0);
+        var cm2 = new T.Object3D(); cm2.position.set(0.6, 3.55, -1.0); h.add(cm2); C.chims.push(cm2);
+        break;
+      }
+      case 'lamps': {
+        for (var lp = 0; lp < 5; lp++) [-1, 1].forEach(function (sd) { lantern(g, sd * 1.75, 1.4, 9 - lp * 4.4); });
+        g.remove(h);
+        return null;
+      }
+    }
+    return h;
+  };
   Town.prototype.animDrop = function (obj, toY, delay, dur) {
     if (this.instant) { obj.position.y = toY; obj.visible = true; return; }
     obj.visible = false;
@@ -1668,31 +2245,20 @@
       this.addCourse(key, delay);
       return tw;
     }
-    // At full height: finish the bailey first, then build in the next castle with room.
+    // At full height: finish the bailey first, then build the next town up the line.
     if (key !== 'full' && this.mainBailey(key, delay)) return tw;
-    function open(tw) { return tw.n < MAX_LAYERS || !tw.bailey || tw.bailey.done < tw.bailey.plan.length; }
     for (var ci = 1; ci < CASTLE_SITES.length; ci++) {
-      var C = this.ensureCastle(ci, delay), t2 = C.towers[key], k2 = key, did = 0;
-      // The castles on the hills go up faster than the first: each session builds several pieces.
-      for (var step = 0; step < CASTLE_PACE.steps; step++) {
-        // A new castle rises evenly: the session's own tower first, unless another is lagging
-        // well behind; later pieces go to whichever unfinished tower is lowest.
-        var pickK = step || !open(C.towers[key]) ? null : key;
-        for (var k in C.towers) {
-          if (k === 'full' || !open(C.towers[k])) continue;
-          if (!pickK || C.towers[k].n < C.towers[pickK].n - (step ? 0 : 4)) pickK = k;
-        }
-        if (!pickK) break;
-        k2 = pickK; t2 = C.towers[k2];
-        // Like the first castle, towers can't race ahead: past the limit, sessions build the bailey.
-        var built = t2.n >= Math.min(MAX_LAYERS, 8 + Math.floor(C.lifts / CASTLE_PACE.capEvery)) && this.baileyStep(k2, delay + step * 250, C);
-        if (!built && t2.n < MAX_LAYERS) { this.addCourse(k2, delay + step * 250, t2, C); built = true; }
-        if (!built) break;
-        did++; t2.castle = C;
-      }
-      if (did) { C.lifts++; this.styleMilestones(C, delay); return t2; }
+      var C = this.st.castles[ci];
+      if (C && C.built >= C.town.plan.length) continue;
+      C = this.ensureTown(ci, delay);
+      // A piece for every two muscle groups trained here (so most sessions add one).
+      var t2 = C.towers[key];
+      if (C.lifts++ % 2 === 0) this.townStep(C, delay);
+      t2.n++;
+      return t2;
     }
-    // Every castle's tower is full: the session is still counted, but nothing grows taller.
+    t2 = this.st.castles[CASTLE_SITES.length - 1].towers[key];
+    // Every town is finished: the session is still counted, but nothing more is built.
     t2.over = (t2.over || 0) + 1;
     return t2;
   };
@@ -1843,7 +2409,7 @@
   Town.prototype.rebuildWalls = function () {
     var self = this;
     this.st.castles.forEach(function (C) {
-      if (!C) return;
+      if (!C || C.town) return;
       if (C.walls) C.group.remove(C.walls);
       C.walls = self.wallsFor(C.towers, C.done.banners, C.style);
       C.group.add(C.walls);
@@ -5652,6 +6218,8 @@
     [s.nordic.chim, s.mtb.chim].forEach(function (c) { if (c) { c.updateMatrixWorld(true); out.push(c.getWorldPosition(new T.Vector3())); } });
     if (s.pub) { s.pub.updateMatrixWorld(true); v = new T.Vector3(-1.0, 3.85, -0.4); s.pub.localToWorld(v); out.push(v); }
     if (s.snow.lodge) { s.snow.lodge.roof.updateMatrixWorld(true); v = new T.Vector3(0.6, 1.0, -0.3); s.snow.lodge.roof.localToWorld(v); out.push(v); }
+    // The towns' chimneys smoke too (a few in each, so the main town still gets its share).
+    s.castles.forEach(function (C) { if (C && C.chims) C.chims.forEach(function (c, i) { if (i % 4) return; c.updateMatrixWorld(true); out.push(c.getWorldPosition(new T.Vector3())); }); });
     return out;
   };
   Town.prototype.stepSmoke = function (dt, now, night) {
@@ -5697,7 +6265,7 @@
     return RAIL_R + (d < 15 ? 17 * Math.pow(Math.cos(d / 15 * Math.PI / 2), 2) : 0) + (d2 < 10 ? 6 * Math.pow(Math.cos(d2 / 10 * Math.PI / 2), 2) : 0);
   }
   var RAIL_TUNNELS = [15, 100, 262], TUNNEL_HALF = 3.8; // hill centres, and the portals' angle either side
-  var STATION_NAMES = ['Whitehorse', 'Carcross', 'Bennett', 'Fraser', 'Skagway'];
+  var STATION_NAMES = ['Whitehorse', 'Dawson City', 'Atlin', 'Haines Junction', 'Skagway', 'Haines'];
   function inTunnel(a, pad) { return RAIL_TUNNELS.some(function (t) { return angleDiff(a, t) < TUNNEL_HALF + (pad || 0); }); }
   var RAIL_LINE = null;
   function railLine() {
@@ -8880,6 +9448,8 @@
     if (who && Math.random() < 0.4) return pickOne(['saw you out with ' + who + ' today. lovely!', 'you and ' + who + ' again? thick as thieves', 'give ' + who + ' my best, dear']);
     switch (ev.kind) {
       case 'lift':
+        var rich = Math.random() < 0.6 ? this.liftLine(null, true) : null;
+        if (rich) return rich;
         if (ev.prCount) return pickOne(['heard you set a PR today! strong as an ox', ev.prCount + ' PR' + (ev.prCount > 1 ? 's' : '') + ' today?! goodness me', 'a new PR! the castle\u2019s growing, look']);
         if (ev.tonnage) return pickOne(['moved ' + Math.round(ev.tonnage).toLocaleString() + ' lb today? my back hurts just hearing it', 'lifting again! you\u2019ll have arms like Mr. Pemberton']);
         return pickOne(['good ' + ev.groups.join(' & ') + ' session today?', 'lifting again! you\u2019ll have arms like Mr. Pemberton', 'saw you at the castle today. strong stuff!']);
@@ -9025,7 +9595,7 @@
     var s = this.st, B = s.lastBook, t = this.today;
     if (!B || !B.title || !t) return null;
     var since = Math.round((Date.parse(t) - Date.parse(B.date)) / 864e5);
-    if (!(since >= 0 && since <= 45)) return null;
+    if (!(since >= 0 && since <= 7)) return null;
     var T0 = B.title, low = T0.toLowerCase(), lines = [];
     BOOK_TALK.forEach(function (b) { if (b[0].test(low)) lines = lines.concat(b[1]); });
     // Lines written for this very book (data/booklines.js): most of the time, those.
@@ -9050,7 +9620,7 @@
     var F = this.st.lastFilm, t = this.today;
     if (!F || !F.title || !t) return null;
     var since = Math.round((Date.parse(t) - Date.parse(F.date)) / 864e5);
-    if (!(since >= 0 && since <= 10)) return null;
+    if (!(since >= 0 && since <= 7)) return null;
     var T0 = F.title, yr = +F.year, lines = [
       (since === 0 ? 'saw ' : 'heard you saw ') + T0 + (since === 0 ? ' tonight' : '') + '! any good?',
       'was ' + T0 + ' worth the popcorn?', 'I fell asleep halfway through ' + T0 + ' once. don’t tell anyone',
@@ -9067,8 +9637,70 @@
     var l = pickOne(fresh); seen[l] = today; this.saveStore();
     return l;
   };
-  Town.prototype.mouseRemark = function () {
+  // The mice love to talk about your lifting: today's session, PRs (by lift), the week so far,
+  // your best barbell numbers, how long since the last session, and their own two pennies.
+  var LIFT_GROUP_LINES = {
+    chest: ['chest day? you’re puffed up like a robin', 'bench press again? the chest tower’s getting broad', 'all that pressing! you could push the castle gate open by yourself'],
+    back: ['back day! stand up straight, dear, you’ve earned it', 'all those rows… you could paddle to Skagway', 'pull-ups? I can barely pull my socks up'],
+    legs: ['leg day! I saw you on the stairs. the waddle gives it away', 'never skip leg day, my mum always said. well, she said eat your cheese', 'squats today? you’re walking like a cowboy, dear'],
+    shoulders: ['shoulders today? you’ll need new sleeves', 'look at those arms! you could carry the whole village', 'curls for the girls, is it? ha!'],
+    post: ['hamstrings today? hope you can still sit down', 'deadlifts! lift with your legs, dear… or is that the point?', 'a posterior chain day! I had to look that up'],
+    core: ['abs day? I can see the cheese wheel from here', 'core work! steady as the lighthouse', 'planks! I lie flat all day too, but it doesn’t count'],
+    full: ['a full-body session? everything must be aching', 'the whole lot today? the castle masons are run off their feet']
+  };
+  var BIG_NAMES = { bench: 'bench', squat: 'squat', deadlift: 'deadlift', ohp: 'overhead press' };
+  Town.prototype.liftLine = function (m, todayOnly) {
     var s = this.st, t = this.today;
+    if (!t || !s.byDay) return null;
+    var tt = Date.parse(t), week = [], last = null, gapL = null;
+    for (var d = 0; d < 60; d++) {
+      var key = new Date(tt - d * 864e5).toISOString().slice(0, 10), ls = (s.byDay[key] || []).filter(function (e) { return e.kind === 'lift'; });
+      if (ls.length) { if (gapL == null) { gapL = d; last = ls[0]; } if (d < 7) week = week.concat(ls.map(function (e) { return { e: e, ago: d }; })); }
+    }
+    if (gapL == null) return null;
+    var who = m && m.style, L = [], today = week.filter(function (w) { return w.ago === 0; }).map(function (w) { return w.e; });
+    function prBits(e) {
+      var out = [];
+      Object.keys(e.prLines || {}).forEach(function (g) { (e.prLines[g] || []).forEach(function (l) {
+        var nm = (l.split(':')[0] || '').trim().toLowerCase(), wt = l.match(/:\s*\d+\.\d+(?:\s*-\s*\d+)?\.(\d+(?:\.\d+)?)/);
+        if (nm && nm.length < 30) out.push({ name: nm, w: wt ? +wt[1] : null });
+      }); });
+      return out;
+    }
+    if (today.length) {
+      var e = pickOne(today), prs = prBits(e);
+      if (prs.length) { var pr = pickOne(prs); L.push('a ' + pr.name + ' PR today' + (pr.w ? ', ' + pr.w + ' lb' : '') + '! the whole street heard the bar hit the floor', 'I heard about that ' + pr.name + ' PR! strong as an ox', (pr.w ? pr.w + ' lb on the ' + pr.name + '?! ' : 'new best on the ' + pr.name + '! ') + 'they’ll be hoisting a flag on the castle'); }
+      if (e.prCount > 1) L.push(e.prCount + ' PRs in one session?! goodness me, save some for tomorrow');
+      if (e.tonnage) L.push('moved ' + Math.round(e.tonnage).toLocaleString() + ' lb today? my back hurts just hearing it', Math.round(e.tonnage).toLocaleString() + ' lb today. that’s about ' + Math.round(e.tonnage / 0.05).toLocaleString() + ' mice, I worked it out');
+      (e.groups || []).forEach(function (g) { if (LIFT_GROUP_LINES[g]) L = L.concat(LIFT_GROUP_LINES[g]); });
+      L.push('saw you at the castle today. strong stuff!', 'heard the clank of plates from the castle this morning. that was you, wasn’t it?');
+    } else if (todayOnly) return null;
+    else {
+      if (gapL === 1) L.push('lifted yesterday? you’re walking a bit stiff, dear', 'how are the muscles after yesterday’s lift? sore?');
+      if (gapL >= 2 && gapL < 5) L.push('no lifting since ' + (last.day || gapL + ' days ago') + '? the castle masons are on a tea break', gapL + ' days since you lifted. the towers are waiting, love');
+      else if (gapL >= 5 && gapL < 8) L.push(gapL + ' days without lifting! the castle’s getting drafty', 'the grizzly’s been asking where you’ve got to. ' + gapL + ' days!', 'the dumbbells are gathering dust, I hear');
+      else if (gapL >= 8) L.push('a whole ' + gapL + ' days without lifting?! the stonemasons have gone fishing', 'the castle hasn’t grown in ' + gapL + ' days. we’re all a bit worried');
+      var recentPR = week.filter(function (w) { return w.ago > 0 && w.e.prCount; })[0];
+      if (recentPR) { var rp = pickOne(prBits(recentPR.e).concat([{ name: '' }])); L.push('still talking about that ' + (rp.name ? rp.name + ' ' : '') + 'PR ' + (recentPR.ago === 1 ? 'yesterday' : 'the other day') + '!'); }
+    }
+    var wk = week.length, lb = week.reduce(function (a, w) { return a + (w.e.tonnage || 0); }, 0);
+    if (wk >= 3) L.push(wk + ' lifting sessions this week! the stonemasons can’t keep up', wk + ' times at the castle this week? you live there now, dear');
+    if (lb > 2000) L.push(Math.round(lb).toLocaleString() + ' lb lifted this week! that’s a lot of cheese wheels');
+    var B = s.best || {}, bk = Object.keys(BIG_NAMES).filter(function (k) { return B[k]; });
+    if (bk.length) { var b1 = pickOne(bk); L.push('how’s the ' + BIG_NAMES[b1] + '? last I heard your best was ' + B[b1] + ' lb', 'a ' + B[b1] + ' lb ' + BIG_NAMES[b1] + '! that’s about ' + Math.round(B[b1] / 0.05).toLocaleString() + ' of me'); }
+    if (s.tonnage > 10000) L.push(Math.round(s.tonnage).toLocaleString() + ' lb lifted all told. the mine keeps getting deeper');
+    if (s.prs >= 10) L.push(s.prs + ' PRs since you started! the castle’s got flags to spare');
+    if (who && who.lift) L = L.concat(who.lift, who.lift);
+    // Don't say the same thing twice in a row.
+    var R = this.liftSaid || (this.liftSaid = []), fresh = L.filter(function (x) { return R.indexOf(x) < 0; });
+    var l = pickOne(fresh.length ? fresh : L);
+    R.push(l); if (R.length > 12) R.shift();
+    return l;
+  };
+  Town.prototype.mouseRemark = function (m) {
+    var s = this.st, t = this.today, ms = m && m.style;
+    // Now and then a mouse just talks about their own life.
+    if (ms && ms.lines && Math.random() < 0.18) return pickOne(ms.lines);
     if (!t || !s.byDay) return null;
     var fresh = (s.newsList || []).filter(function (n) { var age = (Date.parse(t) - Date.parse(n.date)) / 864e5; return age >= 0 && age <= 7; });
     if (fresh.length && Math.random() < 0.25) return pickOne(pickOne(fresh).lines);
@@ -9078,6 +9710,9 @@
     var readT = day.filter(function (e) { return e.kind === 'bible' && e.book; });
     var theo = readT.length && Math.random() < 0.35 ? this.bibleLine(pickOne(readT)) : null;
     if (theo) return theo;
+    var liftedToday = day.some(function (e) { return e.kind === 'lift'; });
+    var lf = Math.random() < (liftedToday ? 0.55 : 0.3) ? this.liftLine(m) : null;
+    if (lf) return lf;
     var bk = Math.random() < 0.3 ? this.bookLine() : null;
     if (bk) return bk;
     var fm = Math.random() < 0.3 ? this.filmLine() : null;
@@ -9130,16 +9765,86 @@
     return { x: w.x, z: w.z, rot: pub.rotation.y + rot, sit: i < 8, y: i < 8 ? groundY(PUB.x, PUB.z) + 0.25 : null };
   };
   var PUB_LINES = ['cheers!', 'another round!', 'ha! good one', '*hic*', '\u266a la la la \u266a', 'to Yukon!', 'who\u2019s buying?', 'one more, then home', 'love this song', 'Doris! two more!'];
+  // Each mouse in town has a look and a way of talking all their own, like the villagers of a
+  // farming game: the knitter, the old strongman, the farmer, the painter, the baker, the smith…
+  // fur/cloth/legs index the mfur and mcloth colours; kit lists the bits they wear and carry.
+  var MOUSE_STYLE = {
+    'Mrs. Whiskers': { lady: true, fur: 3, cloth: 4, kit: ['shawl', 'specs', 'knitting'], lines: ['I’m knitting you a jumper. don’t ask what colour', 'dropped a stitch thinking about you, dear', 'have you eaten? you look peaky', 'my late husband could whistle through his teeth. I miss that'],
+      lift: ['all that lifting! I’ll have to knit the sleeves wider', 'mind your back with those heavy weights, dear. I worry', 'I carry my shopping home in one trip now. inspired by you'] },
+    'Mr. Pemberton': { fur: 1, cloth: 11, legs: 13, kit: ['singlet', 'moustache', 'dumbbell'], bare: true, lines: ['in ’62 I was the Strongest Mouse in the Klondike. ask anyone. well, ask Old Tom', 'I bent a horseshoe once. a small one', 'a balanced breakfast: cheese, and more cheese'],
+      lift: ['keep your chest up and your elbows tucked! form is everything, my boy', 'brace your core like a barrel at the Slow Pour!', 'the bar doesn’t care how you feel. lift it anyway', 'progressive overload, dear. a crumb more every week', 'my old circus coach said “squat till the floor says hello”', 'rest between sets! even I took three minutes, and I was magnificent', 'protein, protein, protein. I recommend cheddar'] },
+    'Old Tom': { fur: 5, cloth: 8, legs: 13, kit: ['flatcap', 'pipe', 'cane'], lines: ['hmph. back in my day the river ran the other way', 'kids these days with their “podcasts”', 'my knee says it’ll snow. my knee is never wrong', 'I’ve lived here sixty years and the bins are still a disgrace'],
+      lift: ['back in my day we lifted hay bales, not fancy dumbbells', 'hmph. Pemberton never shuts up about lifting. you’re as bad', 'all that lifting and you still can’t open a pickle jar for me?', 'when I was your age I carried a canoe over the Chilkoot. both ways'] },
+    'Mabel': { lady: true, fur: 2, cloth: 10, kit: ['bow', 'pearls'], lines: ['ooh, have you heard? no? well I can’t say. …alright, I’ll say', 'Primrose and Wilfred were seen at the pub TOGETHER', 'I don’t gossip. I share news', 'is that a new scarf? it’s very… brave'],
+      lift: ['everyone’s talking about your arms, you know. well, I am', 'the whole street watched you carry that shopping. swoon', 'Hazel says you lift more than her. Hazel is FURIOUS'] },
+    'Bramble': { fur: 6, cloth: 3, legs: 2, kit: ['straw', 'overalls', 'carrot'], lines: ['carrots are coming on lovely this year', 'rain’s good for the turnips. bad for my hat', 'I talk to my cabbages. they’re very good listeners', 'nothing like the smell of fresh muck in the morning'],
+      lift: ['you could help me with the hay bales, strong as you are!', 'farm strength, that’s what you’ve got. lifting real things', 'I’ve a sack of potatoes needs carrying, if you fancy a set'] },
+    'Fennimore': { fur: 4, cloth: 6, legs: 13, kit: ['beret', 'scarf', 'brush'], lines: ['the light on the lake this morning! I simply must paint it', 'art is suffering. also, my easel broke', 'I’m doing a portrait of the raccoon. I’ve run out of grey', 'the mountains are my muse. and cheese'],
+      lift: ['the line of a perfect deadlift… it’s sculpture, really', 'I’d like to paint you mid-squat. very Michelangelo', 'such a classical physique. I’ll need a bigger canvas'] },
+    'Clementine': { lady: true, fur: 2, cloth: 5, kit: ['toque', 'basket'], lines: ['fresh rolls out of the oven! well, they were an hour ago', 'the secret to good bread is patience. and butter', 'I’ve saved you a cinnamon bun. don’t tell the others', 'flour everywhere! occupational hazard'],
+      lift: ['all that lifting, you’ll need carbs! have a roll', 'you knead the dough like you lift. firm and steady', 'protein muffin? I’ve been experimenting. they’re… dense'] },
+    'Bartholomew': { fur: 7, cloth: 13, legs: 13, kit: ['smith', 'headband', 'hammer'], lines: ['hot iron waits for no mouse', 'I made the hinges on the church door, you know', 'clang clang clang. sorry, what?', 'a good horseshoe is a work of art. a bad one is a paperweight'],
+      lift: ['heavy is heavy, whether it’s iron or a barbell. you get it', 'swinging a hammer all day is a fine workout, but you’d out-lift me', 'I’ll forge you some plates if the castle runs short', 'grip strength! that’s what the anvil teaches'] },
+    'Primrose': { lady: true, fur: 3, cloth: 15, kit: ['flowers', 'can'], lines: ['the sweet peas are out! smell that', 'every flower in my garden has a name. that one’s Gerald', 'did you know dandelions are edible? I eat them in a sandwich', 'sunshine makes everything better'],
+      lift: ['you’re growing like a sunflower! all that lifting', 'muscles are like roses: water, sun and patience', 'I lift my watering can twenty times a day. we’re practically gym buddies'] },
+    'Wilfred': { fur: 0, cloth: 3, legs: 9, kit: ['souwester', 'rod'], lines: ['caught a grayling this long! well, this long', 'the fish are biting at the river mouth, if you’re asking', 'patience, that’s fishing. and sandwiches', 'there’s a pike in that lake older than me'],
+      lift: ['with arms like that you could reel in the big pike', 'strong enough to row to Carcross, I reckon', 'heavy lifting? try landing a lake trout in a gale'] },
+    'Hazel': { fur: 1, cloth: 6, legs: 6, kit: ['headband', 'ponytail', 'trainers'], lines: ['five laps round the square before breakfast. you?', 'hydrate! hydrate!', 'race you to the fountain! …tomorrow', 'stretching is not optional, dear'],
+      lift: ['I saw your session at the castle. that’s a solid set', 'don’t forget your warm-up sets. I’m watching', 'strength AND cardio? you’re my kind of raccoon', 'deload weeks are part of the plan too, you know', 'squat depth looked great today. below parallel, I bet'] },
+    'Rupert': { fur: 2, cloth: 9, legs: 8, kit: ['prospector', 'neckerchief', 'pan'], lines: ['there’s gold in them thar hills! somewhere. probably', 'struck it rich in ’98. spent it by ’99', 'the Klondike’s just up the road, you know', 'a nugget the size of a pea! well, a small pea'],
+      lift: ['you lift like you’re hauling a ton of goods up the Chilkoot', 'with arms like yours, you’d have made a fortune in ’98', 'every plate you lift is worth its weight in gold, partner'] }
+  };
+  // Dress a mouse in their own things.
+  Town.prototype.styleMouse = function (ST, m, P) {
+    var self = this, H = m.head, B = m.body, A = m.arms, C = function (i) { return self.mat('mcloth', i); }, dark = this.mat('swan', 2), gold = this.mat('gold');
+    var held = m.held = new T.Group(); held.position.set(0, -0.11, 0.03); A[0].add(held);
+    ST.kit.forEach(function (k) {
+      switch (k) {
+        case 'shawl': P(B, self.geo.box, C(7), 0.15, 0.05, 0.12, 0, 0.15, 0); var tri = P(B, self.geo.cone4, C(7), 0.07, 0.09, 0.02, 0, 0.1, -0.06); tri.rotation.x = Math.PI; break;
+        case 'specs': [-1, 1].forEach(function (sd) { var lens = P(H, self.geo.cyl, gold, 0.024, 0.005, 0.024, sd * 0.032, 0.015, 0.06); lens.rotation.x = Math.PI / 2; }); P(H, self.geo.box, gold, 0.03, 0.004, 0.004, 0, 0.015, 0.062); break;
+        case 'knitting': P(A[1], self.geo.ball, C(0), 0.035, 0.035, 0.035, 0, -0.12, 0.03); [-1, 1].forEach(function (sd) { var nd = P(A[1], self.geo.cyl6, self.mat('woodLight'), 0.004, 0.09, 0.004, 0, -0.1, 0.04); nd.rotation.z = sd * 0.5; }); break;
+        case 'singlet': P(B, self.geo.box, C(11), 0.136, 0.11, 0.106, 0, 0.08, 0); [0.11, 0.06].forEach(function (y) { P(B, self.geo.box, C(7), 0.138, 0.018, 0.108, 0, y, 0); }); break;
+        case 'moustache': P(H, self.geo.box, dark, 0.07, 0.014, 0.014, 0, -0.045, 0.112); [-1, 1].forEach(function (sd) { var tip = P(H, self.geo.box, dark, 0.03, 0.01, 0.012, sd * 0.045, -0.036, 0.11); tip.rotation.z = sd * 0.7; }); break;
+        case 'dumbbell': var bar = P(A[1], self.geo.cyl6, self.mat('stoneDark'), 0.008, 0.1, 0.008, 0, -0.11, 0.02); bar.rotation.z = Math.PI / 2; [-1, 1].forEach(function (sd) { var pl = P(A[1], self.geo.cyl, dark, 0.03, 0.016, 0.03, sd * 0.045, -0.11, 0.02); pl.rotation.z = Math.PI / 2; }); break;
+        case 'flatcap': P(H, self.geo.box, C(13), 0.13, 0.03, 0.12, 0, 0.065, 0.005); P(H, self.geo.box, C(13), 0.11, 0.01, 0.05, 0, 0.054, 0.075); break;
+        case 'pipe': var pp = P(H, self.geo.cyl6, self.mat('wood'), 0.008, 0.07, 0.008, 0.03, -0.04, 0.12); pp.rotation.x = Math.PI / 2; P(H, self.geo.cyl6, self.mat('wood'), 0.016, 0.03, 0.016, 0.03, -0.03, 0.16); break;
+        case 'cane': var cn = P(held, self.geo.cyl6, self.mat('wood'), 0.009, 0.24, 0.009, 0, -0.06, 0.02); cn.rotation.x = 0.15; P(held, self.geo.box, self.mat('wood'), 0.05, 0.012, 0.012, 0.02, 0.06, 0.02); break;
+        case 'bow': [-1, 1].forEach(function (sd) { var lp = P(H, self.geo.cone4, C(0), 0.035, 0.05, 0.02, sd * 0.03, 0.07, -0.01); lp.rotation.z = -sd * Math.PI / 2; }); P(H, self.geo.ball, C(0), 0.016, 0.016, 0.016, 0, 0.07, -0.01); break;
+        case 'pearls': for (var pi = 0; pi < 5; pi++) { var pa = (pi - 2) * 0.45; P(B, self.geo.ball, C(14), 0.011, 0.011, 0.011, Math.sin(pa) * 0.045, 0.135 + Math.abs(pi - 2) * 0.006, 0.045 + Math.cos(pa) * 0.012); } break;
+        case 'straw': P(H, self.geo.cyl, C(12), 0.12, 0.008, 0.12, 0, 0.06, 0); P(H, self.geo.cyl, C(12), 0.06, 0.045, 0.06, 0, 0.085, 0); P(H, self.geo.cyl, C(11), 0.062, 0.01, 0.062, 0, 0.07, 0); break;
+        case 'overalls': P(B, self.geo.box, C(2), 0.09, 0.07, 0.01, 0, 0.1, 0.056); P(B, self.geo.box, C(2), 0.136, 0.06, 0.106, 0, 0.03, 0); [-1, 1].forEach(function (sd) { P(B, self.geo.box, C(2), 0.018, 0.08, 0.108, sd * 0.04, 0.14, 0); P(B, self.geo.ball, gold, 0.008, 0.008, 0.008, sd * 0.035, 0.13, 0.062); }); break;
+        case 'carrot': var cr = P(A[1], self.geo.cone, C(5), 0.016, 0.08, 0.016, 0, -0.14, 0.03); cr.rotation.x = Math.PI; P(A[1], self.geo.box, C(3), 0.012, 0.03, 0.012, 0, -0.09, 0.03); break;
+        case 'beret': var bt = P(H, self.geo.cyl, C(4), 0.075, 0.025, 0.075, -0.012, 0.067, 0); bt.rotation.z = 0.25; P(H, self.geo.cyl6, C(4), 0.008, 0.02, 0.008, -0.02, 0.085, 0); break;
+        case 'scarf': P(B, self.geo.cyl, C(1), 0.075, 0.035, 0.065, 0, 0.165, 0); var sc = P(B, self.geo.box, C(1), 0.03, 0.09, 0.012, 0.035, 0.12, 0.06); sc.rotation.z = 0.15; break;
+        case 'brush': var br = P(A[1], self.geo.cyl6, self.mat('wood'), 0.006, 0.09, 0.006, 0, -0.12, 0.03); br.rotation.x = 0.4; P(A[1], self.geo.ball, C(0), 0.012, 0.018, 0.012, 0, -0.17, 0.05); break;
+        case 'toque': P(H, self.geo.cyl, C(14), 0.055, 0.06, 0.055, 0, 0.085, 0); P(H, self.geo.ball, C(14), 0.07, 0.04, 0.07, 0, 0.125, 0); break;
+        case 'basket': P(held, self.geo.box, self.mat('woodLight'), 0.08, 0.04, 0.06, 0, -0.03, 0.02); var hd = P(held, self.geo.torus, self.mat('woodLight'), 0.035, 0.035, 0.035, 0, 0.0, 0.02); hd.scale.z = 0.02; [-1, 0, 1].forEach(function (i) { P(held, self.geo.ball, C(12), 0.018, 0.014, 0.018, i * 0.022, -0.005, 0.02); }); break;
+        case 'smith': P(B, self.geo.box, C(8), 0.11, 0.15, 0.01, 0, 0.06, 0.056); P(B, self.geo.box, C(8), 0.012, 0.06, 0.108, 0, 0.145, 0); break;
+        case 'headband': P(H, self.geo.box, C(11), 0.126, 0.02, 0.116, 0, 0.032, 0); break;
+        case 'hammer': var hh = P(A[1], self.geo.cyl6, self.mat('wood'), 0.008, 0.1, 0.008, 0, -0.12, 0.03); hh.rotation.x = 0.3; P(A[1], self.geo.box, self.mat('stoneDark'), 0.05, 0.025, 0.025, 0, -0.17, 0.045); break;
+        case 'flowers': for (var fi = 0; fi < 8; fi++) { var fa = fi / 8 * Math.PI * 2; P(H, self.geo.ball, C([0, 1, 14, 10][fi % 4]), 0.016, 0.016, 0.016, Math.sin(fa) * 0.062, 0.06, Math.cos(fa) * 0.058); } break;
+        case 'can': P(held, self.geo.cyl, C(6), 0.03, 0.05, 0.03, 0, -0.03, 0.02); var sp2 = P(held, self.geo.cyl6, C(6), 0.006, 0.06, 0.006, 0, -0.02, 0.06); sp2.rotation.x = 1.0; break;
+        case 'souwester': P(H, self.geo.cyl, C(15), 0.066, 0.045, 0.066, 0, 0.078, 0); var sw = P(H, self.geo.cyl, C(15), 0.095, 0.008, 0.1, 0, 0.058, -0.008); sw.rotation.x = -0.15; break;
+        case 'rod': var rd = P(A[1], self.geo.cyl6, self.mat('wood'), 0.005, 0.5, 0.005, 0, -0.04, 0.2); rd.rotation.x = 1.1; break;
+        case 'ponytail': P(H, self.geo.ball, m.fur, 0.03, 0.05, 0.03, 0, 0.03, -0.07); P(H, self.geo.ball, C(11), 0.015, 0.015, 0.015, 0, 0.055, -0.06); break;
+        case 'trainers': m.legs.forEach(function (l) { P(l, self.geo.box, C(14), 0.046, 0.028, 0.068, 0, -0.118, 0.014); }); [-1, 1].forEach(function (sd) { P(B, self.geo.box, C(14), 0.008, 0.11, 0.107, sd * 0.035, 0.08, 0); }); break;
+        case 'prospector': P(H, self.geo.cyl, C(8), 0.115, 0.008, 0.115, 0, 0.06, 0); P(H, self.geo.cyl, C(8), 0.06, 0.05, 0.06, 0, 0.087, 0); P(H, self.geo.box, C(7), 0.07, 0.035, 0.03, 0, -0.06, 0.08); break;
+        case 'neckerchief': var nk = P(B, self.geo.cone4, C(11), 0.045, 0.05, 0.015, 0, 0.14, 0.055); nk.rotation.x = Math.PI; break;
+        case 'pan': P(held, self.geo.cyl, self.mat('stoneDark'), 0.06, 0.01, 0.06, 0, -0.02, 0.05); P(held, self.geo.ball, gold, 0.01, 0.008, 0.01, 0.01, -0.012, 0.05); break;
+      }
+    });
+  };
   var MOUSE_JOBS = { postie: 'Percy the postie', barkeep: 'Doris behind the bar', hiker: 'A hiking mouse' };
-  Town.prototype.makeMouse = function (k, job) {
+  Town.prototype.makeMouse = function (k, job, plain) {
     var g = new T.Group(), self = this, name = job ? MOUSE_JOBS[job] + (job === 'hiker' ? ' ' + (k + 1) : '') : MOUSE_NAMES[k % MOUSE_NAMES.length], pick = 'folk:' + name;
     function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, pick); }
-    var fur = this.mat('mouse', k % 3), pink = this.mat('mouse', 3), dark = this.mat('swan', 2), lady = job === 'barkeep' || (!job && k % 2 === 0);
-    var cloth = job === 'postie' ? this.mat('flag', 2) : job === 'barkeep' ? this.mat('swan', 0) : job === 'hiker' ? this.mat('flag', 3 + (k % 2)) : this.mat('flag', k);
+    var ST = !job && !plain ? MOUSE_STYLE[name] : null;
+    var fur = ST ? this.mat('mfur', ST.fur) : this.mat('mouse', k % 3), pink = this.mat('mouse', 3), dark = this.mat('swan', 2), lady = ST ? !!ST.lady : job === 'barkeep' || (!job && k % 2 === 0);
+    var cloth = ST ? this.mat('mcloth', ST.cloth) : job === 'postie' ? this.mat('flag', 2) : job === 'barkeep' ? this.mat('swan', 0) : job === 'hiker' ? this.mat('flag', 3 + (k % 2)) : this.mat('flag', k);
     var body = new T.Group(); body.position.y = 0.13; g.add(body);
     // Clothes: a dress for some, a waistcoat and trousers for others.
     if (lady) { P(body, this.geo.cone, cloth, 0.11, 0.2, 0.11, 0, 0.06, 0); P(body, this.geo.box, this.mat('swan', 0), 0.1, 0.03, 0.07, 0, 0.12, 0.02); }
-    else { P(body, this.geo.box, fur, 0.13, 0.17, 0.1, 0, 0.07, 0); P(body, this.geo.box, cloth, 0.135, 0.11, 0.105, 0, 0.1, 0); P(body, this.geo.box, this.mat('gold'), 0.015, 0.015, 0.01, 0.03, 0.09, 0.055); }
+    else { P(body, this.geo.box, fur, 0.13, 0.17, 0.1, 0, 0.07, 0); P(body, this.geo.box, cloth, 0.135, 0.11, 0.105, 0, 0.1, 0); if (!ST) P(body, this.geo.box, this.mat('gold'), 0.015, 0.015, 0.01, 0.03, 0.09, 0.055); }
     var head = new T.Group(); head.position.set(0, 0.23, 0.01); body.add(head);
     P(head, this.geo.box, fur, 0.12, 0.1, 0.11, 0, 0, 0);
     P(head, this.geo.cone4, fur, 0.05, 0.09, 0.05, 0, -0.015, 0.09).rotation.x = Math.PI / 2;
@@ -9151,7 +9856,7 @@
       [0.01, -0.01].forEach(function (wy) { var wh = P(head, self.geo.box, dark, 0.07, 0.003, 0.003, sd * 0.05, -0.02 + wy, 0.1); wh.rotation.y = sd * 0.3; });
     });
     // Hats: a bowler or a bonnet with a flower.
-    if (!job && !lady && k % 4 === 1) { P(head, this.geo.cyl, dark, 0.06, 0.05, 0.06, 0, 0.08, 0); P(head, this.geo.cyl, dark, 0.085, 0.008, 0.085, 0, 0.056, 0); }
+    if (!ST && !job && !lady && k % 4 === 1) { P(head, this.geo.cyl, dark, 0.06, 0.05, 0.06, 0, 0.08, 0); P(head, this.geo.cyl, dark, 0.085, 0.008, 0.085, 0, 0.056, 0); }
     if (job === 'postie') {
       // Peaked cap and a satchel full of letters.
       P(head, this.geo.cyl, this.mat('flag', 2), 0.065, 0.04, 0.065, 0, 0.075, 0); P(head, this.geo.box, dark, 0.07, 0.008, 0.05, 0, 0.058, 0.06);
@@ -9168,9 +9873,11 @@
       P(head, this.geo.cyl, this.mat('leaf', 2), 0.07, 0.035, 0.07, 0, 0.07, 0); P(head, this.geo.cyl, this.mat('leaf', 2), 0.09, 0.006, 0.09, 0, 0.055, 0);
       P(body, this.geo.box, this.mat('flag', 4 - (k % 3)), 0.12, 0.16, 0.08, 0, 0.12, -0.09); P(body, this.geo.cyl, this.mat('canvas', 2), 0.035, 0.12, 0.035, 0, 0.22, -0.09).rotation.z = Math.PI / 2;
     }
-    if (!job && lady && k % 4 === 2) { var bn = P(head, this.geo.ball, this.mat('canvas', 0), 0.075, 0.05, 0.075, 0, 0.05, -0.015); P(head, this.geo.ball, this.mat('flag', 0), 0.018, 0.018, 0.018, 0.05, 0.07, 0.02); }
-    var arms = [-1, 1].map(function (sd) { var a = new T.Group(); a.position.set(sd * 0.075, 0.16, 0); body.add(a); P(a, self.geo.box, lady ? fur : cloth, 0.03, 0.1, 0.03, 0, -0.05, 0); P(a, self.geo.box, pink, 0.028, 0.02, 0.028, 0, -0.105, 0); return a; });
-    var legs = [-1, 1].map(function (sd) { var l = new T.Group(); l.position.set(sd * 0.035, 0.13, 0); g.add(l); P(l, self.geo.box, lady ? fur : self.mat('stoneDark'), 0.035, 0.12, 0.035, 0, -0.06, 0); P(l, self.geo.box, pink, 0.04, 0.015, 0.06, 0, -0.123, 0.012); return l; });
+    if (!ST && !job && lady && k % 4 === 2) { var bn = P(head, this.geo.ball, this.mat('canvas', 0), 0.075, 0.05, 0.075, 0, 0.05, -0.015); P(head, this.geo.ball, this.mat('flag', 0), 0.018, 0.018, 0.018, 0.05, 0.07, 0.02); }
+    var arms = [-1, 1].map(function (sd) { var a = new T.Group(); a.position.set(sd * 0.075, 0.16, 0); body.add(a); P(a, self.geo.box, lady || (ST && ST.bare) ? fur : cloth, 0.03, 0.1, 0.03, 0, -0.05, 0); P(a, self.geo.box, pink, 0.028, 0.02, 0.028, 0, -0.105, 0); return a; });
+    var legs = [-1, 1].map(function (sd) { var l = new T.Group(); l.position.set(sd * 0.035, 0.13, 0); g.add(l); P(l, self.geo.box, lady ? fur : ST && ST.legs != null ? self.mat('mcloth', ST.legs) : self.mat('stoneDark'), 0.035, 0.12, 0.035, 0, -0.06, 0); P(l, self.geo.box, pink, 0.04, 0.015, 0.06, 0, -0.123, 0.012); return l; });
+    var held = null;
+    if (ST) { var mm = { head: head, body: body, arms: arms, legs: legs, fur: fur }; this.styleMouse(ST, mm, P); held = mm.held; }
     // A long pink tail.
     var tail = new T.Group(); tail.position.set(0, 0.06, -0.05); body.add(tail);
     for (var tsg = 0; tsg < 4; tsg++) { var ts = P(tail, this.geo.box, pink, 0.012, 0.012, 0.08, 0, -tsg * 0.012, -0.04 - tsg * 0.075); ts.rotation.x = tsg * 0.15; }
@@ -9191,7 +9898,7 @@
     if (job === 'barkeep') { var glass = new T.Group(); glass.position.set(0, -0.11, 0.04); arms[1].add(glass); P(glass, this.geo.cyl, this.mat('beer', 2), 0.03, 0.07, 0.03, 0, 0, 0); }
     g.scale.setScalar(1.15);
     this.world.add(g);
-    return { g: g, body: body, head: head, arms: arms, legs: legs, tail: tail, paper: paper, umbrella: umb, ghost: ghost, name: name, phase: k, k: k, job: job };
+    return { g: g, body: body, head: head, arms: arms, legs: legs, tail: tail, paper: paper, umbrella: umb, ghost: ghost, held: held, style: ST, name: name, phase: k, k: k, job: job };
   };
   Town.prototype.stepMice = function (dt, now) {
     var s = this.st, self = this;
@@ -9249,7 +9956,7 @@
       // Greet the raccoon (once in a while), then carry on.
       if (P && m.state !== 'sit' && m.state !== 'picnic' && now > (m.helloAt || 0) && Math.hypot(P.x - g.position.x, P.z - g.position.z) < 1.8) {
         m.helloAt = now + 15000; m.greet = 2.4;
-        var pl = self.player, remark = Math.random() < 0.9 ? self.mouseRemark() : null;
+        var pl = self.player, remark = Math.random() < 0.9 ? self.mouseRemark(m) : null;
         var line = spooky ? 'trick or treat!' : pl.tipsy && now < pl.tipsy ? 'someone\u2019s had a few' : pl.carry && pl.carry.kind === 'beer' ? 'bit early for that, isn\u2019t it?' : pl.cig ? 'filthy habit, that' : remark ? remark : night ? ['evening!', 'lovely night for it', 'can\u2019t sleep either?', 'look at all those stars', 'mind the coyotes, dear', 'out late, aren\u2019t we?'][Math.floor(Math.random() * 6)] : HELLOS[Math.floor(Math.random() * HELLOS.length)];
         if (m.char && !spooky && Math.random() < 0.6) line = self.charLine(m);
         self.say(line, g, 0.65, 3.5);
@@ -9453,7 +10160,7 @@
   Town.prototype.addCharacters = function () {
     var s = this.st, self = this, hosts = s.folk.filter(function (m) { return !m.char; });
     s.chars = CHARACTERS.map(function (C, i) {
-      var m = self.makeMouse(C.k), host = hosts[(i * 2 + 1) % hosts.length], H = m.head, B = m.body, dark = self.mat('swan', 2);
+      var m = self.makeMouse(C.k, null, true), host = hosts[(i * 2 + 1) % hosts.length], H = m.head, B = m.body, dark = self.mat('swan', 2);
       function P(par, geo, mat, sx, sy, sz, x, y, z) { var pt = self.part(par, geo, mat, sx, sy, sz, x, y, z); pt.userData.pick = 'folk:' + C.name; self.picks.push(pt); return pt; }
       if (C.key === 'prof') {
         // Tweed, spectacles, a bow tie and a book under the arm.
@@ -9652,6 +10359,7 @@
       if (m.ghost.visible !== spooky) { m.ghost.visible = spooky; m.head.visible = !spooky; }
       var u = rain && m.state !== 'inside' && m.state !== 'sit' && !m.job;
       if (m.umbrella.visible !== u) { m.umbrella.visible = u; }
+      if (m.held) m.held.visible = !u && !spooky;
       if (u) { m.arms[0].rotation.x = -0.6; m.umbrella.rotation.x = 0.6; }
     });
   };
@@ -10000,6 +10708,7 @@
           mark('tower:' + g); mark(tw.pick);
           var n = (ev.prs && ev.prs[g]) || 0;
           s.towers[g].prs += n;
+          if (tw !== s.towers[g]) tw.prs += n;
           tw.prEv = n > 0 ? { day: ev.day, label: ev.label, n: n, lines: (ev.prLines && ev.prLines[g]) || [] } : null;
           self.setPrFlag(g, n > 0, delay + i * 120, tw);
         });
@@ -10148,8 +10857,8 @@
       case 'prflag': {
         var pc = +(p[2] || 0), ptw = pc ? s.castles[pc] && s.castles[pc].towers[p[1]] : s.towers[p[1]], pe = ptw && ptw.prEv;
         if (!pe) return null;
-        return { title: 'PR! ' + ptw.def.name, lines: [pe.day + ' \u00b7 ' + pe.label, plural(pe.n, 'new personal record') + ' that session:'].concat(pe.lines.slice(0, 5).map(function (l) { return '\u2605 ' + l; }), [
-          pe.lines.length > 5 ? '+ ' + (pe.lines.length - 5) + ' more' : '', plural(ptw.prs, 'PR') + ' on this tower all-time. The flag flies until your next session here without a PR.']) };
+        return { title: 'PR! ' + (pc ? s.castles[pc].name + ': ' + ptw.def.name.replace(/ tower$/i, '').toLowerCase() : ptw.def.name), lines: [pe.day + ' \u00b7 ' + pe.label, plural(pe.n, 'new personal record') + ' that session:'].concat(pe.lines.slice(0, 5).map(function (l) { return '\u2605 ' + l; }), [
+          pe.lines.length > 5 ? '+ ' + (pe.lines.length - 5) + ' more' : '', (pc ? plural(ptw.prs, 'PR') + ' on this pennant in ' + s.castles[pc].name + '. It flies until your next session here without a PR.' : plural(ptw.prs, 'PR') + ' on this tower all-time. The flag flies until your next session here without a PR.')]) };
       }
       case 'tower':
         var ci = +(p[2] || 0), C = ci ? s.castles[ci] : null, tw = C ? C.towers[p[1]] : s.towers[p[1]], next = (Math.floor(tw.n / TIER) + 1) * TIER;
@@ -10159,7 +10868,7 @@
           tw.n ? (tw.flying ? 'Flag flying: your last session here set a PR.' : 'No flag: your last session here didn’t set a PR.') : '',
           tw.features.length ? 'Added so far: ' + tw.features.join(', ') + '.' : '',
           'Next addition (' + FEATURE_NAMES[Math.floor(tw.n / TIER) % 4] + ') at ' + next + ' layers.',
-          tw.def.key === 'full' ? '' : 'Height limit right now: ' + Math.min(MAX_LAYERS, this.towerCap()) + ' layers (rises with all your lifting, up to ' + MAX_LAYERS + '). Extra sessions build halls and turrets beside it' + (tw.bailey ? ': ' + tw.bailey.done + ' built so far.' : '.') + ' After that, a new castle starts on the hill.',
+          tw.def.key === 'full' ? '' : 'Height limit right now: ' + Math.min(MAX_LAYERS, this.towerCap()) + ' layers (rises with all your lifting, up to ' + MAX_LAYERS + '). Extra sessions build halls and turrets beside it' + (tw.bailey ? ': ' + tw.bailey.done + ' built so far.' : '.') + ' After that, lifting builds the towns up the line: Dawson City, Atlin, Haines Junction, Skagway and Haines.',
           tail || 'Empty plot. Log one of these to start building.'] };
       case 'secret':
         var sc = SECRET_BY_ID[p[1]], extra = '';
@@ -10222,6 +10931,14 @@
         var SQ = this.st.square || { n: 0 }, done = SQUARE_STEPS.slice(0, SQ.n).map(function (x) { return x[1].toLowerCase(); }), nx = SQUARE_STEPS[SQ.n];
         return { title: 'The town square', lines: ['It gets a little cozier with every workout (' + this.st.sessions + ' so far).', done.length ? 'So far: ' + done.join(', ') + '.' : 'Nothing added yet.', nx ? 'Next: ' + nx[1].toLowerCase() + ' at ' + nx[0] + ' workouts.' : 'The square is complete.'] };
       }
+      case 'town': {
+        var TC = s.castles[+p[1]], TD = TC.town, lms = TD.plan.filter(function (x) { return x[3]; });
+        var gotL = lms.filter(function (x) { return TC.done[x[3]]; }).map(function (x) { return x[3]; });
+        var nxL = TD.plan.slice(TC.built).filter(function (x) { return x[3]; })[0], leftL = nxL ? TD.plan.indexOf(nxL) - TC.built + 1 : 0;
+        return { title: TD.name, lines: [TD.vibe, TC.built + ' of ' + TD.plan.length + ' pieces built: a new one for every two muscle groups you train.',
+          gotL.length ? 'Landmarks so far: ' + gotL.join(', ') + '.' : 'Just a few cabins so far.',
+          nxL ? 'Next landmark: ' + nxL[3] + ', in ' + plural(leftL, 'more piece') + ' (about ' + plural(leftL * 2 - (TC.lifts % 2), 'muscle group') + ').' : 'Finished: the train stops here now.', tail] };
+      }
       case 'square': return { title: 'The town square', lines: ['The library, the picture house and the Slow Pour all open onto it.', 'Have a seat by the fountain.'] };
       case 'rink': return { title: 'The hockey rink', lines: ['Kept clear for your winter hockey. Your first game floods the rink.', 'Write "hockey" in a Morning or Evening cell, or log it in Strava.'] };
       case 'castle':
@@ -10235,7 +10952,7 @@
         }
         var nextM = CASTLE_MILESTONES.filter(function (m) { return s.lifts < m[0]; })[0];
         var built = CASTLE_MILESTONES.filter(function (m) { return s.lifts >= m[0]; }).map(function (m) { return m[2].toLowerCase(); });
-        return { title: 'The castle', lines: [plural(s.lifts, 'lifting session') + ' in all.' + (s.baileyPieces ? ' ' + plural(s.baileyPieces, 'bailey piece') + ' built around it.' : '') + (s.castles.filter(Boolean).length ? ' Other castles: ' + s.castles.filter(Boolean).map(function (C) { return C.name; }).join(', ') + '.' : ''),
+        return { title: 'The castle', lines: [plural(s.lifts, 'lifting session') + ' in all.' + (s.baileyPieces ? ' ' + plural(s.baileyPieces, 'bailey piece') + ' built around it.' : '') + (s.castles.filter(Boolean).length ? ' Towns up the line: ' + s.castles.filter(Boolean).map(function (C) { return C.name; }).join(', ') + '.' : ''),
           built.length ? 'Built: ' + built.join(', ') + '.' : 'Walls rise between towers as they grow.',
           nextM ? 'Next: ' + nextM[2].toLowerCase() + ' at ' + nextM[0] + ' sessions.' : 'Every castle upgrade is built.'] };
       case 'run':
@@ -10283,7 +11000,7 @@
       case 'railway':
         var RW = s.rail;
         var names = RW ? RW.stations.map(function (ci) { return STATION_NAMES[ci] || 'a halt'; }) : [];
-        return { title: 'The White Pass & Yukon Route', lines: [plural(names.length, 'station') + ' open' + (names.length ? ': ' + names.join(', ') : '') + '.', 'Through three tunnels, over the trestles and round the lighthouse.', 'A new station opens at each castle when it\u2019s finished.'] };
+        return { title: 'The White Pass & Yukon Route', lines: [plural(names.length, 'station') + ' open' + (names.length ? ': ' + names.join(', ') : '') + '.', 'Through three tunnels, over the trestles and round the lighthouse.', 'A new station opens at each town up the line when it\u2019s finished.'] };
       case 'hike':
         var h = s.hike, peaks = h.peaks.filter(Boolean), done = peaks.filter(function (x) { return x.done; }).length;
         var cur = peaks[peaks.length - 1];
@@ -11945,26 +12662,36 @@
   Town.prototype.say = function (text, obj, yOff, dur, drift) {
     if (this.soft) return;
     var F = this.fx || (this.fx = { bits: [], group: null }), bubbles = F.bubbles || (F.bubbles = []);
-    // The bubble grows to fit what's said.
+    // The bubble grows to fit what's said, wrapping long lines so it never gets too wide.
     var font = '700 34px "Trebuchet MS", sans-serif', meas = document.createElement('canvas').getContext('2d');
     meas.font = font;
-    var w = Math.ceil(meas.measureText(text).width + 36), W = w + 12, cx = W / 2;
-    var cv = document.createElement('canvas'); cv.width = W; cv.height = 72;
+    var MAXW = 520, rows = [], cur = '';
+    String(text).split(/\s+/).forEach(function (wd) {
+      var tryL = cur ? cur + ' ' + wd : wd;
+      if (cur && meas.measureText(tryL).width > MAXW) { rows.push(cur); cur = wd; } else cur = tryL;
+    });
+    if (cur) rows.push(cur);
+    var tw = Math.max.apply(null, rows.map(function (r) { return meas.measureText(r).width; }));
+    var w = Math.ceil(tw + 36), W = w + 12, cx = W / 2, extra = (rows.length - 1) * 40, bot = 56 + extra;
+    var cv = document.createElement('canvas'); cv.width = W; cv.height = 72 + extra;
     var c = cv.getContext('2d');
     c.font = font;
     c.fillStyle = 'rgba(255, 250, 238, 0.96)'; c.strokeStyle = '#5a3c1e'; c.lineWidth = 4;
-    c.beginPath(); c.moveTo(cx - w / 2 + 14, 6); c.arcTo(cx + w / 2, 6, cx + w / 2, 56, 14); c.arcTo(cx + w / 2, 56, cx - w / 2, 56, 14);
-    c.lineTo(cx + 10, 56); c.lineTo(cx, 68); c.lineTo(cx - 8, 56); c.arcTo(cx - w / 2, 56, cx - w / 2, 6, 14); c.arcTo(cx - w / 2, 6, cx + w / 2, 6, 14); c.closePath();
+    c.beginPath(); c.moveTo(cx - w / 2 + 14, 6); c.arcTo(cx + w / 2, 6, cx + w / 2, bot, 14); c.arcTo(cx + w / 2, bot, cx - w / 2, bot, 14);
+    c.lineTo(cx + 10, bot); c.lineTo(cx, bot + 12); c.lineTo(cx - 8, bot); c.arcTo(cx - w / 2, bot, cx - w / 2, 6, 14); c.arcTo(cx - w / 2, 6, cx + w / 2, 6, 14); c.closePath();
     c.fill(); c.stroke();
-    c.fillStyle = '#3b2716'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, cx, 32);
+    c.fillStyle = '#3b2716'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    rows.forEach(function (r, i) { c.fillText(r, cx, 32 + i * 40); });
     var tex = new T.CanvasTexture(cv); tex.magFilter = T.NearestFilter;
     var sp = new T.Sprite(new T.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-    var aspect = W / 160;
-    sp.scale.set(1.5 * aspect, 0.68, 1); sp.renderOrder = 10;
+    var aspect = W / 160, hs = cv.height / 72;
+    // Anchored at the tail, so taller (wrapped) bubbles grow upwards from the speaker.
+    sp.center.set(0.5, 0);
+    sp.scale.set(1.5 * aspect, 0.68 * hs, 1); sp.renderOrder = 10;
     this.scene.add(sp);
     // Long lines stay up long enough to read.
     if (text.length > 14) dur = Math.max(dur || 2, Math.min(9, 2 + text.length / 11));
-    bubbles.push({ sp: sp, obj: obj, y: yOff, t: 0, dur: dur, drift: drift, aspect: aspect });
+    bubbles.push({ sp: sp, obj: obj, y: yOff, t: 0, dur: dur, drift: drift, aspect: aspect, hs: hs });
     this.needsRender = true;
   };
   // Pawprints in the snow, fading as the snow fills them in.
@@ -12050,14 +12777,37 @@
       F.bubbles = (F.bubbles || []).filter(function (bb) {
         bb.t += dt; busy = true;
         var p = new T.Vector3(); bb.obj.getWorldPosition(p);
-        bb.sp.position.set(p.x + (bb.drift ? bb.t * 0.25 : 0), p.y + bb.y + (bb.drift ? bb.t * 0.35 : Math.min(bb.t, 0.15)), p.z);
-        var s = Math.min(1, bb.t / 0.12) * (bb.t > bb.dur - 0.25 ? Math.max(0, (bb.dur - bb.t) / 0.25) : 1);
         // Same size on screen however far you're zoomed in.
         var z = 3.4 / Math.max(0.5, cam.zoom);
-        bb.sp.scale.set(1.5 * (bb.aspect || 1) * s * z, 0.68 * s * z, 1);
+        // The tail sits where the middle of a one-line bubble used to, less half its height.
+        bb.sp.position.set(p.x + (bb.drift ? bb.t * 0.25 : 0), p.y + bb.y - 0.34 * z + (bb.drift ? bb.t * 0.35 : Math.min(bb.t, 0.15)), p.z);
+        var s = Math.min(1, bb.t / 0.12) * (bb.t > bb.dur - 0.25 ? Math.max(0, (bb.dur - bb.t) / 0.25) : 1);
+        bb.sp.scale.set(1.5 * (bb.aspect || 1) * s * z, 0.68 * (bb.hs || 1) * s * z, 1);
         if (bb.t >= bb.dur) { bb.sp.parent.remove(bb.sp); bb.sp.material.map.dispose(); bb.sp.material.dispose(); return false; }
         return true;
       });
+      // No bubble covers another: on screen, a newer one that would overlap an older one rises
+      // above it (gliding there, and back down once the older one's gone).
+      if (F.bubbles.length) {
+        var placed = [], wW = (cam.right - cam.left) / cam.zoom, wH = (cam.top - cam.bottom) / cam.zoom, upV = new T.Vector3();
+        F.bubbles.forEach(function (bb) {
+          var sp = bb.sp, a = sp.position.clone().project(cam), up = upV.copy(sp.position); up.y += 1; up.project(cam);
+          var perY = Math.max(0.02, up.y - a.y), full = 3.4 / Math.max(0.5, cam.zoom);
+          // Reserve the bubble's full size, even while it pops in or fades out.
+          var hw = 1.5 * (bb.aspect || 1) * full / wW + 0.01, h = 0.68 * (bb.hs || 1) * full / wH * 2 + 0.01;
+          var y0 = a.y, y = y0;
+          for (var guard = 0; guard < 12; guard++) {
+            var hit = null;
+            for (var q = 0; q < placed.length; q++) { var o = placed[q]; if (Math.abs(a.x - o.x) < hw + o.hw && y < o.y + o.h && y + h > o.y && (!hit || o.y + o.h > hit.y + hit.h)) hit = o; }
+            if (!hit) break;
+            y = hit.y + hit.h;
+          }
+          var want = (y - y0) / perY;
+          bb.lift = bb.lift == null ? want : bb.lift + (want - bb.lift) * Math.min(1, dt * 10);
+          sp.position.y += bb.lift;
+          placed.push({ x: a.x, y: y, hw: hw, h: h });
+        });
+      }
       F.fish = (F.fish || []).filter(function (f) {
         f.t += dt; busy = true;
         var u = Math.min(1, f.t / 0.9);
