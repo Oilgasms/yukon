@@ -8904,12 +8904,116 @@
     if (!d || this.instantNews === false) return;
     (s.newsList = s.newsList || []).push({ lines: lines, date: d });
   };
+  // When you've read your Bible today, the mice have thoughts on the passage: a little esoteric.
+  var THEO_CH = {
+    'Genesis 1': ['"in the beginning" — bereshit. the rabbis noticed it starts with a bet, closed behind, open ahead. no peeking before creation', 'Augustine said time was created WITH the world, not in it. there was no "before", dear'],
+    'Genesis 3': ['O felix culpa! the Easter Exsultet calls the fall a happy fault, for it merited so great a Redeemer', 'the first question God asks in Scripture is "where are you?" — not because He didn’t know'],
+    'Genesis 22': ['the Akedah. Kierkegaard wrote a whole book about Abraham’s silence on that mountain', 'the ram caught in the thicket by its horns… the Fathers saw the crown of thorns there'],
+    'Genesis 32': ['Jacob wrestles until dawn and limps away blessed. grace that wounds you is still grace', 'Peniel: "I have seen God face to face, and yet my life is preserved." he names the place after the wound'],
+    'Exodus 3': ['"I AM WHO I AM" — ehyeh asher ehyeh. Aquinas built a whole metaphysics of pure existence on that bush', 'Gregory of Nyssa: the burning bush is the light, Sinai is the cloud, and the darkness is where Moses meets God'],
+    'Exodus 33': ['Moses only sees God’s back. the apophatic mice say that’s the most anyone gets this side of glory'],
+    'Job 38': ['"where were you when I laid the foundations?" — God answers Job with questions. Chesterton: "the riddles of God are more satisfying than the solutions of man"'],
+    'Psalms 23': ['the Hebrew for "follow me" in Psalm 23 is radaph — to pursue. goodness and mercy chase you down, dear', 'the valley of the shadow of death — tsalmaveth. note it says THROUGH the valley, not into it'],
+    'Psalms 22': ['"my God, my God, why have you forsaken me?" Jesus prayed the first line; the psalm ends in praise. he knew how it ended'],
+    'Psalms 139': ['"if I make my bed in Sheol, you are there." Augustine said God is more inward than my inmost self, interior intimo meo'],
+    'Ecclesiastes 1': ['hevel — vapour, breath. not "meaningless" so much as "you can’t grasp it." a mist you walk through'],
+    'Isaiah 6': ['the seraphim say "holy" three times — the trisagion. the only attribute of God Scripture triples'],
+    'Isaiah 53': ['the suffering servant, written centuries before Golgotha. the Ethiopian eunuch asked Philip the same question you’re asking'],
+    'Jonah 4': ['the book ends on a question, and God cares about the cattle too. the mice find that very comforting'],
+    'Matthew 5': ['the Beatitudes are written in the indicative, not the imperative. they aren’t instructions, they’re announcements'],
+    'John 1': ['"the Word became flesh" — the Logos. Heraclitus would have been thrilled and very confused', 'the Greek says He "tabernacled" among us. eskenosen. the Shekinah pitched a tent in Galilee'],
+    'John 11': ['"Jesus wept." the shortest verse — and He wept knowing full well He’d raise Lazarus. grief is not unbelief'],
+    'Romans 8': ['"the Spirit intercedes with groanings too deep for words." the mice think creation’s groaning is a sort of labour pain'],
+    '1 Corinthians 13': ['agape is patient. the Greek is makrothumei — "long of temper." the opposite of a short fuse'],
+    'Philippians 2': ['kenosis: He emptied Himself. the self-emptying of God — the theologians are still arguing about what got emptied'],
+    'Hebrews 11': ['"faith is the substance of things hoped for" — hypostasis, the same word the creeds use for the Persons of the Trinity'],
+    'Revelation 21': ['the new Jerusalem has no temple, for God is its temple. and no more sea — the ancient chaos finally tamed']
+  };
+  var THEO_BOOK = {
+    'Genesis': ['Origen read Genesis as allegory, Luther read it as history. the mice read it with tea', 'the toledot — "these are the generations" — stitch the whole book together like a quilt'],
+    'Exodus': ['the Exodus is the Old Testament’s Easter. Passover, the Red Sea, the wilderness — it all comes round again', 'the tabernacle is a little Eden: gold, cherubim, a lampstand shaped like a tree'],
+    'Leviticus': ['Leviticus is the middle book of the Torah and holiness is its heart. the rabbis taught children to read it first', 'the scapegoat goes out to Azazel. the scholars still can’t agree who Azazel is'],
+    'Numbers': ['Balaam’s donkey saw the angel before the prophet did. humility is a sort of sight'],
+    'Deuteronomy': ['the Shema: "hear, O Israel." Jesus called it the greatest commandment. listening comes before loving'],
+    'Joshua': ['Joshua is Yeshua is Jesus. the same name leads the people into the promised land twice'],
+    'Judges': ['"everyone did what was right in their own eyes." the most chilling refrain in Scripture'],
+    'Ruth': ['Ruth is a book about hesed — a covenant love so stubborn it has no English word'],
+    '1 Samuel': ['"man looks on the outward appearance, but the Lord looks on the heart." the runt of Jesse’s litter, anointed'],
+    '2 Samuel': ['Nathan’s parable: "you are the man." a story is the gentlest way to slip a truth past your defences'],
+    '1 Kings': ['Elijah hears God not in the wind, nor the earthquake, nor the fire, but in a still small voice — qol demamah daqqah, a sound of thin silence'],
+    '2 Kings': ['Elisha asked for a double portion of Elijah’s spirit. bold ask, for a mouse'],
+    '1 Chronicles': ['the genealogies are a liturgy of names. nobody is forgotten in the book of God'],
+    '2 Chronicles': ['"if my people humble themselves and pray…" the Chronicler rewrote Kings as a sermon'],
+    'Ezra': ['the old men wept when the second temple went up, remembering the first. joy and grief at the same foundation'],
+    'Nehemiah': ['they built the wall with a trowel in one hand and a sword in the other. a fine way to run a parish'],
+    'Esther': ['Esther never mentions God once, yet Providence is on every page. hidden in plain sight — hester panim'],
+    'Job': ['Job’s friends were right to sit with him seven days in silence. it was only when they spoke that they went wrong', 'the Satan in Job is ha-satan, the accuser — more prosecutor than devil, the scholars say'],
+    'Psalms': ['Athanasius said most of Scripture speaks TO us, but the Psalms speak FOR us', 'the Psalter is a little Bible, said Luther. the whole story, sung'],
+    'Proverbs': ['Lady Wisdom was there at creation, rejoicing. the early church saw the Logos in her'],
+    'Ecclesiastes': ['Qoheleth says everything is hevel, then tells you to enjoy your bread. the mice approve'],
+    'Song of Solomon': ['Bernard of Clairvaux preached 86 sermons on the Song and only got to chapter three', 'Rabbi Akiva called the Song the holy of holies of Scripture'],
+    'Isaiah': ['Isaiah is the fifth gospel, Jerome said. the whole story of salvation, seven centuries early'],
+    'Jeremiah': ['the weeping prophet bought a field while Babylon was at the gates. hope is an investment in ruined land'],
+    'Lamentations': ['Lamentations is an acrostic — grief ordered A to Z. even sorrow gets a shape before God'],
+    'Ezekiel': ['the Merkabah — wheels within wheels, full of eyes. the Mishnah says not to expound the Chariot even to one student, unless he\u2019s already a sage'],
+    'Daniel': ['"one like a son of man coming with the clouds." Jesus’ favourite title for himself came from Daniel 7'],
+    'Hosea': ['God tells Hosea to marry Gomer. the whole book is a love letter to someone who keeps leaving'],
+    'Joel': ['"I will pour out my Spirit on all flesh." Peter quoted Joel at Pentecost, a bit breathless'],
+    'Amos': ['"let justice roll down like waters." a shepherd from Tekoa, reading the room in Bethel'],
+    'Obadiah': ['Obadiah: the shortest book of the Old Testament. 21 verses about pride and Edom'],
+    'Jonah': ['Jonah is the only prophet who succeeded and was furious about it'],
+    'Micah': ['do justice, love mercy, walk humbly. Micah 6:8 is the whole Law in a nutshell'],
+    'Nahum': ['Nahum means "comfort." an odd name for a book about Nineveh falling'],
+    'Habakkuk': ['"the righteous shall live by faith." Habakkuk 2:4 lit the fuse of the Reformation, eventually'],
+    'Zephaniah': ['"he will rejoice over you with singing." God sings. the only time Scripture says so plainly'],
+    'Haggai': ['Haggai: "consider your ways." two chapters, four sermons, one temple'],
+    'Zechariah': ['"not by might, nor by power, but by my Spirit." Zechariah’s lampstand burns on oil it didn’t pour'],
+    'Malachi': ['Malachi ends with Elijah, and then four hundred years of silence. the gospels open with his footsteps'],
+    'Matthew': ['Matthew opens with a genealogy that sneaks in four women. the first gospel is full of surprises'],
+    'Mark': ['Mark’s favourite word is euthys, "immediately." the gospel in a hurry', 'Mark ends with the women afraid at the tomb. the shortest ending is the strangest'],
+    'Luke': ['Luke gives us the songs: the Magnificat, the Benedictus, the Nunc Dimittis. the gospel sings'],
+    'John': ['John has seven signs and seven "I AM"s. the evangelist liked a pattern', 'Clement called John the spiritual gospel. the eagle among the four'],
+    'Acts': ['Acts has no proper ending — Paul preaching in Rome, unhindered. the church is still writing chapter 29'],
+    'Romans': ['Augustine, Luther and Wesley were all converted by Romans. a dangerous book, dear'],
+    '1 Corinthians': ['"now we see through a glass, darkly." the Corinthian mirrors were polished bronze — a dim, warm likeness'],
+    '2 Corinthians': ['"my grace is sufficient; my power is made perfect in weakness." the thorn stayed, and so did the grace'],
+    'Galatians': ['"it is no longer I who live, but Christ who lives in me." the Orthodox call it theosis'],
+    'Ephesians': ['Ephesians says we were chosen "before the foundation of the world." Barth said election is the sum of the gospel'],
+    'Philippians': ['Philippians is a letter about joy, written from a prison. the mice find that very telling'],
+    'Colossians': ['"in him all things hold together." the Logos as the glue of the cosmos — sunesteken'],
+    '1 Thessalonians': ['"pray without ceasing." the Desert Fathers took that literally and invented the Jesus Prayer'],
+    '2 Thessalonians': ['"if anyone will not work, let him not eat." the mice have opinions about this re: sandwiches'],
+    '1 Timothy': ['"great is the mystery of godliness." Paul quotes an early hymn — the church was singing creeds before writing them'],
+    '2 Timothy': ['"all Scripture is God-breathed" — theopneustos. breathed, like Adam. the Word is alive'],
+    'Titus': ['the grace of God has appeared — epephane. an epiphany, in a little letter to Crete'],
+    'Philemon': ['Philemon is one chapter about one runaway slave, and it quietly undoes the whole institution'],
+    'Hebrews': ['nobody knows who wrote Hebrews. Origen said "only God knows." the mice suspect Priscilla', 'Melchizedek: no father, no mother, no genealogy. a priest who wanders in from eternity'],
+    'James': ['Luther called James "an epistle of straw." James would have shrugged and fed the poor'],
+    '1 Peter': ['Christ "preached to the spirits in prison." the harrowing of hell — the icons show him kicking down the gates'],
+    '2 Peter': ['"partakers of the divine nature." the Eastern church built its whole spirituality on that line'],
+    '1 John': ['"God is love." John says it twice and never tries to explain it'],
+    '2 John': ['2 John is addressed to "the elect lady." nobody’s sure if she’s a person or a church'],
+    '3 John': ['3 John is the shortest book in the Bible by words. Gaius, beloved, walking in the truth'],
+    'Jude': ['Jude quotes the Book of Enoch. a little apocryphal flourish in the canon'],
+    'Revelation': ['Revelation is a liturgy, not a timetable. the whole thing is set at worship', 'the Lamb who was slain is on the throne. the most powerful image in Scripture is a wounded animal']
+  };
+  Town.prototype.bibleLine = function (ev) {
+    var bi = bookIndex(ev.book || ''), book = bi >= 0 ? BIBLE[bi][0] : ev.book || '', ch = (ev.chapters || []).filter(function (c) { return THEO_CH[book + ' ' + c]; });
+    var lines = ch.length ? THEO_CH[book + ' ' + ch[0]] : THEO_BOOK[book];
+    var where = (book === 'Psalms' && ev.chapters && ev.chapters.length ? 'Psalm' : book) + (ev.chapters && ev.chapters.length ? ' ' + ev.chapters[0] : '');
+    if (!lines) return pickOne(['read ' + where + ' today? the Fathers would have something to say about that', 'saw you in ' + where + '. lectio divina, was it?']);
+    var l = pickOne(lines);
+    return Math.random() < 0.4 ? where + ' today? ' + l : l;
+  };
   Town.prototype.mouseRemark = function () {
     var s = this.st, t = this.today;
     if (!t || !s.byDay) return null;
     var fresh = (s.newsList || []).filter(function (n) { var age = (Date.parse(t) - Date.parse(n.date)) / 864e5; return age >= 0 && age <= 7; });
     if (fresh.length && Math.random() < 0.45) return pickOne(pickOne(fresh).lines);
     var day = s.byDay[t] || [], work = day.filter(function (e) { return !NOT_WORKOUTS[e.kind]; }), callouts = [], main;
+    // Read your Bible today? Half the time that's all they want to talk about.
+    var readT = day.filter(function (e) { return e.kind === 'bible' && e.book; });
+    if (readT.length && Math.random() < 0.5) return this.bibleLine(pickOne(readT));
     if (work.length) main = this.workoutLine(pickOne(work));
     else {
       var plan = (this.planned || []).filter(function (e) { return e.date === t; })[0], hr = new Date().getHours();
