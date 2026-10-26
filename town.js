@@ -9086,11 +9086,15 @@
     return callouts.length && Math.random() < (gap >= 4 ? 0.65 : 0.45) ? pickOne(callouts) : main;
   };
   var PUB_STREET = (function () { var best = null, bd = 1e9; STREETS.forEach(function (st, si) { st.forEach(function (q, ti) { var d = Math.hypot(q.x - PUB.x, q.z - PUB.z); if (d < bd) { bd = d; best = { si: si, ti: ti }; } }); }); return best; })();
-  // Friday and Saturday nights, from dark till midnight: the whole town's down the Slow Pour.
+  // The mice keep Whitehorse hours (UTC-7 all year), whatever the sun is doing: up and about from
+  // 8am, home by 9pm (bar the night owls).
+  function whitehorseClock() { var d = new Date(Date.now() - 7 * 3600000); return { h: d.getUTCHours() + d.getUTCMinutes() / 60, dow: d.getUTCDay() }; }
+  Town.prototype.mouseNight = function () { var h = whitehorseClock().h; return h < 8 || h >= 21; };
+  // Friday and Saturday nights, 7pm till midnight: the whole town's down the Slow Pour.
   Town.prototype.pubNight = function () {
-    if (!this.dark || !this.st.pub) return false;
-    var d = new Date(), dow = d.getDay(), h = d.getHours();
-    return (dow === 5 || dow === 6) && h >= 12;
+    if (!this.st.pub) return false;
+    var c = whitehorseClock();
+    return (c.dow === 5 || c.dow === 6) && c.h >= 19;
   };
   // Seats at the picnic tables out front, then standing room round them.
   Town.prototype.pubSpot = function (i) {
@@ -9184,7 +9188,7 @@
         return m;
       }));
     }
-    var folk = s.folk, night = this.dark, P = this.explore && this.player ? this.player.g.position : null, pubNow = this.pubNight();
+    var folk = s.folk, night = this.mouseNight(), dark = this.dark, P = this.explore && this.player ? this.player.g.position : null, pubNow = this.pubNight();
     folk.forEach(function (m) {
       if (m.owl == null) m.owl = m.k % 3 === 1;
       if (!m.owl) return;
@@ -9199,7 +9203,7 @@
         var halo = new T.Mesh(self.geo.ball, haloM); halo.scale.setScalar(0.14); halo.position.y = -0.035; ln.add(halo);
         self.part(ln, self.geo.cone4, self.mat('stoneDark'), 0.045, 0.025, 0.045, 0, 0.012, 0);
       }
-      m.lantern.visible = night && m.state === 'walk' && !(m.umbrella && m.umbrella.visible);
+      m.lantern.visible = dark && m.state === 'walk' && !(m.umbrella && m.umbrella.visible);
     });
     var spooky = this.halloweenWeek(), rain = this.weatherNow === 'rain', winter = this.season === 'winter';
     this.dressMice(folk, spooky, rain);
@@ -9268,8 +9272,8 @@
         // On the bench with the paper (or a sandwich): turning a page now and then, glancing up.
         m.wait -= dt;
         if (m.hasLunch) self.eatLunch(m, now);
-        m.paper.rotation.y = Math.sin(now / 1800 + m.k) * 0.15; m.head.rotation.x = night ? -0.45 + Math.sin(now / 3000 + m.k) * 0.15 : 0.25 + Math.sin(now / 2500 + m.k) * 0.1; // stargazing after dark
-        if (night && m.owl && Math.random() < dt * 0.04) self.say(['look, a shooting star!', 'there\u2019s the Big Dipper', 'lovely night', '*yawn*', 'is that the aurora?'][Math.floor(Math.random() * 5)], g, 0.65, 2.0);
+        m.paper.rotation.y = Math.sin(now / 1800 + m.k) * 0.15; m.head.rotation.x = dark ? -0.45 + Math.sin(now / 3000 + m.k) * 0.15 : 0.25 + Math.sin(now / 2500 + m.k) * 0.1; // stargazing after dark
+        if (dark && m.owl && Math.random() < dt * 0.04) self.say(['look, a shooting star!', 'there\u2019s the Big Dipper', 'lovely night', '*yawn*', 'is that the aurora?'][Math.floor(Math.random() * 5)], g, 0.65, 2.0);
         if (Math.floor(now / 4000 + m.k) % 5 === 0) m.paper.rotation.z = Math.sin(now / 120) * 0.08; else m.paper.rotation.z = 0;
         if (m.wait <= 0 || (night && !m.owl) || pubNow) {
           self.standUp(m);
@@ -9355,7 +9359,7 @@
         m.g.position.set(q.x - Math.cos(q.rot) * 0.28, q.y - 0.12, q.z + Math.sin(q.rot) * 0.28); m.g.rotation.y = q.rot;
         m.body.position.y = 0.06; m.legs.forEach(function (l) { l.rotation.x = -1.4; });
         m.arms.forEach(function (a, i) { a.rotation.x = -1.2; a.rotation.z = (i ? -1 : 1) * 0.35; });
-        m.paper.visible = !night; m.seat = q; m.state = 'sit'; m.wait = 15 + Math.random() * 20;
+        m.paper.visible = !dark; m.seat = q; m.state = 'sit'; m.wait = 15 + Math.random() * 20;
         if (!night && Math.random() < 0.4) { m.paper.visible = false; self.giveLunch(m); }
       } else {
         // In the door, for a cup of tea (or bed).
@@ -9545,7 +9549,7 @@
   };
   // ---- mice with jobs: the postie, the barkeep, and hikers after you've been up a mountain ----
   Town.prototype.stepJobMice = function (dt, now, spooky, rain) {
-    var s = this.st, self = this, J = s.jobMice || (s.jobMice = {}), night = this.dark, view = this.viewDate || s.lastDate;
+    var s = this.st, self = this, J = s.jobMice || (s.jobMice = {}), night = this.mouseNight(), view = this.viewDate || s.lastDate;
     var P = this.explore && this.player ? this.player.g.position : null;
     function walkTo(m, tgt, speed) {
       var g = m.g, dx = tgt.x - g.position.x, dz = tgt.z - g.position.z, d = Math.hypot(dx, dz);
