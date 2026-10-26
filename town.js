@@ -91,7 +91,7 @@
     fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], otter: ['#6b4a2e', '#cdb08a', '#2e2219'], orca: ['#16161a', '#f2f2ef', '#9c9ca3'], mouse: ['#9c928a', '#8a6a4e', '#c8b49a', '#e8a3a3'], paper: ['#f2efe6', '#4a4a4a'], beer: ['#e3a02c', '#fbf6e8', '#d9e6e8'], smoke: '#d6d3cc', leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
   };
   var CASTLE_MILESTONES = [
-    [10, 'yflag', 'The Yukon flag in the plaza'], [20, 'sign', 'The Welcome to Whitehorse sign'], [30, 'fireweed', 'Fireweed planters, and spruce and birch round town'], [40, 'bunting', 'Bunting across Main Street'],
+    [10, 'yflag', 'The Yukon flag in the plaza'], [20, 'sign', 'The Welcome to Whitehorse sign'], [30, 'fireweed', 'Fireweed planters, and spruce and birch round town'], [40, 'bunting', 'Bunting across Main Street'], [45, 'airport', 'Whitehorse airport, and Alkan Air’s King Air 350'],
     [50, 'winter', 'The Yukon Quest and Sourdough Rendezvous each February'], [60, 'plaza', 'Benches and spruce round the plaza'], [75, 'klondike', 'The S.S. Klondike'],
     [90, 'milepost', 'The Alaska Highway milepost'], [110, 'ravens', 'Ravens about town'], [130, 'artscentre', 'The Yukon Arts Centre'], [160, 'canyon', 'The Miles Canyon footbridge'], [200, 'lights', 'Lights strung along every street']
   ];
@@ -312,6 +312,13 @@
 
   // Running forest: clumps and clearings to the right, spreading outward from the edge of town.
   var FOREST_SEED = polar(15, 19.5);
+  // Whitehorse airport's ground, kept clear for it: a runway running out along the far edge of the
+  // woods (trees would only reach it after years of runs), with the apron on one side (local w > 0).
+  var AIRPORT = { x: 66, z: 0, dx: 1, dz: 0, len: 20, side: 1 };
+  function inAirport(p, m) {
+    var k = (p.x - AIRPORT.x) * AIRPORT.dx + (p.z - AIRPORT.z) * AIRPORT.dz, w = (p.x - AIRPORT.x) * AIRPORT.dz - (p.z - AIRPORT.z) * AIRPORT.dx;
+    m = m || 0; return Math.abs(k) < AIRPORT.len / 2 + 4 + m && w > -3.2 - m && w < 10 + m;
+  }
   var FOREST = (function () {
     var r = rng(4242), pts = [], hash = new Scatter(3), fg = polar(FARM.angle, FARM.r + 3.2);
     // The woods spread out past the first forest (to the library, the canyon and the north castle)
@@ -325,6 +332,7 @@
       if (Math.hypot(p.x - SNOW.c.x, p.z - SNOW.c.z) < SNOW.R + 2.5 || Math.hypot(p.x - OFFICE.x, p.z - OFFICE.z) < 7.5 || Math.hypot(p.x - fg.x, p.z - fg.z) < 7) continue;
       if (SPORT_SLOTS.some(function (sl) { var q = polar(sl[0], sl[1]); return Math.hypot(q.x - p.x, q.z - p.z) < 4.6; })) continue;
       if (FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 2; })) continue;
+      if (inAirport(p, 1)) continue;
       p.order = Math.hypot(p.x - FOREST_SEED.x, p.z - FOREST_SEED.z) - n * 5 + r() * 4;
       pts.push(p); hash.add(p);
     }
@@ -508,6 +516,9 @@
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
   CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: rawHeight(c.x, c.z) + c.lift }); });
+  // The airport's ground, levelled.
+  AIRPORT.h = rawHeight(AIRPORT.x, AIRPORT.z) + 0.3;
+  for (var apk = -12; apk <= 12; apk += 3) [0, 4.5].forEach(function (w) { PADS.push({ x: AIRPORT.x + AIRPORT.dx * apk + AIRPORT.dz * w, z: AIRPORT.z + AIRPORT.dz * apk - AIRPORT.dx * w, rIn: 3.6, rOut: 7.5, h: AIRPORT.h }); });
   // The pub fronts the square at street level, and Jo's garden next to the library is level with it too.
   PADS.forEach(function (p) { if ((p.x === PUB.x && p.z === PUB.z) || (p.x === POND.x && p.z === POND.z)) p.h = SQ_Y + 0.05; });
   // Each level spot takes the ground as it already stands there (the land, shaped by the spots
@@ -1027,7 +1038,7 @@
 
     // Hedgerows along the field edges out in the countryside.
     var spots = [], rr = rng(11);
-    function ok(x, z) {
+    function ok(x, z) { if (inAirport({ x: arguments[0], z: arguments[1] }, 1.5)) return false;
       var r = Math.hypot(x, z);
       if (r < 31 || r > 100) return false;
       if (inFarmland(x, z) || inRidge(x, z) || inSector(x, z, 332, 82, 0, 55)) return false;
@@ -1092,15 +1103,14 @@
     this.riverMesh = water;
     this.buildLandforms(base);
 
-    // Roads and paths: cobbles for the ring road and the gate road, dirt for the rest. Village streets
+    // Roads and paths: cobbles for the roads, dirt for the rest. Village streets
     // and the paths to fields and pitches are laid later, as those get built.
-    var cobbles = RING.slice(), dirt = [], self = this;
+    var cobbles = [], dirt = [], self = this; // (no ring road round Whitehorse any more: the city's streets meet the paths)
     PATHS.forEach(function (pa) { if (pa.field || pa.sport != null || pa.castle) return; pa.pts.forEach(function (p) { (pa.kind === 'road' ? cobbles : dirt).push(p); }); });
     this.layTiles(cobbles, 'cobble', 1.5, base);
     this.layTiles(dirt, 'path', 0.95, base);
     var lamps = [];
     function lampsAlong(pts, every, off) { lampPoints(pts, every, off, 0).forEach(function (l) { lamps.push(l); }); }
-    lampsAlong(RING, 14, 1.2);
     PATHS.forEach(function (pa) { if (!pa.field && pa.sport == null && !pa.castle) lampsAlong(pa.pts, 13, 1.0); });
     lamps.forEach(function (l) { self.lamp(l.x, l.z, base); });
 
@@ -1801,6 +1811,140 @@
     }
     this.world.add(g);
     this.pop(g, delay);
+  };
+
+  // ---- Whitehorse airport, and Alkan Air's King Air 350 ------------------------------------
+  // A runway on the flattest clear ground near town, with a terminal, a control tower, a hangar and
+  // a windsock. The King Air sits on the apron, then every so often taxis out, takes off, flies a
+  // circuit over town and comes back in to land.
+  Town.prototype.findRunway = function () {
+    var A = AIRPORT;
+    return { c: { x: A.x, z: A.z }, dx: A.dx, dz: A.dz, len: A.len, y: groundY(A.x, A.z), side: A.side };
+  };
+  Town.prototype.kingAir = function (par) {
+    var self = this, g = new T.Group(); par.add(g);
+    var white = this.mat('swan', 0), navy = this.mat('tpaint', 13), red = this.mat('flag', 0), dark = this.mat('swan', 2), pick = 'kingair';
+    function P(geo, mat, sx, sy, sz, x, y, z, parent) { return self.part(parent || g, geo, mat, sx, sy, sz, x, y, z, pick); }
+    var fus = P(this.geo.cyl, white, 0.17, 2.0, 0.17, 0, 0.42, 0); fus.rotation.x = Math.PI / 2;
+    P(this.geo.cone, white, 0.17, 0.5, 0.17, 0, 0.42, 1.25).rotation.x = Math.PI / 2;
+    var tc = P(this.geo.cone, white, 0.17, 0.75, 0.17, 0, 0.46, -1.37); tc.rotation.x = -Math.PI / 2;
+    // The cheatline down each side, cockpit glass and cabin windows.
+    [-1, 1].forEach(function (sd) {
+      P(self.geo.box, navy, 0.02, 0.06, 2.3, sd * 0.165, 0.4, 0); P(self.geo.box, red, 0.02, 0.025, 2.1, sd * 0.166, 0.35, -0.05);
+      for (var w = 0; w < 6; w++) P(self.geo.box, dark, 0.02, 0.07, 0.08, sd * 0.168, 0.49, 0.55 - w * 0.22);
+      P(self.geo.box, dark, 0.06, 0.07, 0.16, sd * 0.11, 0.52, 1.05).rotation.y = sd * 0.5;
+    });
+    // Straight wings with winglets, two turboprops with four-bladed props.
+    P(this.geo.box, white, 3.3, 0.05, 0.42, 0, 0.33, 0.1);
+    [-1, 1].forEach(function (sd) { P(self.geo.box, navy, 0.04, 0.22, 0.2, sd * 1.66, 0.42, 0.02).rotation.z = sd * -0.2; });
+    g.userData.props = [];
+    [-1, 1].forEach(function (sd) {
+      var nc = P(self.geo.cyl, white, 0.1, 0.8, 0.1, sd * 0.62, 0.34, 0.38); nc.rotation.x = Math.PI / 2;
+      P(self.geo.cone, white, 0.06, 0.12, 0.06, sd * 0.62, 0.34, 0.84).rotation.x = Math.PI / 2;
+      var pr = new T.Group(); pr.position.set(sd * 0.62, 0.34, 0.82); g.add(pr);
+      for (var b = 0; b < 4; b++) { var bl = P(self.geo.box, dark, 0.04, 0.42, 0.01, 0, 0, 0, pr); bl.rotation.z = b * Math.PI / 2; bl.position.set(Math.cos(b * Math.PI / 2 + Math.PI / 2) * 0.2, Math.sin(b * Math.PI / 2 + Math.PI / 2) * 0.2, 0); }
+      g.userData.props.push(pr);
+      P(self.geo.box, dark, 0.03, 0.18, 0.03, sd * 0.62, 0.17, 0.4); P(self.geo.cyl, dark, 0.05, 0.03, 0.05, sd * 0.62, 0.07, 0.4).rotation.z = Math.PI / 2;
+    });
+    P(this.geo.box, dark, 0.03, 0.2, 0.03, 0, 0.18, 0.9); P(this.geo.cyl, dark, 0.04, 0.03, 0.04, 0, 0.07, 0.9).rotation.z = Math.PI / 2;
+    // The T-tail, with ALKAN AIR along the fuselage.
+    var fin = P(this.geo.box, navy, 0.04, 0.62, 0.42, 0, 0.78, -1.32); fin.rotation.x = 0.35;
+    P(this.geo.box, white, 1.15, 0.04, 0.3, 0, 1.08, -1.45);
+    var cv = document.createElement('canvas'); cv.width = 256; cv.height = 48; var cx = cv.getContext('2d');
+    cx.fillStyle = '#3a4a72'; cx.font = '700 34px "Trebuchet MS", sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('ALKAN AIR', 128, 26);
+    var tex = new T.CanvasTexture(cv), lm = new T.MeshBasicMaterial({ map: tex, transparent: true, side: T.DoubleSide });
+    [-1, 1].forEach(function (sd) { var lb = new T.Mesh(new T.PlaneGeometry(0.75, 0.14), lm); lb.position.set(sd * 0.172, 0.5, -0.45); lb.rotation.y = sd * Math.PI / 2; g.add(lb); });
+    g.scale.setScalar(1.15);
+    return g;
+  };
+  Town.prototype.buildAirport = function (delay) {
+    var R = this.findRunway();
+    if (!R) return;
+    var self = this, g = new T.Group(), pick = 'airport', y0 = R.y;
+    g.position.set(R.c.x, y0, R.c.z); g.rotation.y = Math.atan2(R.dx, R.dz); this.world.add(g); // local +z runs down the runway
+    function P(geo, mat, sx, sy, sz, x, y, z, pk) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pk || pick); }
+    function lg(x, z) { var c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y); return groundY(R.c.x + x * c + z * s, R.c.z - x * s + z * c) - y0; }
+    // Which side of the runway town is on, in local x.
+    var side = R.side;
+    for (var k = 0; k < 11; k++) { var z = -R.len / 2 + (k + 0.5) * R.len / 11; P(this.geo.box, this.mat('stoneDark'), 2.4, 0.08, R.len / 11 + 0.05, 0, lg(0, z) + 0.04, z); }
+    for (var dsh = 0; dsh < 9; dsh++) { var dz = -R.len / 2 + 2.5 + dsh * 2.1; P(this.geo.box, this.mat('swan', 0), 0.12, 0.09, 0.9, 0, lg(0, dz) + 0.05, dz); }
+    [-1, 1].forEach(function (e) { for (var tk = 0; tk < 6; tk++) P(self.geo.box, self.mat('swan', 0), 0.18, 0.09, 0.6, -0.9 + tk * 0.36, lg(0, e * (R.len / 2 - 0.6)) + 0.05, e * (R.len / 2 - 0.6)); });
+    var G = this.glowMats();
+    for (var el = 0; el < 12; el++) [-1.3, 1.3].forEach(function (x) { var ez = -R.len / 2 + el * R.len / 11, lb = new T.Mesh(self.geo.box, el % 3 ? G.lamp : G.ember); lb.scale.set(0.08, 0.08, 0.08); lb.position.set(x, lg(x, ez) + 0.08, ez); g.add(lb); });
+    // The apron, terminal, tower, hangar and windsock, town side.
+    var ax = side * 4.2;
+    P(this.geo.box, this.mat('cobble'), 4.2, 0.06, 9, ax, lg(ax, 0) + 0.03, 0);
+    P(this.geo.box, this.mat('stoneDark'), 1.4, 0.07, 1.2, side * 2.0, lg(side * 2, 0) + 0.035, 0);
+    var tm = new T.Group(); tm.position.set(side * 7.2, lg(side * 7.2, -1.5), -1.5); tm.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2; g.add(tm);
+    this.part(tm, this.geo.box, this.mat('whitewood'), 4.2, 1.2, 1.6, 0, 0.6, 0, pick); this.part(tm, this.geo.box, this.mat('window'), 3.8, 0.6, 0.05, 0, 0.7, 0.81, pick);
+    this.part(tm, this.geo.box, this.mat('tin', 1), 4.5, 0.12, 1.9, 0, 1.27, 0, pick);
+    var cvs = document.createElement('canvas'); cvs.width = 512; cvs.height = 64; var cc = cvs.getContext('2d'); cc.fillStyle = '#2f5d3a'; cc.fillRect(0, 0, 512, 64); cc.fillStyle = '#fff'; cc.font = '700 38px "Trebuchet MS", sans-serif'; cc.textAlign = 'center'; cc.textBaseline = 'middle'; cc.fillText('WHITEHORSE  YXY', 256, 34);
+    var stx = new T.CanvasTexture(cvs), sg = new T.Mesh(new T.PlaneGeometry(2.6, 0.32), new T.MeshBasicMaterial({ map: stx })); sg.position.set(0, 1.05, 0.83); tm.add(sg); sg.userData.pick = pick; this.picks.push(sg);
+    var tw = new T.Group(); tw.position.set(side * 7.6, lg(side * 7.6, 2.2), 2.2); g.add(tw);
+    this.part(tw, this.geo.cyl6, this.mat('whitewood'), 0.3, 2.6, 0.3, 0, 1.3, 0, pick); this.part(tw, this.geo.cyl6, this.mat('window'), 0.55, 0.45, 0.55, 0, 2.85, 0, pick); this.part(tw, this.geo.cyl6, this.mat('stoneDark'), 0.62, 0.1, 0.62, 0, 3.12, 0, pick);
+    var hg = new T.Group(); hg.position.set(side * 6.8, lg(side * 6.8, 4.6), 4.6); hg.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2; g.add(hg);
+    var vault = this.part(hg, this.geo.cyl, this.mat('silver'), 1.5, 3.2, 1.5, 0, 0, 0, pick); vault.rotation.x = Math.PI / 2; vault.scale.set(1.5, 3.2, 1.2);
+    this.part(hg, this.geo.box, this.mat('stoneDark'), 2.4, 1.1, 0.05, 0, 0.55, 1.62, pick);
+    var cvh = document.createElement('canvas'); cvh.width = 256; cvh.height = 48; var ch = cvh.getContext('2d'); ch.fillStyle = '#3a4a72'; ch.fillRect(0, 0, 256, 48); ch.fillStyle = '#fff'; ch.font = '700 30px "Trebuchet MS", sans-serif'; ch.textAlign = 'center'; ch.textBaseline = 'middle'; ch.fillText('ALKAN AIR', 128, 26);
+    var htx = new T.CanvasTexture(cvh), hs = new T.Mesh(new T.PlaneGeometry(1.6, 0.3), new T.MeshBasicMaterial({ map: htx })); hs.position.set(0, 1.35, 1.63); hg.add(hs); hs.userData.pick = pick; this.picks.push(hs);
+    var ws = new T.Group(); ws.position.set(-side * 1.9, lg(-side * 1.9, -R.len / 2 + 3), -R.len / 2 + 3); g.add(ws);
+    this.part(ws, this.geo.cyl6, this.mat('stoneDark'), 0.03, 1.4, 0.03, 0, 0.7, 0, pick); var sock = this.part(ws, this.geo.cone, this.mat('tpaint', 5), 0.12, 0.5, 0.12, 0.25, 1.32, 0, pick); sock.rotation.z = -Math.PI / 2;
+    // The King Air, parked on the apron, nose to the runway.
+    var plane = this.kingAir(this.world), park = new T.Vector3(side * 3.4, 0, -2.2);
+    var A = { g: g, R: R, plane: plane, side: side, y0: y0, park: park, lg: lg, phase: 'park', t: 0, until: performance.now() + 20000 };
+    this.st.airport = A;
+    this.airportPlace(A, park.clone().setY(lg(park.x, park.z)), -side * Math.PI / 2);
+    this.pop(g, delay); this.solidAt = 0;
+  };
+  // Places the plane at a point in the airport's frame, heading (radians, local) h.
+  Town.prototype.airportPlace = function (A, p, h, pitch, bank) {
+    A.g.updateMatrixWorld(true);
+    var w = A.g.localToWorld(p.clone()), pl = A.plane;
+    pl.position.copy(w); pl.rotation.set(0, 0, 0); pl.rotation.order = 'YXZ';
+    pl.rotation.y = A.g.rotation.y + h; pl.rotation.x = -(pitch || 0); pl.rotation.z = bank || 0;
+  };
+  // One leg of a flight: a smooth curve from where the plane is to a target point and heading.
+  function bez(a, b, c, d, t) { var u = 1 - t; return a * u * u * u + 3 * b * u * u * t + 3 * c * u * t * t + d * t * t * t; }
+  Town.prototype.stepAirport = function (dt, now) {
+    var A = this.st.airport, self = this;
+    if (!A) return;
+    var R = A.R, L = R.len, pl = A.plane, flying = A.phase !== 'park';
+    pl.userData.props.forEach(function (p) { p.rotation.z += dt * (flying ? 40 : 0); });
+    if (A.phase === 'park') {
+      if (now < A.until || this.reduced) return;
+      // Plan the flight: taxi out, take off, a circuit over town, land, taxi back.
+      var hz = 0, y = function (x, z) { return A.lg(x, z); };
+      var p0 = A.park.clone().setY(y(A.park.x, A.park.z)), start = new T.Vector3(0, y(0, -L / 2 + 1.5), -L / 2 + 1.5), lift = new T.Vector3(0, y(0, L / 2) + 5, L / 2 + 8);
+      var down = new T.Vector3(A.side * 30, 13, 10), base = new T.Vector3(A.side * 18, 10, -L / 2 - 26), fin = new T.Vector3(0, y(0, -L / 2) + 3, -L / 2 - 10), touch = new T.Vector3(0, y(0, -L / 2 + 3), -L / 2 + 3), stop = new T.Vector3(0, y(0, L / 2 - 4), L / 2 - 4), back = new T.Vector3(A.side * 2.2, y(A.side * 2.2, 2), 2);
+      A.legs = [
+        { to: start, h: 0, dur: 7, ground: true, from: p0, fh: -A.side * Math.PI / 2 },
+        { to: lift, h: 0, dur: 6.5, ease: 'in' }, { to: down, h: Math.PI, dur: 11 }, { to: base, h: Math.PI, dur: 9 },
+        { to: fin, h: 0, dur: 9 }, { to: touch, h: 0, dur: 4, ease: 'out' }, { to: stop, h: 0, dur: 5.5, ground: true, ease: 'out' },
+        { to: back, h: -A.side * Math.PI / 2 + Math.PI, dur: 6, ground: true }, { to: p0, h: -A.side * Math.PI / 2, dur: 4, ground: true }
+      ];
+      A.leg = 0; A.t = 0; A.phase = 'fly'; A.pos = p0.clone(); A.head = -A.side * Math.PI / 2;
+      A.legs[0].from = A.pos.clone(); A.legs[0].fh = A.head;
+    }
+    var Lg = A.legs[A.leg];
+    if (!Lg.from) { Lg.from = A.pos.clone(); Lg.fh = A.head; }
+    A.t += dt / Lg.dur;
+    var t = Math.min(1, A.t), te = Lg.ease === 'in' ? t * t : Lg.ease === 'out' ? 1 - (1 - t) * (1 - t) : t;
+    var f = Lg.from, to = Lg.to, dist = f.distanceTo(to) / 3;
+    var c1 = new T.Vector3(f.x + Math.sin(Lg.fh) * dist, f.y, f.z + Math.cos(Lg.fh) * dist), c2 = new T.Vector3(to.x - Math.sin(Lg.h) * dist, to.y, to.z - Math.cos(Lg.h) * dist);
+    var p = new T.Vector3(bez(f.x, c1.x, c2.x, to.x, te), bez(f.y, c1.y, c2.y, to.y, te), bez(f.z, c1.z, c2.z, to.z, te));
+    var q = new T.Vector3(bez(f.x, c1.x, c2.x, to.x, Math.min(1, te + 0.01)), bez(f.y, c1.y, c2.y, to.y, Math.min(1, te + 0.01)), bez(f.z, c1.z, c2.z, to.z, Math.min(1, te + 0.01)));
+    var dx = q.x - p.x, dz = q.z - p.z, hd = Math.hypot(dx, dz) > 1e-4 ? Math.atan2(dx, dz) : A.head;
+    var turn = hd - A.head; while (turn > Math.PI) turn -= Math.PI * 2; while (turn < -Math.PI) turn += Math.PI * 2;
+    var bank = Lg.ground ? 0 : Math.max(-0.6, Math.min(0.6, -turn / Math.max(dt, 1e-3) * 0.35)), pitch = Lg.ground ? 0 : Math.atan2(q.y - p.y, Math.hypot(dx, dz) || 1e-3) * 0.8;
+    if (Lg.ground) p.y = A.lg(p.x, p.z);
+    A.pos = p; A.head = hd;
+    A.bank = (A.bank || 0) + (bank - (A.bank || 0)) * Math.min(1, dt * 3);
+    this.airportPlace(A, p, hd, pitch, A.bank);
+    if (t >= 1) {
+      A.leg++; A.t = 0;
+      if (A.leg >= A.legs.length) { A.phase = 'park'; A.until = now + 60000 + Math.random() * 60000; this.airportPlace(A, A.legs[A.legs.length - 1].to, A.legs[A.legs.length - 1].h); }
+    }
+    this.needsRender = true;
   };
 
   // ---- towns up the line ------------------------------------------------------------------
@@ -2782,6 +2926,7 @@
   Town.prototype.buildMilestone = function (kind, delay) {
     if (/^(yflag|fireweed|winter|klondike|ravens|canyon)$/.test(kind)) { this.yukonMilestone(kind, delay); return; }
     if (/^(sign|plaza|bunting|milepost|artscentre|lights)$/.test(kind)) { this.cityMilestone(kind, delay); return; }
+    if (kind === 'airport') { this.buildAirport(delay); return; }
     var g = new T.Group(), self = this, a = GATE_ANGLE * D2R;
     var ox = Math.cos(a), oz = -Math.sin(a), rot = Math.atan2(ox, oz);
     if (kind === 'gatehouse') {
@@ -7168,6 +7313,7 @@
     if (!loose && FOREST.hash ? FOREST.hash.near(p.x, p.z, rad + 0.9) : !loose && FOREST.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < rad + 0.9; })) return false;
     if (SPORT_SLOTS.some(function (sl) { var q = polar(sl[0], sl[1]); return Math.hypot(q.x - p.x, q.z - p.z) < rad + 4; })) return false;
     if (CASTLE_SITES.some(function (c, ci) { return Math.hypot(c.x - p.x, c.z - p.z) < rad + (ci ? 21 : 15); })) return false;
+    if (inAirport(p, rad)) return false;
     if (PEAKS.some(function (k) { return Math.hypot(k.x - p.x, k.z - p.z) < rad + k.h * 0.9 + 2; })) return false;
     if (Math.hypot(SNOW.c.x - p.x, SNOW.c.z - p.z) < SNOW.R + rad + 3) return false;
     if (Math.hypot(PASTURE.x - p.x, PASTURE.z - p.z) < rad + PASTURE_R + 3) return false;
@@ -8056,6 +8202,7 @@
     if (s.wiz && s.wiz.crystals) { s.wiz.crystals.rotation.y = now / 2500; s.wiz.crystals.position.y = s.wiz.top - 2 + Math.sin(now / 900) * 0.25; }
     if (s.mine && s.mine.wheel) s.mine.wheel.rotation.x = now / 900;
     if (s.yk) this.stepYukon(dt, now);
+    if (s.airport) this.stepAirport(dt, now);
     if (s.den && s.den.chim && !this.soft && now > (s.den.smokeAt || 0)) { s.den.smokeAt = now + 900; var cp = s.den.chim.getWorldPosition(new T.Vector3()); this.puff(cp.x, cp.y, cp.z, 1, 'smoke', 0.02); }
     if (s.weasel) {
       var Wz = s.weasel; Wz.body.rotation.z = Math.sin(now / 700) * 0.08; Wz.head.rotation.y = Math.sin(now / 1100) * 0.5; Wz.tail.rotation.y = Math.sin(now / 300) * 0.5;
@@ -11373,7 +11520,7 @@
             landmarks.length ? 'Landmarks: ' + landmarks.join(', ') + '.' : 'Just getting started.',
             nxt ? 'Next building in ' + plural((nb + 1) * CITY_EVERY - tw.n, 'session') + (nxt[3] ? ': ' + nxt[3] + '.' : '.') : nb === CS.plan.length && tw.n < MAX_LAYERS ? 'Street lamps go up when it’s finished.' : 'The street is finished.',
             tw.flying ? 'Flag flying: your last session here set a PR.' : '',
-            p[1] === 'full' ? '' : 'It can only get so far ahead of the rest of town (' + Math.min(MAX_LAYERS, this.towerCap()) + ' sessions right now); past that, sessions add street life' + (tw.bailey ? ' (' + tw.bailey.done + ' so far)' : '') + '. When every street is done, lifting builds the towns up the line.',
+            p[1] === 'full' ? '' : 'It can only get so far ahead of the rest of town (' + Math.min(MAX_LAYERS, this.towerCap()) + ' sessions right now); past that, sessions add street life' + (tw.bailey ? ' (' + tw.bailey.done + ' so far)' : '') + '. Once this street and its street life are done, this group’s sessions build the towns up the line (other streets don’t have to be finished).',
             tail || 'Log one of these to start building.'] };
         }
         return { title: tw.def.name, lines: [plural(tw.n, 'session') + ' · ' + plural(tw.prs, 'PR') + ' all-time',
@@ -11428,6 +11575,8 @@
         return EM ? { title: EM.name + ' needs a favour', lines: [EM.errand.ask, 'Bring it over and they\u2019ll pay you a coin. Errands run: ' + ES.errands + (ES.errands < 10 ? ' (the mice have a surprise at 10).' : ES.errands < 50 ? ' (and another at 50).' : '.')] } : null;
       }
       case 'city': return { title: 'Whitehorse', lines: ['The capital of the Yukon. Each street grows with one muscle group: Main Street with full-body days, then Lambert Street, Front Street, Government Square, Airport Hill, Takhini and Marwell.', 'Hover a street for what’s next.'] };
+      case 'airport': return { title: 'Whitehorse airport (YXY)', lines: ['Erik Nielsen Whitehorse International, up on the hill above town.', 'Alkan Air’s King Air 350 flies a circuit over town every couple of minutes.'] };
+      case 'kingair': return { title: 'Alkan Air King Air 350', lines: ['A twin-turboprop Beechcraft King Air 350, in Alkan Air colours: Whitehorse’s own charter and medevac airline.'] };
       case 'milepost': return { title: 'The Alaska Highway', lines: ['Whitehorse sits at Historic Mile 918 of the Alaska Highway, built in 1942.'] };
       case 'artscentre': return { title: 'The Yukon Arts Centre', lines: ['Theatre, galleries and concerts on the hill above town.'] };
       case 'canyon': return { title: 'Miles Canyon', lines: ['Basalt walls above the Yukon River, and the suspension footbridge across them.'] };
