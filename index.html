@@ -137,6 +137,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .tip h2 { margin: 0 0 4px; font-family: var(--display); font-weight: 700; font-size: 17px; }
 .tip p { margin: 0; color: var(--muted); }
 .tip p:first-of-type { color: var(--ink); font-weight: 600; }
+.tip.brief { padding-top: 7px; padding-bottom: 7px; }
+.tip.brief h2 { margin: 0; font-size: 15px; }
+.tip p.more { color: var(--muted); font-weight: 400; font-size: 11px; margin-top: 1px; }
 .toast {
   position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
   padding: 8px 14px; font-family: var(--display); font-weight: 600; font-size: 15px; z-index: 6; pointer-events: none;
@@ -347,7 +350,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v111';
+  var BUILD = 'v112';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -534,7 +537,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
     else if (key === 'dogs') town.st.dogs.order.forEach(function (n, i) { setTimeout(function () { town.bark(n, true); }, i * 250); });
     var p = town.playerScreen();
     if (!p) return;
-    showInfo(key, p.x, p.y);
+    showInfo(key, p.x, p.y, true);
     clearTimeout(tipTimer); tipTimer = setTimeout(function () { $('tip').hidden = true; }, 5000);
   };
   $('near').addEventListener('click', function () { town.interact(); });
@@ -902,13 +905,22 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
   $('scrub').addEventListener('input', function () { showUpTo(+this.value); });
 
   // ---- hover / tap info ----
-  var tip = $('tip');
-  function showTip(x, y) { showInfo(town.pick(x, y), x, y); }
-  function showInfo(key, x, y) {
+  // Hovering shows just the name; Q (or a second tap) opens the full card.
+  var tip = $('tip'), tipKey = null, tipFull = false, tipAt = [0, 0];
+  function showTip(x, y) { var k = town.pick(x, y); if (k === tipKey && !tip.hidden) { tipAt = [x, y]; placeTip(x, y); return; } showInfo(k, x, y, false); }
+  function placeTip(x, y) { tip.style.left = Math.min(Math.max(x, 140), innerWidth - 140) + 'px'; tip.style.top = Math.max(y, tipFull ? 160 : 60) + 'px'; }
+  function showInfo(key, x, y, full) {
+    if (full === undefined) full = true;
     var info = key && town.info(key);
+    tipKey = info ? key : null; tipFull = !!info && full; tipAt = [x, y];
     if (!info) { tip.hidden = true; return; }
     tip.innerHTML = '';
     var h = document.createElement('h2'); h.textContent = info.title; tip.append(h);
+    tip.classList.toggle('brief', !full);
+    if (!full) {
+      var more = document.createElement('p'); more.className = 'more'; more.textContent = coarse ? 'tap again for more' : 'Q for more'; tip.append(more);
+      tip.classList.remove('wide'); placeTip(x, y); tip.hidden = false; return;
+    }
     info.lines.filter(Boolean).forEach(function (l) { var p = document.createElement('p'); p.textContent = l; tip.append(p); });
     tip.classList.toggle('wide', !!info.books);
     if (info.books) {
@@ -922,8 +934,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
       if (info.books.length > shown2.length) { var more = document.createElement('li'); more.textContent = '+ ' + (info.books.length - shown2.length) + ' more'; ul.append(more); }
       tip.append(ul);
     }
-    tip.style.left = Math.min(Math.max(x, 140), innerWidth - 140) + 'px';
-    tip.style.top = Math.max(y, 160) + 'px';
+    placeTip(x, y);
     tip.hidden = false;
     // The book list hangs below the pointer, kept on screen.
     if (info.books) tip.style.top = Math.max(8, Math.min(y, innerHeight - tip.offsetHeight - 26)) + 'px';
@@ -935,8 +946,17 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
   $('scene').addEventListener('pointerleave', function () { tip.hidden = true; });
   $('scene').addEventListener('pointerdown', function (e) { down = [e.clientX, e.clientY]; tip.hidden = true; });
   $('scene').addEventListener('pointerup', function (e) {
-    if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 6 && e.pointerType !== 'mouse') showTip(e.clientX, e.clientY);
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) >= 6 || e.pointerType === 'mouse') return;
+    var k = town.pick(e.clientX, e.clientY);
+    showInfo(k, e.clientX, e.clientY, k && k === tipKey && !tipFull); // second tap on the same thing: the full card
   });
+  // Q opens the full card for whatever's being hovered (and doesn't turn the map while it does).
+  addEventListener('keydown', function (e) {
+    if ((e.key !== 'q' && e.key !== 'Q') || /input|textarea|select/i.test((e.target && e.target.tagName) || '')) return;
+    if (tip.hidden || !tipKey || tipFull) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    showInfo(tipKey, tipAt[0], tipAt[1], true);
+  }, true);
 
   // ---- the bookshelf: every book with its cover, rating, month and your review ----
   var SPINES = ['#7a3b2e', '#2f5e4e', '#3f4f7a', '#8a5a2e', '#5e3f6e', '#2e5a6e'];

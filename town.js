@@ -120,7 +120,7 @@
   // A river comes down from the back hills, bends around the right of town through the forest,
   // and runs out past the farmland.
   var RIVER_HALF = 1.7;
-  var RIVER = bezierPath(polar(70, 100), polar(72, 64), polar(36, 34), polar(18, 38), 160).concat(bezierPath(polar(18, 38), polar(2, 44), polar(345, 58), polar(328, 104), 160));
+  var RIVER = bezierPath(polar(70, 132), polar(72, 64), polar(36, 34), polar(18, 38), 160).concat(bezierPath(polar(18, 38), polar(2, 44), polar(345, 58), polar(328, 136), 160));
   var RIVER_GRID = (function () { var g = {}; RIVER.forEach(function (p) { var k = Math.floor(p.x / 6) + ',' + Math.floor(p.z / 6); (g[k] = g[k] || []).push(p); }); return g; })();
   RIVER.forEach(function (p, i) { p.i = i; });
   var RIVER_NEAR = RIVER[0];
@@ -145,7 +145,7 @@
   }
   // The towns up the line start here once the castle's towers can't grow any taller: Dawson City by
   // the river, Atlin by the lake, Haines Junction behind the ranges, Skagway on the coast, then Haines.
-  var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(42, 80), { lift: 1.2 }), Object.assign(polar(238, 84), { lift: 0.8 }), Object.assign(polar(135, 88), { lift: 1.5 }), Object.assign(polar(302, 84), { lift: 0.6 }), Object.assign(polar(274, 86), { lift: 0.8 })];
+  var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(45, 116), { lift: 1.2 }), Object.assign(polar(242, 122), { lift: 0.8 }), Object.assign(polar(122, 118), { lift: 1.5 }), Object.assign(polar(300, 122), { lift: 0.4 }), Object.assign(polar(318, 118), { lift: 0.3 })];
   var MAX_LAYERS = 36;
   // How fast the castles rise. The first castle's towers may climb a layer every MAIN_CAP_EVERY
   // lifting sessions; each session builds CASTLE_PACE.mainBailey of its halls and turrets, and
@@ -179,7 +179,7 @@
   // The dragon's cave, out past the river.
   var HOARD = polar(18, 84);
   var SNOW = { c: polar(97, 58), R: 17, H: 19, runs: 42 };
-  var RIDGE = { a: 176, r: 57 };
+  var RIDGE = { a: 172, r: 90 };
   var PEAK_START = 1.1;   // a fresh peak is a grassy hill this tall
   var FIELD_TILE = 0.9;
   var CROP_KINDS = ['wheat', 'pumpkin', 'cabbage', 'corn', 'sunflower'];
@@ -345,7 +345,7 @@
     var r = rng(3131), out = [];
     for (var i = 0; i < 27; i++) {
       var side = i === 0 ? 0 : (i % 2 ? -1 : 1), step = Math.ceil(i / 2), foot = i % 3 === 2;
-      var a = RIDGE.a + side * step * 4.4 + (r() - 0.5) * 2;
+      var a = RIDGE.a + side * step * 2.7 + (r() - 0.5) * 1.4;
       var d = RIDGE.r + (foot ? -9 : 0) + (r() - 0.5) * 7;
       var h = foot ? 4 + r() * 3 : (i === 0 ? 18 : 10 + r() * 8);
       var p = polar(a, d);
@@ -353,7 +353,7 @@
     }
     return out;
   })();
-  function inRidge(x, z) { return inSector(x, z, 128, 224, 40, 76); }
+  function inRidge(x, z) { return inSector(x, z, 128, 214, 72, 110); }
 
   // Snowboard mountain: its own profile so runs can follow the slope.
   var SNOW_FACE = Math.atan2(-SNOW.c.z, -SNOW.c.x); // the side facing town
@@ -380,11 +380,11 @@
   }
   // ---- water and landforms beyond the town ----
   // The coast: past the farmland the land drops to a beach and the sea. The shoreline runs
-  // across the 320° direction about 104 out, with a gentle wobble; the river reaches it there.
+  // across the 320° direction about 134 out, with a gentle wobble; the river reaches it there.
   var COAST_N = { x: Math.cos(320 * D2R), z: -Math.sin(320 * D2R) }, COAST_T = { x: -COAST_N.z, z: COAST_N.x };
   function coastSd(x, z) {
     var tp = x * COAST_T.x + z * COAST_T.z;
-    return x * COAST_N.x + z * COAST_N.z - (104 + 4 * Math.sin(tp * 0.06) + 2.5 * Math.sin(tp * 0.17 + 1));
+    return x * COAST_N.x + z * COAST_N.z - (134 + 4 * Math.sin(tp * 0.06) + 2.5 * Math.sin(tp * 0.17 + 1));
   }
   var SEA_Y = -0.55;
   // The lighthouse headland: a point of high ground on the shore that ends in sheer cliffs.
@@ -399,7 +399,7 @@
     return HEAD.top * 0.9 * (1 - smooth(1, 1.06 + land * 0.8, e)) + (land < 0.5 ? -4 * smooth(1.06, 1.3, e) : 0);
   }
   // A lake in the hills behind the mountains, with an irregular shore.
-  var LAKE = { c: polar(213, 85), R: 8.5 };
+  var LAKE = { c: polar(226, 98), R: 8.5 };
   LAKE.y = rawHeight(LAKE.c.x, LAKE.c.z);
   function lakeEdge(a) { return LAKE.R * (1 + 0.18 * Math.sin(3 * a + 1) + 0.1 * Math.sin(5 * a)); }
   function lakeDist(x, z) { var dx = x - LAKE.c.x, dz = z - LAKE.c.z; return Math.hypot(dx, dz) - lakeEdge(Math.atan2(dz, dx)); }
@@ -414,7 +414,7 @@
   var STREAM = (function () {
     var a = Math.atan2(polar(213, 1).z, polar(213, 1).x), e = lakeEdge(a);
     var p0 = { x: LAKE.c.x + Math.cos(a) * (e + 0.3), z: LAKE.c.z + Math.sin(a) * (e + 0.3) };
-    return bezierPath(p0, polar(216, 100), polar(204, 112), polar(209, 134));
+    return bezierPath(p0, polar(222, 118), polar(214, 136), polar(218, 165));
   })();
   // The waterfall sits on the lake's far shore; a ridge of high ground runs back from its cliff,
   // and a stream comes down that ridge to pour over the edge.
@@ -812,7 +812,7 @@
     this.controls = new T.OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.minZoom = 0.3;
+    this.controls.minZoom = 0.18; // far enough out to see the whole map, coast to railway
     this.controls.maxZoom = 4;
     this.controls.maxPolarAngle = 1.3;
     this.controls.minPolarAngle = 0.3;
@@ -1040,7 +1040,7 @@
     var spots = [], rr = rng(11);
     function ok(x, z) { if (inAirport({ x: arguments[0], z: arguments[1] }, 1.5)) return false;
       var r = Math.hypot(x, z);
-      if (r < 31 || r > 100) return false;
+      if (r < 31 || r > 132) return false;
       if (inFarmland(x, z) || inRidge(x, z) || inSector(x, z, 332, 82, 0, 55)) return false;
       if (Math.hypot(x - SNOW.c.x, z - SNOW.c.z) < SNOW.R + 3 || riverDist(x, z) < (canyonDepth(x, z) > 0 ? 12 : 3.2)) return false;
       if (coastSd(x, z) > -8 || lakeDist(x, z) < 3 || streamDist(x, z) < 2.2 || Math.hypot(x - PASTURE.x, z - PASTURE.z) < PASTURE_R + 2.5 || Math.hypot(x - CHURCH.x, z - CHURCH.z) < 10 || Math.hypot(x - LIBRARY.x, z - LIBRARY.z) < 13 || inTownSquare(x, z, 3)) return false;
@@ -1059,12 +1059,12 @@
       if (Math.hypot(x - NORDIC.cabin.x, z - NORDIC.cabin.z) < 4.5) return false;
       return true;
     }
-    for (var uu = -12; uu <= 12; uu++) for (var t = -105; t <= 105; t += 1.25) {
+    for (var uu = -16; uu <= 16; uu++) for (var t = -138; t <= 138; t += 1.25) {
       var zz = t, xx = uu * 9 - 0.3 * zz;
       if (rr() < 0.3 || !ok(xx, zz)) continue;
       spots.push([xx + (rr() - 0.5) * 0.4, zz]);
     }
-    for (var vv = -13; vv <= 13; vv++) for (t = -105; t <= 105; t += 1.25) {
+    for (var vv = -17; vv <= 17; vv++) for (t = -138; t <= 138; t += 1.25) {
       xx = t; zz = vv * 8 + 0.2 * xx;
       if (rr() < 0.3 || !ok(xx, zz)) continue;
       spots.push([xx, zz + (rr() - 0.5) * 0.4]);
@@ -1107,6 +1107,11 @@
     // and the paths to fields and pitches are laid later, as those get built.
     var cobbles = [], dirt = [], self = this; // (no ring road round Whitehorse any more: the city's streets meet the paths)
     PATHS.forEach(function (pa) { if (pa.field || pa.sport != null || pa.castle) return; pa.pts.forEach(function (p) { (pa.kind === 'road' ? cobbles : dirt).push(p); }); });
+    // A road out to every town up the line, there from the start (each town grows at the end of it).
+    CASTLE_ROADS.forEach(function (rd, ci) {
+      if (!rd) return;
+      rd.forEach(function (p) { dirt.push(p); });
+    });
     this.layTiles(cobbles, 'cobble', 1.5, base);
     this.layTiles(dirt, 'path', 0.95, base);
     var lamps = [];
@@ -1691,6 +1696,23 @@
     }
     return { x: F.u.x * d + F.v.x * off, z: F.u.z * d + F.v.z * off, r: Math.atan2(dir.x, dir.z) / D2R, ground: true };
   }
+  // The town's name on a signpost at the end of its road, there before the town is.
+  Town.prototype.townSigns = function () {
+    var self = this, base = this.world;
+    CASTLE_ROADS.forEach(function (rd, ci) {
+      if (!rd) return;
+      var end = rd[rd.length - 1], prev = rd[rd.length - 4] || rd[0], sg = new T.Group(), sy = groundY(end.x, end.z);
+      sg.position.set(end.x, sy, end.z); sg.rotation.y = Math.atan2(end.x - prev.x, end.z - prev.z) + Math.PI; base.add(sg);
+      var offx = 1.3;
+      [-0.55, 0.55].forEach(function (x) { var pst = self.mesh(self.geo.cyl6, self.mat('logwood', 0), sg); pst.scale.set(0.06, 1.3, 0.06); pst.position.set(offx + x, 0.65, 0); });
+      var cv = document.createElement('canvas'); cv.width = 384; cv.height = 96; var cx = cv.getContext('2d');
+      cx.fillStyle = '#6a4224'; cx.fillRect(0, 0, 384, 96); cx.strokeStyle = '#f3efe6'; cx.lineWidth = 6; cx.strokeRect(6, 6, 372, 84);
+      cx.fillStyle = '#f3efe6'; cx.font = '700 40px "Trebuchet MS", sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(STATION_NAMES[ci].toUpperCase(), 192, 50);
+      var tex = new T.CanvasTexture(cv); tex.magFilter = T.NearestFilter;
+      var board = new T.Mesh(new T.PlaneGeometry(1.4, 0.36), new T.MeshBasicMaterial({ map: tex, side: T.DoubleSide })); board.position.set(offx, 1.15, 0.04); sg.add(board);
+      board.userData.pick = 'townsite:' + ci; self.picks.push(board);
+    });
+  };
   Town.prototype.cityInit = function () {
     var self = this, g = new T.Group(), y0 = groundY(0, 0);
     g.position.set(0, y0, 0); this.world.add(g);
@@ -1701,6 +1723,7 @@
       var F = cityFrame(k), st = self.part(g, self.geo.box, self.mat('path'), 1.4, 0.05, 11, F.u.x * 8.8, 0.03, F.u.z * 8.8, 'tower:' + k);
       st.rotation.y = Math.atan2(F.u.x, F.u.z);
     });
+    this.townSigns();
     return C;
   };
   // A layer of lifting on a street: every CITY_EVERY layers, the next building goes up.
@@ -2065,7 +2088,7 @@
     C.slots = [];
     for (var sr = 0; sr < 2 && C.slots.length < OUTSKIRTS.length; sr++) for (var th = 140 + sr * 8; th <= 330; th += 15) {
       var lr = 16.2 + sr * 1.8, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
-      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > 112 || nearPath(wx, wz, 1.2)) continue;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > 146 || nearPath(wx, wz, 1.2)) continue;
       C.slots.push({ x: lx, z: lz, r: Math.atan2(-lx, -lz) / D2R, ground: true });
     }
     var streetMat = this.mat('tstreet', D.street === 'gravel' ? 1 : 0);
@@ -3545,7 +3568,7 @@
     var sea = new T.Mesh(new T.PlaneGeometry(640, 300).rotateX(-Math.PI / 2), this.mat('water'));
     var th = Math.atan2(-COAST_T.z, COAST_T.x);
     sea.rotation.y = th;
-    sea.position.set(COAST_N.x * 246, SEA_Y, COAST_N.z * 246);
+    sea.position.set(COAST_N.x * 276, SEA_Y, COAST_N.z * 276);
     sea.receiveShadow = true;
     base.add(sea);
     // A sandy beach along the shore.
@@ -6905,7 +6928,7 @@
   // ---- the railway: a station opens at each finished castle ----------------
   // A White Pass & Yukon Route style narrow-gauge line round the edge of the map: an even grade,
   // timber trestles over low ground and the bay, and tunnels through four rocky hills.
-  var RAIL_R = 112, RAIL_STEP = 0.5;
+  var RAIL_R = 142, RAIL_STEP = 0.5;
   // The line swings out over the water round the lighthouse headland.
   function railR(a) {
     var d = angleDiff(a, 338), d2 = angleDiff(a, 70); // the lighthouse headland, and the glacier's foot
@@ -7302,7 +7325,7 @@
   // loose: ignore ground only reserved for future forest and wild trees.
   function groundClear(p, rad, loose) {
     var d = Math.hypot(p.x, p.z);
-    if (d > 96 || d < 17) return false;
+    if (d > 126 || d < 17) return false;
     var rdd = riverDist(p.x, p.z);
     if (rdd < rad + 2.5 || nearPath(p.x, p.z, rad + 0.9)) return false;
     // Keep well back from the canyon's rims and rocks.
@@ -7408,7 +7431,7 @@
       }
     }
     // Nothing near the hoped-for spot: take the nearest clear ground anywhere instead.
-    for (var r2 = 20; r2 < 96; r2 += 3) for (var a2 = 0; a2 < 360; a2 += 4) { var q = polar(angle + a2, r2); if (clear(q)) return q; }
+    for (var r2 = 20; r2 < 126; r2 += 3) for (var a2 = 0; a2 < 360; a2 += 4) { var q = polar(angle + a2, r2); if (clear(q)) return q; }
     return polar(angle, r);
   };
   // Secrets that aren't earned by workouts (typed in, say); the page remembers them and
@@ -11575,6 +11598,7 @@
         return EM ? { title: EM.name + ' needs a favour', lines: [EM.errand.ask, 'Bring it over and they\u2019ll pay you a coin. Errands run: ' + ES.errands + (ES.errands < 10 ? ' (the mice have a surprise at 10).' : ES.errands < 50 ? ' (and another at 50).' : '.')] } : null;
       }
       case 'city': return { title: 'Whitehorse', lines: ['The capital of the Yukon. Each street grows with one muscle group: Main Street with full-body days, then Lambert Street, Front Street, Government Square, Airport Hill, Takhini and Marwell.', 'Hover a street for what’s next.'] };
+      case 'townsite': { var TD = TOWNS[+p[1]], TC = s.castles[+p[1]]; return { title: TD.name, lines: [TD.vibe, TC ? plural(TC.built, 'piece') + ' of ' + TD.plan.length + ' built.' : 'Not started yet: it grows here once your Whitehorse streets fill up and spill over.'] }; }
       case 'airport': return { title: 'Whitehorse airport (YXY)', lines: ['Erik Nielsen Whitehorse International, up on the hill above town.', 'Alkan Air’s King Air 350 flies a circuit over town every couple of minutes.'] };
       case 'kingair': return { title: 'Alkan Air King Air 350', lines: ['A twin-turboprop Beechcraft King Air 350, in Alkan Air colours: Whitehorse’s own charter and medevac airline.'] };
       case 'milepost': return { title: 'The Alaska Highway', lines: ['Whitehorse sits at Historic Mile 918 of the Alaska Highway, built in 1942.'] };
@@ -11847,7 +11871,7 @@
     }
     // Keep the view over the countryside.
     var tg = this.controls.target, far = Math.hypot(tg.x, tg.z);
-    if (far > 120 && !(this.player && this.player.inDen)) { var back = new T.Vector3(tg.x, 0, tg.z).multiplyScalar(1 - 120 / far); tg.sub(back); this.camera.position.sub(back); }
+    if (far > 150 && !(this.player && this.player.inDen)) { var back = new T.Vector3(tg.x, 0, tg.z).multiplyScalar(1 - 150 / far); tg.sub(back); this.camera.position.sub(back); }
     var changed = this.controls.update();
     if (this.soft) {
       if (!(changed || moved || this.anims.length || this.needsRender) || now - (this.lastPaint || 0) < 33) return;
@@ -11971,7 +11995,7 @@
   // feet: how high the raccoon's feet are mid-jump; anything lower than that can be hopped over.
   Town.prototype.walkable = function (x, z, feet, aloft) {
     var r = 0.22;
-    if (Math.hypot(x, z) > 118) return false;
+    if (Math.hypot(x, z) > 150) return false;
     var deck = this.deckAt(x, z);
     if (deck || aloft) return this.clearOfSolids(x, z, feet);
     // Raccoons swim: the lake, the ponds, the sea and the river are all fair game, except the
@@ -11985,7 +12009,7 @@
     var cs = coastSd(x, z);
     if (cs > -0.6) return SEA_Y;
     // The shallows: anything near the coast that dips below sea level is under the sea too.
-    if (cs > -16 && x * COAST_N.x + z * COAST_N.z > 96.5 && groundY(x, z) < SEA_Y - 0.03) return SEA_Y; // (where the sea sheet is drawn)
+    if (cs > -16 && x * COAST_N.x + z * COAST_N.z > 126.5 && groundY(x, z) < SEA_Y - 0.03) return SEA_Y; // (where the sea sheet is drawn)
     for (var i = 0; i < TARNS.length; i++) { var t = TARNS[i]; if (Math.hypot(x - t.x, z - t.z) < t.R) return t.y; }
     if (riverDist(x, z) < RIVER_HALF + 0.2 && !nearPath(x, z, 1.1) && !LANE.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 0.9; })) return riverWaterY(x, z);
     return null;
