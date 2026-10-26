@@ -9045,6 +9045,28 @@
     var l = pickOne(fresh); seen[l] = today; this.saveStore();
     return l;
   };
+  // The last film you watched (from Letterboxd): the picture house is the talk of the town.
+  Town.prototype.filmLine = function () {
+    var F = this.st.lastFilm, t = this.today;
+    if (!F || !F.title || !t) return null;
+    var since = Math.round((Date.parse(t) - Date.parse(F.date)) / 864e5);
+    if (!(since >= 0 && since <= 10)) return null;
+    var T0 = F.title, yr = +F.year, lines = [
+      (since === 0 ? 'saw ' : 'heard you saw ') + T0 + (since === 0 ? ' tonight' : '') + '! any good?',
+      'was ' + T0 + ' worth the popcorn?', 'I fell asleep halfway through ' + T0 + ' once. don’t tell anyone',
+      'the picture house mice are still arguing about ' + T0, 'who did you watch ' + T0 + ' with?'];
+    if (F.rewatch) lines.push('watching ' + T0 + ' again? it must be a good one', 'a rewatch! you must really love ' + T0);
+    if (F.stars >= 4.5) lines.push(F.stars + ' stars for ' + T0 + '! I’ll have to see it', 'a ' + F.stars + '-star film! the projectionist is thrilled');
+    else if (F.stars != null && F.stars <= 2) lines.push('only ' + F.stars + ' stars for ' + T0 + '? I’ll give it a miss then', T0 + ' was a dud, was it? happens to the best of us');
+    else if (F.stars != null) lines.push(F.stars + ' stars for ' + T0 + '. solid, then');
+    if (yr && yr < 1970) lines.push('an old one! ' + T0 + ' came out before my grandmother was a mouse');
+    else if (yr && yr >= new Date(t).getFullYear() - 1) lines.push(T0 + ', the new one? very fashionable, dear');
+    var S = this.keep(), seen = S.theo || (S.theo = {}), today = Date.parse(t);
+    var fresh = lines.filter(function (x) { return !seen[x] || today - seen[x] > 14 * 864e5; });
+    if (!fresh.length) return null;
+    var l = pickOne(fresh); seen[l] = today; this.saveStore();
+    return l;
+  };
   Town.prototype.mouseRemark = function () {
     var s = this.st, t = this.today;
     if (!t || !s.byDay) return null;
@@ -9058,6 +9080,8 @@
     if (theo) return theo;
     var bk = Math.random() < 0.12 ? this.bookLine() : null;
     if (bk) return bk;
+    var fm = Math.random() < 0.12 ? this.filmLine() : null;
+    if (fm) return fm;
     if (work.length) main = this.workoutLine(pickOne(work));
     else {
       var plan = (this.planned || []).filter(function (e) { return e.date === t; })[0], hr = new Date().getHours();
@@ -9223,7 +9247,7 @@
       if (P && m.state !== 'sit' && m.state !== 'picnic' && now > (m.helloAt || 0) && Math.hypot(P.x - g.position.x, P.z - g.position.z) < 1.8) {
         m.helloAt = now + 25000; m.greet = 1.8;
         var pl = self.player, remark = Math.random() < 0.65 ? self.mouseRemark() : null;
-        var line = spooky ? 'trick or treat!' : pl.tipsy && now < pl.tipsy ? 'someone\u2019s had a few' : pl.carry && pl.carry.kind === 'beer' ? 'bit early for that, isn\u2019t it?' : pl.cig ? 'filthy habit, that' : remark && !night ? remark : night ? ['evening!', 'lovely night for it', 'can\u2019t sleep either?', 'look at all those stars', 'mind the coyotes, dear', 'out late, aren\u2019t we?'][Math.floor(Math.random() * 6)] : HELLOS[Math.floor(Math.random() * HELLOS.length)];
+        var line = spooky ? 'trick or treat!' : pl.tipsy && now < pl.tipsy ? 'someone\u2019s had a few' : pl.carry && pl.carry.kind === 'beer' ? 'bit early for that, isn\u2019t it?' : pl.cig ? 'filthy habit, that' : remark ? remark : night ? ['evening!', 'lovely night for it', 'can\u2019t sleep either?', 'look at all those stars', 'mind the coyotes, dear', 'out late, aren\u2019t we?'][Math.floor(Math.random() * 6)] : HELLOS[Math.floor(Math.random() * HELLOS.length)];
         self.say(line, g, 0.65, 2.0);
         // Halloween: a sweet for the raccoon.
         if (spooky && pl) setTimeout(function () { self.carryItem(pl, 'candy'); self.say('a sweetie!', pl.g, 1.0, 1.4); self.sfx('found'); }, 900);
@@ -9851,6 +9875,7 @@
       var bd = s.byDay || (s.byDay = {});
       (bd[ev.date] = bd[ev.date] || []).push(ev);
       if (ev.kind === 'book' && (!s.lastBookDate || ev.date >= s.lastBookDate)) { s.lastBookDate = ev.date; s.lastBook = ev; }
+      if (ev.kind === 'movie' && ev.date && (!s.lastFilm || ev.date >= s.lastFilm.date)) s.lastFilm = ev;
     }
     // Walks build the walking path but aren't workouts.
     if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie' && ev.kind !== 'walk') { s.sessions++; this.growSquare(delay); }
