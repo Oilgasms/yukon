@@ -113,7 +113,7 @@
   var SQUARE = polar(238, 24);
   var PUB = polar(250, 27.5);
   var DOG_PEN = { c: polar(281, 24.5), w: 7.5, d: 5.5 };
-  var STATUE = polar(GATE_ANGLE, 16.2);
+  var STATUE = polar(156, 27); // the weight wall, out on the edge of town by the airport road
   var FARM = { angle: 328, r: 18, cols: 5, rows: 8 }; // the flower garden
   var POND = polar(200, 34);
   var OFFICE = polar(30, 55);
@@ -145,7 +145,38 @@
   }
   // The towns up the line start here once the castle's towers can't grow any taller: Dawson City by
   // the river, Atlin by the lake, Haines Junction behind the ranges, Skagway on the coast, then Haines.
-  var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(45, 116), { lift: 1.2 }), Object.assign(polar(242, 122), { lift: 0.8 }), Object.assign(polar(122, 118), { lift: 1.5 }), Object.assign(polar(300, 122), { lift: 0.4 }), Object.assign(polar(318, 118), { lift: 0.3 })];
+  var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(45, 116), { lift: 1.2 }), Object.assign(polar(242, 122), { lift: 0.8 }), Object.assign(polar(122, 118), { lift: 1.5 }), Object.assign(polar(298, 122), { lift: 0.4 }), Object.assign(polar(322, 116), { lift: 1.9 })];
+  // Mountains round the coast towns, in each town's own frame (+z toward Whitehorse, x across):
+  // Skagway sits in a narrow valley between steep green walls, wooded to the top, and Haines on a
+  // terrace under Mount Ripinski, with hills behind and snowy peaks across the inlet. They're part
+  // of the ground, so you can walk up them. [town, x, z, radius, height, rock line, snow line]
+  function siteAt(ci, lx, lz) {
+    var s = CASTLE_SITES[ci], l = Math.hypot(s.x, s.z), rot = Math.atan2(-s.x / l, -s.z / l), c = Math.cos(rot), sn = Math.sin(rot);
+    return { x: s.x + lx * c + lz * sn, z: s.z - lx * sn + lz * c };
+  }
+  var TOWN_PEAKS = [
+    [4, 23, -5, 8, 11, 1], [4, 26, 6, 9.5, 15, 1], [4, 23, 18, 7.5, 10, 1], [4, 30, 15, 7, 12, 1],
+    [4, -22, -6, 7.5, 11, 1], [4, -25, 5, 9, 14, 1], [4, -22, 17, 7, 10, 1],
+    [5, 23, 13, 10.5, 20, 0.36, 0.62], [5, 26, 0, 7, 9, 0.8], [5, 20, 26, 7, 8, 1], [5, 4, 31, 7, 6, 1],
+    [5, -25, -10, 7, 16, 0.3, 0.56], [5, -32, -1, 7, 15, 0.3, 0.55]
+  ].map(function (p, i) { var q = siteAt(p[0], p[1], p[2]); return { ci: p[0], x: q.x, z: q.z, R: p[3], H: p[4], rock: p[5], snow: p[6] || 2, ph: i * 1.7 }; });
+  var TP_BOX = TOWN_PEAKS.reduce(function (b, k) { return [Math.min(b[0], k.x - k.R), Math.max(b[1], k.x + k.R), Math.min(b[2], k.z - k.R), Math.max(b[3], k.z + k.R)]; }, [1e9, -1e9, 1e9, -1e9]);
+  // How high the town mountains lift the ground here, and which peak is on top.
+  var TP_TOP = null;
+  function townHill(x, z) {
+    TP_TOP = null;
+    if (x < TP_BOX[0] || x > TP_BOX[1] || z < TP_BOX[2] || z > TP_BOX[3]) return 0;
+    var best = 0;
+    for (var i = 0; i < TOWN_PEAKS.length; i++) {
+      var k = TOWN_PEAKS[i], dx = x - k.x, dz = z - k.z, d = Math.hypot(dx, dz);
+      if (d >= k.R * 1.15) continue;
+      var a = Math.atan2(dz, dx), e = d / (k.R * (1 + 0.1 * Math.sin(3 * a + k.ph) + 0.05 * Math.sin(7 * a + k.ph * 2)));
+      if (e >= 1) continue;
+      var h = k.H * Math.pow(1 - e, 1.45) * (1 + 0.06 * Math.sin(x * 0.9 + z * 0.7));
+      if (h > best) { best = h; TP_TOP = k; }
+    }
+    return best;
+  }
   var MAX_LAYERS = 36;
   // How fast the castles rise. The first castle's towers may climb a layer every MAIN_CAP_EVERY
   // lifting sessions; each session builds CASTLE_PACE.mainBailey of its halls and turrets, and
@@ -312,9 +343,12 @@
 
   // Running forest: clumps and clearings to the right, spreading outward from the edge of town.
   var FOREST_SEED = polar(15, 19.5);
-  // Whitehorse airport's ground, kept clear for it: a runway running out along the far edge of the
-  // woods (trees would only reach it after years of runs), with the apron on one side (local w > 0).
-  var AIRPORT = { x: 66, z: 0, dx: 1, dz: 0, len: 20, side: 1 };
+  // Whitehorse airport's ground, kept clear for it: up on the hill just out past the DC-3 weathervane
+  // at the end of Airport Hill, the runway running across the slope with the apron on the outer
+  // side (local w > 0).
+  var AIRPORT = (function () { var c = polar(145, 38), a = 145 * D2R; return { x: c.x, z: c.z, dx: Math.sin(a), dz: Math.cos(a), len: 20, side: 1 }; })();
+  // The S.S. Klondike's berth: up on the bank on the town side of the river, lying along it.
+  var KLONDIKE = (function () { var p = RIVER[159], q = RIVER[162], dx = q.x - p.x, dz = q.z - p.z, l = Math.hypot(dx, dz); return { x: p.x - dz / l * 6.5, z: p.z + dx / l * 6.5, rot: Math.atan2(dx, dz) }; })();
   function inAirport(p, m) {
     var k = (p.x - AIRPORT.x) * AIRPORT.dx + (p.z - AIRPORT.z) * AIRPORT.dz, w = (p.x - AIRPORT.x) * AIRPORT.dz - (p.z - AIRPORT.z) * AIRPORT.dx;
     m = m || 0; return Math.abs(k) < AIRPORT.len / 2 + 4 + m && w > -3.2 - m && w < 10 + m;
@@ -332,7 +366,7 @@
       if (Math.hypot(p.x - SNOW.c.x, p.z - SNOW.c.z) < SNOW.R + 2.5 || Math.hypot(p.x - OFFICE.x, p.z - OFFICE.z) < 7.5 || Math.hypot(p.x - fg.x, p.z - fg.z) < 7) continue;
       if (SPORT_SLOTS.some(function (sl) { var q = polar(sl[0], sl[1]); return Math.hypot(q.x - p.x, q.z - p.z) < 4.6; })) continue;
       if (FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 2; })) continue;
-      if (inAirport(p, 1)) continue;
+      if (inAirport(p, 1) || Math.hypot(p.x - KLONDIKE.x, p.z - KLONDIKE.z) < 4.5) continue;
       p.order = Math.hypot(p.x - FOREST_SEED.x, p.z - FOREST_SEED.z) - n * 5 + r() * 4;
       pts.push(p); hash.add(p);
     }
@@ -460,6 +494,7 @@
   function landY(x, z) {
     var h = rawHeight(x, z), sd = coastSd(x, z);
     if (sd > -16) { h += (0.3 - h) * smooth(-16, -5, sd); h += (-3.2 - h) * smooth(-2, 7, sd); }
+    h += townHill(x, z);
     var ld = lakeDist(x, z);
     if (ld < 7) h = ld > 0 ? h + (LAKE.y + 0.45 - h) * (1 - smooth(0, 7, ld)) : LAKE.y - 0.15 - 1.6 * smooth(0, 3, -ld);
     var fr = fallRidge(x, z);
@@ -515,7 +550,7 @@
   pad(DOG_PEN.c, 4.3, 5.8);
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
-  CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: rawHeight(c.x, c.z) + c.lift }); });
+  CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); });
   // The airport's ground, levelled.
   AIRPORT.h = rawHeight(AIRPORT.x, AIRPORT.z) + 0.3;
   for (var apk = -12; apk <= 12; apk += 3) [0, 4.5].forEach(function (w) { PADS.push({ x: AIRPORT.x + AIRPORT.dx * apk + AIRPORT.dz * w, z: AIRPORT.z + AIRPORT.dz * apk - AIRPORT.dx * w, rIn: 3.6, rOut: 7.5, h: AIRPORT.h }); });
@@ -616,7 +651,7 @@
   })();
   var PATHS = (function () {
     var out = [];
-    out.push({ kind: 'road', pts: fromRing(STATUE, 0) });
+    out.push({ kind: 'path', pts: fromRing(polar(156, 27 - 1.6), 0.8) });
     out.push({ kind: 'path', pts: fromRing(polar(FARM.angle, FARM.r - 0.8), 0.4) });
     out.push({ kind: 'path', pts: fromRing(polar(angleOf(DOG_PEN.c.x, DOG_PEN.c.z), Math.hypot(DOG_PEN.c.x, DOG_PEN.c.z) - DOG_PEN.d / 2 - 0.3), 0.6) });
     out.push({ kind: 'path', pts: fromRing(FOREST_SEED, 1.5) });
@@ -625,6 +660,8 @@
     out.push({ kind: 'path', pts: trail(SQUARE, polar(angleOf(POND.x, POND.z) + 4, Math.hypot(POND.x, POND.z) - 5.5), 1) });
     SPORT_SLOTS.forEach(function (sl, i) { var p = polar(sl[0], sl[1] - 2.2); out.push({ kind: 'path', pts: fromRing(p, i % 2 ? 0.8 : -0.8), sport: i }); });
     out.push({ kind: 'path', pts: fromRing(polar(132, 27 - 2.6), 0.6) });
+    // The road up to the airport, round the end of the runway to the apron.
+    out.push({ kind: 'road', pts: fromRing({ x: AIRPORT.x - AIRPORT.dx * 14.5 + AIRPORT.dz * 4.5, z: AIRPORT.z - AIRPORT.dz * 14.5 - AIRPORT.dx * 4.5 }, 1.2) });
     out.push({ kind: 'path', pts: trail({ x: TOWN_SQ.x - TOWN_SQ.hx, z: LIBRARY.z }, frontOf(LIBRARY, 4.2), 0.2) });
     out.push({ kind: 'path', pts: trail({ x: CINEMA.x, z: TOWN_SQ.z + TOWN_SQ.hz }, frontOf(CINEMA, 2.4), 0.2) });
     out.push({ kind: 'path', pts: trail(polar(257, 37.5), polar(CHURCH_AT[0], CHURCH_AT[1] - 6.8), 1.6) });
@@ -1028,6 +1065,12 @@
       // Some fields lean golden (hay), some deeper green (pasture).
       var tint = hsh < 0.3 ? [1.08, 1.04, 0.78] : hsh > 0.75 ? [0.88, 0.97, 0.9] : [1, 1, 1];
       cols[i * 3] = f * (1 + (tint[0] - 1) * edge); cols[i * 3 + 1] = f * (1 + (tint[1] - 1) * edge); cols[i * 3 + 2] = f * (1 + (tint[2] - 1) * edge);
+      // The town mountains: deep spruce green (rock and snow go on top, below).
+      var th = townHill(x, z);
+      if (th > 0.4 && TP_TOP) {
+        var mc = [0.72, 0.8, 0.8], mb = smooth(0.4, 1.6, th);
+        for (var ch = 0; ch < 3; ch++) cols[i * 3 + ch] += (mc[ch] * (0.95 + hsh * 0.1) - cols[i * 3 + ch]) * mb;
+      }
     }
     g.setAttribute('color', new T.BufferAttribute(cols, 3));
     g.computeVertexNormals();
@@ -1035,12 +1078,40 @@
     ground.receiveShadow = true; ground.userData.ground = true;
     base.add(ground);
     this.ground = ground;
+    // Grey rock and snow on the tallest town mountains, laid over the ground on its own grid.
+    var step = size / seg, nx = seg + 1, self = this;
+    TOWN_PEAKS.forEach(function (k) {
+      if (k.rock >= 1) return;
+      var ix0 = Math.floor((k.x - k.R + size / 2) / step), ix1 = Math.ceil((k.x + k.R + size / 2) / step), iz0 = Math.floor((k.z - k.R + size / 2) / step), iz1 = Math.ceil((k.z + k.R + size / 2) / step);
+      var vs = [], cs = [], ids = [], at = {}, fh = {};
+      function vert(ix, iz) {
+        var key = ix + iz * nx;
+        if (at[key] == null) {
+          var x = -size / 2 + ix * step, z = -size / 2 + iz * step, th = townHill(x, z), f = TP_TOP === k ? th / k.H : 0, jt = 0.94 + 0.08 * Math.sin(ix * 12.9 + iz * 7.3);
+          at[key] = vs.length / 3; fh[key] = f;
+          vs.push(x, groundY(x, z) + 0.06, z);
+          var c = f > k.snow ? [0.95, 0.97, 1] : [0.56 * jt, 0.54 * jt, 0.51 * jt];
+          cs.push(c[0], c[1], c[2]);
+        }
+        return key;
+      }
+      function tri(p, q, r) { if (fh[p] > k.rock && fh[q] > k.rock && fh[r] > k.rock) ids.push(at[p], at[q], at[r]); }
+      for (var iz = iz0; iz < iz1; iz++) for (var ix = ix0; ix < ix1; ix++) {
+        var a = vert(ix, iz), b = vert(ix, iz + 1), c = vert(ix + 1, iz + 1), d = vert(ix + 1, iz);
+        tri(a, b, d); tri(b, c, d);
+      }
+      if (!ids.length) return;
+      var rg = new T.BufferGeometry();
+      rg.setAttribute('position', new T.Float32BufferAttribute(vs, 3)); rg.setAttribute('color', new T.Float32BufferAttribute(cs, 3)); rg.setIndex(ids);
+      rg.computeVertexNormals();
+      var rock = new T.Mesh(rg, self.mat('peak')); rock.receiveShadow = true; rock.castShadow = true; base.add(rock);
+    });
 
     // Hedgerows along the field edges out in the countryside.
     var spots = [], rr = rng(11);
     function ok(x, z) { if (inAirport({ x: arguments[0], z: arguments[1] }, 1.5)) return false;
       var r = Math.hypot(x, z);
-      if (r < 31 || r > 132) return false;
+      if (r < 31 || r > 132 || townHill(x, z) > 0.2) return false;
       if (inFarmland(x, z) || inRidge(x, z) || inSector(x, z, 332, 82, 0, 55)) return false;
       if (Math.hypot(x - SNOW.c.x, z - SNOW.c.z) < SNOW.R + 3 || riverDist(x, z) < (canyonDepth(x, z) > 0 ? 12 : 3.2)) return false;
       if (coastSd(x, z) > -8 || lakeDist(x, z) < 3 || streamDist(x, z) < 2.2 || Math.hypot(x - PASTURE.x, z - PASTURE.z) < PASTURE_R + 2.5 || Math.hypot(x - CHURCH.x, z - CHURCH.z) < 10 || Math.hypot(x - LIBRARY.x, z - LIBRARY.z) < 13 || inTownSquare(x, z, 3)) return false;
@@ -1712,6 +1783,23 @@
       var board = new T.Mesh(new T.PlaneGeometry(1.4, 0.36), new T.MeshBasicMaterial({ map: tex, side: T.DoubleSide })); board.position.set(offx, 1.15, 0.04); sg.add(board);
       board.userData.pick = 'townsite:' + ci; self.picks.push(board);
     });
+    // Spruce up the green flanks of the coast towns' mountains (two tiers, instanced).
+    var r = rng(9090), spots = [];
+    TOWN_PEAKS.forEach(function (k) {
+      var n = Math.round(k.R * k.R * 0.55), site = CASTLE_SITES[k.ci];
+      for (var i = 0; i < n; i++) {
+        var a = r() * Math.PI * 2, d = Math.sqrt(r()) * k.R, x = k.x + Math.cos(a) * d, z = k.z + Math.sin(a) * d, th = townHill(x, z);
+        if (th < 0.9 || !TP_TOP || th / TP_TOP.H > TP_TOP.rock * 0.92 || Math.hypot(x - site.x, z - site.z) < 16 || Math.hypot(x, z) > 140 || nearPath(x, z, 1.2)) continue;
+        spots.push({ x: x, z: z, y: groundY(x, z), s: 0.7 + r() * 0.5 });
+      }
+    });
+    if (!spots.length) return;
+    var m4 = new T.Matrix4();
+    [[0.7, 1.1, 0.6, 0], [0.48, 0.95, 1.2, 1]].forEach(function (t) {
+      var im = new T.InstancedMesh(self.geo.cone6, self.mat('pine', t[3]), spots.length);
+      spots.forEach(function (p, i) { m4.makeScale(t[0] * p.s, t[1] * p.s, t[0] * p.s); m4.setPosition(p.x, p.y + t[2] * p.s, p.z); im.setMatrixAt(i, m4); });
+      im.castShadow = true; base.add(im);
+    });
   };
   Town.prototype.cityInit = function () {
     var self = this, g = new T.Group(), y0 = groundY(0, 0);
@@ -1938,7 +2026,7 @@
       // Plan the flight: taxi out, take off, a circuit over town, land, taxi back.
       var hz = 0, y = function (x, z) { return A.lg(x, z); };
       var p0 = A.park.clone().setY(y(A.park.x, A.park.z)), start = new T.Vector3(0, y(0, -L / 2 + 1.5), -L / 2 + 1.5), lift = new T.Vector3(0, y(0, L / 2) + 5, L / 2 + 8);
-      var down = new T.Vector3(A.side * 30, 13, 10), base = new T.Vector3(A.side * 18, 10, -L / 2 - 26), fin = new T.Vector3(0, y(0, -L / 2) + 3, -L / 2 - 10), touch = new T.Vector3(0, y(0, -L / 2 + 3), -L / 2 + 3), stop = new T.Vector3(0, y(0, L / 2 - 4), L / 2 - 4), back = new T.Vector3(A.side * 2.2, y(A.side * 2.2, 2), 2);
+      var down = new T.Vector3(A.side * 30, 13, 10), base = new T.Vector3(A.side * 18, 10, -L / 2 - 26), fin = new T.Vector3(0, y(0, -L / 2) + 4.2, -L / 2 - 10), touch = new T.Vector3(0, y(0, -L / 2 + 3), -L / 2 + 3), stop = new T.Vector3(0, y(0, L / 2 - 4), L / 2 - 4), back = new T.Vector3(A.side * 2.2, y(A.side * 2.2, 2), 2);
       A.legs = [
         { to: start, h: 0, dur: 7, ground: true, from: p0, fh: -A.side * Math.PI / 2 },
         { to: lift, h: 0, dur: 6.5, ease: 'in' }, { to: down, h: Math.PI, dur: 11 }, { to: base, h: Math.PI, dur: 9 },
@@ -2088,7 +2176,7 @@
     C.slots = [];
     for (var sr = 0; sr < 2 && C.slots.length < OUTSKIRTS.length; sr++) for (var th = 140 + sr * 8; th <= 330; th += 15) {
       var lr = 16.2 + sr * 1.8, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
-      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > 146 || nearPath(wx, wz, 1.2)) continue;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > 146 || nearPath(wx, wz, 1.2) || townHill(wx, wz) > 2.2) continue;
       C.slots.push({ x: lx, z: lz, r: Math.atan2(-lx, -lz) / D2R, ground: true });
     }
     var streetMat = this.mat('tstreet', D.street === 'gravel' ? 1 : 0);
@@ -3082,10 +3170,9 @@
       this.yukonSeason(true);
     } else if (kind === 'klondike') {
       // The S.S. Klondike up on its cribbing, as she sits on the riverbank in Whitehorse.
-      var kp = this.secretSpot(GATE_ANGLE + 170, 20, 3.4);
-      if (!kp) return;
+      var kp = KLONDIKE;
       this.st.secretPos.klondike = kp;
-      var kg = new T.Group(); kg.position.set(kp.x, groundY(kp.x, kp.z), kp.z); kg.rotation.y = Math.atan2(-kp.x, -kp.z) + Math.PI / 2; this.world.add(kg);
+      var kg = new T.Group(); kg.position.set(kp.x, groundY(kp.x, kp.z), kp.z); kg.rotation.y = kp.rot; this.world.add(kg); // bow pointing downriver
       this.townPiece({ group: kg, ci: 'k', site: kp, chims: [], town: { name: 'Whitehorse', plan: [] } }, 'boat', null, { wheel: true, c: 8, t: 2 }, 1);
       kg.traverse(function (o) { if (o.userData && o.userData.pick) o.userData.pick = 'klondike'; });
       this.pop(kg, delay);
@@ -4496,6 +4583,12 @@
     }
     return { x: cx, z: cz };
   }
+  // Whether an animal can walk straight from one spot to another without wading through water.
+  function dryWay(x0, z0, x1, z1) {
+    var n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.7);
+    for (var i = 1; i <= n; i++) { var x = x0 + (x1 - x0) * i / n, z = z0 + (z1 - z0) * i / n, w = waterAt(x, z); if (w != null && w > groundY(x, z) + 0.15) return false; }
+    return true;
+  }
   // A four-legged animal from boxes: body, neck and head, legs on hips, tail, and extras.
   Town.prototype.quadruped = function (o) {
     var g = new T.Group(), self = this, pick = 'wild:' + o.key, m = this.mat(o.mat, 0), dark = this.mat(o.mat, 1), light = this.mat(o.mat, 2);
@@ -4650,7 +4743,7 @@
       }
       case 'orcas': {
         // Out past the coast: a big bull with a tall fin, a cow and a calf.
-        var sea = { x: COAST_N.x * 119 + COAST_T.x * 6, z: COAST_N.z * 119 + COAST_T.z * 6 };
+        var sea = (function () { var p = shoreAt(311); return { x: p.x + COAST_N.x * 8.5, z: p.z + COAST_N.z * 8.5 }; })();
         var pod = [];
         [[1.25, 1.0, 0], [1.0, 0.55, 2.6], [0.62, 0.4, 1.3]].forEach(function (o, i) {
           var g = new T.Group(), pk2 = 'wild:orcas';
@@ -4672,7 +4765,7 @@
           pod.push({ g: g, off: o[2], big: o[0] });
         });
         var host = new T.Group();
-        add({ type: 'orcas', g: host, pod: pod, c: sea, R: 5, sp: 1 / 14000, breachAt: 0 });
+        add({ type: 'orcas', g: host, pod: pod, c: sea, R: 3.6, sp: 1 / 11000, breachAt: 0 });
         break;
       }
       case 'ducks':
@@ -4827,6 +4920,7 @@
             var p = a.follow && now < a.follow && pp ? { x: pp.x - Math.sin(self.player.g.rotation.y) * 1.6, z: pp.z - Math.cos(self.player.g.rotation.y) * 1.6 } : a.ent ? (function () { var tr = self.st.forest.trees; var t = tr[Math.floor(a.r() * tr.length)]; return t ? { x: t.position.x + 1.2, z: t.position.z + 1.2 } : a.home; })() : wildGround(a.home.x, a.home.z, a.rad, a.r);
             if (a.ent && Math.hypot(p.x - a.home.x, p.z - a.home.z) > a.rad) p = a.home;
             if (a.follow && now > a.follow) { a.follow = 0; p = a.home; }
+            if (!a.river && !(a.follow && now < a.follow) && !dryWay(g.position.x, g.position.z, p.x, p.z)) p = { x: g.position.x, z: g.position.z }; // no wading across the river
             a.tx = p.x; a.tz = p.z; a.wait = a.ent ? 25 + a.r() * 50 : 1 + a.r() * (a.herd ? 3 : 6);
           }
           (a.legs || []).forEach(function (l) { l.rotation.x *= 0.85; });
@@ -6278,6 +6372,7 @@
       var g = new T.Group(); g.position.set(ISLAND.x, SEA_Y, ISLAND.z); this.world.add(g);
       this.part(g, this.geo.blob, this.mat('sand'), 6.2, 1.1, 5.0, 0, 0, 0, pick);
       this.part(g, this.geo.blob, this.mat('hill'), 4.6, 1.0, 3.6, -0.3, 0.45, -0.2, pick);
+      this.part(g, this.geo.cyl6, this.mat('sand'), 5.6, 3.2, 4.4, 0, -1.65, 0, pick); // its roots, down to the sea bed
       s.island = { group: g, n: 0 };
       this.pop(g, delay);
     }
@@ -7325,7 +7420,7 @@
   // loose: ignore ground only reserved for future forest and wild trees.
   function groundClear(p, rad, loose) {
     var d = Math.hypot(p.x, p.z);
-    if (d > 126 || d < 17) return false;
+    if (d > 126 || d < 17 || townHill(p.x, p.z) > 0.3) return false;
     var rdd = riverDist(p.x, p.z);
     if (rdd < rad + 2.5 || nearPath(p.x, p.z, rad + 0.9)) return false;
     // Keep well back from the canyon's rims and rocks.
@@ -7340,7 +7435,7 @@
     if (PEAKS.some(function (k) { return Math.hypot(k.x - p.x, k.z - p.z) < rad + k.h * 0.9 + 2; })) return false;
     if (Math.hypot(SNOW.c.x - p.x, SNOW.c.z - p.z) < SNOW.R + rad + 3) return false;
     if (Math.hypot(PASTURE.x - p.x, PASTURE.z - p.z) < rad + PASTURE_R + 3) return false;
-    var spots = [POND, DOG_PEN.c, OFFICE, HOCKEY, PUB, SQUARE, STATUE, LODGE, polar(FARM.angle, FARM.r + 3.2)];
+    var spots = [POND, DOG_PEN.c, OFFICE, HOCKEY, PUB, SQUARE, STATUE, KLONDIKE, LODGE, polar(FARM.angle, FARM.r + 3.2)];
     if (spots.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < rad + 7; })) return false;
     if (Math.hypot(CHURCH.x - p.x, CHURCH.z - p.z) < rad + 10 || Math.hypot(LIBRARY.x - p.x, LIBRARY.z - p.z) < rad + 13 || Math.hypot(HOARD.x - p.x, HOARD.z - p.z) < rad + 9) return false;
     for (var k = 0; k < LANE.length; k += 3) if (Math.hypot(LANE[k].x - p.x, LANE[k].z - p.z) < rad + 1.5) return false;
@@ -12558,7 +12653,7 @@
     if (wh != null && P.y < wh - SWIM_SINK + 0.04) return null;
     for (var d = 0.7; d <= 1.6; d += 0.3) {
       var x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d, w = waterAt(x, z);
-      if (w != null && !this.deckAt(x, z) && w - groundY(x, z) > 0.15 && P.y - w < 1.5 && Math.hypot(x, z) < 117) return { x: x, z: z };
+      if (w != null && !this.deckAt(x, z) && w - groundY(x, z) > 0.15 && P.y - w < 1.5 && Math.hypot(x, z) < 147) return { x: x, z: z };
     }
     return null;
   };
@@ -13557,7 +13652,7 @@
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
-  Town.layout = { groundClear: groundClear, groundY: groundY, landY: landY, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS };
+  Town.layout = { RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS };
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
