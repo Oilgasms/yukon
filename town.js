@@ -9011,9 +9011,10 @@
     var fresh = (s.newsList || []).filter(function (n) { var age = (Date.parse(t) - Date.parse(n.date)) / 864e5; return age >= 0 && age <= 7; });
     if (fresh.length && Math.random() < 0.45) return pickOne(pickOne(fresh).lines);
     var day = s.byDay[t] || [], work = day.filter(function (e) { return !NOT_WORKOUTS[e.kind]; }), callouts = [], main;
-    // Read your Bible today? Half the time that's all they want to talk about.
+    // Read your Bible today? About a quarter of all greetings are about the passage (a remark
+    // is used for ~65% of greetings, so 0.38 of those).
     var readT = day.filter(function (e) { return e.kind === 'bible' && e.book; });
-    if (readT.length && Math.random() < 0.5) return this.bibleLine(pickOne(readT));
+    if (readT.length && Math.random() < 0.38) return this.bibleLine(pickOne(readT));
     if (work.length) main = this.workoutLine(pickOne(work));
     else {
       var plan = (this.planned || []).filter(function (e) { return e.date === t; })[0], hr = new Date().getHours();
