@@ -4147,88 +4147,6 @@
     if (this.st.den) this.denPile();
   };
 
-  // ---- busking: a banjo on the square; mice gather, dance and toss coins -----------------
-  var TUNE = [0, 2, 4, 7, 4, 2, 0, 9, 7, 4, 2, 4, 7, 9, 12, 9, 7, 4, 2, 0], BASE_HZ = 262;
-  Town.prototype.startBusk = function (pl) {
-    if (pl.seat) this.leaveSeat(pl);
-    var b = new T.Group(); b.position.set(0.02, 0.36, 0.22); b.rotation.set(0.3, 0, 0.9); pl.g.add(b);
-    this.part(b, this.geo.cyl, this.mat('woodLight'), 0.13, 0.04, 0.13, 0, 0, 0).rotation.x = Math.PI / 2;
-    this.part(b, this.geo.cyl, this.mat('swan', 0), 0.11, 0.045, 0.11, 0, 0, 0.002).rotation.x = Math.PI / 2;
-    this.part(b, this.geo.box, this.mat('wood'), 0.04, 0.42, 0.025, 0, 0.27, 0);
-    this.part(b, this.geo.box, this.mat('trunk'), 0.06, 0.08, 0.03, 0, 0.5, 0);
-    var hat = new T.Group(); hat.position.set(0.5, 0.02, 0.2); pl.g.add(hat);   // a hat on the ground for the coins
-    this.part(hat, this.geo.cyl, this.mat('trunk'), 0.14, 0.06, 0.14, 0, 0.03, 0);
-    pl.busk = { banjo: b, hat: hat, t: 0, next: 0, k: 0, notes: [], coins: [], earned: 0 };
-    this.say(['a little tune!', '*tunes banjo*', 'this one\u2019s for Yukon'][Math.floor(Math.random() * 3)], pl.g, 1.1, 1.3);
-  };
-  Town.prototype.stopBusk = function (pl) {
-    var B = pl.busk, self = this;
-    if (!B) return;
-    pl.g.remove(B.banjo); pl.g.remove(B.hat);
-    B.notes.forEach(function (n) { self.world.remove(n.m); }); B.coins.forEach(function (c) { self.world.remove(c.m); });
-    pl.busk = null;
-    (this.st.folk || []).forEach(function (m) { if (m.state === 'listen') { m.state = 'idle'; m.body.position.y = 0.13; m.arms.forEach(function (a) { a.rotation.x = 0; }); } });
-    if (B.earned) this.say('made ' + B.earned + ' coin' + (B.earned === 1 ? '' : 's') + '!', pl.g, 1.0, 1.6);
-  };
-  Town.prototype.buskStep = function (pl, dt, now) {
-    var B = pl.busk, self = this, P = pl.g.position, S = this.keep();
-    B.t += dt;
-    // Strumming away.
-    var p = this.sitPose(now / 1000, 'sit'); p.legs[0] = -1.2 + Math.sin(now / 70) * 0.25; p.legs[1] = -1.5; p.front = { y: 0.42, z: 0.08 }; p.hx += 0.1; p.hy = Math.sin(now / 900) * 0.3;
-    this.applyPose(pl, p, dt, now / 1000, false);
-    pl.g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
-    if (B.t > B.next) {
-      B.next = B.t + (B.k % 4 === 3 ? 0.5 : 0.25);
-      this.pluckHz = BASE_HZ * Math.pow(2, TUNE[B.k % TUNE.length] / 12); this.sfx('pluck'); B.k++;
-      if (B.k % 2) {
-        var n = new T.Group(); n.position.set(P.x + (Math.random() - 0.5) * 0.4, P.y + 0.9, P.z + (Math.random() - 0.5) * 0.4); this.world.add(n);
-        this.mesh(this.geo.ball, this.mat('swan', 2), n).scale.set(0.07, 0.055, 0.07);
-        var st = this.mesh(this.geo.box, this.mat('swan', 2), n); st.scale.set(0.015, 0.18, 0.015); st.position.set(0.035, 0.09, 0);
-        B.notes.push({ m: n, t: 0, vx: (Math.random() - 0.5) * 0.4 });
-      }
-    }
-    B.notes = B.notes.filter(function (n) { n.t += dt; n.m.position.y += dt * 0.6; n.m.position.x += n.vx * dt; n.m.rotation.z = Math.sin(n.t * 4) * 0.3; if (n.t > 2.2) { self.world.remove(n.m); return false; } return true; });
-    // Coins tossed by the crowd arc into the hat.
-    var hw = new T.Vector3(); B.hat.getWorldPosition(hw);
-    B.coins = B.coins.filter(function (c) {
-      c.t += dt; var k = Math.min(1, c.t / 0.7);
-      c.m.position.set(c.from.x + (hw.x - c.from.x) * k, c.from.y + (hw.y + 0.1 - c.from.y) * k + Math.sin(k * Math.PI) * 0.8, c.from.z + (hw.z - c.from.z) * k); c.m.rotation.x += dt * 12;
-      if (k >= 1) { self.world.remove(c.m); S.coins++; B.earned++; self.saveStore(); self.sfx('ding'); self.say('+1', B.hat, 0.6, 0.6); return false; }
-      return true;
-    });
-    // Neighbours wander over to listen.
-    (this.st.folk || []).forEach(function (m) {
-      if (!m.g.visible || (m.state !== 'idle' && m.state !== 'walk' && m.state !== 'sit' && m.state !== 'listen')) return;
-      var d = Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z);
-      if (m.state !== 'listen' && d < 16) {
-        if (m.state === 'sit') self.standUp(m);
-        m.state = 'listen'; m.listenA = Math.random() * Math.PI * 2; m.tossAt = now + 3000 + Math.random() * 4000; m.tossed = 0;
-      }
-    });
-  };
-  // A mouse in the crowd: walk up, then dance, now and then tossing a coin.
-  Town.prototype.listenStep = function (m, dt, now) {
-    var pl = this.player, g = m.g;
-    if (!pl || !pl.busk) { m.state = 'idle'; m.body.position.y = 0.13; return; }
-    var P = pl.g.position, tx = P.x + Math.cos(m.listenA) * 1.6, tz = P.z + Math.sin(m.listenA) * 1.6, dx = tx - g.position.x, dz = tz - g.position.z, d = Math.hypot(dx, dz);
-    if (d > 0.1) {
-      var sp = Math.min(d, dt * 1.6); g.position.x += dx / d * sp; g.position.z += dz / d * sp; g.position.y = this.standY(g.position.x, g.position.z);
-      g.rotation.y = Math.atan2(dx, dz); m.phase += dt * 14; m.legs.forEach(function (l, i) { l.rotation.x = Math.sin(m.phase + i * Math.PI) * 0.6; });
-      return;
-    }
-    // Dancing: a bounce, arms up, a twirl now and then.
-    g.rotation.y = Math.atan2(P.x - g.position.x, P.z - g.position.z) + (Math.sin(now / 1500 + m.k) > 0.9 ? now / 150 : 0);
-    m.body.position.y = 0.13 + Math.abs(Math.sin(now / 160 + m.k)) * 0.06;
-    m.arms.forEach(function (a, i) { a.rotation.x = -2.4 + Math.sin(now / 200 + i * Math.PI) * 0.5; });
-    m.legs.forEach(function (l, i) { l.rotation.x = Math.sin(now / 160 + i * Math.PI) * 0.4; });
-    if (now > m.tossAt && m.tossed < 3) {
-      m.tossAt = now + 4000 + Math.random() * 5000; m.tossed++;
-      var c = this.mesh(this.geo.cyl, this.mat('gold'), this.world); c.scale.set(0.06, 0.015, 0.06);
-      var from = g.position.clone(); from.y += 0.4; c.position.copy(from);
-      pl.busk.coins.push({ m: c, from: from, t: 0 });
-      if (Math.random() < 0.4) this.say(['bravo!', 'encore!', 'lovely!', 'yeehaw!', 'play Free Bird!'][Math.floor(Math.random() * 5)], g, 0.65, 1.2);
-    }
-  };
   // ---- the hat stall, way out at the edge of the world, run by a weasel ----------------------
   Town.prototype.buildStall = function () {
     var self = this, g = new T.Group(), pick = 'hatstall', spot = this.secretSpot(95, 94, 2.4);
@@ -4277,7 +4195,7 @@
       return;
     }
     var owned = S.hats.slice(); if (S.errands >= 50 && owned.indexOf('touque') < 0) owned.push('touque');
-    if (!owned.length) { this.say(next ? next[1] + ': ' + next[2] + ' coins. you\u2019ve got ' + S.coins + '. go busk!' : 'sold out!', pl.g, 1.1, 2.2); return; }
+    if (!owned.length) { this.say(next ? next[1] + ': ' + next[2] + ' coins. you\u2019ve got ' + S.coins + '. run errands for the mice!' : 'sold out!', pl.g, 1.1, 2.2); return; }
     var list = [null].concat(owned), i = list.indexOf(S.hat || null);
     S.hat = list[(i + 1) % list.length]; this.saveStore(); this.dressPlayer();
     this.say((S.hat ? 'the ' + S.hat + ' look' : 'no hat today') + (next ? ' \u00b7 next: ' + next[1] + ' for ' + next[2] + ' coins' : ''), pl.g, 1.1, 2.0);
@@ -4582,7 +4500,6 @@
     var D = this.st.den, R = DEN_ROOM, S = this.keep(), kinds = Object.keys(S.den);
     if (!D || !D.room) return;
     if (pl.seat) this.leaveSeat(pl);
-    if (pl.busk) this.stopBusk(pl);
     pl.inDen = true; pl.push = null; pl.iv = null; pl.vy = 0; pl.napping = 0;
     this.denPile();
     var P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
@@ -4620,6 +4537,7 @@
         for (var i = 0; i < D.solid.length; i++) { var b = D.solid[i]; if (x > b[0] - 0.15 && x < b[1] + 0.15 && z > b[2] - 0.15 && z < b[3] + 0.15) return false; }
         return true;
       };
+      if (!free(lx, lz)) { lx = -2.3; lz = -1.35; } // just woken up on the bed: hop off it first
       if (free(lx + dx, lz + dz)) { lx += dx; lz += dz; } else if (free(lx + dx, lz)) lx += dx; else if (free(lx, lz + dz)) lz += dz;
       // Bump into the door and you're out.
       if (lx < -R.hx + 0.35 && Math.abs(lz - 1.9) < 0.55) { this.leaveDen(pl); return; }
@@ -4673,7 +4591,7 @@
       this.say(S.hat ? 'the ' + S.hat + ' today' : 'no hat today', pl.g, 1.1, 1.6); return;
     }
     if (k === 'fire') { pl.g.rotation.y = -Math.PI / 2; this.say(['ahh, toasty', '*warms paws*', 'crackle crackle', 'nothing like a fire'][Math.floor(Math.random() * 4)], pl.g, 1.0, 1.6); return; }
-    if (k === 'jar') { this.say(S.coins ? S.coins + ' coin' + (S.coins === 1 ? '' : 's') + ' in the jar' : 'the jar is empty. go busk!', pl.g, 1.1, 1.8); this.sfx('found'); return; }
+    if (k === 'jar') { this.say(S.coins ? S.coins + ' coin' + (S.coins === 1 ? '' : 's') + ' in the jar' : 'the jar is empty. the mice pay for errands', pl.g, 1.1, 1.8); this.sfx('found'); return; }
     if (k === 'shelf') {
       var dk = Object.keys(S.den).sort(function (a, b) { return S.den[b] - S.den[a]; });
       this.say(dk.length ? dk.length + ' kinds of treasure. pride of place: ' + dk[0] + ' ×' + S.den[dk[0]] : 'empty shelves. go find some treasure', pl.g, 1.1, 2.6); return;
@@ -9180,7 +9098,6 @@
         }
         return;
       }
-      if (m.state === 'listen') { self.listenStep(m, dt, now); return; }
       if (m.state === 'snowfight') { self.snowFightStep(m, dt, now); return; }
       if (m.state === 'pub') {
         // Down the pub: pint raised now and then, a laugh, a song, swaying a little later on.
@@ -9419,9 +9336,9 @@
     if (!ok) { if (now > (E.askAt || 0)) { E.askAt = now + 15000; this.say(E.ask, cur.g, 0.65, 2.8); } return; }
     // Delivered!
     pl.mouth.remove(c.m); pl.carry = null;
-    var S = this.keep(); S.errands++; S.coins += 3; this.saveStore();
+    var S = this.keep(); S.errands++; S.coins += 1; this.saveStore();
     cur.errand = null; cur.bang.visible = false;
-    this.say(E.thanks + ' (+3 coins)', cur.g, 0.65, 2.4); this.hearts(cur.g.position, 0.6); this.sfx('found');
+    this.say(E.thanks + ' (+1 coin)', cur.g, 0.65, 2.4); this.hearts(cur.g.position, 0.6); this.sfx('found');
     if (this.st.den && this.st.den.room) this.denPile();
     if (S.errands === 10 || S.errands === 50) {
       if (S.errands === 50) S.hat = 'touque';
@@ -9985,7 +9902,7 @@
       }
       case 'hatstall': {
         var HS = this.keep(), hn = HATS.filter(function (h) { return HS.hats.indexOf(h[0]) < 0; })[0];
-        return { title: 'The weasel\u2019s hat stall', lines: ['Hats for coins: ' + HATS.map(function (h) { return h[0] + ' ' + h[2]; }).join(' \u00b7 ') + '.', 'You have ' + HS.coins + ' coin' + (HS.coins === 1 ? '' : 's') + (hn ? '; next up: ' + hn[1] + '.' : '; you own every hat.'), 'Press E to buy the next hat, or to swap between the ones you own. Busk on the square to earn coins.'] };
+        return { title: 'The weasel\u2019s hat stall', lines: ['Hats for coins: ' + HATS.map(function (h) { return h[0] + ' ' + h[2]; }).join(' \u00b7 ') + '.', 'You have ' + HS.coins + ' coin' + (HS.coins === 1 ? '' : 's') + (hn ? '; next up: ' + hn[1] + '.' : '; you own every hat.'), 'Press E to buy the next hat, or to swap between the ones you own. Run errands for the mice to earn coins.'] };
       }
       case 'den': {
         var DS = this.keep(), dk = Object.keys(DS.den).sort(function (a, b) { return DS.den[b] - DS.den[a]; }), dt0 = dk.reduce(function (a, k) { return a + DS.den[k]; }, 0);
@@ -9994,13 +9911,13 @@
       case 'lunch': return { title: 'A mouse\u2019s sandwich', lines: ['Sneak up from behind and press E to nick it.', 'Get spotted and they\u2019ll chase you round town.'] };
       case 'errand': {
         var EM = this.errandMouse(), ES = this.keep();
-        return EM ? { title: EM.name + ' needs a favour', lines: [EM.errand.ask, 'Bring it over and they\u2019ll pay you 3 coins. Errands run: ' + ES.errands + (ES.errands < 10 ? ' (the mice have a surprise at 10).' : ES.errands < 50 ? ' (and another at 50).' : '.')] } : null;
+        return EM ? { title: EM.name + ' needs a favour', lines: [EM.errand.ask, 'Bring it over and they\u2019ll pay you a coin. Errands run: ' + ES.errands + (ES.errands < 10 ? ' (the mice have a surprise at 10).' : ES.errands < 50 ? ' (and another at 50).' : '.')] } : null;
       }
       case 'denroom': {
         var RS = this.keep();
         if (p[1] === 'bed') return { title: 'Your straw bed', lines: ['Press E to curl up for a nap. Move to get up.'] };
         if (p[1] === 'wardrobe') return { title: 'The wardrobe', lines: [RS.hats.length ? 'Press E to swap hats (' + RS.hats.length + ' owned).' : 'Empty. The weasel at the edge of the world sells hats.'] };
-        if (p[1] === 'jar') return { title: 'The coin jar', lines: [RS.coins + ' coin' + (RS.coins === 1 ? '' : 's') + '. Busk on the square and run errands for more.'] };
+        if (p[1] === 'jar') return { title: 'The coin jar', lines: [RS.coins + ' coin' + (RS.coins === 1 ? '' : 's') + '. Run errands for the mice (look for a gold "!") to earn more.'] };
         if (p[1] === 'shelf') return { title: 'The treasure shelves', lines: [Object.keys(RS.den).length + ' kinds of treasure on show. Press E to admire them.'] };
         if (p[1] === 'door') return { title: 'The door out', lines: ['Back up into town.'] };
         if (p[1] === 'fire') return { title: 'The fire', lines: ['Crackling away. Press E to warm your paws.'] };
@@ -10468,10 +10385,6 @@
       pl.push.vx *= 1 - dt * 0.6; pl.push.vz *= 1 - dt * 0.6;
       if (Math.random() < dt * 10) this.puff(P.x, P.y + 0.3, P.z, 1, 'leaf', 0.3);
     }
-    if (pl.busk) {
-      if (moving) this.stopBusk(pl);
-      else { this.buskStep(pl, dt, now); this.followCam(P, dt); return true; }
-    }
     if (pl.napping) {
       if (moving) { pl.napping = 0; pl.idle = 0; this.say('*stretch*', pl.g, 1.0, 1.0); }
       else {
@@ -10671,7 +10584,6 @@
     if (pl && pl.inDen) { this.denUse(pl); return; }
     if (pl && !pl.paddle && this.near === 'den') { this.enterDen(pl); return; }
     if (pl && !pl.paddle) { var lm = this.lunchNear(pl.g.position); if (lm) { this.stealLunch(pl, lm); return; } }
-    if (pl && pl.busk) { this.stopBusk(pl); return; }
     // Winter: a snowball for the nearest mouse.
     if (pl && this.season === 'winter' && !pl.paddle && !pl.seat) {
       var Pp = pl.g.position, tgtM = null, td = 4;
@@ -10683,7 +10595,6 @@
       }
     }
     if (pl && !pl.paddle && this.near === 'hatstall') { this.hatStall(pl); return; }
-    if (pl && !pl.paddle && !pl.seat && !(pl.carry && (pl.carry.kind === 'beer' || pl.carry.kind === 'coffee')) && inTownSquare(pl.g.position.x, pl.g.position.z, -0.8) && (!this.near || this.near === 'townsquare' || this.near === 'square')) { this.startBusk(pl); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'campfire') {
       var cf = this.fireNear(pl.g.position, 2.4);
       if (pl.carry && pl.carry.kind === 'fish') { this.startCook(pl, cf); return; }
