@@ -9001,9 +9001,44 @@
     var bi = bookIndex(ev.book || ''), book = bi >= 0 ? BIBLE[bi][0] : ev.book || '', ch = (ev.chapters || []).filter(function (c) { return THEO_CH[book + ' ' + c]; });
     var lines = ch.length ? THEO_CH[book + ' ' + ch[0]] : THEO_BOOK[book];
     var where = (book === 'Psalms' && ev.chapters && ev.chapters.length ? 'Psalm' : book) + (ev.chapters && ev.chapters.length ? ' ' + ev.chapters[0] : '');
-    if (!lines) return pickOne(['read ' + where + ' today? the Fathers would have something to say about that', 'saw you in ' + where + '. lectio divina, was it?']);
-    var l = pickOne(lines);
-    return Math.random() < 0.4 ? where + ' today? ' + l : l;
+    if (!lines) lines = ['the Fathers would have something to say about that', 'lectio divina, was it?'];
+    // Don't repeat a line said in the last fortnight; when they've run out, they keep quiet about it.
+    var S = this.keep(), seen = S.theo || (S.theo = {}), today = Date.parse(this.today || '') || Date.now();
+    var fresh = lines.filter(function (x) { return !seen[x] || today - seen[x] > 14 * 864e5; });
+    if (!fresh.length) return null;
+    var l = pickOne(fresh); seen[l] = today; this.saveStore();
+    return Math.random() < 0.4 || lines.length < 2 && !THEO_BOOK[book] ? where + ' today? ' + l : l;
+  };
+  // The last book you finished: the mice have read it too (or say they have).
+  var BOOK_TALK = [
+    [/east of eden/, ['timshel, dear. thou mayest', 'Lee and his oolong… I’d have liked a cup with him', 'Cathy gives me the shivers', 'the Salinas Valley sounds lovely in spring']],
+    [/lonesome dove/, ['Gus would’ve loved our pub', 'uva uvam vivendo varia fit. nobody knows what it means either', '“it’s not dying I’m talking about, it’s living.” Gus had it right', 'poor Deets… I still can’t talk about it']],
+    [/watership down/, ['El-ahrairah, prince with a thousand enemies!', 'mind the hrududu on the road, dear', 'Fiver gets these feelings… I get them too', 'Kehaar is my favourite. big water!']],
+    [/hobbit|lord of the rings|fellowship|two towers|return of the king/, ['second breakfast, anyone?', 'not all those who wander are lost, love']],
+    [/karamazov/, ['is everything permitted? not in this town, dear', 'Alyosha is the best of them']],
+    [/gilead/, ['Reverend Ames would’ve liked our little church', 'such a gentle book, that one']],
+    [/moby/, ['call me Ishmael. or Doris, whichever', 'all that about whales, and I still don’t know what the whale meant']],
+    [/narnia|lion, the witch|wardrobe/, ['I checked my wardrobe. just coats', 'Aslan is on the move!']],
+    [/anna karenina|war and peace/, ['Tolstoy! all those Russian names. I had to make a list']]
+  ];
+  Town.prototype.bookLine = function () {
+    var s = this.st, B = s.lastBook, t = this.today;
+    if (!B || !B.title || !t) return null;
+    var since = Math.round((Date.parse(t) - Date.parse(B.date)) / 864e5);
+    if (!(since >= 0 && since <= 45)) return null;
+    var T0 = B.title, low = T0.toLowerCase(), lines = [];
+    BOOK_TALK.forEach(function (b) { if (b[0].test(low)) lines = lines.concat(b[1]); });
+    lines.push('finished ' + T0 + '? what did you make of the ending?', 'the library mice are still talking about ' + T0, 'have you lent ' + T0 + ' to anyone yet? I’m next', 'I keep thinking about ' + T0, 'what are you reading after ' + T0 + '?');
+    if (B.author) lines.push('I’ve only read the one ' + B.author.split(/\s+/).pop() + '. was it good?', B.author + '! a fine choice, dear');
+    if (B.stars >= 4.5) lines.push(B.stars + ' stars for ' + T0 + '! high praise');
+    else if (B.stars && B.stars <= 2) lines.push('only ' + B.stars + ' stars for ' + T0 + '? harsh, but fair');
+    if (B.pages > 600) lines.push(B.pages + ' pages! ' + T0 + ' would make a fine doorstop');
+    else if (B.pages && B.pages < 200) lines.push('a short one, ' + T0 + '. over before the kettle boiled');
+    var S = this.keep(), seen = S.theo || (S.theo = {}), today = Date.parse(t);
+    var fresh = lines.filter(function (x) { return !seen[x] || today - seen[x] > 14 * 864e5; });
+    if (!fresh.length) return null;
+    var l = pickOne(fresh); seen[l] = today; this.saveStore();
+    return l;
   };
   Town.prototype.mouseRemark = function () {
     var s = this.st, t = this.today;
@@ -9011,10 +9046,13 @@
     var fresh = (s.newsList || []).filter(function (n) { var age = (Date.parse(t) - Date.parse(n.date)) / 864e5; return age >= 0 && age <= 7; });
     if (fresh.length && Math.random() < 0.45) return pickOne(pickOne(fresh).lines);
     var day = s.byDay[t] || [], work = day.filter(function (e) { return !NOT_WORKOUTS[e.kind]; }), callouts = [], main;
-    // Read your Bible today? About a quarter of all greetings are about the passage (a remark
-    // is used for ~65% of greetings, so 0.38 of those).
+    // Read your Bible today? About an eighth of greetings are about the passage (a remark is
+    // used for ~65% of greetings, so 0.19 of those), never repeating a line within a fortnight.
     var readT = day.filter(function (e) { return e.kind === 'bible' && e.book; });
-    if (readT.length && Math.random() < 0.38) return this.bibleLine(pickOne(readT));
+    var theo = readT.length && Math.random() < 0.19 ? this.bibleLine(pickOne(readT)) : null;
+    if (theo) return theo;
+    var bk = Math.random() < 0.12 ? this.bookLine() : null;
+    if (bk) return bk;
     if (work.length) main = this.workoutLine(pickOne(work));
     else {
       var plan = (this.planned || []).filter(function (e) { return e.date === t; })[0], hr = new Date().getHours();
@@ -9803,7 +9841,7 @@
     if (ev.date && !ev.projected && !ev.planned) {
       var bd = s.byDay || (s.byDay = {});
       (bd[ev.date] = bd[ev.date] || []).push(ev);
-      if (ev.kind === 'book' && (!s.lastBookDate || ev.date > s.lastBookDate)) s.lastBookDate = ev.date;
+      if (ev.kind === 'book' && (!s.lastBookDate || ev.date >= s.lastBookDate)) { s.lastBookDate = ev.date; s.lastBook = ev; }
     }
     // Walks build the walking path but aren't workouts.
     if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie' && ev.kind !== 'walk') { s.sessions++; this.growSquare(delay); }
