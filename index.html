@@ -138,6 +138,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .tip p { margin: 0; color: var(--muted); }
 .tip p:first-of-type { color: var(--ink); font-weight: 600; }
 .tip.brief { padding-top: 7px; padding-bottom: 7px; }
+  .nextup { display: grid; gap: 1px; margin: 6px 0 4px; padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, var(--muted) 12%, transparent); font-size: 12.5px; line-height: 1.35; }
+  .nextup b { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .nextup #nextup-all { color: var(--muted); }
 .tip.brief h2 { margin: 0; font-size: 15px; }
 .tip p.more { color: var(--muted); font-weight: 400; font-size: 11px; margin-top: 1px; }
 .toast {
@@ -225,7 +228,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .wildlife li.here b::before { content: "\2713  "; color: var(--accent); }
 .min-btn { position: absolute; top: 6px; right: 8px; font: 700 16px var(--display); color: var(--muted); background: none; border: 0; padding: 2px 6px; cursor: pointer; line-height: 1; }
 .title, .timeline { position: relative; }
-.title.min > :not(h1):not(.min-btn):not(.eyebrow) { display: none; }
+.title.min > :not(h1):not(.min-btn):not(.eyebrow):not(.nextup) { display: none; }
+.title.min .nextup { max-width: 240px; } .title.min #nextup-all { display: none; }
 .title.min h1 { margin: 2px 22px 0 0; }
 .title { padding-right: 34px; }
 .timeline.min { width: auto; padding-right: 34px; }
@@ -246,6 +250,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     <button class="min-btn" type="button" id="title-min" aria-expanded="true" aria-label="Minimize this panel">&ndash;</button>
     <div class="eyebrow">Fit(ter) by 30</div>
     <h1>Yukon</h1>
+    <div class="nextup" id="nextup" hidden><b>Next up</b><span id="nextup-what"></span><span id="nextup-all"></span></div>
     <div class="season" id="season" hidden><b id="season-name">Fall</b><span id="season-why"></span><span id="weather-now"></span></div>
     <div><button class="clock" id="clock" type="button" title="Tap to preview dawn, day, golden hour, dusk and night">&#9728; Day</button> <button class="clock" id="refresh-all" type="button" title="Reload your workouts, Strava, Bible log, reading log and films">&#10227; Refresh everything</button></div>
     <div class="sync" id="update-row" hidden><span style="font-size:12.5px;color:var(--muted)"><b id="data-time">Checking for saved data…</b> This page reads the copies saved twice a day and picks up new ones by itself. <a id="update-now" href="https://github.com/Oilgasms/yukon/actions/workflows/update.yml" target="_blank" rel="noopener">Fetch fresh data now</a> (press <b>Run workflow</b>), then refresh here in a minute or two.</span></div>
@@ -350,7 +355,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v117';
+  var BUILD = 'v118';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -741,8 +746,17 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
       });
     d.append(sum, ul); el.append(d);
   }
+  // What the next lifting session builds, and how far to everything.
+  function renderNextUp() {
+    var o = town.liftOutlook && town.liftOutlook();
+    if (!o) return;
+    $('nextup').hidden = false;
+    $('nextup-what').textContent = o.next;
+    $('nextup-all').textContent = o.left ? fmt(o.done) + ' of ' + fmt(o.total) + ' lifting sessions to build everything' + (o.eta ? ' \u00b7 about ' + o.eta.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' }) : '') : 'Everything is built!';
+  }
   function renderLedger() {
     var s = town.st;
+    renderNextUp();
     var stones = 0, towers = 0;
     var flying = 0;
     for (var k in s.towers) { stones += s.towers[k].n; if (s.towers[k].n) towers++; if (s.towers[k].flying) flying++; }

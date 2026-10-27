@@ -183,7 +183,7 @@
   // How fast the castles rise. The first castle's towers may climb a layer every MAIN_CAP_EVERY
   // lifting sessions; each session builds CASTLE_PACE.mainBailey of its halls and turrets, and
   // CASTLE_PACE.steps pieces at the castles on the hills.
-  var MAIN_CAP_EVERY = 6, CASTLE_PACE = { steps: 6, capEvery: 2, mainBailey: 2 };
+  var MAIN_CAP_EVERY = 6, CASTLE_PACE = { steps: 6, capEvery: 2, mainBailey: 6 };
   var LANE_STONES = 140;
   var BALLOON_KM = 30;
   var SPORT_SLOTS = [[58, 25], [79, 25], [110, 25], [68.6, 33], [54, 33], [83, 33], [116, 33], [68.6, 41]];
@@ -2234,7 +2234,7 @@
   // The outskirts: once the town itself is built, it keeps spreading out past the last lots into
   // homesteads (cabins and houses, a raised cache, a woodshed, an outhouse, a wall tent), each on
   // a spot worked out when the town is founded (clear of water and the road home).
-  var TOWN_PACE = 0.62;
+  var TOWN_PACE = 0.71; // with Whitehorse's 300 sessions, everything's built in about 655: three years at your pace
   var OUTSKIRTS = ['cabin', 'cache', 'cabin', 'woodshed', 'house', 'cabin', 'outhouse', 'tent', 'cabin', 'house', 'cache', 'cabin', 'woodshed', 'house', 'cabin', 'tent'];
   TOWNS.forEach(function (D, ci) {
     if (!D) return;
@@ -2887,15 +2887,60 @@
     while (did < CASTLE_PACE.mainBailey && this.baileyStep(key, delay + did * 250)) did++;
     return did > 0;
   };
+  // Sessions a Whitehorse street still needs: its buildings, then its street life (lamps, benches…).
+  Town.prototype.streetLeft = function (key) {
+    var tw = this.st.towers[key], b = key === 'full' ? 0 : tw.bailey ? tw.bailey.plan.length - tw.bailey.done : baileyPlan(tw.def, GATE_ANGLE).length;
+    return Math.max(0, MAX_LAYERS - tw.n) + Math.ceil(b / CASTLE_PACE.mainBailey);
+  };
+  // What lifting builds next, and how far there is to go: for the panel.
+  var GROUP_WORD = { full: 'full-body', chest: 'chest', back: 'back', shoulders: 'shoulder', legs: 'leg', post: 'posterior-chain', core: 'core' };
+  Town.prototype.liftOutlook = function () {
+    var s = this.st, self = this, keys = Object.keys(s.towers), out = {};
+    var townLeft = function (ci) { var C = s.castles[ci], plan = TOWNS[ci].plan.length; return C ? Math.max(0, Math.ceil((plan - C.built - (C.acc || 0)) / TOWN_PACE)) : Math.ceil(plan / TOWN_PACE); };
+    var left = keys.reduce(function (a, k) { return a + self.streetLeft(k); }, 0);
+    for (var ci = 1; ci < CASTLE_SITES.length; ci++) left += townLeft(ci);
+    out.left = left; out.done = s.liftN || 0; out.total = out.done + left;
+    var cityLeft = keys.some(function (k) { return self.streetLeft(k) > 0; });
+    if (cityLeft) {
+      var best = null;
+      keys.forEach(function (k) {
+        var tw = s.towers[k], nb = Math.floor(tw.n / CITY_EVERY), piece = CITY_STREETS[k].plan[nb];
+        if (tw.n >= MAX_LAYERS || !piece) return;
+        var n = (nb + 1) * CITY_EVERY - tw.n;
+        if (!best || n < best.n) best = { n: n, k: k, piece: piece };
+      });
+      out.next = best ? CITY_STREETS[best.k].name + ': ' + (best.piece[3] || 'a new building') + ' in ' + best.n + ' ' + GROUP_WORD[best.k] + ' session' + (best.n === 1 ? '' : 's')
+        : 'Whitehorse is built: street life and lamps next';
+    } else {
+      for (ci = 1; ci < CASTLE_SITES.length; ci++) {
+        var C = s.castles[ci], plan = TOWNS[ci].plan.length;
+        if (C && C.built >= plan) continue;
+        var nIn = Math.max(1, Math.ceil((1 - ((C && C.acc) || 0)) / TOWN_PACE));
+        out.next = TOWNS[ci].name + ': ' + (C ? C.built : 0) + ' of ' + plan + ' built, next in ' + nIn + ' lifting session' + (nIn === 1 ? '' : 's');
+        break;
+      }
+      if (!out.next) out.next = 'Everything up the line is built!';
+    }
+    if (s.firstLift && out.done && left) {
+      var weeks = Math.max(1, (Date.now() - new Date(s.firstLift + 'T12:00:00')) / 6048e5), rate = out.done / weeks;
+      out.eta = new Date(Date.now() + left / rate * 6048e5);
+    }
+    return out;
+  };
   Town.prototype.liftSessionInner = function (key, delay) {
-    var tw = this.st.towers[key];
+    var tw = this.st.towers[key], self = this;
+    this.st.liftN = (this.st.liftN || 0) + 1;
     if (tw.n < MAX_LAYERS) {
       if (key !== 'full' && tw.n >= this.towerCap() && this.mainBailey(key, delay)) return tw;
       this.addCourse(key, delay);
       return tw;
     }
-    // At full height: finish the bailey first, then build the next town up the line.
+    // At full height: finish the bailey first, then help whichever street is furthest behind, and
+    // once all of Whitehorse is built, build the next town up the line.
     if (key !== 'full' && this.mainBailey(key, delay)) return tw;
+    var behind = null, most = 0;
+    Object.keys(this.st.towers).forEach(function (k) { var left = self.streetLeft(k); if (left > most) { most = left; behind = k; } });
+    if (behind) { this.st.liftN--; return this.liftSessionInner(behind, delay); }
     for (var ci = 1; ci < CASTLE_SITES.length; ci++) {
       var C = this.st.castles[ci];
       if (C && C.built >= C.town.plan.length) continue;
@@ -11548,6 +11593,7 @@
     if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie' && ev.kind !== 'walk') { s.sessions++; this.growSquare(delay); }
     switch (ev.kind) {
       case 'lift':
+        if (ev.date && !ev.projected && !ev.planned && (!s.firstLift || ev.date < s.firstLift)) s.firstLift = ev.date;
         ev.groups.forEach(function (g, i) {
           var tw = self.liftSession(g, delay + i * 120);
           mark('tower:' + g); mark(tw.pick);
