@@ -84,6 +84,14 @@ async function strava() {
 
 // Letterboxd: the public feed shows the last 50 diary entries, so new ones are added to
 // films.js and old ones are kept.
+// The review written with a diary entry: the feed's description, less the poster (entries with
+// no review just say when it was watched).
+function reviewOf(item) {
+  const d = (item.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) || [])[1] || '';
+  const text = d.replace(/<p><img[^>]*\/?><\/p>/g, '').replace(/<br\s*\/?>/g, ' ').replace(/<\/p>\s*<p>/g, ' ').replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&#0?39;|&apos;|&rsquo;/g, '\u2019').replace(/&quot;|&ldquo;|&rdquo;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^Watched on /i.test(text) ? '' : text.slice(0, 600);
+}
 async function letterboxd() {
   const xml = await fetch(`https://letterboxd.com/${LETTERBOXD_USER}/rss/`, { headers: { 'user-agent': 'Mozilla/5.0 (yukon-town updater)' } }).then((r) => {
     if (!r.ok) throw new Error('feed ' + r.status);
@@ -99,7 +107,7 @@ async function letterboxd() {
     if (!title || !date) continue; // lists and other non-diary posts
     const rating = parseFloat(tag(item, 'memberRating'));
     const poster = (item.match(/<img src="([^"]+)"/) || [])[1] || '';
-    fresh.push([title, +tag(item, 'filmYear') || null, date, isNaN(rating) ? null : rating, tag(item, 'rewatch') === 'Yes' ? 1 : 0, poster.replace(/&amp;/g, '&')]);
+    fresh.push([title, +tag(item, 'filmYear') || null, date, isNaN(rating) ? null : rating, tag(item, 'rewatch') === 'Yes' ? 1 : 0, poster.replace(/&amp;/g, '&'), reviewOf(item)]);
   }
   const path = new URL('films.js', DATA);
   let films = [];

@@ -298,10 +298,10 @@
   var STREETS = [
     bezierPath(polar(GATE_ANGLE - 360 / 7, CITY_R), polar(247, 20), polar(243, 22), SQUARE),
     bezierPath(SQUARE, polar(228, 28), polar(218, 31), polar(212, 36.5)),
-    bezierPath({ x: SQUARE.x + 1.8, z: SQUARE.z - 1.4 }, { x: -3.5, z: 18.6 }, { x: -1.2, z: 29 }, polar(257, 37.5)),
+    bezierPath({ x: TOWN_SQ.x + TOWN_SQ.hx - 0.3, z: TOWN_SQ.z + TOWN_SQ.hz - 0.3 }, { x: -10.6, z: 32.4 }, { x: -9.4, z: 34.8 }, polar(257, 37.5)), // off the town square's corner
     // Lanes branching off the side streets as the village fills.
     bezierPath(polar(222, 29.6), polar(214, 27.5), polar(206, 26.5), polar(198, 25)),
-    bezierPath(polar(254, 18.8), polar(260, 20.2), polar(266, 20.6), polar(271, 20.2)),
+    bezierPath(polar(254, 22.6), polar(260, 23.6), polar(266, 23.9), polar(271, 23.6)),
     bezierPath(polar(198, 25), polar(197.5, 23.4), polar(197.2, 21.4), polar(GATE_ANGLE + 360 * 5 / 7 - 360, CITY_R)),
     bezierPath(polar(212, 36.5), { x: -42, z: 20 }, { x: -46, z: 13 }, polar(193, 42.5)),
     // Chapel Lane, off the end of the south street past the church to where it first stood.
@@ -650,7 +650,7 @@
   // Paths out into the country leave town from the end of one of Whitehorse's seven streets: they
   // run straight on past the landmark at its end, then strike off for where they're going, round
   // whatever is in the way (of the two nearest streets and a few bends, the clearest way wins).
-  var STREET_OUT = 6.5;
+  var STREET_OUT = 8;
   function nearStreets(a) {
     var list = [];
     for (var i = 0; i < 7; i++) { var sa = GATE_ANGLE + i * 360 / 7; list.push({ sa: sa, d: Math.abs(((a - sa) % 360 + 540) % 360 - 180) }); }
@@ -696,7 +696,7 @@
   var PATHS = (function () {
     var out = [];
     out.push({ kind: 'path', pts: fromRing(polar(156, 27 - 1.6), 0.8) });
-    out.push({ kind: 'path', pts: fromRing(polar(FARM.angle, FARM.r - 0.8), 0.4) });
+    out.push({ kind: 'path', pts: fromRing(polar(FARM.angle, FARM.r - 1.6), 0.4) });
     out.push({ kind: 'path', pts: fromRing(polar(angleOf(DOG_PEN.c.x, DOG_PEN.c.z), Math.hypot(DOG_PEN.c.x, DOG_PEN.c.z) - DOG_PEN.d / 2 - 0.3), 0.6) });
     out.push({ kind: 'path', pts: fromRing(FOREST_SEED, 1.5) });
     out.push({ kind: 'road', pts: fromRing(LODGE, 2.5), lodge: true }); // laid with the lodge
@@ -1841,9 +1841,27 @@
   function cityAngle(key) { return GATE_ANGLE + CITY_ORDER.indexOf(key) * 360 / 7; }
   function cityFrame(key) { var a = cityAngle(key) * D2R, u = { x: Math.cos(a), z: -Math.sin(a) }; return { a: a, u: u, v: { x: -u.z, z: u.x } }; }
   // A lot: row a (beside the street), row b (behind them, further out), or E (the end of the street).
+  // Which side of the road out a street's landmark stands: whichever is clearer of the paths,
+  // lanes and roads leaving town there.
+  var END_SIDE = {};
+  function endSide(key, F) {
+    if (END_SIDE[key]) return END_SIDE[key];
+    var score = [1, -1].map(function (sd) {
+      var n = 0;
+      for (var dd = 19.4; dd <= 23.4; dd += 0.8) for (var oo = 1.6; oo <= 5.2; oo += 0.9) {
+        var x = F.u.x * dd + F.v.x * oo * sd, z = F.u.z * dd + F.v.z * oo * sd;
+        if (nearPath(x, z, 1.2)) n++;
+        if (STREETS.some(function (st) { return st.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 1.6; }); })) n++;
+        if (CASTLE_ROADS.some(function (rd) { return rd && rd.some(function (q) { return Math.hypot(q.x - x, q.z - z) < 1.6; }); })) n++;
+        if (PATH_AVOID.some(function (o) { return Math.hypot(o.x - x, o.z - z) < o.r; })) n++;
+      }
+      return n;
+    });
+    return (END_SIDE[key] = score[1] < score[0] ? -1 : 1);
+  }
   function cityLot(key, code) {
     var F = cityFrame(key), d, off, dir;
-    if (code === 'E') { d = 21.4; off = 3.4; dir = { x: -F.v.x, z: -F.v.z }; } // past the end of the street, beside the road out
+    if (code === 'E') { var es = endSide(key, F); d = 21.4; off = 3.4 * es; dir = { x: -F.v.x * es, z: -F.v.z * es }; } // past the end of the street, beside the road out
     else {
       // One row down each side, every building fronting the street: a0-a2 nearest the plaza, then b0, b1.
       var i = +code[1] + (code[0] === 'b' ? 3 : 0), sd = code[2] === '+' ? 1 : -1;
@@ -4097,6 +4115,84 @@
     return this.spineMats[hex];
   };
 
+  // ---- scaffolding on whatever's going up next ---------------------------------------------
+  // In Whitehorse a street's next building climbs a level of scaffolding with each session towards
+  // it; in a town, the next piece gets its scaffold once it's on its way.
+  Town.prototype.scaffolds = function () {
+    var s = this.st, self = this, S = s.scaff || (s.scaff = {}), want = {};
+    if (s.city) Object.keys(s.towers).forEach(function (k) {
+      var tw = s.towers[k], nb = Math.floor(tw.n / CITY_EVERY), piece = CITY_STREETS[k] && CITY_STREETS[k].plan[nb], prog = tw.n % CITY_EVERY;
+      if (!tw.city || tw.n >= MAX_LAYERS || !piece || !prog) return;
+      var w = cityLot(k, piece[1]), y0 = s.city.group.position.y;
+      want['c:' + k] = { x: w.x, z: w.z, y: groundY(w.x, w.z), r: (w.r || 0) * D2R, lv: prog, w: 1.9, d: 1.7 };
+    });
+    (s.castles || []).forEach(function (C, ci) {
+      if (!C || !C.town || C.built >= C.town.plan.length || !(C.acc > 0)) return;
+      var piece = C.town.plan[C.built], where = piece[1];
+      if (where && where.slot != null) where = (C.slots || [])[where.slot];
+      if (!where || where.x == null) return;
+      var v = new T.Vector3(where.x, 0, where.z); C.group.localToWorld(v);
+      want['t:' + ci] = { x: v.x, z: v.z, y: groundY(v.x, v.z), r: C.group.rotation.y + (where.r || 0) * D2R, lv: C.acc < 0.5 ? 1 : 2, w: 2.0, d: 1.8 };
+    });
+    Object.keys(S).forEach(function (id) { var o = want[id], cur = S[id]; if (!o || cur.key !== [o.x, o.z, o.lv].join()) { self.world.remove(cur.g); delete S[id]; } });
+    Object.keys(want).forEach(function (id) {
+      if (S[id]) return;
+      var o = want[id], g = new T.Group(), H = 0.72, wood = self.mat('woodLight'), pk = 'scaffold';
+      g.position.set(o.x, o.y, o.z); g.rotation.y = o.r;
+      function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pk); }
+      var top = o.lv * H + 0.35;
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c) { P(self.geo.cyl6, self.mat('logwood', 0), 0.035, top, 0.035, c[0] * o.w / 2, top / 2, c[1] * o.d / 2); });
+      for (var l = 1; l <= o.lv; l++) {
+        var y = l * H;
+        P(self.geo.box, wood, o.w + 0.1, 0.05, 0.32, 0, y, o.d / 2 + 0.05); P(self.geo.box, wood, o.w + 0.1, 0.05, 0.32, 0, y, -o.d / 2 - 0.05); // walkboards front and back
+        [-1, 1].forEach(function (sd) { P(self.geo.box, wood, 0.04, 0.04, o.d, sd * o.w / 2, y + 0.3, 0); P(self.geo.box, wood, o.w, 0.04, 0.04, 0, y + 0.3, sd * o.d / 2); });
+        var br = P(self.geo.box, wood, 0.03, H * 1.25, 0.03, 0, y - H / 2, o.d / 2 + 0.02); br.rotation.z = 0.9; // a cross brace
+      }
+      P(self.geo.box, self.mat('soil'), o.w * 0.9, 0.04, o.d * 0.9, 0, 0.02, 0); // the dug-out footprint
+      self.world.add(g); if (!self.instant) self.pop(g, 0);
+      S[id] = { g: g, key: [o.x, o.z, o.lv].join() };
+    });
+    this.needsRender = true;
+  };
+  // ---- your latest reviews, chalked up outside the library and the picture house -----------
+  function latestReview(list) { for (var i = (list || []).length - 1; i >= 0; i--) if (list[i].review && !list[i].projected) return list[i]; return null; }
+  function starsOf(n) { if (n == null) return 'unrated'; var f = Math.floor(n); return '\u2605'.repeat(f) + (n - f >= 0.5 ? '\u00bd' : ''); }
+  function reviewLine(r) { var t = r.review.length > 150 ? r.review.slice(0, 147).replace(/\s+\S*$/, '') + '\u2026' : r.review; return 'Latest review, ' + r.title + ' ' + starsOf(r.stars) + ': \u201c' + t + '\u201d'; }
+  Town.prototype.reviewBoards = function () {
+    var s = this.st, self = this, B = s.boards || (s.boards = {});
+    [['library', LIBRARY, 4.2, s.library.books], ['cinema', CINEMA, 2.4, s.cinema.films]].forEach(function (d) {
+      var r = latestReview(d[3]), key = r ? r.title + '|' + r.date + '|' + r.review.length : '';
+      if (B[d[0]] && B[d[0]].key === key) return;
+      if (B[d[0]]) { self.world.remove(B[d[0]].g); self.picks = self.picks.filter(function (m) { return !B[d[0]].picks || B[d[0]].picks.indexOf(m) < 0; }); }
+      B[d[0]] = { key: key };
+      if (!r) return;
+      // An A-frame chalkboard beside the path to the door.
+      var a = facingSquare(d[1]), f = frontOf(d[1], d[2]), x = f.x + Math.cos(a) * 1.7, z = f.z - Math.sin(a) * 1.7, g = new T.Group(), pk = 'reviewboard:' + d[0];
+      g.position.set(x, groundY(x, z), z); g.rotation.y = a; self.world.add(g);
+      var cv = document.createElement('canvas'); cv.width = 320; cv.height = 240; var c = cv.getContext('2d');
+      c.fillStyle = '#2f3f36'; c.fillRect(0, 0, 320, 240); c.strokeStyle = '#8a5a34'; c.lineWidth = 10; c.strokeRect(5, 5, 310, 230);
+      c.fillStyle = '#f2efe6'; c.font = '700 22px "Trebuchet MS", sans-serif'; c.textAlign = 'center';
+      c.fillText((d[0] === 'cinema' ? 'NOW REVIEWED' : 'JUST READ'), 160, 34);
+      c.font = '700 19px "Trebuchet MS", sans-serif'; c.fillStyle = '#f2d27a';
+      var tt = r.title.length > 26 ? r.title.slice(0, 25) + '\u2026' : r.title; c.fillText(tt + '  ' + starsOf(r.stars), 160, 60);
+      c.font = 'italic 17px Georgia, serif'; c.fillStyle = '#eef0ea'; c.textAlign = 'left';
+      var words = ('\u201c' + r.review + '\u201d').split(/\s+/), line = '', y = 88, rows = 0;
+      for (var i = 0; i < words.length && rows < 7; i++) {
+        var tryL = line ? line + ' ' + words[i] : words[i];
+        if (c.measureText(tryL).width > 280) { if (rows === 6) { line += '\u2026'; break; } c.fillText(line, 20, y); y += 21; rows++; line = words[i]; } else line = tryL;
+      }
+      if (rows < 7) c.fillText(line, 20, y);
+      var tex = new T.CanvasTexture(cv), mat = new T.MeshBasicMaterial({ map: tex }), picks = [];
+      [[0.18, 0], [-0.18, Math.PI]].forEach(function (q) {
+        var face = new T.Group(); face.position.set(0, 0.6, q[0] * 0.5); face.rotation.set(q[1] ? -0.18 : 0.18, q[1], 0); g.add(face);
+        var pl = new T.Mesh(new T.PlaneGeometry(0.9, 0.68), mat); pl.position.set(0, 0, 0.02); face.add(pl); pl.userData.pick = pk; self.picks.push(pl); picks.push(pl);
+        self.part(face, self.geo.box, self.mat('logwood', 0), 0.98, 0.76, 0.03, 0, 0, 0, pk);
+      });
+      [-0.42, 0.42].forEach(function (lx) { [-0.17, 0.17].forEach(function (lz) { self.part(g, self.geo.box, self.mat('logwood', 1), 0.05, 1.0, 0.05, lx, 0.5, lz, pk); }); });
+      B[d[0]].g = g; B[d[0]].picks = picks;
+    });
+    this.needsRender = true;
+  };
   // ---- the cinema: films from your Letterboxd diary ----------------------------------
   // It starts as an outdoor movie night (a sheet screen, a projector and benches), then becomes a
   // little single-screen picture house that gains marquee lights, a popcorn cart, a neon sign, a
@@ -4104,7 +4200,7 @@
   var CINEMA_STEPS = [[1, 'An outdoor movie night'], [25, 'A little picture house'], [40, 'Marquee lights'], [50, 'A popcorn cart'], [100, 'A neon sign'], [200, 'A second screen'], [365, 'Searchlights and a red carpet']];
   Town.prototype.addMovie = function (ev) {
     var C = this.st.cinema;
-    C.films.push({ title: ev.title, year: ev.year, stars: ev.stars, date: ev.date, rewatch: !!ev.rewatch, projected: !!ev.projected, cover: ev.cover || '' });
+    C.films.push({ title: ev.title, year: ev.year, stars: ev.stars, date: ev.date, rewatch: !!ev.rewatch, projected: !!ev.projected, cover: ev.cover || '', review: ev.review || '' });
     var cs = CINEMA_STEPS.filter(function (x) { return x[0] === C.films.length; })[0];
     if (cs && cs[0] > 1) this.news(['the picture house has ' + cs[1].toLowerCase() + ' now!', 'fancy a film? ' + cs[1].toLowerCase() + ' at the cinema!'], ev.date);
     this.cinemaDirty = true;
@@ -11739,7 +11835,8 @@
       }
       case 'cinema': {
         var CF = s.cinema.films, cn = CF.length, cnext = CINEMA_STEPS.filter(function (x) { return cn < x[0]; })[0], ratedF = CF.filter(function (f) { return f.stars != null; });
-        return { title: 'The picture house', lines: ['Click for your film list.', plural(cn, 'film') + (ratedF.length ? ' \u00b7 average ' + (ratedF.reduce(function (a, f) { return a + f.stars; }, 0) / ratedF.length).toFixed(1) + '\u2605' : ''), cnext ? 'Next: ' + cnext[1].toLowerCase() + ' at ' + cnext[0] + ' films.' : 'The cinema is complete.'] };
+        var crv = latestReview(CF);
+        return { title: 'The picture house', lines: (crv ? [reviewLine(crv)] : []).concat(['Click for your film list.', plural(cn, 'film') + (ratedF.length ? ' \u00b7 average ' + (ratedF.reduce(function (a, f) { return a + f.stars; }, 0) / ratedF.length).toFixed(1) + '\u2605' : ''), cnext ? 'Next: ' + cnext[1].toLowerCase() + ' at ' + cnext[0] + ' films.' : 'The cinema is complete.']) };
       }
       case 'planned': {
         var pl = this.planned || [];
@@ -11791,12 +11888,18 @@
         return mo ? { title: mo.name, lines: [mo.char ? CHAR_NOTE[mo.char] : 'Lives at the ' + mo.homeName + ' house.', doing] } : null;
       }
       case 'fox': return { title: 'Jo the fox', lines: ['Jo, mostly round her house, sometimes off exploring.'] };
+      case 'scaffold': return { title: 'Going up', lines: ['Scaffolding on the next building. A few more lifting sessions and it\u2019s built.'] };
+      case 'reviewboard': {
+        var RB = latestReview(p[1] === 'cinema' ? s.cinema.films : s.library.books);
+        return RB ? { title: (p[1] === 'cinema' ? 'Film' : 'Book') + ' review: ' + RB.title, lines: [starsOf(RB.stars) + (RB.date ? ' \u00b7 ' + new Date(RB.date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : ''), '\u201c' + RB.review + '\u201d'] } : null;
+      }
       case 'library':
         var LB = s.library, nextL = LIBRARY_STAGES.filter(function (x) { return LB.pages < x[0]; })[0];
         if (!LB.books.length) return { title: 'The library', lines: ['This plot is kept for your library.', 'Finish a book in your book tracker and it starts with a reading nook.'] };
         var real = LB.books.filter(function (b) { return !b.projected; });
-        return { title: 'The library', lines: ['Click for your bookshelf: covers, ratings and reviews.', plural(LB.books.length, 'book') + ' · ' + fmtN(LB.pages) + ' pages' + (real.length < LB.books.length ? ' (' + (LB.books.length - real.length) + ' projected)' : ''),
-          nextL ? 'Next: ' + nextL[1].toLowerCase() + ' at ' + fmtN(nextL[0]) + ' pages.' : 'The library is complete.'] };
+        var lrv = latestReview(LB.books);
+        return { title: 'The library', lines: (lrv ? [reviewLine(lrv)] : []).concat(['Click for your bookshelf: covers, ratings and reviews.', plural(LB.books.length, 'book') + ' · ' + fmtN(LB.pages) + ' pages' + (real.length < LB.books.length ? ' (' + (LB.books.length - real.length) + ' projected)' : ''),
+          nextL ? 'Next: ' + nextL[1].toLowerCase() + ' at ' + fmtN(nextL[0]) + ' pages.' : 'The library is complete.']) };
       case 'raccoon': return { title: 'The raccoon', lines: ['That\u2019s you. You follow whichever castle is being built.'] };
       case 'mine': {
         var Mi = this.st.mine, mn = Mi ? Mi.n : 0, nxM = MINE_STEPS[mn];
@@ -12103,7 +12206,7 @@
   // A Stardew-style follow camera on a raccoon you steer with WASD or the arrows (or a joystick on
   // a phone); Shift runs, E looks at whatever's nearby. Buildings, trees, water and the sea are in
   // the way; paths and bridges are fine.
-  var SOLID_SKIP = /^(folk|raccoon|fox|dog|dogs|wild:|prflag|endpr|balloon|sheep|railway|commute|bike|farm|field|path|hike|snow|lift|sky|weather|walk)/;
+  var SOLID_SKIP = /^(folk|raccoon|fox|dog|dogs|wild:|prflag|endpr|balloon|sheep|railway|commute|bike|farm|field|path|hike|snow|lift|sky|weather|walk|scaffold)/;
   Town.prototype.setExplore = function (on) {
     this.explore = !!on;
     var c = this.controls;
@@ -13408,7 +13511,16 @@
   };
   // All aboard: the nearest train carriage, or a chair at the bottom of the ski lift.
   Town.prototype.boardNear = function (pl) {
-    var P = pl.g.position, R = this.st.rail, L = this.st.snow && this.st.snow.lift, best = null, bd = 3.2;
+    var P = pl.g.position, R = this.st.rail, L = this.st.snow && this.st.snow.lift, best = null, bd = 3.2, A = this.st.airport;
+    // The King Air, waiting on the apron: climb aboard and she takes off with you.
+    if (A && A.plane && A.phase === 'park') {
+      var pw = new T.Vector3(); A.plane.getWorldPosition(pw);
+      if (Math.hypot(pw.x - P.x, pw.z - P.z) < 3.2) {
+        pl.ride = { kind: 'plane', obj: A.plane, t: 0 }; A.until = 0;
+        this.say(['clear prop!', 'buckle up', 'Alkan Air, cleared for takeoff'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.6); pl.seat = null; pl.dig = null;
+        return true;
+      }
+    }
     if (R && R.train) R.train.forEach(function (car, i) { if (!i) return; var d = Math.hypot(car.position.x - P.x, car.position.z - P.z); if (d < bd) { bd = d; best = car; } });
     if (best) {
       var box = new T.Box3().setFromObject(best);
@@ -13431,7 +13543,20 @@
   Town.prototype.rideStep = function (pl, dt, now) {
     var Rd = pl.ride, P = pl.g.position, o = Rd.obj, wp = new T.Vector3();
     Rd.t += dt;
-    if (Rd.kind === 'train') {
+    if (Rd.kind === 'plane') {
+      // Riding up on top of the King Air, round the circuit and back down.
+      var A = this.st.airport, q = new T.Quaternion(), e = new T.Euler();
+      o.updateWorldMatrix(true, false); o.getWorldPosition(wp); wp.y += 0.6;
+      o.getWorldQuaternion(q); e.setFromQuaternion(q, 'YXZ'); pl.g.rotation.y = e.y;
+      if (A.phase !== 'park') Rd.flew = true;
+      else if (Rd.flew) {
+        // Back on the apron: off beside the wing.
+        pl.ride = null; P.set(wp.x + Math.cos(e.y) * 2.2, 0, wp.z - Math.sin(e.y) * 2.2); P.y = this.floorAt(P.x, P.z, wp.y + 1); pl.vy = 1.2; pl.idle = 0;
+        this.say(['what a flight!', 'thank you for flying Alkan Air', 'my ears popped'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.8);
+        return;
+      }
+      if (now > (Rd.cheer || 0)) { Rd.cheer = now + 7000 + Math.random() * 6000; if (Rd.t > 4) this.say(['wheee!', 'look, there\u2019s home!', 'I can see my den', 'smooth air today'][Math.floor(Math.random() * 4)], pl.g, 1.0, 1.5); }
+    } else if (Rd.kind === 'train') {
       wp.copy(o.position); wp.y += Rd.y;
       pl.g.rotation.y = o.rotation.y + Math.PI / 2;
       if (now > (Rd.cheer || 0)) { Rd.cheer = now + 9000 + Math.random() * 9000; if (Rd.t > 3) this.say(['wheee!', 'choo choo', 'what a view', 'tickets please?', 'next stop: Skagway'][Math.floor(Math.random() * 5)], pl.g, 1.0, 1.5); }
@@ -13599,6 +13724,15 @@
   Town.prototype.say = function (text, obj, yOff, dur, drift) {
     if (this.soft) return;
     var F = this.fx || (this.fx = { bits: [], group: null }), bubbles = F.bubbles || (F.bubbles = []);
+    // Not everyone talks at once: at most three others are chatting at a time, never two side by
+    // side, though whoever you're right next to always gets their word in.
+    var pg = this.player && this.player.g;
+    if (obj && obj !== pg && obj.position) {
+      var live = bubbles.filter(function (b) { return b.obj !== pg && b.t < b.dur; }), op = obj.position;
+      var close = pg && pg.visible && Math.hypot(pg.position.x - op.x, pg.position.z - op.z) < 4;
+      if (live.length >= (close ? 5 : 3)) return;
+      if (!close && live.some(function (b) { return b.obj && b.obj.position && Math.hypot(b.obj.position.x - op.x, b.obj.position.z - op.z) < 3; })) return;
+    }
     // The bubble grows to fit what's said, wrapping long lines so it never gets too wide.
     var font = '700 34px "Trebuchet MS", sans-serif', meas = document.createElement('canvas').getContext('2d');
     meas.font = font;
