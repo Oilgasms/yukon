@@ -1703,12 +1703,13 @@
     TOWERS.concat([{ key: 'full', name: 'The Keep (full body)', angle: null }]).forEach(function (t, ti) {
       var p = t.angle == null ? { x: 0, z: 0 } : polar(t.angle, 3.6);
       var r = t.angle == null ? 1.45 : 1.0, pick = 'tower:' + t.key + tag;
-      // In Whitehorse each group has a street instead, with its PR flag on a pole at the top of it.
-      if (city) { var F0 = cityFrame(t.key); p = { x: F0.u.x * 4.9 + F0.v.x * 1.5, z: F0.u.z * 4.9 + F0.v.z * 1.5 }; }
+      // In Whitehorse each group has a street instead, with a log gateway over the top of it that
+      // flies a gold PR banner.
+      if (city) { var F0 = cityFrame(t.key); p = { x: F0.u.x * 5.0, z: F0.u.z * 5.0 }; }
       var g = new T.Group();
       g.position.set(p.x, city ? groundY(p.x, p.z) : 0, p.z);
       parent.add(g);
-      if (city) self.part(g, self.geo.cyl6, self.mat('whitewood'), 0.035, 1.05, 0.035, 0, 0.52, 0, pick);
+      if (city) { g.rotation.y = Math.atan2(-F0.v.z, F0.v.x); self.cityArch(g, t.key, pick); }
       else self.part(g, self.geo.cyl, self.smat(style, 'stoneDark'), r * 1.18, 0.14, r * 1.18, 0, 0.07, 0, pick);
       var roof = new T.Group();
       g.add(roof);
@@ -1718,18 +1719,52 @@
       else { cone = self.part(roof, self.geo.cone4, self.mat('tin', 0), r * 1.55, 1.3, r * 1.55, 0, 0.65, 0, pick); cone.rotation.y = Math.PI / 4; } // red tin, like the old log buildings downtown
       // One pennant on the spire, flown only when the latest session set a PR.
       var flag = new T.Group();
-      // Hover the pennant to see which lifts set the PR.
-      self.part(flag, self.geo.cyl, self.mat('wood'), 0.06, 1.3, 0.06, 0, 0.65, 0, 'prflag:' + t.key + tag);
-      self.part(flag, self.geo.flag, self.mat('flag', 0), 2.2, 2.2, 2.2, 0, 1.3, 0, 'prflag:' + t.key + tag);
-      var hitbox = new T.Mesh(self.geo.box, self.hitMat || (self.hitMat = new T.MeshBasicMaterial({ visible: false })));
-      hitbox.scale.set(1.3, 1.0, 1.3); hitbox.position.set(0.4, 1.0, 0); hitbox.userData.pick = 'prflag:' + t.key + tag; flag.add(hitbox); self.picks.push(hitbox);
-      flag.position.y = style ? style.flagY : 1.4; flag.visible = false;
+      if (city) { self.cityPrBanner(flag, 'prflag:' + t.key + tag); flag.position.y = 0; }
+      else {
+        // Hover the pennant to see which lifts set the PR.
+        self.part(flag, self.geo.cyl, self.mat('wood'), 0.06, 1.3, 0.06, 0, 0.65, 0, 'prflag:' + t.key + tag);
+        self.part(flag, self.geo.flag, self.mat('flag', 0), 2.2, 2.2, 2.2, 0, 1.3, 0, 'prflag:' + t.key + tag);
+        var hitbox = new T.Mesh(self.geo.box, self.hitMat || (self.hitMat = new T.MeshBasicMaterial({ visible: false })));
+        hitbox.scale.set(1.3, 1.0, 1.3); hitbox.position.set(0.4, 1.0, 0); hitbox.userData.pick = 'prflag:' + t.key + tag; flag.add(hitbox); self.picks.push(hitbox);
+        flag.position.y = style ? style.flagY : 1.4;
+      }
+      flag.visible = false;
       roof.add(flag);
       roof.position.y = 0.14; roof.visible = false;
       var out = t.angle == null ? GATE_ANGLE * D2R : t.angle * D2R;
       towers[t.key] = { def: t, group: g, r: r, n: 0, prs: 0, roof: roof, cone: cone, cap: cap, style: style, flag: flag, flying: false, p: p, out: { x: Math.cos(out), z: -Math.sin(out) }, features: [], pick: pick, city: !!city };
     });
     return towers;
+  };
+  // The gateway over the top of each Whitehorse street: two log posts, a crossbeam and a board with
+  // the street's name on both faces. (Local x runs across the street.)
+  var ARCH_W = 1.5;
+  function signTexture(text, bg, fg, w, h) {
+    var cv = document.createElement('canvas'); cv.width = w; cv.height = h; var cx = cv.getContext('2d');
+    cx.fillStyle = bg; cx.fillRect(0, 0, w, h); cx.strokeStyle = fg; cx.lineWidth = 5; cx.strokeRect(5, 5, w - 10, h - 10);
+    var fs = Math.round(h * 0.5); cx.font = '700 ' + fs + 'px "Trebuchet MS", sans-serif';
+    while (fs > 12 && cx.measureText(text).width > w - 30) { fs -= 2; cx.font = '700 ' + fs + 'px "Trebuchet MS", sans-serif'; }
+    cx.fillStyle = fg; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(text, w / 2, h / 2 + 2);
+    var tex = new T.CanvasTexture(cv); tex.magFilter = T.NearestFilter; return tex;
+  }
+  Town.prototype.cityArch = function (g, key, pick) {
+    var self = this;
+    function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
+    [-ARCH_W, ARCH_W].forEach(function (x) { P(self.geo.cyl6, self.mat('logwood', 0), 0.09, 2.3, 0.09, x, 1.15, 0); P(self.geo.box, self.mat('stoneDark'), 0.26, 0.16, 0.26, x, 0.08, 0); });
+    P(this.geo.box, this.mat('logwood', 1), ARCH_W * 2 + 0.5, 0.16, 0.16, 0, 2.25, 0);
+    var mat = new T.MeshBasicMaterial({ map: signTexture(CITY_STREETS[key].name.toUpperCase(), '#6a4224', '#f3efe6', 384, 80) });
+    [0, Math.PI].forEach(function (ry) { var b = new T.Mesh(new T.PlaneGeometry(1.9, 0.4), mat); b.position.set(0, 1.95, ry ? -0.09 : 0.09); b.rotation.y = ry; g.add(b); b.userData.pick = pick; self.picks.push(b); });
+  };
+  // A street's PR: a gold banner under the name board, lanterns lit on the posts and a gold star on
+  // top. (It hangs from the street's 'roof', which sits 0.9 up.)
+  Town.prototype.cityPrBanner = function (flag, pk) {
+    var self = this, G = this.glowMats(), y0 = -0.9;
+    var mat = new T.MeshBasicMaterial({ map: signTexture('\u2605 PR \u2605', '#e0a92e', '#3a2410', 256, 96) });
+    [0, Math.PI].forEach(function (ry) { var b = new T.Mesh(new T.PlaneGeometry(1.05, 0.42), mat); b.position.set(0, 1.47 + y0, ry ? -0.03 : 0.03); b.rotation.y = ry; flag.add(b); b.userData.pick = pk; self.picks.push(b); });
+    [-0.4, 0.4].forEach(function (x) { self.part(flag, self.geo.box, self.mat('gold'), 0.03, 0.08, 0.03, x, 1.72 + y0, 0, pk); });
+    [-ARCH_W, ARCH_W].forEach(function (x) { var l = new T.Mesh(self.geo.box, G.lamp); l.scale.set(0.2, 0.24, 0.2); l.position.set(x, 2.45 + y0, 0); flag.add(l); self.part(flag, self.geo.box, self.mat('gold'), 0.26, 0.05, 0.26, x, 2.6 + y0, 0, pk); });
+    var st = self.part(flag, self.geo.cone4, self.mat('gold'), 0.16, 0.22, 0.05, 0, 2.48 + y0, 0, pk), st2 = self.part(flag, self.geo.cone4, self.mat('gold'), 0.16, 0.22, 0.05, 0, 2.42 + y0, 0, pk);
+    st2.rotation.z = Math.PI;
   };
   // A new castle on its hill: the seven towers in that castle's style, and a road back home.
   // Its walls, gate and everything else are milestones of its own.
@@ -4495,7 +4530,7 @@
       P(self.geo.box, dark, 0.045, 0.13, 0.045, 0, -0.235, 0, hip);         // dark stockings
       return hip;
     });
-    g.scale.setScalar(0.675);
+    g.scale.setScalar(1.35);
     this.world.add(g);
     return { g: g, body: body, head: head, legs: legs, tail: tail, kind: 'fox', cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: 3, speed: 1.1 };
   };
@@ -12143,7 +12178,7 @@
   };
   // feet: how high the raccoon's feet are mid-jump; anything lower than that can be hopped over.
   Town.prototype.walkable = function (x, z, feet, aloft) {
-    var r = 0.14;
+    var r = 0.22;
     if (Math.hypot(x, z) > 150) return false;
     var deck = this.deckAt(x, z);
     if (deck || aloft) return this.clearOfSolids(x, z, feet);
@@ -12184,7 +12219,7 @@
     return null;
   };
   Town.prototype.clearOfSolids = function (x, z, feet) {
-    var r = 0.14, cell = this.solids && this.solids.grid[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
+    var r = 0.22, cell = this.solids && this.solids.grid[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
     if (cell) for (var i = 0; i < cell.length; i++) {
       var o = cell[i];
       if (!(x > o.x0 - r && x < o.x1 + r && z > o.z0 - r && z < o.z1 + r) || (feet != null && o.top < feet)) continue;
@@ -12195,7 +12230,7 @@
     }
     return true;
   };
-  var PLAYER_SCALE = 0.625, STEP_UP = 0.4, GRAVITY = 17;
+  var PLAYER_SCALE = 1.25, STEP_UP = 0.4, GRAVITY = 17;
   // The raccoon you walk around as.
   Town.prototype.makePlayer = function () {
     var pc = this.critter('raccoon');
@@ -12707,9 +12742,21 @@
     if (wh != null && P.y < wh - SWIM_SINK + 0.04) return null;
     for (var d = 0.7; d <= 1.6; d += 0.3) {
       var x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d, w = waterAt(x, z);
-      if (w != null && !this.deckAt(x, z) && w - groundY(x, z) > 0.15 && P.y - w < 1.5 && Math.hypot(x, z) < 147) return { x: x, z: z };
+      if (w != null && !this.deckAt(x, z) && w - groundY(x, z) > 0.15 && P.y - w < 1.5 && Math.hypot(x, z) < 147 && this.openWater(x, z, w) && this.clearAhead(x, z, a)) return { x: x, z: z };
     }
     return null;
+  };
+  // Water with room for a board: no dock planks overhead and no pilings in the way.
+  Town.prototype.openWater = function (x, z, w) {
+    return this.clearOfSolids(x, z, w + 0.1) && this.floorAt(x, z, w + 1.2) < w + 0.35;
+  };
+  // Room to paddle away from where you get on: open, deep enough water a little way on.
+  Town.prototype.clearAhead = function (x, z, a) {
+    for (var d = 0.5; d <= 1.6; d += 0.55) {
+      var qx = x + Math.sin(a) * d, qz = z + Math.cos(a) * d, w = waterAt(qx, qz);
+      if (w == null || this.deckAt(qx, qz) || w - groundY(qx, qz) < 0.08 || !this.openWater(qx, qz, w)) return false;
+    }
+    return true;
   };
   Town.prototype.startPaddle = function (pl) {
     if (pl.fishing) this.stopFishing(pl);
@@ -12745,7 +12792,8 @@
       var c = this.controls, cam = this.camera, fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
       var right = new T.Vector3(-fwd.z, 0, fwd.x), dx = (right.x * mx + fwd.x * mz) * 2.4 * dt, dz = (right.z * mx + fwd.z * mz) * 2.4 * dt;
       // Only on the water: the shore stops you (E to step off).
-      if (waterAt(P.x + dx, P.z + dz) != null && !this.deckAt(P.x + dx, P.z + dz) && Math.hypot(P.x + dx, P.z + dz) < 118 && waterAt(P.x + dx, P.z + dz) - groundY(P.x + dx, P.z + dz) > 0.08) { P.x += dx; P.z += dz; }
+      var nw = waterAt(P.x + dx, P.z + dz);
+      if (nw != null && !this.deckAt(P.x + dx, P.z + dz) && Math.hypot(P.x + dx, P.z + dz) < 147 && nw - groundY(P.x + dx, P.z + dz) > 0.08 && this.openWater(P.x + dx, P.z + dz, nw)) { P.x += dx; P.z += dz; }
       var face = Math.atan2(dx, dz), d = face - g.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 4);
       if (now > (Pd.wakeAt || 0)) { Pd.wakeAt = now + 300; this.puff(P.x - Math.sin(g.rotation.y) * 0.5, P.y - 0.02, P.z - Math.cos(g.rotation.y) * 0.5, 2, 'ripple'); }
