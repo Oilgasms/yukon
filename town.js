@@ -91,7 +91,7 @@
     fire: '#ff8a2a', copper: '#c4713a', dragon: ['#6b2a2a', '#8f3a2a', '#d9a441'], fur: ['#eef2f4', '#a8c4d8'], hobbitDoor: '#3f7a3a', swan: ['#fbfbf8', '#e8823a', '#2a2a2a'], rainbow: ['#e8483a', '#f2903a', '#f2d23a', '#5fb04a', '#3f8ad0', '#7a5cc0'], canvas: ['#f4ead6', '#d8483a', '#3f73b5'], silver: '#e3e8ee', bin: ['#8a9a9c', '#5d6d70', '#b3c0c1'], otter: ['#6b4a2e', '#cdb08a', '#2e2219'], orca: ['#16161a', '#f2f2ef', '#9c9ca3'], mouse: ['#9c928a', '#8a6a4e', '#c8b49a', '#e8a3a3'], paper: ['#f2efe6', '#4a4a4a'], beer: ['#e3a02c', '#fbf6e8', '#d9e6e8'], smoke: '#d6d3cc', leafgold: '#d8b84a', horse: ['#7a5236', '#3a2a22', '#d8cfc2']
   };
   var CASTLE_MILESTONES = [
-    [10, 'yflag', 'The Yukon flag in the plaza'], [20, 'sign', 'The Welcome to Whitehorse sign'], [30, 'fireweed', 'Fireweed planters, and spruce and birch round town'], [40, 'bunting', 'Bunting across Main Street'], [45, 'airport', 'Whitehorse airport, and Alkan Air’s King Air 350'],
+    [10, 'yflag', 'The Yukon flag in the plaza'], [20, 'sign', 'The Welcome to Whitehorse sign'], [30, 'fireweed', 'Spruce and birch round town'], [40, 'bunting', 'Bunting across Main Street'], [45, 'airport', 'Whitehorse airport, and Alkan Air’s King Air 350'],
     [50, 'winter', 'The Yukon Quest and Sourdough Rendezvous each February'], [60, 'plaza', 'Benches and spruce round the plaza'], [75, 'klondike', 'The S.S. Klondike'],
     [90, 'milepost', 'The Alaska Highway milepost'], [110, 'ravens', 'Ravens about town'], [130, 'artscentre', 'The Yukon Arts Centre'], [160, 'canyon', 'The Miles Canyon footbridge'], [200, 'lights', 'Lights strung along every street']
   ];
@@ -110,11 +110,13 @@
   var DOG_COLORS = { Minto: ['#ece6d8', '#3a3530'], Blue: ['#7f93a8', '#e8e4dc'], Millie: ['#c99552', '#f1e2c8'] };
 
   var RING_ROAD = 14.4;    // cobbled road around the castle grounds
+  // Whitehorse's streets: how wide, and how far out they run before the roads into the country.
+  var CITY_W = 2.4, CITY_R = 18;
   var SQUARE = polar(238, 24);
   var PUB = polar(250, 27.5);
   var DOG_PEN = { c: polar(281, 24.5), w: 7.5, d: 5.5 };
   var STATUE = polar(156, 27); // the weight wall, out on the edge of town by the airport road
-  var FARM = { angle: 328, r: 18, cols: 5, rows: 8 }; // the flower garden
+  var FARM = { angle: 328, r: 22, cols: 5, rows: 8 }; // the flower garden
   var POND = polar(200, 34);
   var OFFICE = polar(30, 55);
   // A river comes down from the back hills, bends around the right of town through the forest,
@@ -184,7 +186,7 @@
   var MAIN_CAP_EVERY = 6, CASTLE_PACE = { steps: 6, capEvery: 2, mainBailey: 2 };
   var LANE_STONES = 140;
   var BALLOON_KM = 30;
-  var SPORT_SLOTS = [[66, 20], [90, 19.5], [78, 26], [54, 26.5], [104, 25], [118, 19.5], [94, 31.5], [64, 32]];
+  var SPORT_SLOTS = [[58, 25], [79, 25], [110, 25], [68.6, 33], [54, 33], [83, 33], [116, 33], [68.6, 41]];
   // Hockey has its own rink, kept clear from the start: ice in winter, a paved rink the rest of the year.
   var HOCKEY = polar(132, 27);
   // The sheep pasture: one sheep for every 100 km ridden.
@@ -294,17 +296,17 @@
   // Village: a main street from the castle to the square, and two side streets beyond it.
   // Houses line both sides, facing each other across the street.
   var STREETS = [
-    bezierPath(polar(GATE_ANGLE - 360 / 7, RING_ROAD), polar(248, 18), polar(244, 21), SQUARE),
+    bezierPath(polar(GATE_ANGLE - 360 / 7, CITY_R), polar(247, 20), polar(243, 22), SQUARE),
     bezierPath(SQUARE, polar(228, 28), polar(218, 31), polar(212, 36.5)),
-    bezierPath(SQUARE, polar(248, 29), polar(255, 32), polar(257, 37)),
+    bezierPath({ x: SQUARE.x + 1.8, z: SQUARE.z - 1.4 }, { x: -3.5, z: 18.6 }, { x: -1.2, z: 29 }, polar(257, 37.5)),
     // Lanes branching off the side streets as the village fills.
     bezierPath(polar(222, 29.6), polar(214, 27.5), polar(206, 26.5), polar(198, 25)),
     bezierPath(polar(254, 18.8), polar(260, 20.2), polar(266, 20.6), polar(271, 20.2)),
-    bezierPath(polar(198, 25), polar(194, 22.5), polar(192, 20.5), polar(190, 18.2)),
-    bezierPath(polar(212, 36.5), polar(206, 39), polar(200, 41.5), polar(193, 42.5)),
+    bezierPath(polar(198, 25), polar(197.5, 23.4), polar(197.2, 21.4), polar(GATE_ANGLE + 360 * 5 / 7 - 360, CITY_R)),
+    bezierPath(polar(212, 36.5), { x: -42, z: 20 }, { x: -46, z: 13 }, polar(193, 42.5)),
     // Chapel Lane, off the end of the south street past the church to where it first stood.
     // Market Lane, west from the end of the west street.
-    bezierPath(polar(212, 36.5), { x: -40, z: 20.5 }, { x: -48, z: 19.5 }, { x: -55, z: 24 }),
+    bezierPath(polar(212, 36.5), { x: -39, z: 21.5 }, { x: -47, z: 22.5 }, { x: -55, z: 24 }),
     // Library Lane, south from the square's corner past the library, then round to Chapel Lane.
     bezierPath({ x: -22.6, z: 31.2 }, { x: -23.5, z: 38 }, { x: -30, z: 46 }, { x: -31, z: 56 }),
     bezierPath({ x: -31, z: 56 }, { x: -29, z: 59 }, { x: -27, z: 61 }, { x: -24, z: 62 })
@@ -320,10 +322,10 @@
         var dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
         [-1, 1].forEach(function (side) {
           var p = { x: street[i].x + nx * side * rowDef[0], z: street[i].z + nz * side * rowDef[0] };
-          if (Math.hypot(p.x, p.z) < 17.5) return;
-          if (Math.hypot(p.x - PUB.x, p.z - PUB.z) < 4.8 || Math.hypot(p.x - SQUARE.x, p.z - SQUARE.z) < 4.6) return;
+          if (Math.hypot(p.x, p.z) < CITY_R + 3.5) return;
+          if (Math.hypot(p.x - PUB.x, p.z - PUB.z) < 6.4 || Math.hypot(p.x - SQUARE.x, p.z - SQUARE.z) < 4.6) return;
           if (Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < 13 || Math.hypot(p.x - LIBRARY.x, p.z - LIBRARY.z) < 11.5 || Math.hypot(p.x - CINEMA.x, p.z - CINEMA.z) < 7) return;
-          if (inTownSquare(p.x, p.z, 2.6)) return;
+          if (inTownSquare(p.x, p.z, 3.4)) return;
           if (Math.hypot(p.x - DOG_PEN.c.x, p.z - DOG_PEN.c.z) < 7.5 || Math.hypot(p.x - POND.x, p.z - POND.z) < 7.5 || Math.hypot(p.x - OFFICE.x, p.z - OFFICE.z) < 5.5) return;
           if (STREETS.some(function (st) { return st.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 2.3; }); })) return;
           if (hash.near(p.x, p.z, 4.4)) return;
@@ -342,7 +344,7 @@
 
 
   // Running forest: clumps and clearings to the right, spreading outward from the edge of town.
-  var FOREST_SEED = polar(15, 19.5);
+  var FOREST_SEED = polar(15, 23.5);
   // Whitehorse airport's ground, kept clear for it: up on the hill just out past the DC-3 weathervane
   // at the end of Airport Hill, the runway running across the slope with the apron on the outer
   // side (local w > 0).
@@ -359,7 +361,7 @@
     // so there's room for years of runs. Candidates come from a jittered grid, nearest-first later.
     for (var gx = -93; gx <= 93; gx += 0.85) for (var gz = -93; gz <= 93; gz += 0.85) {
       var p = { x: gx + (r() - 0.5) * 0.9, z: gz + (r() - 0.5) * 0.9 }, d = Math.hypot(p.x, p.z), a = angleOf(p.x, p.z), n = noise2(p.x, p.z);
-      if (d < 19 || d > 92 || (a < 330 && a > 105) || n < -0.45) continue; // clearings
+      if (d < CITY_R + 4 || d > 92 || (a < 330 && a > 105) || n < -0.45) continue; // clearings
       if (d * Math.cos((a - 320) * D2R) > 84 || hash.near(p.x, p.z, d > 53 ? 1.4 : 1.55)) continue; // clear of the beach
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - p.x, c.z - p.z) < 22; })) continue;
       if (Math.hypot(p.x - HOARD.x, p.z - HOARD.z) < 9 || Math.hypot(p.x - LIBRARY.x, p.z - LIBRARY.z) < 12.5 || riverDist(p.x, p.z) < (canyonDepth(p.x, p.z) > 0.2 ? 14 : 3.4)) continue;
@@ -527,7 +529,7 @@
   }
 
   // Flat plots for everything that gets built; each one is levelled to the ground height at its centre.
-  var PADS = [{ x: 0, z: 0, rIn: 16, rOut: 19.5, h: 0 }];
+  var PADS = [{ x: 0, z: 0, rIn: CITY_R + 1.5, rOut: CITY_R + 5, h: 0 }];
   function pad(p, rIn, rOut) { PADS.push({ x: p.x, z: p.z, rIn: rIn, rOut: rOut, h: null }); }
   HOUSE_SLOTS.forEach(function (p) { pad(p, 2.4, 3.8); });
   SPORT_SLOTS.forEach(function (sl) { pad(polar(sl[0], sl[1]), 2.6, 3.9); });
@@ -567,10 +569,12 @@
   // Where roads and paths sit: on the ground, or on a bridge deck over the river.
   // Roads crossing the river ride up onto a deck just above the water, ramping down to the banks.
   function surfaceY(x, z) {
-    var rd = riverDist(x, z);
-    if (rd > RIVER_HALF + 6) return groundY(x, z);
-    var lv = riverLevel(RIVER_NEAR.i);
-    return Math.max(groundY(x, z), lv + 0.75);
+    var rd = riverDist(x, z), g = groundY(x, z);
+    if (rd > RIVER_HALF + 3) return g;
+    // Over the river (a bridge or a ford) you're at bank height: ramp up to it from the banks, so
+    // there's no ledge to get stuck at.
+    var t = riverLevel(RIVER_NEAR.i) + 0.75;
+    return t > g ? g + (t - g) * (1 - smooth(RIVER_HALF + 0.3, RIVER_HALF + 3, rd)) : g;
   }
   // Ground height without the river channel: bridges sit at this level.
   function bankY(x, z) {
@@ -631,7 +635,7 @@
   }
   // The commuter lane runs in a gentle S from the ring road, over the river, to the office
   // (clear of the library path, which leaves the ring road further round).
-  var LANE = bezierPath(polar(GATE_ANGLE + 720 / 7, RING_ROAD), polar(38, 27), polar(25, 39), polar(30, 55 - 3.4), LANE_STONES);
+  var LANE = bezierPath(polar(GATE_ANGLE + 720 / 7, CITY_R), polar(39, 28), polar(25, 39), polar(30, 55 - 3.4), LANE_STONES);
   // Paths: every destination gets its own path from the ring road; each field gate joins
   // the farm track at the nearest point already on it.
   var LODGE = (function () { var a = SNOW_FACE - 0.35, d = SNOW.R + 2.6; return { x: SNOW.c.x + Math.cos(a) * d, z: SNOW.c.z + Math.sin(a) * d }; })();
@@ -643,13 +647,47 @@
     var dx = to.x - from.x, dz = to.z - from.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l * wiggle, nz = dx / l * wiggle;
     return bezierPath(from, { x: from.x + dx * 0.33 + nx, z: from.z + dz * 0.33 + nz }, { x: from.x + dx * 0.66 - nx * 0.6, z: from.z + dz * 0.66 - nz * 0.6 }, to);
   }
-  // Paths out into the country leave town from the end of the nearest of Whitehorse's seven streets.
-  function streetEnd(a) {
-    var best = GATE_ANGLE, bd = 1e9;
-    for (var i = 0; i < 7; i++) { var sa = GATE_ANGLE + i * 360 / 7, d = Math.abs(((a - sa) % 360 + 540) % 360 - 180); if (d < bd) { bd = d; best = sa; } }
-    return polar(best, RING_ROAD);
+  // Paths out into the country leave town from the end of one of Whitehorse's seven streets: they
+  // run straight on past the landmark at its end, then strike off for where they're going, round
+  // whatever is in the way (of the two nearest streets and a few bends, the clearest way wins).
+  var STREET_OUT = 6.5;
+  function nearStreets(a) {
+    var list = [];
+    for (var i = 0; i < 7; i++) { var sa = GATE_ANGLE + i * 360 / 7; list.push({ sa: sa, d: Math.abs(((a - sa) % 360 + 540) % 360 - 180) }); }
+    return list.sort(function (p, q) { return p.d - q.d; }).slice(0, 2);
   }
-  function fromRing(to, wiggle) { return trail(streetEnd(angleOf(to.x, to.z)), to, wiggle == null ? 1.2 : wiggle); }
+  function streetEnd(a) { return polar(nearStreets(a)[0].sa, CITY_R); }
+  var PATH_AVOID = (function () {
+    var o = [];
+    function c(p, r) { o.push({ x: p.x, z: p.z, r: r }); }
+    SPORT_SLOTS.forEach(function (sl) { c(polar(sl[0], sl[1]), 4.2); });
+    c(HOCKEY, 4.8); c(PUB, 4.6); c(SQUARE, 3.2); c(TOWN_SQ, 7.2); c(CINEMA, 5); c(LIBRARY, 8.5); c(POND, 9.5); c(DOG_PEN.c, 5.5);
+    c(CHURCH, 12.5); c(STATUE, 3.6); c(KLONDIKE, 3.8); c(OFFICE, 8.5); c(polar(FARM.angle, FARM.r + 3.2), 4.6); c(LODGE, 4); c(SNOW.c, SNOW.R + 2); c(PASTURE, PASTURE_R + 2); c(LAKE.c, LAKE.R + 11.5); // the lake and its ski trail
+    for (var k = -10; k <= 10; k += 5) c({ x: AIRPORT.x + AIRPORT.dx * k + AIRPORT.dz * 3, z: AIRPORT.z + AIRPORT.dz * k - AIRPORT.dx * 3 }, 7);
+    CASTLE_SITES.forEach(function (cs, ci) { if (ci) c(cs, 14.5); });
+    return o;
+  })();
+  function pathHits(pts, to) {
+    var n = 0;
+    for (var i = 0; i < pts.length; i += 2) for (var j = 0; j < PATH_AVOID.length; j++) {
+      var o = PATH_AVOID[j];
+      if (Math.hypot(o.x - to.x, o.z - to.z) < o.r + 1.5) continue; // where it's going
+      if (Math.hypot(pts[i].x - o.x, pts[i].z - o.z) < o.r) n++;
+    }
+    return n;
+  }
+  function fromStreet(to, wiggle) {
+    var best = null;
+    nearStreets(angleOf(to.x, to.z)).forEach(function (st, si) {
+      var a = polar(st.sa, CITY_R), b = polar(st.sa, CITY_R + STREET_OUT), lead = bezierPath(a, polar(st.sa, CITY_R + STREET_OUT / 3), polar(st.sa, CITY_R + STREET_OUT * 2 / 3), b, 9);
+      [wiggle, -wiggle, wiggle * 3, -wiggle * 3, wiggle * 6, -wiggle * 6].forEach(function (w) {
+        var pts = lead.concat(trail(b, to, w)), sc = pathHits(pts, to) * 10 + si * 4 + Math.abs(w - wiggle) * 0.05;
+        if (!best || sc < best.sc) best = { sc: sc, pts: pts };
+      });
+    });
+    return best.pts;
+  }
+  function fromRing(to, wiggle) { return fromStreet(to, wiggle == null ? 1.2 : wiggle || 0.6); }
   var RING = (function () {
     var out = [], n = Math.round(2 * Math.PI * RING_ROAD / 0.55);
     for (var i = 0; i < n; i++) { var a = i / n * 360, p = polar(a, RING_ROAD); p.rot = (a + 90) * D2R; out.push(p); }
@@ -662,8 +700,8 @@
     out.push({ kind: 'path', pts: fromRing(polar(angleOf(DOG_PEN.c.x, DOG_PEN.c.z), Math.hypot(DOG_PEN.c.x, DOG_PEN.c.z) - DOG_PEN.d / 2 - 0.3), 0.6) });
     out.push({ kind: 'path', pts: fromRing(FOREST_SEED, 1.5) });
     out.push({ kind: 'road', pts: fromRing(LODGE, 2.5), lodge: true }); // laid with the lodge
-    out.push({ kind: 'path', pts: fromRing(polar(RIDGE.a, RIDGE.r - 14), 2) });
-    out.push({ kind: 'path', pts: trail(SQUARE, polar(angleOf(POND.x, POND.z) + 4, Math.hypot(POND.x, POND.z) - 5.5), 1) });
+    out.push({ kind: 'path', pts: fromRing(polar(RIDGE.a, RIDGE.r - 17), 2) });
+    (function () { var e = polar(angleOf(POND.x, POND.z) + 4, Math.hypot(POND.x, POND.z) - 5.5), dx = e.x - SQUARE.x, dz = e.z - SQUARE.z, l = Math.hypot(dx, dz); out.push({ kind: 'path', pts: trail({ x: SQUARE.x + dx / l * 2.4, z: SQUARE.z + dz / l * 2.4 }, e, 1) }); })(); // from the edge of the square, past the maypole
     SPORT_SLOTS.forEach(function (sl, i) { var p = polar(sl[0], sl[1] - 2.2); out.push({ kind: 'path', pts: fromRing(p, i % 2 ? 0.8 : -0.8), sport: i }); });
     out.push({ kind: 'path', pts: fromRing(polar(132, 27 - 2.6), 0.6) });
     // The road up to the airport, round the end of the runway to the apron.
@@ -710,10 +748,15 @@
   var CASTLE_ROADS = CASTLE_SITES.map(function (site, ci) {
     if (!ci) return null;
     var gp = polar(angleOf(-site.x, -site.z), 13.8);
-    return trail(streetEnd(angleOf(site.x, site.z)), { x: site.x + gp.x, z: site.z + gp.z }, 3);
+    var to = { x: site.x + gp.x, z: site.z + gp.z };
+    if (ci !== 2) return fromStreet(to, 3);
+    var best = null; [3, -3, 6, -6, 10, -10, 14, -14, 0].forEach(function (w) { var pts = trail({ x: -55, z: 24 }, to, w), sc = pathHits(pts, to); if (!best || sc < best.sc) best = { sc: sc, pts: pts }; });
+    return best.pts;
   });
-  FOREST = FOREST.filter(function (p) { return !nearPath(p.x, p.z, 1.3); });
-  FOREST = FOREST.filter(function (p) { return !LANE.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 1.6; }); });
+  // House plots keep off the paths and roads out of town.
+  HOUSE_SLOTS = HOUSE_SLOTS.filter(function (h) { return !nearPath(h.x, h.z, 2.6) && !CASTLE_ROADS.some(function (rd) { return rd && rd.some(function (q) { return Math.hypot(q.x - h.x, q.z - h.z) < 2.8; }); }) && !LANE.some(function (q) { return Math.hypot(q.x - h.x, q.z - h.z) < 2.8; }); });
+  FOREST = FOREST.filter(function (p) { return !nearPath(p.x, p.z, 1.8); });
+  FOREST = FOREST.filter(function (p) { return !LANE.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 2.1; }); });
   FOREST.hash = new Scatter(4); FOREST.forEach(function (p) { FOREST.hash.add(p); });
   function nearPath(x, z, dist) {
     for (var i = 0; i < PATHS.length; i++) for (var k = 0; k < PATHS[i].pts.length; k += 2) if (Math.hypot(PATHS[i].pts[k].x - x, PATHS[i].pts[k].z - z) < dist) return true;
@@ -1661,7 +1704,7 @@
       var p = t.angle == null ? { x: 0, z: 0 } : polar(t.angle, 3.6);
       var r = t.angle == null ? 1.45 : 1.0, pick = 'tower:' + t.key + tag;
       // In Whitehorse each group has a street instead, with its PR flag on a pole at the top of it.
-      if (city) { var F0 = cityFrame(t.key); p = { x: F0.u.x * 3.9 + F0.v.x * 0.95, z: F0.u.z * 3.9 + F0.v.z * 0.95 }; }
+      if (city) { var F0 = cityFrame(t.key); p = { x: F0.u.x * 4.9 + F0.v.x * 1.5, z: F0.u.z * 4.9 + F0.v.z * 1.5 }; }
       var g = new T.Group();
       g.position.set(p.x, city ? groundY(p.x, p.z) : 0, p.z);
       parent.add(g);
@@ -1765,10 +1808,10 @@
   // A lot: row a (beside the street), row b (behind them, further out), or E (the end of the street).
   function cityLot(key, code) {
     var F = cityFrame(key), d, off, dir;
-    if (code === 'E') { d = 13.6; off = 0; dir = { x: -F.u.x, z: -F.u.z }; }
+    if (code === 'E') { d = 19.6; off = 3.4; dir = { x: -F.v.x, z: -F.v.z }; } // past the end of the street, beside the road out
     else {
       var i = +code[1], sd = code[2] === '+' ? 1 : -1;
-      if (code[0] === 'a') { d = [7.0, 9.1, 11.2][i]; off = 1.8 * sd; } else { d = [11.2, 13.2][i]; off = 3.5 * sd; }
+      if (code[0] === 'a') { d = [8.8, 11.4, 14.0][i]; off = 2.7 * sd; } else { d = [14.0, 16.6][i]; off = 4.7 * sd; }
       dir = { x: -F.v.x * sd, z: -F.v.z * sd };
     }
     return { x: F.u.x * d + F.v.x * off, z: F.u.z * d + F.v.z * off, r: Math.atan2(dir.x, dir.z) / D2R, ground: true };
@@ -1812,9 +1855,9 @@
     g.position.set(0, y0, 0); this.world.add(g);
     var C = this.st.city = { group: g, C: { group: g, ci: 0, site: { x: 0, z: 0 }, chims: [], town: { name: 'Whitehorse', plan: [], walks: true } }, perches: [], vanes: [], built: {}, props: {} };
     // The plaza, and a street out to each district.
-    this.part(g, this.geo.cyl, this.mat('cobble'), 3.4, 0.05, 3.4, 0, 0.025, 0, 'city');
+    this.part(g, this.geo.cyl, this.mat('cobble'), 4.3, 0.05, 4.3, 0, 0.025, 0, 'city');
     CITY_ORDER.forEach(function (k) {
-      var F = cityFrame(k), st = self.part(g, self.geo.box, self.mat('path'), 1.4, 0.05, 11, F.u.x * 8.8, 0.03, F.u.z * 8.8, 'tower:' + k);
+      var F = cityFrame(k), st = self.part(g, self.geo.box, self.mat('path'), CITY_W, 0.05, CITY_R - 3.6, F.u.x * (CITY_R + 3.6) / 2, 0.03, F.u.z * (CITY_R + 3.6) / 2, 'tower:' + k);
       st.rotation.y = Math.atan2(F.u.x, F.u.z);
     });
     this.townSigns();
@@ -1844,8 +1887,8 @@
   // The street's last layer: lamps all the way along it.
   Town.prototype.cityLamps = function (key, delay) {
     var F = cityFrame(key), g = new T.Group(), self = this, G = this.glowMats();
-    for (var d = 4.6; d < 14; d += 2.2) [-1, 1].forEach(function (sd) {
-      var x = F.u.x * d + F.v.x * 0.95 * sd, z = F.u.z * d + F.v.z * 0.95 * sd;
+    for (var d = 5.6; d < CITY_R - 0.4; d += 2.6) [-1, 1].forEach(function (sd) {
+      var x = F.u.x * d + F.v.x * 1.5 * sd, z = F.u.z * d + F.v.z * 1.5 * sd;
       self.part(g, self.geo.cyl6, self.mat('stoneDark'), 0.035, 1.3, 0.035, x, 0.65, z, 'tower:' + key);
       var lb = new T.Mesh(self.geo.box, G.lamp); lb.scale.set(0.14, 0.16, 0.14); lb.position.set(x, 1.36, z); g.add(lb);
     });
@@ -1856,12 +1899,12 @@
   Town.prototype.cityProp = function (key, n, delay) {
     var F = cityFrame(key), slot = n % 20, ring = Math.floor(n / 20), self = this;
     if (ring > 1) return;
-    var d = 4.7 + Math.floor(slot / 2) * 0.95 + ring * 0.47, sd = slot % 2 ? 1 : -1, off = (ring ? 1.25 : 0.95) * sd;
+    var d = 5.8 + Math.floor(slot / 2) * 1.2 + ring * 0.6, sd = slot % 2 ? 1 : -1, off = 1.5 * sd;
     var x = F.u.x * d + F.v.x * off, z = F.u.z * d + F.v.z * off, kind = CITY_PROPS[(n + CITY_ORDER.indexOf(key)) % CITY_PROPS.length], g = new T.Group(), pick = 'tower:' + key;
     g.position.set(x, groundY(x, z) - this.st.city.group.position.y, z); g.rotation.y = Math.atan2(-F.v.x * sd, -F.v.z * sd);
     function P(geo, mat, sx, sy, sz, px, py, pz) { return self.part(g, geo, mat, sx, sy, sz, px, py, pz, pick); }
     if (kind === 'lamp') { P(this.geo.cyl6, this.mat('stoneDark'), 0.03, 1.2, 0.03, 0, 0.6, 0); var lb = new T.Mesh(this.geo.box, this.glowMats().lamp); lb.scale.set(0.12, 0.14, 0.12); lb.position.y = 1.25; g.add(lb); }
-    else if (kind === 'planter') { P(this.geo.box, this.mat('wood'), 0.5, 0.25, 0.3, 0, 0.13, 0); for (var f = 0; f < 4; f++) P(this.geo.cone, this.mat('fireweed', 0), 0.04, 0.2, 0.04, -0.18 + f * 0.12, 0.36, 0); }
+    else if (kind === 'planter') { P(this.geo.box, this.mat('wood'), 0.5, 0.25, 0.3, 0, 0.13, 0); for (var f = 0; f < 3; f++) P(this.geo.blob, this.mat('hedge'), 0.12, 0.1, 0.11, -0.15 + f * 0.15, 0.3, 0); }
     else if (kind === 'bench') { P(this.geo.box, this.mat('wood'), 0.6, 0.05, 0.22, 0, 0.25, 0); P(this.geo.box, this.mat('wood'), 0.6, 0.22, 0.04, 0, 0.42, -0.1); [-0.25, 0.25].forEach(function (lx) { P(self.geo.box, self.mat('stoneDark'), 0.04, 0.25, 0.2, lx, 0.12, 0); }); }
     else if (kind === 'spruce') { P(this.geo.cyl6, this.mat('trunk'), 0.05, 0.3, 0.05, 0, 0.15, 0); [[0.3, 0.45, 0.45], [0.22, 0.4, 0.72], [0.14, 0.35, 0.95]].forEach(function (c) { P(self.geo.cone, self.mat('pine', n % 2), c[0], c[1], c[0], 0, c[2], 0); }); }
     else if (kind === 'hydrant') { P(this.geo.cyl, this.mat('flag', 0), 0.07, 0.3, 0.07, 0, 0.15, 0); P(this.geo.ball, this.mat('flag', 0), 0.07, 0.06, 0.07, 0, 0.31, 0); P(this.geo.cyl6, this.mat('stoneDark'), 0.008, 0.9, 0.008, 0.06, 0.45, 0); P(this.geo.box, this.mat('flag', 1), 0.1, 0.07, 0.01, 0.11, 0.85, 0); }
@@ -1877,7 +1920,7 @@
     var road = cityFrame('full');
     if (kind === 'sign') {
       // "Welcome to Whitehorse" on Main Street, at the edge of town.
-      var sp = { x: road.u.x * 15.2 + road.v.x * 1.6, z: road.u.z * 15.2 + road.v.z * 1.6 }, sg = new T.Group();
+      var sp = { x: road.u.x * (CITY_R + 0.6) - road.v.x * 2.4, z: road.u.z * (CITY_R + 0.6) - road.v.z * 2.4 }, sg = new T.Group();
       sg.position.set(sp.x, groundY(sp.x, sp.z), sp.z); sg.rotation.y = Math.atan2(road.u.x, road.u.z); g.add(sg);
       [-0.8, 0.8].forEach(function (x) { P(sg, self.geo.cyl6, self.mat('logwood', 0), 0.08, 1.6, 0.08, x, 0.8, 0); });
       var cv = document.createElement('canvas'); cv.width = 512; cv.height = 160; var cx = cv.getContext('2d');
@@ -1889,7 +1932,7 @@
     } else if (kind === 'plaza') {
       // The plaza fills in: a ring of benches, planters and spruce round the flag.
       for (var i = 0; i < 7; i++) {
-        var a = cityAngle(CITY_ORDER[i]) + 360 / 14, q = polar(a, 2.6), pg = new T.Group(); pg.position.set(q.x, 0, q.z); pg.rotation.y = Math.atan2(-q.x, -q.z); this.st.city.group.add(pg);
+        var a = cityAngle(CITY_ORDER[i]) + 360 / 14, q = polar(a, 3.4), pg = new T.Group(); pg.position.set(q.x, 0, q.z); pg.rotation.y = Math.atan2(-q.x, -q.z); this.st.city.group.add(pg);
         P(pg, this.geo.box, this.mat('wood'), 0.7, 0.05, 0.24, 0, 0.25, 0); P(pg, this.geo.box, this.mat('wood'), 0.7, 0.24, 0.04, 0, 0.42, -0.11);
         P(pg, this.geo.cyl6, this.mat('trunk'), 0.06, 0.4, 0.06, 0.7, 0.2, 0.2); P(pg, this.geo.cone, this.mat('pine', i % 2), 0.32, 0.8, 0.32, 0.7, 0.75, 0.2);
       }
@@ -1897,7 +1940,7 @@
     } else if (kind === 'bunting') {
       // Bunting and hanging baskets strung across Main Street.
       for (var b = 0; b < 4; b++) {
-        var d = 6.0 + b * 2.4, l = { x: road.u.x * d - road.v.x * 1.0, z: road.u.z * d - road.v.z * 1.0 }, r = { x: road.u.x * d + road.v.x * 1.0, z: road.u.z * d + road.v.z * 1.0 };
+        var d = 7.4 + b * 3.0, l = { x: road.u.x * d - road.v.x * 1.5, z: road.u.z * d - road.v.z * 1.5 }, r = { x: road.u.x * d + road.v.x * 1.5, z: road.u.z * d + road.v.z * 1.5 };
         for (var f = 0; f < 7; f++) { var t = f / 6, sag = Math.sin(t * Math.PI) * 0.25; P(this.st.city.group, this.geo.cone4, this.mat('flag', f % 5), 0.07, 0.14, 0.02, l.x + (r.x - l.x) * t, 1.7 - sag, l.z + (r.z - l.z) * t).rotation.x = Math.PI; }
       }
       return;
@@ -1922,7 +1965,7 @@
       // Strings of lights along every street, glowing after dark.
       CITY_ORDER.forEach(function (k) {
         var F = cityFrame(k);
-        for (var d2 = 4.3; d2 < 13.8; d2 += 0.45) [-1, 1].forEach(function (sd) { var lb = new T.Mesh(self.geo.ball, d2 % 0.9 < 0.45 ? G.lamp : G.core); lb.scale.setScalar(0.04); lb.position.set(F.u.x * d2 + F.v.x * 0.72 * sd, 1.55 - Math.abs(Math.sin(d2 * 3)) * 0.12, F.u.z * d2 + F.v.z * 0.72 * sd); self.st.city.group.add(lb); });
+        for (var d2 = 5.2; d2 < CITY_R - 0.4; d2 += 0.45) [-1, 1].forEach(function (sd) { var lb = new T.Mesh(self.geo.ball, d2 % 0.9 < 0.45 ? G.lamp : G.core); lb.scale.setScalar(0.04); lb.position.set(F.u.x * d2 + F.v.x * 1.25 * sd, 1.55 - Math.abs(Math.sin(d2 * 3)) * 0.12, F.u.z * d2 + F.v.z * 1.25 * sd); self.st.city.group.add(lb); });
       });
       return;
     }
@@ -3118,21 +3161,10 @@
       P(fl, this.geo.cone, this.mat('fireweed', 0), 0.1, 0.24, 0.04, 0.75, -0.18, 0.02, 'yflag'); P(fl, this.geo.ball, this.mat('flag', 2), 0.08, 0.1, 0.03, 0.75, 0.08, 0.02, 'yflag');
       Y.flag = fl;
     } else if (kind === 'fireweed') {
-      // Fireweed round the moat (pink in summer, gone to white fluff in the fall), and spruce and
-      // birch round the outside of the walls.
-      var fw = Y.fireweed = { g: new T.Group(), tops: [] }; g.add(fw.g);
-      for (var i = 0; i < 35; i++) {
-        var Fw = cityFrame(CITY_ORDER[i % 7]), dw = 5.2 + Math.floor(i / 7) * 1.9, sw = (i % 2 ? 1 : -1) * 0.62, q = { x: Fw.u.x * dw + Fw.v.x * sw, z: Fw.u.z * dw + Fw.v.z * sw }, cl = new T.Group();
-        cl.position.set(q.x, groundY(q.x, q.z), q.z); fw.g.add(cl);
-        for (var st = 0; st < 3; st++) {
-          var sx = (st - 1) * 0.12, sz = ((st * 7) % 3 - 1) * 0.08, hh = 0.45 + ((i + st) % 3) * 0.12;
-          P(cl, this.geo.cyl6, this.mat('leaf', 0), 0.015, hh, 0.015, sx, hh / 2, sz);
-          fw.tops.push(P(cl, this.geo.cone, this.mat('fireweed', 0), 0.05, 0.22, 0.05, sx, hh + 0.08, sz));
-        }
-      }
+      // Spruce and birch round the edge of town, clear of the streets and the roads out.
       for (var t = 0; t < 40; t++) {
-        var ta = GATE_ANGLE + 22 + t * (316 / 40), tr = 15.4 + (t % 3) * 0.8, tq = polar(ta, tr);
-        if (!treeOK(tq.x, tq.z)) continue;
+        var ta = GATE_ANGLE + t * (360 / 40), tr = CITY_R + 3.5 + (t % 3) * 0.9, tq = polar(ta, tr), toStreet = ((ta - GATE_ANGLE) % (360 / 7) + 360 / 7) % (360 / 7);
+        if (!treeOK(tq.x, tq.z) || Math.min(toStreet, 360 / 7 - toStreet) * D2R * tr < 3.6) continue;
         var tg = new T.Group(), ty = groundY(tq.x, tq.z), s = 0.8 + (t % 4) * 0.12; tg.position.set(tq.x, ty, tq.z); g.add(tg);
         if (t % 3 === 1) {
           P(tg, this.geo.cyl6, this.mat('birch'), 0.07 * s, 1.6 * s, 0.07 * s, 0, 0.8 * s, 0);
@@ -3144,7 +3176,7 @@
       }
     } else if (kind === 'winter') {
       // February: a Yukon Quest dog team waiting outside the gate, under a Sourdough Rendezvous banner.
-      var road = polar(GATE_ANGLE, 20.8), qg = Y.quest = new T.Group(); qg.position.set(road.x, groundY(road.x, road.z), road.z); qg.rotation.y = Math.atan2(ox, oz) - Math.PI / 2; g.add(qg);
+      var road = (function () { var q = polar(GATE_ANGLE, CITY_R + 3), v = polar(GATE_ANGLE + 90, 2.6); return { x: q.x + v.x, z: q.z + v.z }; })(), qg = Y.quest = new T.Group(); qg.position.set(road.x, groundY(road.x, road.z), road.z); qg.rotation.y = Math.atan2(ox, oz) - Math.PI / 2; g.add(qg);
       [-1, 1].forEach(function (sd) { P(qg, self.geo.box, self.mat('wood'), 1.2, 0.04, 0.05, -1.4, 0.05, sd * 0.22); });
       P(qg, this.geo.box, this.mat('canvas', 1), 0.8, 0.3, 0.4, -1.3, 0.25, 0); P(qg, this.geo.box, this.mat('wood'), 0.05, 0.5, 0.45, -1.85, 0.4, 0);
       // The musher: a mouse in a big red parka with a fur-trimmed hood.
@@ -4463,7 +4495,7 @@
       P(self.geo.box, dark, 0.045, 0.13, 0.045, 0, -0.235, 0, hip);         // dark stockings
       return hip;
     });
-    g.scale.setScalar(1.35);
+    g.scale.setScalar(0.675);
     this.world.add(g);
     return { g: g, body: body, head: head, legs: legs, tail: tail, kind: 'fox', cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: 3, speed: 1.1 };
   };
@@ -6580,7 +6612,9 @@
       var ps = (N.pines + 0.5) / 32 * NORDIC.len;
       if (ps > have) break;
       var pq = nordicAt(ps), side = N.pines % 2 ? 1 : -1, off = side * (1.3 + (N.pines * 0.37) % 1);
-      this.plantTree({ x: pq.x + pq.nx * off, z: pq.z + pq.nz * off }, 'spruce', 900 + N.pines, delay + 200, pick, 0.55 + (N.pines % 3) * 0.08);
+      var tx = pq.x + pq.nx * off, tz = pq.z + pq.nz * off;
+      if (nearPath(tx, tz, 1.4) || CASTLE_ROADS.some(function (rd) { return rd && rd.some(function (q) { return Math.hypot(q.x - tx, q.z - tz) < 1.6; }); })) { tx = pq.x - pq.nx * off; tz = pq.z - pq.nz * off; } // the other side of the trail, off the road
+      this.plantTree({ x: tx, z: tz }, 'spruce', 900 + N.pines, delay + 200, pick, 0.55 + (N.pines % 3) * 0.08);
       N.pines++;
     }
     while (N.n < NORDIC_STEPS.length && N.km >= NORDIC_STEPS[N.n][0]) {
@@ -7283,7 +7317,7 @@
       [[-1.2, 1.4], [1.6, 2.4]].forEach(function (g2, i) { P(o, self.geo.box, self.mat('flag', i + 1), 0.4, 0.3, 0.4, tx + g2[0] * 0.6, 0.15, tz + 0.9 + i * 0.2); });
       snowman(o, 2.6, 2.0);
     });
-    if (h === 'christmas') add(this.world, function (o) { var p = polar(GATE_ANGLE + 8, 17.5); o.position.set(p.x, groundY(p.x, p.z), p.z); snowman(o, 0, 0); });
+    if (h === 'christmas') add(this.world, function (o) { var p = polar(GATE_ANGLE + 8, CITY_R + 3); o.position.set(p.x, groundY(p.x, p.z), p.z); snowman(o, 0, 0); });
     if (h === 'birthday') add(this.world, function (o) {
       o.position.set(sq.x, groundY(sq.x, sq.z), sq.z);
       for (var l = 0; l < 8; l++) { var la = l / 8 * Math.PI * 2; P(o, self.geo.box, self.mat('rock'), 0.35, 0.25, 0.35, 2.4 + Math.cos(la) * 0.8, 0.12, -1.6 + Math.sin(la) * 0.8); }
@@ -7426,7 +7460,7 @@
   // loose: ignore ground only reserved for future forest and wild trees.
   function groundClear(p, rad, loose) {
     var d = Math.hypot(p.x, p.z);
-    if (d > 126 || d < 17 || townHill(p.x, p.z) > 0.3) return false;
+    if (d > 126 || d < CITY_R + 3 || townHill(p.x, p.z) > 0.3) return false;
     var rdd = riverDist(p.x, p.z);
     if (rdd < rad + 2.5 || nearPath(p.x, p.z, rad + 0.9)) return false;
     // Keep well back from the canyon's rims and rocks.
@@ -7483,7 +7517,7 @@
     if (!MTB_HILL) return null;
     var ry = Math.atan2(-MTB_HILL.x, -MTB_HILL.z), lx = 0, lz = 6.4;
     var end = { x: MTB_HILL.x + lx * Math.cos(ry) + lz * Math.sin(ry), z: MTB_HILL.z - lx * Math.sin(ry) + lz * Math.cos(ry) };
-    var a = angleOf(end.x, end.z), start = streetEnd(a + 4), d = Math.hypot(end.x, end.z), mid1 = polar(a + 6, RING_ROAD + (d - RING_ROAD) * 0.35), mid2 = polar(a - 3, RING_ROAD + (d - RING_ROAD) * 0.7);
+    var a = angleOf(end.x, end.z), start = streetEnd(a + 4), d = Math.hypot(end.x, end.z), mid1 = polar(a + 6, CITY_R + (d - CITY_R) * 0.35), mid2 = polar(a - 3, CITY_R + (d - CITY_R) * 0.7);
     var raw = [], n = 600;
     for (var i = 0; i <= n; i++) {
       var t = i / n, u = 1 - t;
@@ -7861,7 +7895,7 @@
         break;
       }
       case 'maypole': {
-        place({ x: SQUARE.x + (PUB.x - SQUARE.x) * -0.45, z: SQUARE.z + (PUB.z - SQUARE.z) * -0.45 });
+        place({ x: SQUARE.x, z: SQUARE.z - 2.2 }); // on the square, clear of the lanes off it
         (this.st.partyObjs = this.st.partyObjs || {}).maypole = g;
         P(this.geo.cyl6, this.mat('woodLight'), 0.08, 4.0, 0.08, 0, 2.0, 0);
         P(this.geo.torus, this.mat('hedge'), 0.35, 0.35, 0.35, 0, 3.9, 0).rotation.x = Math.PI / 2;
@@ -12067,9 +12101,22 @@
       if (m.geometry.type === 'CylinderGeometry' && gp && Math.abs(m.matrixWorld.elements[4]) + Math.abs(m.matrixWorld.elements[6]) < 1e-3) {
         var ce = m.matrixWorld.elements;
         o.circ = { cx: ce[12], cz: ce[14], r: Math.max(gp.radiusTop, gp.radiusBottom) * Math.max(Math.hypot(ce[0], ce[2]), Math.hypot(ce[8], ce[10])) };
-      } else if (m.geometry === geoBox) {
-        var e = m.matrixWorld.elements, ux = e[0] / 2, uz = e[2] / 2, vx = e[8] / 2, vz = e[10] / 2;
-        if (Math.abs(e[4]) + Math.abs(e[6]) < 1e-3 && Math.abs(ux * vx + uz * vz) < 1e-4) o.obb = { cx: e[12], cz: e[14], ux: ux, uz: uz, vx: vx, vz: vz, uu: ux * ux + uz * uz, vv: vx * vx + vz * vz };
+      } else {
+        // Anything else (boxes, gables, cones, a Quonset on its side): its own footprint, turned
+        // with it, so buildings along the angled streets don't fill the road with their corners.
+        var e = m.matrixWorld.elements;
+        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+        var gb = m.geometry.boundingBox, ax = Math.hypot(e[0], e[2]) >= Math.hypot(e[8], e[10]) ? [e[0], e[2]] : [-e[10], e[8]], al = Math.hypot(ax[0], ax[1]);
+        if (al > 1e-6) {
+          var ux0 = ax[0] / al, uz0 = ax[1] / al, s0 = 1e9, s1 = -1e9, t0 = 1e9, t1 = -1e9;
+          for (var ci = 0; ci < 8; ci++) {
+            var lx = ci & 1 ? gb.max.x : gb.min.x, ly = ci & 2 ? gb.max.y : gb.min.y, lz = ci & 4 ? gb.max.z : gb.min.z;
+            var wx = e[0] * lx + e[4] * ly + e[8] * lz + e[12], wz = e[2] * lx + e[6] * ly + e[10] * lz + e[14], ss = wx * ux0 + wz * uz0, tt = -wx * uz0 + wz * ux0;
+            if (ss < s0) s0 = ss; if (ss > s1) s1 = ss; if (tt < t0) t0 = tt; if (tt > t1) t1 = tt;
+          }
+          var hs = (s1 - s0) / 2, ht = (t1 - t0) / 2, cs = (s0 + s1) / 2, ct = (t0 + t1) / 2;
+          if (hs > 0.005 && ht > 0.005) o.obb = { cx: cs * ux0 - ct * uz0, cz: cs * uz0 + ct * ux0, ux: ux0 * hs, uz: uz0 * hs, vx: -uz0 * ht, vz: ux0 * ht, uu: hs * hs, vv: ht * ht };
+        }
       }
       list.push(o);
       for (var gx = Math.floor(o.x0 / 4); gx <= Math.floor(o.x1 / 4); gx++) for (var gz = Math.floor(o.z0 / 4); gz <= Math.floor(o.z1 / 4); gz++) (grid[gx + ',' + gz] = grid[gx + ',' + gz] || []).push(o);
@@ -12096,7 +12143,7 @@
   };
   // feet: how high the raccoon's feet are mid-jump; anything lower than that can be hopped over.
   Town.prototype.walkable = function (x, z, feet, aloft) {
-    var r = 0.22;
+    var r = 0.14;
     if (Math.hypot(x, z) > 150) return false;
     var deck = this.deckAt(x, z);
     if (deck || aloft) return this.clearOfSolids(x, z, feet);
@@ -12137,7 +12184,7 @@
     return null;
   };
   Town.prototype.clearOfSolids = function (x, z, feet) {
-    var r = 0.22, cell = this.solids && this.solids.grid[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
+    var r = 0.14, cell = this.solids && this.solids.grid[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
     if (cell) for (var i = 0; i < cell.length; i++) {
       var o = cell[i];
       if (!(x > o.x0 - r && x < o.x1 + r && z > o.z0 - r && z < o.z1 + r) || (feet != null && o.top < feet)) continue;
@@ -12148,7 +12195,7 @@
     }
     return true;
   };
-  var PLAYER_SCALE = 1.25, STEP_UP = 0.4, GRAVITY = 17;
+  var PLAYER_SCALE = 0.625, STEP_UP = 0.4, GRAVITY = 17;
   // The raccoon you walk around as.
   Town.prototype.makePlayer = function () {
     var pc = this.critter('raccoon');
@@ -13659,7 +13706,7 @@
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
-  Town.layout = { PATHS: PATHS, RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS };
+  Town.layout = { STREETS: STREETS, LANE: LANE, CITY_R: CITY_R, PATHS: PATHS, RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS };
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
