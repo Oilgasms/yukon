@@ -1843,10 +1843,11 @@
   // A lot: row a (beside the street), row b (behind them, further out), or E (the end of the street).
   function cityLot(key, code) {
     var F = cityFrame(key), d, off, dir;
-    if (code === 'E') { d = 19.6; off = 3.4; dir = { x: -F.v.x, z: -F.v.z }; } // past the end of the street, beside the road out
+    if (code === 'E') { d = 21.4; off = 3.4; dir = { x: -F.v.x, z: -F.v.z }; } // past the end of the street, beside the road out
     else {
-      var i = +code[1], sd = code[2] === '+' ? 1 : -1;
-      if (code[0] === 'a') { d = [8.8, 11.4, 14.0][i]; off = 2.7 * sd; } else { d = [14.0, 16.6][i]; off = 4.7 * sd; }
+      // One row down each side, every building fronting the street: a0-a2 nearest the plaza, then b0, b1.
+      var i = +code[1] + (code[0] === 'b' ? 3 : 0), sd = code[2] === '+' ? 1 : -1;
+      d = 8.8 + i * 2.4; off = 2.7 * sd;
       dir = { x: -F.v.x * sd, z: -F.v.z * sd };
     }
     return { x: F.u.x * d + F.v.x * off, z: F.u.z * d + F.v.z * off, r: Math.atan2(dir.x, dir.z) / D2R, ground: true };
