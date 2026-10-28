@@ -119,13 +119,13 @@
   function dtw(t, n) { return { x: DT_T.x * t + DT_N.x * n, z: DT_T.z * t + DT_N.z * n }; }
   function dtOf(x, z) { return { t: x * DT_T.x + z * DT_T.z, n: x * DT_N.x + z * DT_N.z }; }
   var AVENUES = [12.5, 5, -2.5, -9.5], CROSS_T = { chest: -24, back: -16, shoulders: -8, full: 0, legs: 8, post: 16, core: 24 };
-  var DT_HALF = 28.5, RIVER_N = 19, WALK_N = 14.7, LOT_N = [10.1, 7.6, 2.7, 0.3, -6.0], LANDMARK_N = -12.9;
+  var DT_HALF = 28.5, RIVER_N = 21, WALK_N = 14.7, LOT_N = [10.1, 7.6, 2.7, 0.3, -6.0], LANDMARK_N = -12.9, RIVERFRONT_N = 17.6, BRIDGE_T = -20;
   // Downtown, with its riverfront and the landmarks past 4th Avenue (m: extra margin).
-  function inDowntown(x, z, m) { var q = dtOf(x, z); m = m || 0; return Math.abs(q.t) < DT_HALF + m && q.n > LANDMARK_N - 2.3 - m && q.n < WALK_N + 2 + m; }
+  function inDowntown(x, z, m) { var q = dtOf(x, z); m = m || 0; return Math.abs(q.t) < DT_HALF + m && q.n > LANDMARK_N - 2.3 - m && q.n < RIVER_N - 1.7 + m; }
   var SQUARE = polar(238, 24);
   var PUB = polar(250, 27.5);
   var DOG_PEN = { c: dtw(37, -3), w: 7.5, d: 5.5 };
-  var STATUE = dtw(20, WALK_N + 1.45); // the weight wall, on the riverfront
+  var STATUE = dtw(31.5, WALK_N + 1.6); // the weight wall, on the riverfront past Hanson Street
   var FARM = { angle: 316, r: 31, cols: 5, rows: 8 }; // the flower garden
   var POND = polar(200, 34);
   var OFFICE = polar(30, 55);
@@ -135,6 +135,13 @@
   var RIVER = bezierPath(polar(70, 132), polar(66, 80), dtw(-36, RIVER_N), dtw(-24, RIVER_N), 170)
     .concat(bezierPath(dtw(-24, RIVER_N), dtw(-4, RIVER_N), dtw(14, RIVER_N), dtw(34, RIVER_N), 110))
     .concat(bezierPath(dtw(34, RIVER_N), dtw(48, RIVER_N), polar(326, 92), polar(328, 136), 150));
+  // The far side of the river from downtown (Riverdale, the forest and the fields over there).
+  function eastBank(x, z) {
+    var q = dtOf(x, z);
+    if (Math.abs(q.t) < 30 && q.n < 45) return q.n > RIVER_N;
+    var a = angleOf(x, z), r = Math.hypot(x, z);
+    return a > 324 + (r - 39) * 0.04 || a < 86 - Math.max(0, r - 39) * 0.17;
+  }
   var RIVER_GRID = (function () { var g = {}; RIVER.forEach(function (p) { var k = Math.floor(p.x / 6) + ',' + Math.floor(p.z / 6); (g[k] = g[k] || []).push(p); }); return g; })();
   RIVER.forEach(function (p, i) { p.i = i; });
   var RIVER_NEAR = RIVER[0];
@@ -199,7 +206,7 @@
   var LANE_STONES = 140;
   var BALLOON_KM = 30;
   // Across the river from downtown, on the east bank.
-  var SPORT_SLOTS = [[-12, 29], [10, 29], [-23, 29], [-10, 37.5], [12, 37.5], [-21, 37.5], [21, 29], [23, 37.5]].map(function (q) { var p = dtw(q[0], q[1]); return [angleOf(p.x, p.z), Math.hypot(p.x, p.z)]; });
+  var SPORT_SLOTS = [[-12, 29], [10, 29], [30, 29], [-10, 37.5], [12, 37.5], [30, 37.5], [21, 29], [23, 37.5]].map(function (q) { var p = dtw(q[0], q[1]); return [angleOf(p.x, p.z), Math.hypot(p.x, p.z)]; });
   // Hockey has its own rink, kept clear from the start: ice in winter, a paved rink the rest of the year.
   var HOCKEY = dtw(-10, -19.8);
   // The sheep pasture: one sheep for every 100 km ridden.
@@ -274,7 +281,7 @@
   var FIELDS = (function () {
     var out = [], r = rng(808), depth = FIELD_ROWS * FIELD_TILE + 0.5;
     function clear(p, size) {
-      if (Math.hypot(p.x - POND.x, p.z - POND.z) < size + 6 || riverDist(p.x, p.z) < size + 3) return false;
+      if (Math.hypot(p.x - POND.x, p.z - POND.z) < size + 6 || riverDist(p.x, p.z) < size + 3 || eastBank(p.x, p.z)) return false; // (the farm's all on this side of the river)
       if (Math.hypot(p.x - DOG_PEN.c.x, p.z - DOG_PEN.c.z) < size + 5) return false;
       var fg = polar(FARM.angle, FARM.r + 3.2);
       if (Math.hypot(p.x - fg.x, p.z - fg.z) < size + 5) return false;
@@ -357,13 +364,13 @@
 
 
   // Running forest: clumps and clearings to the right, spreading outward from the edge of town.
-  var FOREST_SEED = dtw(-6, 24.5); // over the river
+  var FOREST_SEED = dtw(-6, 27.5); // over the river
   // Whitehorse airport's ground, kept clear for it: up on the hill just out past the DC-3 weathervane
   // at the end of Airport Hill, the runway running across the slope with the apron on the outer
   // side (local w > 0).
   var AIRPORT = (function () { var c = polar(145, 38), a = 145 * D2R; return { x: c.x, z: c.z, dx: Math.sin(a), dz: Math.cos(a), len: 20, side: 1 }; })();
   // The S.S. Klondike's berth: up on the bank on the town side of the river, lying along it.
-  var KLONDIKE = (function () { var p = dtw(-31, WALK_N + 1.8); return { x: p.x, z: p.z, rot: Math.atan2(DT_T.x, DT_T.z) }; })(); // on the bank at the south end of downtown
+  var KLONDIKE = (function () { var p = dtw(-33, WALK_N + 2.6); return { x: p.x, z: p.z, rot: Math.atan2(DT_T.x, DT_T.z) }; })(); // on the bank at the south end of downtown
   // The clay cliffs: the airport sits up on a bench above town, as Whitehorse's does on the escarpment.
   var ESCARP_H = 2.6;
   function escarp(x, z) {
@@ -663,7 +670,7 @@
   }
   // The commuter lane runs in a gentle S from the ring road, over the river, to the office
   // (clear of the library path, which leaves the ring road further round).
-  var LANE = bezierPath(dtw(0, WALK_N), dtw(0, 27), dtw(-3, 40), polar(30, 55 - 3.4), LANE_STONES);
+  var LANE = bezierPath(dtw(BRIDGE_T, WALK_N), dtw(BRIDGE_T, 38), dtw(-12, 44), polar(30, 55 - 3.4), LANE_STONES); // over the bridge
   // Paths: every destination gets its own path from the ring road; each field gate joins
   // the farm track at the nearest point already on it.
   var LODGE = (function () { var a = SNOW_FACE - 0.35, d = SNOW.R + 2.6; return { x: SNOW.c.x + Math.cos(a) * d, z: SNOW.c.z + Math.sin(a) * d }; })();
@@ -678,18 +685,19 @@
   // Paths out into the country leave town from the end of one of Whitehorse's seven streets: they
   // run straight on past the landmark at its end, then strike off for where they're going, round
   // whatever is in the way (of the two nearest streets and a few bends, the clearest way wins).
-  var STREET_OUT = 8;
-  // Where the roads and paths leave downtown: off 4th Avenue between the landmarks, over the river
-  // from the foot of each cross street, and off both ends of each avenue.
+  var STREET_OUT = 9;
+  // Where the roads and paths leave downtown: off 4th Avenue, off both ends of each avenue, and
+  // over the one bridge across the river (like the Robert Campbell Bridge) to the far bank.
   var EXITS = (function () {
     var out = [], inland = { x: -DT_N.x, z: -DT_N.z };
     [-28, -20, -12, -4, 4, 12, 20, 28].forEach(function (t) { out.push({ p: dtw(t, AVENUES[3] - 1.3), d: inland }); });
-    Object.keys(CROSS_T).forEach(function (k) { out.push({ p: dtw(CROSS_T[k], WALK_N), d: DT_N }); });
+    out.push({ p: dtw(BRIDGE_T, WALK_N), d: DT_N, bridge: true });
     AVENUES.forEach(function (n) { [-1, 1].forEach(function (sd) { out.push({ p: dtw(sd * (DT_HALF + 1.5), n), d: { x: DT_T.x * sd, z: DT_T.z * sd } }); }); });
     return out;
   })();
   function nearExits(to) {
-    return EXITS.map(function (e) { return { e: e, d: Math.hypot(e.p.x + e.d.x * STREET_OUT - to.x, e.p.z + e.d.z * STREET_OUT - to.z) }; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 3);
+    var far = eastBank(to.x, to.z);
+    return EXITS.filter(function (e) { return !!e.bridge === far; }).map(function (e) { return { e: e, d: Math.hypot(e.p.x + e.d.x * STREET_OUT - to.x, e.p.z + e.d.z * STREET_OUT - to.z) }; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 3);
   }
   function streetEnd(a) { return nearExits(polar(a, 45))[0].e.p; }
   var PATH_AVOID = (function () {
@@ -701,7 +709,7 @@
     for (var k = -10; k <= 10; k += 5) c({ x: AIRPORT.x + AIRPORT.dx * k + AIRPORT.dz * 3, z: AIRPORT.z + AIRPORT.dz * k - AIRPORT.dx * 3 }, 7);
     CASTLE_SITES.forEach(function (cs, ci) { if (ci) c(cs, 14.5); });
     Object.keys(CROSS_T).forEach(function (k) {
-      c(dtw(CROSS_T[k], LANDMARK_N), 2.6);
+      c(dtw(CROSS_T[k], RIVERFRONT_N), 2.6);
       [8.85, 1.5, -6].forEach(function (n) { c(dtw(CROSS_T[k] + 4, n), 3.1); c(dtw(CROSS_T[k] - 4, n), 3.1); });
     });
     return o;
@@ -713,6 +721,8 @@
       if (Math.hypot(o.x - to.x, o.z - to.z) < o.r + 1.5) continue; // where it's going
       if (Math.hypot(pts[i].x - o.x, pts[i].z - o.z) < o.r) n++;
     }
+    // Only the bridge crosses the river.
+    for (i = 0; i < pts.length; i += 2) { var bq = dtOf(pts[i].x, pts[i].z); if (riverDist(pts[i].x, pts[i].z) < RIVER_HALF + 1.2 && !(Math.abs(bq.t - BRIDGE_T) < 1.5 && Math.abs(bq.n - RIVER_N) < 5)) n += 3; }
     return n;
   }
   function fromStreet(to, wiggle) {
@@ -742,7 +752,7 @@
     out.push({ kind: 'path', pts: fromRing(polar(RIDGE.a, RIDGE.r - 17), 2) });
     (function () { var e = polar(angleOf(POND.x, POND.z) + 4, Math.hypot(POND.x, POND.z) - 5.5), dx = e.x - SQUARE.x, dz = e.z - SQUARE.z, l = Math.hypot(dx, dz); out.push({ kind: 'path', pts: trail({ x: SQUARE.x + dx / l * 2.4, z: SQUARE.z + dz / l * 2.4 }, e, 1) }); })(); // from the edge of the square, past the maypole
     SPORT_SLOTS.forEach(function (sl, i) { var p = polar(sl[0], sl[1] - 2.2); out.push({ kind: 'path', pts: fromRing(p, i % 2 ? 0.8 : -0.8), sport: i }); });
-    out.push({ kind: 'path', pts: fromRing({ x: HOCKEY.x + DT_N.x * 2.6, z: HOCKEY.z + DT_N.z * 2.6 }, 0.6) }); // to the rink
+    out.push({ kind: 'path', pts: fromRing({ x: HOCKEY.x + DT_N.x * 6, z: HOCKEY.z + DT_N.z * 6 }, 0.6) }); // to the rink
     // The road up to the airport, round the end of the runway to the apron.
     out.push({ kind: 'road', pts: fromRing({ x: AIRPORT.x - AIRPORT.dx * 14.5 + AIRPORT.dz * 4.5, z: AIRPORT.z - AIRPORT.dz * 14.5 - AIRPORT.dx * 4.5 }, 1.2) });
     out.push({ kind: 'path', pts: trail({ x: TOWN_SQ.x - TOWN_SQ.hx, z: LIBRARY.z }, frontOf(LIBRARY, 4.2), 0.2) });
@@ -1889,7 +1899,7 @@
   PROP_SPOTS = CROSS_SPOTS.filter(function (n, i) { return i % 3 !== 1; });
   function cityLot(key, code) {
     var n, off, dir;
-    if (code === 'E') { n = LANDMARK_N; off = 0; dir = DT_N; } // the landmark at the inland end, past 4th Avenue, facing down the street
+    if (code === 'E') { n = RIVERFRONT_N; off = 0; dir = { x: -DT_N.x, z: -DT_N.z }; } // the landmark on the riverfront at the foot of the street, facing town
     else {
       // One row down each side, every building fronting the street: a0-a2 nearest Front Street, then b0, b1.
       var i = +code[1] + (code[0] === 'b' ? 3 : 0), sd = code[2] === '+' ? 1 : -1;
@@ -1942,6 +1952,15 @@
     var alongT = Math.atan2(DT_T.x, DT_T.z), alongN = Math.atan2(DT_N.x, DT_N.z);
     AVENUES.forEach(function (n, i) { var c = dtw(0, n), av = self.part(g, self.geo.box, self.mat('path'), i ? CITY_W : CITY_W + 0.4, 0.05, DT_HALF * 2 + 3, c.x, 0.028, c.z, 'city'); av.rotation.y = alongT; });
     var wk = dtw(0, WALK_N), walk = self.part(g, self.geo.box, self.mat('cobble'), 1.2, 0.05, DT_HALF * 2 + 9, wk.x, 0.03, wk.z, 'city'); walk.rotation.y = alongT;
+    // The bridge over the river: green steel trusses either side of the deck.
+    var bridge = new T.Group(), bc0 = dtw(BRIDGE_T, RIVER_N); bridge.position.set(bc0.x, 0, bc0.z); bridge.rotation.y = Math.atan2(DT_N.x, DT_N.z); g.add(bridge); // its length runs across the river
+    riverDist(bc0.x, bc0.z); bridge.position.y = riverLevel(RIVER_NEAR.i) + 0.75 - y0;
+    [-1, 1].forEach(function (sd) {
+      var x0 = sd * 0.95;
+      [0.12, 1.05].forEach(function (yy) { self.part(bridge, self.geo.box, self.mat('roof', 1), 0.1, 0.1, 6.6, x0, yy, 0, 'bridge'); });
+      for (var bi = 0; bi < 6; bi++) { var br = self.part(bridge, self.geo.box, self.mat('roof', 1), 0.07, 1.25, 0.07, x0, 0.58, -2.75 + bi * 1.1, 'bridge'); br.rotation.x = bi % 2 ? 0.7 : -0.7; }
+      [-3.2, 3.2].forEach(function (zz) { self.part(bridge, self.geo.box, self.mat('roof', 1), 0.12, 1.1, 0.12, x0, 0.55, zz, 'bridge'); });
+    });
     CITY_ORDER.forEach(function (k) {
       var top = AVENUES[0] + 1.2, bot = AVENUES[3] - 1.2, c = crossAt(k, (top + bot) / 2), st = self.part(g, self.geo.box, self.mat('path'), CITY_W, 0.05, top - bot, c.x, 0.032, c.z, 'tower:' + k);
       st.rotation.y = alongN;
@@ -2017,7 +2036,7 @@
       board.userData.pick = 'city'; this.picks.push(board);
     } else if (kind === 'plaza') {
       // The plaza fills in: a ring of benches, planters and spruce round the flag.
-      [-20, -28, 12, 36].forEach(function (bt, i) {
+      [-12, 12, 36].forEach(function (bt, i) {
         var q = dtw(bt, WALK_N + 1.25), pg = new T.Group(); pg.position.set(q.x, 0, q.z); pg.rotation.y = Math.atan2(DT_N.x, DT_N.z); self.st.city.group.add(pg); // facing the river
         P(pg, self.geo.box, self.mat('wood'), 0.7, 0.05, 0.24, 0, 0.25, 0); P(pg, self.geo.box, self.mat('wood'), 0.7, 0.24, 0.04, 0, 0.42, -0.11);
         P(pg, self.geo.cyl6, self.mat('trunk'), 0.06, 0.4, 0.06, 0.7, 0.2, 0.2); P(pg, self.geo.cone, self.mat('pine', i % 2), 0.32, 0.8, 0.32, 0.7, 0.75, 0.2);
@@ -2050,7 +2069,7 @@
     } else if (kind === 'kdcc') {
       // The Kwanlin D\u00fcn Cultural Centre on the riverfront: a long sweep of tall timber fins and
       // glass under a sloping roof, with a round gathering house at one end.
-      var kc = dtw(-12, WALK_N + 1.55), kg = new T.Group(); kg.position.set(kc.x, groundY(kc.x, kc.z), kc.z); kg.rotation.y = Math.atan2(-DT_N.x, -DT_N.z); kg.scale.setScalar(0.8); g.add(kg); // its glass faces the town
+      var kc = dtw(-42, WALK_N + 3.2), kg = new T.Group(); kg.position.set(kc.x, groundY(kc.x, kc.z), kc.z); kg.rotation.y = Math.atan2(-DT_N.x, -DT_N.z); kg.scale.setScalar(0.8); g.add(kg); // its glass faces the town
       for (var fi = 0; fi < 13; fi++) {
         var fx = -2.6 + fi * 0.43, fz = -0.15 * Math.cos(fx / 2.6 * 1.4), fh = 1.35 + 0.35 * Math.cos(fx / 2.6 * 1.6);
         P(kg, self.geo.box, self.mat('logwood', fi % 2), 0.1, fh, 0.5, fx, fh / 2, fz - 0.1, 'kdcc');
@@ -2062,7 +2081,7 @@
       P(kg, self.geo.box, self.mat('stoneDark'), 6.6, 0.06, 1.7, 0.3, 0.03, -0.25, 'kdcc');
     } else if (kind === 'bandshell') {
       // The Rotary Peace Park bandshell: a white quarter-dome over a little stage, facing the lawn.
-      var bc = dtw(28, WALK_N + 1.5), bg2 = new T.Group(); bg2.position.set(bc.x, groundY(bc.x, bc.z), bc.z); bg2.rotation.y = Math.atan2(-DT_N.x, -DT_N.z); g.add(bg2);
+      var bc = dtw(20, WALK_N + 1.6), bg2 = new T.Group(); bg2.position.set(bc.x, groundY(bc.x, bc.z), bc.z); bg2.rotation.y = Math.atan2(-DT_N.x, -DT_N.z); g.add(bg2);
       P(bg2, self.geo.cyl, self.mat('stone', 1), 1.1, 0.25, 0.8, 0, 0.12, -0.1, 'bandshell');
       var dome = P(bg2, self.geo.ball, self.mat('whitewood'), 1.15, 1.25, 0.95, 0, 0.25, -0.35, 'bandshell'); dome.scale.z = 0.7;
       P(bg2, self.geo.box, self.mat('stoneDark'), 2.0, 0.6, 0.12, 0, 0.55, -0.95, 'bandshell');
@@ -3344,7 +3363,7 @@
     }
     if (kind === 'yflag') {
       // The Yukon flag (green, white with the coat of arms in fireweed, blue) on a tall pole by the gate.
-      var fq = dtw(4, WALK_N + 1.4); g.position.set(fq.x, groundY(fq.x, fq.z), fq.z); // on the riverfront by Main Street
+      var fq = dtw(4, WALK_N + 1.3); g.position.set(fq.x, groundY(fq.x, fq.z), fq.z); // on the riverfront by Main Street
       P(g, this.geo.cyl6, this.mat('whitewood'), 0.06, 5.2, 0.06, 0, 2.6, 0);
       P(g, this.geo.ball, this.mat('gold'), 0.1, 0.1, 0.1, 0, 5.25, 0);
       var fl = new T.Group(); fl.position.set(0, 4.7, 0); g.add(fl);
@@ -8975,14 +8994,9 @@
       // Each cobble tilts with the ground between its neighbours, so the lane reads as one smooth ribbon.
       var pa = LANE[Math.max(0, k - 1)], pb = LANE[Math.min(LANE_STONES - 1, k + 1)];
       var tilt = onBridge ? 0 : Math.atan2(surfaceY(pb.x, pb.z) - surfaceY(pa.x, pa.z), Math.hypot(pb.x - pa.x, pb.z - pa.z) || 1);
-      var t = this.part(this.world, this.geo.box, gold ? this.mat('gold') : onBridge ? this.mat('stone', 2) : this.mat('cobble'), LANE.spacing * 1.04, onBridge ? 0.3 : 0.12, onBridge ? 1.7 : 1.15, p.x, 0, p.z, 'commute');
+      var t = this.part(this.world, this.geo.box, gold ? this.mat('gold') : onBridge ? this.mat('stone', 2) : this.mat('cobble'), LANE.spacing * 1.04, 0.12, onBridge ? 1.7 : 1.15, p.x, 0, p.z, 'commute');
       t.rotation.order = 'YZX';
       t.rotation.z = tilt;
-      if (onBridge && k % 2 === 0) [-1, 1].forEach(function (sd) {
-        var rail = self.part(self.world, self.geo.box, self.mat('stoneDark'), LANE.spacing * 0.95, 0.45, 0.12, p.x + Math.sin(p.rot) * sd * 0.85, 0, p.z + Math.cos(p.rot) * sd * 0.85, 'commute');
-        rail.rotation.y = p.rot;
-        self.animDrop(rail, y + 0.3, delay + 100, 500);
-      });
       t.rotation.y = p.rot;
       this.animDrop(t, y + 0.04, delay, 500);
       if (k % 14 === 13) {
@@ -10216,7 +10230,7 @@
     if (!w.statue) {
       var g = new T.Group();
       g.position.set(STATUE.x, groundY(STATUE.x, STATUE.z), STATUE.z);
-      g.rotation.y = Math.atan2(STATUE.x, STATUE.z) + Math.PI; // facing town
+      g.rotation.y = Math.atan2(-DT_N.x, -DT_N.z); // along the river
       this.part(g, this.geo.box, this.mat('stoneDark'), 5.6, 0.3, 0.7, 0, 0.15, 0, pick);
       this.part(g, this.geo.box, this.mat('stone', 1), 5.8, 0.08, 0.8, 0, 0.32, 0, pick);
       // Little end posts with lanterns.
@@ -11981,6 +11995,7 @@
         return mo ? { title: mo.name, lines: [mo.char ? CHAR_NOTE[mo.char] : 'Lives at the ' + mo.homeName + ' house.', doing] } : null;
       }
       case 'fox': return { title: 'Jo the fox', lines: ['Jo, mostly round her house, sometimes off exploring.'] };
+      case 'bridge': return { title: 'The bridge', lines: ['The one bridge over the river, like Whitehorse\u2019s Robert Campbell Bridge: everything on the far bank is reached from here.'] };
       case 'kdcc': return { title: 'Kwanlin D\u00fcn Cultural Centre', lines: ['The Kwanlin D\u00fcn First Nation\u2019s gathering place on the riverfront, all timber and glass.'] };
       case 'bandshell': return { title: 'The Rotary Peace Park bandshell', lines: ['Concerts on the riverfront on summer evenings.'] };
       case 'scaffold': return { title: 'Going up', lines: ['Scaffolding on the next building. A few more lifting sessions and it\u2019s built.'] };
