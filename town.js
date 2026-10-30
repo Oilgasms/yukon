@@ -95,7 +95,7 @@
     [65, 'sq6', 'The gazebo on the village green'], [85, 'sq7', 'Market stalls on the plaza'], [100, 'sq8', 'The old oak on the green'], [120, 'sq9', 'The well and market cross in Uptown'], [175, 'sq10', 'The clock on the plaza'],
     [10, 'yflag', 'The Yukon flag on the riverfront'], [20, 'sign', 'The Welcome to Whitehorse sign'], [30, 'fireweed', 'Spruce and birch round town'], [40, 'bunting', 'Bunting across Main Street'], [45, 'airport', 'Whitehorse airport, and Alkan Air’s King Air 350'],
     [50, 'winter', 'The Yukon Quest and Sourdough Rendezvous each February'], [60, 'plaza', 'Benches along the riverfront'], [75, 'klondike', 'The S.S. Klondike'], [82, 'kdcc', 'The Kwanlin D\u00fcn Cultural Centre'],
-    [90, 'milepost', 'The Alaska Highway milepost'], [110, 'ravens', 'Ravens about town'], [130, 'artscentre', 'The Yukon Arts Centre'], [145, 'bandshell', 'The Rotary Peace Park bandshell'], [160, 'canyon', 'The Miles Canyon footbridge'], [200, 'lights', 'Lights strung along every street']
+    [90, 'milepost', 'The Alaska Highway milepost'], [150, 'hotsprings', 'Takhini Hot Springs, and Bean North Coffee on the road out'], [110, 'ravens', 'Ravens about town'], [130, 'artscentre', 'The Yukon Arts Centre'], [145, 'bandshell', 'The Rotary Peace Park bandshell'], [160, 'canyon', 'The Miles Canyon footbridge'], [200, 'lights', 'Lights strung along every street']
   ];
   var HOUSE_STAGES = [
     [1, 'Cottage'], [3, 'Window flower boxes'], [5, 'Second floor'], [8, 'Front porch'], [11, 'Fenced yard'],
@@ -233,6 +233,9 @@
   var FARM = { angle: 316, r: 31, cols: 5, rows: 8 }; // the flower garden
   var POND = polar(200, 34);
   var OFFICE = polar(30, 55);
+  // Places kept for later: the Arts Centre beside Yukon University, Takhini Hot Springs out at the
+  // edge of the country north of town, and Bean North Coffee on the road out to it.
+  var ARTS_SPOT = { x: 52.9, z: -18.4 }, HOTSPRINGS = { x: -34.2, z: -44.4 }, BEAN_NORTH = { x: -42, z: -38.7 };
   // The river comes down from the glacier through Miles Canyon, runs straight along the front of
   // downtown, then out past the farmland to the sea.
   var RIVER_HALF = 1.7;
@@ -500,6 +503,7 @@
       if (SPORT_SLOTS.some(function (sl) { var q = polar(sl[0], sl[1]); return Math.hypot(q.x - p.x, q.z - p.z) < 4.6; })) continue;
       if (FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 2; })) continue;
       if (inAirport(p, 1) || Math.hypot(p.x - KLONDIKE.x, p.z - KLONDIKE.z) < 4.5) continue;
+      if (Math.hypot(p.x - ARTS_SPOT.x, p.z - ARTS_SPOT.z) < 4 || Math.hypot(p.x - HOTSPRINGS.x, p.z - HOTSPRINGS.z) < 6 || Math.hypot(p.x - BEAN_NORTH.x, p.z - BEAN_NORTH.z) < 3.4) continue;
       p.order = Math.hypot(p.x - FOREST_SEED.x, p.z - FOREST_SEED.z) - n * 5 + r() * 4;
       pts.push(p); hash.add(p);
     }
@@ -685,6 +689,7 @@
   pad(HOCKEY, 3.0, 4.4);
   pad(PASTURE, PASTURE_R + 0.5, PASTURE_R + 3);
   pad(CHURCH, 11.8, 15.5);
+  pad(ARTS_SPOT, 2.8, 4.6); pad(HOTSPRINGS, 4.9, 7.5); pad(BEAN_NORTH, 2.2, 3.8);
   // Each field is levelled into a terrace of its own, so the crops don't climb up and down the hills.
   FIELDS.forEach(function (f) { pad(f, f.size * 0.8, f.size + 2.6); });
   // The square sits at the lowest ground under it and the land eases up all round; it goes first
@@ -2014,11 +2019,11 @@
       ['log', 'a1-', { w: 2.0, prop: 'mammoth' }, 'The Yukon Beringia Centre'], ['cabin', 'a2+', { prop: 'snowflake' }, 'The Mount McIntyre ski chalet'], ['gas', 'a2-', {}, 'The Airport Chalet gas bar'], ['quonset', 'b0+', { plain: true, prop: 'raven' }, 'Raven Recycling'],
       ['modern', 'b0-', { c: 1, floors: 2, prop: 'anemometer' }, 'The weather office'], ['cabin', 'b1+', { c: 1, prop: 'moose' }, 'The Yukon Wildlife Preserve office'], ['house', 'b1-', { c: 7, prop: 'barrel' }, 'Winterlong Brewing']] },
     post: { name: 'Elliott Street', plan: [
-      ['house', 'a0+', { c: 4, prop: 'bike' }, 'Icycle Sport'], ['house', 'a0-', { c: 12, prop: 'curling' }, 'The Whitehorse Curling Club'], ['front', 'a1+', { c: 6, t: 0, prop: 'aurora' }, 'Boréale Explorers'], ['arena', 'E', {}, 'Takhini Arena'],
+      ['house', 'a0+', { c: 4, prop: 'vase' }, 'Lumel Studios glassworks'], ['house', 'a0-', { c: 12, prop: 'curling' }, 'The Whitehorse Curling Club'], ['front', 'a1+', { c: 6, t: 0, prop: 'aurora' }, 'Boréale Explorers'], ['arena', 'E', {}, 'Takhini Arena'],
       ['house', 'a1-', { c: 9, prop: 'rings' }, 'The Polarettes gymnastics club'], ['house', 'a2+', { c: 15, two: true, prop: 'star' }, 'The Yukon Inn'], ['yukonu', 'a2-', {}, 'The Canada Games Centre'], ['house', 'b0+', { c: 0, prop: 'note' }, 'Bluefeather Music'],
       ['house', 'b0-', { c: 11, prop: 'paw' }, 'The Mae Bachur Animal Shelter'], ['cabin', 'b1+', { prop: 'leaf' }, 'The Yukon Conservation Society'], ['house', 'b1-', { c: 6, prop: 'apple' }, 'The Super A grocery']] },
     core: { name: 'Hanson Street', plan: [
-      ['front', 'a0+', { c: 1, t: 0, prop: 'beans' }, 'Bean North Coffee'], ['log', 'a0-', { w: 2.0, prop: 'still' }, 'The Yukon Spirits distillery'], ['brewery', 'E', {}, 'Yukon Brewing'], ['quonset', 'a1+', { plain: true, prop: 'fireweed' }, 'The Fireweed Market hall'], ['cabin', 'a1-', { prop: 'sun' }, 'Midnight Sun Coffee Roasters'],
+      ['front', 'a0+', { c: 1, t: 0, prop: 'oyster' }, 'The Wayfarer Oyster House'], ['log', 'a0-', { w: 2.0, prop: 'still' }, 'The Yukon Spirits distillery'], ['brewery', 'E', {}, 'Yukon Brewing'], ['quonset', 'a1+', { plain: true, prop: 'fireweed' }, 'The Fireweed Market hall'], ['cabin', 'a1-', { prop: 'sun' }, 'Midnight Sun Coffee Roasters'],
       ['front', 'a2+', { c: 13, t: 0, prop: 'pick' }, 'The Miner’s Daughter'], ['house', 'a2-', { c: 8, prop: 'wine' }, 'Antoinette’s'], ['modern', 'b0+', { c: 1, floors: 4, prop: 'neon2' }, 'The Coast High Country Inn'], ['house', 'b0-', { c: 3, prop: 'pot' }, 'Yukon Clay pottery'],
       ['cabin', 'b1+', { c: 1, prop: 'salmon' }, 'The Whitehorse Fishway'], ['house', 'b1-', { c: 5, prop: 'skates' }, 'The Shipyards skate shack']] }
   };
@@ -2422,6 +2427,8 @@
     wine: function (P, M, a) { P(a.self.geo.cone, M('redwood'), 0.13, 0.2, 0.13, 0, a.top + 0.42, 0.4).rotation.x = Math.PI; P(a.self.geo.cyl6, M('glasshouse'), 0.02, 0.22, 0.02, 0, a.top + 0.2, 0.4); P(a.self.geo.cyl, M('glasshouse'), 0.1, 0.02, 0.1, 0, a.top + 0.09, 0.4); },
     pot: function (P, M, a) { P(a.self.geo.ball, M('redwood'), 0.22, 0.2, 0.22, a.w * 0.7, 0.2, a.fz + 0.35); P(a.self.geo.cyl, M('redwood'), 0.12, 0.12, 0.12, a.w * 0.7, 0.42, a.fz + 0.35); P(a.self.geo.ball, M('roof', 3), 0.15, 0.13, 0.15, a.w * 0.3, 0.13, a.fz + 0.5); },
     salmon: function (P, M, a) { P(a.self.geo.ball, M('flag', 0), 0.32, 0.13, 0.07, 0, a.top + 0.3, 0.3).rotation.z = 0.3; P(a.self.geo.cone4, M('flag', 0), 0.1, 0.18, 0.05, 0.35, a.top + 0.4, 0.3).rotation.z = Math.PI / 2 + 0.3; P(a.self.geo.box, M('water'), 0.9, 0.06, 0.5, -0.3, 0.03, a.fz + 0.45); },
+    oyster: function (P, M, a) { P(a.self.geo.ball, M('stone', 1), 0.28, 0.08, 0.22, 0, a.top + 0.1, 0.4); P(a.self.geo.ball, M('stone', 0), 0.26, 0.06, 0.2, 0, a.top + 0.2, 0.36).rotation.x = -0.6; P(a.self.geo.ball, M('plaster', 0), 0.05, 0.05, 0.05, 0, a.top + 0.15, 0.4); },
+    vase: function (P, M, a) { P(a.self.geo.ball, M('glass', 1), 0.18, 0.24, 0.18, 0, a.top + 0.22, 0.3); P(a.self.geo.cyl, M('glass', 1), 0.07, 0.2, 0.07, 0, a.top + 0.48, 0.3); P(a.self.geo.ball, M('glass', 4), 0.12, 0.14, 0.12, 0.35, a.top + 0.13, 0.3); var fu = new T.Mesh(a.self.geo.ball, a.self.glowMats().lamp); fu.scale.set(0.14, 0.14, 0.14); fu.position.set(-a.w * 0.7, 0.4, a.fz + 0.35); a.g.add(fu); P(a.self.geo.box, M('stone', 2), 0.4, 0.3, 0.4, -a.w * 0.7, 0.15, a.fz + 0.35); },
     skates: function (P, M, a) { [-0.12, 0.12].forEach(function (x) { P(a.self.geo.box, M('plaster', 0), 0.1, 0.18, 0.25, x, a.top + 0.2, 0.3); P(a.self.geo.box, M('silver'), 0.02, 0.03, 0.32, x, a.top + 0.09, 0.3); }); }
   };
   // Houses and cabins get a front garden: a picket fence, a dry-stone wall or a clipped hedge along
@@ -2531,8 +2538,8 @@
         var bd = P(g, self.geo.box, self.mat('tpaint', [3, 8, 0, 6, 12][i]), 0.9, 0.18, 0.03, (i % 2 ? 0.35 : -0.35), 2.2 - i * 0.28, 0, 'milepost'); bd.rotation.y = i * 0.9;
       });
     } else if (kind === 'artscentre') {
-      // The Yukon Arts Centre: a big timber-and-glass hall on the hill above town.
-      var ac = this.secretSpot(GATE_ANGLE + 115, 20, 2.6); if (!ac) return;
+      // The Yukon Arts Centre: a big timber-and-glass hall on the campus, right beside Yukon University.
+      var ac = ARTS_SPOT;
       this.st.secretPos.artscentre = ac;
       g.position.set(ac.x, groundY(ac.x, ac.z), ac.z); g.rotation.y = Math.atan2(-ac.x, -ac.z);
       P(g, this.geo.box, this.mat('woodLight'), 3.2, 1.3, 2.0, 0, 0.65, 0, 'artscentre'); P(g, this.geo.box, this.mat('window'), 2.6, 0.9, 0.05, 0, 0.7, 1.01, 'artscentre');
@@ -3766,7 +3773,7 @@
     });
   };
   Town.prototype.buildMilestone = function (kind, delay) {
-    if (/^(yflag|fireweed|winter|klondike|ravens|canyon)$/.test(kind)) { this.yukonMilestone(kind, delay); return; }
+    if (/^(yflag|fireweed|winter|klondike|ravens|canyon|hotsprings)$/.test(kind)) { this.yukonMilestone(kind, delay); return; }
     if (/^(sign|plaza|bunting|milepost|artscentre|lights|kdcc|bandshell)$/.test(kind)) { this.cityMilestone(kind, delay); return; }
     if (/^sq\d+$/.test(kind)) { this.plazaStage(kind, delay); return; }
     if (kind === 'airport') { this.buildAirport(delay); return; }
@@ -3907,6 +3914,40 @@
         Y.ravens.push({ g: bird, at: null, hopT: 0, nextAt: 0, from: null, to: null });
       }
       return;
+    } else if (kind === 'hotsprings') {
+      // Takhini Hot Springs, out on the edge of the country north of town: two steaming pools in
+      // rock rims with a deck round them and the log lodge; and across the road, Bean North
+      // Coffee in its little log roastery.
+      var hs = HOTSPRINGS;
+      this.st.secretPos.hotsprings = hs;
+      g.position.set(hs.x, groundY(hs.x, hs.z), hs.z); g.rotation.y = Math.atan2(-hs.x, -hs.z);
+      var pk = 'hotsprings';
+      P(g, this.geo.box, this.mat('wood'), 6.2, 0.1, 4.4, 0, 0.05, 0.6, pk).userData.passable = true;
+      [[-1.4, 1.1, 1.35], [1.5, 1.3, 1.0]].forEach(function (pl) {
+        P(g, self.geo.disc || self.geo.cyl, self.mat('water'), pl[2], 0.06, pl[2], pl[0], 0.12, pl[1], pk);
+        for (var rk = 0; rk < 14; rk++) { var ra = rk / 14 * Math.PI * 2; P(g, self.geo.blob, self.mat('rock'), 0.28, 0.2, 0.26, pl[0] + Math.cos(ra) * (pl[2] + 0.15), 0.14, pl[1] + Math.sin(ra) * (pl[2] + 0.15), pk); }
+        for (var sm = 0; sm < 4; sm++) P(g, self.geo.blob, self.mat('snow'), 0.3 - sm * 0.05, 0.18, 0.3 - sm * 0.05, pl[0] + (sm % 2 ? 0.3 : -0.25), 0.45 + sm * 0.32, pl[1] + (sm - 1.5) * 0.15, pk);
+      });
+      var lg = new T.Group(); lg.position.set(0, 0, -2.4); g.add(lg);
+      P(lg, this.geo.box, this.mat('logwood', 0), 3.4, 1.2, 1.6, 0, 0.6, 0, pk);
+      P(lg, this.geo.gable, this.mat('roofTavern'), 2.1, 0.9, 1.25, 0, 1.2, 0, pk);
+      P(lg, this.geo.box, this.mat('trunk'), 0.4, 0.75, 0.05, 0, 0.38, 0.81, pk);
+      [-1.1, 1.1].forEach(function (x) { P(lg, self.geo.box, self.mat('window'), 0.5, 0.4, 0.05, x, 0.7, 0.81, pk); });
+      var hsn = new T.Mesh(new T.PlaneGeometry(1.8, 0.4), new T.MeshBasicMaterial({ map: signTex('TAKHINI HOT SPRINGS', '#6a4224', '#f3efe6') })); hsn.position.set(0, 1.4, 0.86); lg.add(hsn); hsn.userData.pick = pk; this.picks.push(hsn);
+      var bn = BEAN_NORTH;
+      {
+        this.st.secretPos.beannorth = bn;
+        var bg = new T.Group(); bg.position.set(bn.x, groundY(bn.x, bn.z), bn.z); bg.rotation.y = Math.atan2(hs.x - bn.x, hs.z - bn.z); this.world.add(bg);
+        var bk = 'beannorth';
+        P(bg, this.geo.box, this.mat('logwood', 1), 1.8, 1.0, 1.5, 0, 0.5, 0, bk);
+        P(bg, this.geo.gable, this.mat('roof', 3), 1.15, 0.75, 1.15, 0, 1.0, 0, bk);
+        P(bg, this.geo.box, this.mat('trunk'), 0.36, 0.65, 0.05, -0.4, 0.33, 0.76, bk); P(bg, this.geo.box, this.mat('window'), 0.5, 0.36, 0.05, 0.45, 0.6, 0.76, bk);
+        var bsn = new T.Mesh(new T.PlaneGeometry(1.2, 0.3), new T.MeshBasicMaterial({ map: signTex('BEAN NORTH', '#2f5d3a', '#f3efe6') })); bsn.position.set(0, 1.15, 0.8); bg.add(bsn); bsn.userData.pick = bk; this.picks.push(bsn);
+        P(bg, this.geo.cyl, this.mat('plaster', 0), 0.16, 0.22, 0.16, 0, 1.85, 0.2, bk); P(bg, this.geo.torus, this.mat('plaster', 0), 0.08, 0.08, 0.08, 0.2, 1.86, 0.2, bk);
+        P(bg, this.geo.blob, this.mat('woodLight'), 0.22, 0.26, 0.18, 0.85, 0.24, 0.95, bk);
+        P(bg, this.geo.box, this.mat('wood'), 0.9, 0.05, 0.5, -0.4, 0.42, 1.4, bk); [-0.8, 0].forEach(function (x) { P(bg, self.geo.box, self.mat('wood'), 0.05, 0.4, 0.4, x, 0.2, 1.4, bk); });
+        if (!this.instant) this.pop(bg, delay + 300);
+      }
     } else if (kind === 'canyon') {
       // Miles Canyon: the suspension footbridge across the river canyon nearest town, with dark
       // basalt columns along the rims.
@@ -7466,8 +7507,8 @@
     }
   };
 
-  // Mountain bike rides grow a little bike shop cottage on a knoll behind the mountains, one
-  // upgrade at a time, like the friends' houses.
+  // Mountain bike rides grow Icycle Sport, a little bike shop and café on a knoll behind the
+  // mountains, one upgrade at a time, like the friends' houses.
   var MTB_STEPS = [[1, 'A little bike shop cottage'], [3, 'A bike rack with bikes'], [6, 'Flower boxes and a bench'], [10, 'A repair stand and tool wall'],
     [15, 'A little dirt loop out front'], [21, 'A café patio with umbrellas'], [28, 'Bunting and lanterns'], [36, 'A second storey with a balcony'], [50, 'A timber lodge wing and a flag']];
   Town.prototype.bikeModel = function (par, x, z, rot, col, pick) {
@@ -7506,7 +7547,8 @@
           P(this.geo.box, this.mat('trunk'), 0.55, 1.0, 0.05, -0.5, 0.7, 1.01);
           P(this.geo.box, this.mat('window'), 0.6, 0.5, 0.05, 0.6, 1.05, 1.01);
           P(this.geo.box, this.mat('whitewood'), 0.72, 0.06, 0.07, 0.6, 0.78, 1.03);
-          // The shop sign: a little bike on a board over the door.
+          // The shop's name across the front, and a little bike on a board over the door.
+          var isn = new T.Mesh(new T.PlaneGeometry(1.0, 0.28), new T.MeshBasicMaterial({ map: signTex('ICYCLE SPORT', '#123a6b', '#f2c230') })); isn.position.set(0.6, 1.5, 1.04); g.add(isn); isn.userData.pick = pick; this.picks.push(isn);
           P(this.geo.box, this.mat('woodLight'), 0.9, 0.34, 0.05, -0.5, 1.45, 1.04);
           [-0.68, -0.32].forEach(function (x) { P(self.geo.torus, self.mat('stoneDark'), 0.09, 0.09, 0.09, x, 1.43, 1.08); });
           P(this.geo.box, this.mat('flag', 0), 0.3, 0.04, 0.03, -0.5, 1.48, 1.08);
@@ -8238,7 +8280,7 @@
     if (PEAKS.some(function (k) { return Math.hypot(k.x - p.x, k.z - p.z) < rad + k.h * 0.9 + 2; })) return false;
     if (Math.hypot(SNOW.c.x - p.x, SNOW.c.z - p.z) < SNOW.R + rad + 3) return false;
     if (Math.hypot(PASTURE.x - p.x, PASTURE.z - p.z) < rad + PASTURE_R + 3) return false;
-    var spots = [POND, DOG_PEN.c, OFFICE, HOCKEY, PUB, SQUARE, STATUE, KLONDIKE, LODGE, polar(FARM.angle, FARM.r + 3.2)];
+    var spots = [POND, DOG_PEN.c, OFFICE, HOCKEY, PUB, SQUARE, STATUE, KLONDIKE, LODGE, polar(FARM.angle, FARM.r + 3.2), ARTS_SPOT, HOTSPRINGS, BEAN_NORTH];
     if (spots.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < rad + 7; })) return false;
     if (Math.hypot(CHURCH.x - p.x, CHURCH.z - p.z) < rad + 10 || Math.hypot(LIBRARY.x - p.x, LIBRARY.z - p.z) < rad + 13 || Math.hypot(HOARD.x - p.x, HOARD.z - p.z) < rad + 9) return false;
     for (var k = 0; k < LANE.length; k += 3) if (Math.hypot(LANE[k].x - p.x, LANE[k].z - p.z) < rad + 1.5) return false;
@@ -11875,7 +11917,7 @@
   // Errands: now and then a mouse wants something fetched.
   var ERRANDS = [
     ['fish', 'could you catch me a fish, dear? I’m making a pie', 'a fish! perfect, thank you!'],
-    ['coffee', 'I’d love a coffee from the bike shop… would you?', 'ooh, still hot! you’re a star'],
+    ['coffee', 'I’d love a coffee from Icycle Sport… would you?', 'ooh, still hot! you’re a star'],
     ['beer', 'fetch us a pint from the Slow Pour, would you?', 'cheers, love! that’s the stuff'],
     ['shiny', 'find me something shiny? from the bins, or the mine?', 'ooh, shiny! I’ll treasure it']
   ];
@@ -12527,7 +12569,9 @@
       case 'airport': return { title: 'Whitehorse airport (YXY)', lines: ['Erik Nielsen Whitehorse International, up on the hill above town.', 'Alkan Air’s King Air 350 flies a circuit over town every couple of minutes.'] };
       case 'kingair': return { title: 'Alkan Air King Air 350', lines: ['A twin-turboprop Beechcraft King Air 350, in Alkan Air colours: Whitehorse’s own charter and medevac airline.'] };
       case 'milepost': return { title: 'The Alaska Highway', lines: ['Whitehorse sits at Historic Mile 918 of the Alaska Highway, built in 1942.'] };
-      case 'artscentre': return { title: 'The Yukon Arts Centre', lines: ['Theatre, galleries and concerts on the hill above town.'] };
+      case 'hotsprings': return { title: 'Takhini Hot Springs', lines: ['Two steaming pools out on the edge of the country north of town, with the old log lodge beside them. Bean North Coffee is across the road.'] };
+      case 'beannorth': return { title: 'Bean North Coffee', lines: ['The little log roastery on the road out to the hot springs: organic beans roasted in the Yukon since 1997.'] };
+      case 'artscentre': return { title: 'The Yukon Arts Centre', lines: ['Theatre, galleries and concerts, next door to Yukon University on the campus above town.'] };
       case 'canyon': return { title: 'Miles Canyon', lines: ['Basalt walls above the Yukon River, and the suspension footbridge across them.'] };
       case 'yflag': return { title: 'The Yukon flag', lines: ['Green for the forests, white for the snow, blue for the lakes and rivers, and fireweed in the coat of arms.'] };
       case 'klondike': return { title: 'The S.S. Klondike', lines: ['The sternwheeler that hauled ore and passengers down the Yukon River to Dawson, now resting on the riverbank as a National Historic Site.'] };
@@ -12606,7 +12650,7 @@
           'Built: ' + nb.join(', ') + '.', nn ? 'Next: ' + nn[1].toLowerCase() + ' at ' + nn[0] + ' km.' : 'Everything on the trail is built.', 'Cross-country ski days come from Strava.', tail] };
       case 'mtb':
         var MB = s.mtb, nm = MTB_STEPS[MB.n], mb = MTB_STEPS.slice(0, MB.n).map(function (x) { return x[1].toLowerCase(); });
-        return { title: 'The bike shop', lines: [plural(MB.rides, 'mountain bike ride') + ' \u00b7 ' + km(MB.km), 'Built: ' + mb.join(', ') + '.', nm ? 'Next: ' + nm[1].toLowerCase() + ' at ' + nm[0] + ' rides.' : 'The bike shop is complete.', 'Mountain bike rides come from Strava, and they sow the farmland too.', tail] };
+        return { title: 'Icycle Sport', lines: [plural(MB.rides, 'mountain bike ride') + ' \u00b7 ' + km(MB.km), 'Built: ' + mb.join(', ') + '.', nm ? 'Next: ' + nm[1].toLowerCase() + ' at ' + nm[0] + ' rides.' : 'The bike shop is complete.', 'Mountain bike rides come from Strava, and they sow the farmland too.', tail] };
       case 'wild':
         if (p[1] === 'coyotes') return { title: 'The Coyote Gang', lines: ['Three lean outlaws who swagger into town some days (and every Friday and Saturday night), whiskey in paw, knocking over bins and causing a ruckus.', 'Get too close and it\u2019s a showdown.'] };
         var sp = WILDLIFE.filter(function (w) { return w.key === p[1]; })[0], seen = WILDLIFE.filter(function (w) { return s.wild.have[w.key]; }).length;
@@ -14198,7 +14242,7 @@
     if (!c || (c.kind !== 'beer' && c.kind !== 'coffee')) return;
     c.eat = 1.1; c.glugged = false; pl.idle = Math.max(pl.idle || 0, 1.6); c.forced = performance.now() + 700;
   };
-  // A coffee from the bike shop: a minute of going very fast.
+  // A coffee from Icycle Sport's café: a minute of going very fast.
   Town.prototype.getCoffee = function () {
     var pl = this.player;
     if (!pl) return false;
