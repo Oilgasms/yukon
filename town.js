@@ -260,12 +260,13 @@
   // open country past the village, Bean North Coffee on the road out to it, and the Yukon
   // Wildlife Preserve just past the springs.
   var ARTS_SPOT = { x: 52.9, z: -18.4 }, HOTSPRINGS = { x: -59, z: 5 }, BEAN_NORTH = { x: -59, z: 13 }, PRESERVE = { x: -66.8, z: -2.8 };
-  // The river comes down from the glacier through Miles Canyon, runs straight along the front of
-  // downtown, then out past the farmland to the sea.
+  // The river comes down from the glacier, runs straight along the front of downtown, past the
+  // Riverdale dam and through Miles Canyon, then out past the farmland to the sea.
   var RIVER_HALF = 1.7;
   var RIVER = bezierPath(polar(70, 132), polar(66, 80), dtw(-36, RIVER_N), dtw(-24, RIVER_N), 170)
     .concat(curvePath(function (u) { return dtw(-24 + u * 58, RIVER_N); }, 110)) // following the bend of the town
-    .concat(bezierPath(dtw(34, RIVER_N), dtw(48, RIVER_N), polar(326, 92), polar(328, 136), 150));
+    .concat(bezierPath(dtw(34, RIVER_N), dtw(48, RIVER_N), { x: 78, z: 46.5 }, { x: 92, z: 45.5 }, 110).slice(1)) // past the dam and down Miles Canyon
+    .concat(bezierPath({ x: 92, z: 45.5 }, { x: 104, z: 45 }, { x: 112, z: 57 }, { x: 122, z: 68 }, 70).slice(1)); // then swinging left round the back of Haines to the sea
   // The far side of the river from downtown (Riverdale, the forest and the fields over there).
   function eastBank(x, z) {
     var q = dtOf(x, z);
@@ -317,7 +318,7 @@
     [4, 23, -5, 8, 11, 1], [4, 26, 6, 9.5, 15, 1], [4, 23, 18, 7.5, 10, 1], [4, 30, 15, 7, 12, 1],
     [4, -22, -6, 7.5, 11, 1], [4, -25, 5, 9, 14, 1], [4, -22, 17, 7, 10, 1],
     [5, 23, 13, 10.5, 20, 0.36, 0.62], [5, 26, 0, 7, 9, 0.8], [5, 20, 26, 7, 8, 1], [5, 4, 31, 7, 6, 1],
-    [5, -25, -10, 7, 16, 0.3, 0.56], [5, -32, -1, 7, 15, 0.3, 0.55]
+    [5, -34, -10, 7, 16, 0.3, 0.56], [5, -41, -1, 7, 15, 0.3, 0.55]
   ].map(function (p, i) { var q = siteAt(p[0], p[1], p[2]); return { ci: p[0], x: q.x, z: q.z, R: p[3], H: p[4], rock: p[5], snow: p[6] || 2, ph: i * 1.7 }; });
   var TP_BOX = TOWN_PEAKS.reduce(function (b, k) { return [Math.min(b[0], k.x - k.R), Math.max(b[1], k.x + k.R), Math.min(b[2], k.z - k.R), Math.max(b[3], k.z + k.R)]; }, [1e9, -1e9, 1e9, -1e9]);
   // How high the town mountains lift the ground here, and which peak is on top.
@@ -664,8 +665,8 @@
   // The river's last stretch before the sea cuts a canyon between raised rims.
   function canyonDepth(x, z) {
     var r = Math.hypot(x, z); if (r < 69 || r > 102) return 0;
-    var near = RIVER_NEAR; riverDist(x, z); var up = RIVER_NEAR.i < 170; RIVER_NEAR = near; // Miles Canyon is upstream of town
-    return up ? 3.6 * smooth(70, 77, r) * (1 - smooth(95, 101, r)) : 0;
+    var near = RIVER_NEAR; riverDist(x, z); var down = RIVER_NEAR.i > 330; RIVER_NEAR = near; // Miles Canyon is downstream of the dam
+    return down ? 3.6 * smooth(82, 89, r) * (1 - smooth(97, 103, r)) : 0;
   }
   // The land before buildings: rolling hills, then the beach and sea, the lake basin and the stream bed.
   function landY(x, z) {
@@ -1939,7 +1940,7 @@
       var r = t.angle == null ? 1.45 : 1.0, pick = 'tower:' + t.key + tag;
       // In Whitehorse each group has a street instead, with a log gateway over the top of it that
       // flies a gold PR banner.
-      if (city) { var gl = LANES[t.key], ge = laneAt(t.key, Math.max(gl.len - 0.3, gl.hub.r + LOT_D[LOT_D.length - 1] + 2.2)); p = { x: ge.x, z: ge.z }; } // the gateway into town at the end of the lane, past its last houses
+      if (city) { var gl = LANES[t.key], ge = laneAt(t.key, gl.hub === RIVERDALE ? gl.hub.r + 0.9 : Math.max(gl.len - 0.3, gl.hub.r + LOT_D[LOT_D.length - 1] + 2.2)); p = { x: ge.x, z: ge.z }; } // the gateway into town at the end of the lane, past its last houses (Riverdale's is at its square, where the road comes in)
       var g = new T.Group();
       g.position.set(p.x, city ? groundY(p.x, p.z) : 0, p.z);
       parent.add(g);
@@ -4112,10 +4113,10 @@
         if (!this.instant) this.pop(bg, delay + 300);
       }
     } else if (kind === 'canyon') {
-      // Miles Canyon: the suspension footbridge across the river canyon nearest town, with dark
+      // Miles Canyon: the suspension footbridge across the middle of the canyon below the dam, with dark
       // basalt columns along the rims.
       var best = -1, bd = 1e9;
-      for (var ri = 2; ri < RIVER.length - 2; ri++) { var rq = RIVER[ri]; if (canyonDepth(rq.x, rq.z) > 0.5) { var dd = Math.hypot(rq.x, rq.z); if (dd < bd) { bd = dd; best = ri; } } }
+      for (var ri = 2; ri < RIVER.length - 2; ri++) { var rq = RIVER[ri]; if (canyonDepth(rq.x, rq.z) > 0.5) { var dd = Math.abs(Math.hypot(rq.x, rq.z) - 93); if (dd < bd) { bd = dd; best = ri; } } }
       if (best < 0) return;
       var c0 = RIVER[best], ta2 = { x: RIVER[best + 1].x - RIVER[best - 1].x, z: RIVER[best + 1].z - RIVER[best - 1].z }, tl2 = Math.hypot(ta2.x, ta2.z), nx = -ta2.z / tl2, nz = ta2.x / tl2;
       // (just bank to bank over the water, not off across the canyon country either side)
@@ -4687,7 +4688,7 @@
       P(base, self.geo.cone4, self.mat('glacier', 1), 0.6, 1.4 + sr[1] * 0.4, 0.6, sx, wy + 1.2 + sr[1] * 0.9, sz);
     });
 
-    // The canyon: boulders along its walls, and a rope bridge across.
+    // The canyon: boulders along its walls (its footbridge is a milestone).
     var rocks = [], rr = rng(4141);
     RIVER.forEach(function (q, i) {
       var cd = canyonDepth(q.x, q.z);
@@ -4709,18 +4710,6 @@
       im.castShadow = im.receiveShadow = true;
       base.add(im);
     }
-    var bi = 0, bd = 1e9;
-    RIVER.forEach(function (q, i) { var d = Math.abs(Math.hypot(q.x, q.z) - 86); if (d < bd && i > 0 && i < RIVER.length - 1) { bd = d; bi = i; } });
-    var bq = RIVER[bi], bq1 = RIVER[bi + 1], bdx = bq1.x - bq.x, bdz = bq1.z - bq.z, bl = Math.hypot(bdx, bdz) || 1, nx = -bdz / bl, nz = bdx / bl;
-    var span = RIVER_HALF + 6.2, bridge = new T.Group();
-    var ya = groundY(bq.x + nx * span, bq.z + nz * span), yb = groundY(bq.x - nx * span, bq.z - nz * span);
-    for (var pl = 0; pl <= 20; pl++) {
-      var t = pl / 20, x = bq.x + nx * span * (1 - 2 * t), z = bq.z + nz * span * (1 - 2 * t), y = ya + (yb - ya) * t - Math.sin(t * Math.PI) * 0.9 + 0.2;
-      var plank = P(bridge, this.geo.box, this.mat('wood'), 0.32, 0.06, 1.1, x, y, z);
-      plank.rotation.y = Math.atan2(nx, nz) + Math.PI / 2;
-      if (pl % 4 === 0) [-0.55, 0.55].forEach(function (o) { P(bridge, self.geo.cyl6, self.mat('trunk'), 0.03, 0.7, 0.03, x + bdx / bl * o, y + 0.35, z + bdz / bl * o); });
-    }
-    base.add(bridge);
   };
 
 
@@ -5693,7 +5682,7 @@
           polar(55, 62), 10, 1.0, { winter: true });
         break;
       case 'bear': {
-        var spot = RIVER[60]; // upstream, below the canyon
+        var spot = RIVER[60]; // upstream, above town
         var b = walker(self.quadruped({ key: 'bear', mat: 'bear', w: 0.55, h: 0.55, len: 1.0, leg: 0.42, neck: 0.05, neckUp: 0.35, tail: 0.06, scale: 1.15,
           extra: function (P, head, body, dark) { P(self.geo.box, self.mat('bear', 2), 0.45, 0.3, 0.4, 0, 0.28, 0.3, body); [-0.12, 0.12].forEach(function (x) { P(self.geo.box, dark, 0.08, 0.08, 0.06, x, 0.22, -0.05, head); }); } }),
           spot, 4, 0.6, { summer: true, river: spot });
