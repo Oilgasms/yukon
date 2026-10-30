@@ -129,14 +129,15 @@
   // the river up the hill); and up on the bench by the airport, Uptown, a hamlet round a little
   // square of its own. The village climbs gently away from the river and Uptown sits higher again.
   var PLAZA = { t: 2, n: 0, r: 6 }, UPTOWN = { t: -27, n: -6, r: 3.4 };
-  // Across the river by the town bridge, Riverdale: the hospital, the schools, the Fishway, the dam.
-  var RIVERDALE = { t: 20, n: 47, r: 3.2 };
+  // Across the river by the town bridge, Riverdale: the hospital, the schools, the Fishway, along the
+  // bank where the river bends away east; the Whitehorse Rapids dam spans the river itself (E_SITES.legs).
+  var RIVERDALE = { t: 44, n: 34, r: 3.2 };
   RIVERDALE.level = Math.max(0.2, rawHeight(DT_T.x * RIVERDALE.t + DT_N.x * RIVERDALE.n, DT_T.z * RIVERDALE.t + DT_N.z * RIVERDALE.n));
   var LANE_CTRL = {
     full: [[2, 0], [2.5, 6], [1, 10], [MAIN_T, 15.5]], full2: [[2, 0], [1, -6], [-1.5, -10], [0.5, -16]],
     chest: [[2, 0], [-7, 5.5], [-12, 4], [-19, 7.5]], back: [[2, 0], [-7, -5.5], [-12, -6], [-17, -13]],
     shoulders: [[2, 0], [11, 3.5], [15, 8.5], [22, 8]], core: [[2, 0], [9, -4.5], [15, -5], [21.5, -10.5]],
-    legs: [[20, 47], [25, 49.5], [30.5, 52], [37, 56.5]], post: [[-27, -6], [-22.5, -9], [-24.5, -15.5], [-21.5, -23.5]]
+    legs: [[44, 34], [50, 37], [56, 40], [62.5, 44.5]], post: [[-27, -6], [-22.5, -9], [-24.5, -15.5], [-21.5, -23.5]]
   };
   function laneHub(k) { return k === 'post' ? UPTOWN : k === 'legs' ? RIVERDALE : PLAZA; }
   // Each lane sampled along its length (d from the middle of its square), in (t, n) and on the ground.
@@ -190,7 +191,7 @@
     var out = {};
     [['full', -1.5], ['back', -7], ['shoulders', 14]].forEach(function (r) { var p = dtw(r[1], RIVERFRONT_N), q = dtw(r[1], RIVERFRONT_N - 1); out[r[0]] = { x: p.x, z: p.z, r: Math.atan2(q.x - p.x, q.z - p.z) / D2R, front: true }; });
     // (beside the end of the lane rather than across it, so the way on out of town stays open)
-    [['chest', 1, 1], ['core', -1, 1.2], ['post', 1, 1.6], ['legs', -1, 1.4]].forEach(function (r) { var e = laneEnd(r[0]), x = e.x + e.vx * 4.4 * r[1] + e.ux * r[2], z = e.z + e.vz * 4.4 * r[1] + e.uz * r[2]; out[r[0]] = { x: x, z: z, r: Math.atan2(-e.vx * r[1], -e.vz * r[1]) / D2R }; });
+    [['chest', 1, 1], ['core', -1, 1.2], ['post', 1, 1.6]].forEach(function (r) { var e = laneEnd(r[0]), x = e.x + e.vx * 4.4 * r[1] + e.ux * r[2], z = e.z + e.vz * 4.4 * r[1] + e.uz * r[2]; out[r[0]] = { x: x, z: z, r: Math.atan2(-e.vx * r[1], -e.vz * r[1]) / D2R }; });
     return out;
   })();
   var AIRPORT = (function () { var c = polar(147.6, 52), a = 145 * D2R; return { x: c.x, z: c.z, dx: Math.sin(a), dz: Math.cos(a), len: 20, side: 1 }; })();
@@ -218,7 +219,7 @@
   }
   // Distances to the town, looked up on a grid laid in (t, n): TOWN_GAP to the nearest lane or square
   // edge (negative: on it), TOWN_FAR to anything of the town's at all (lots and landmarks too).
-  var TG = { t0: -62, n0: -48, nt: 212, nn: 224, s: 0.5 };
+  var TG = { t0: -62, n0: -48, nt: 270, nn: 224, s: 0.5 };
   var TOWN_GAP = new Float32Array(TG.nt * TG.nn), TOWN_FAR = new Float32Array(TG.nt * TG.nn);
   (function () {
     var segs = [], blobs = [];
@@ -274,6 +275,13 @@
   }
   var RIVER_GRID = (function () { var g = {}; RIVER.forEach(function (p) { var k = Math.floor(p.x / 6) + ',' + Math.floor(p.z / 6); (g[k] = g[k] || []).push(p); }); return g; })();
   RIVER.forEach(function (p, i) { p.i = i; });
+  // The dam: across the river at the point nearest the end of Strickland Street, facing downstream.
+  (function () {
+    var e = laneEnd('legs'), bi = 1, bd = 1e9;
+    RIVER.forEach(function (p, i) { if (i < 1 || i >= RIVER.length - 1) return; var d = Math.hypot(p.x - e.x, p.z - e.z); if (d < bd) { bd = d; bi = i; } });
+    var p = RIVER[bi], a = RIVER[bi - 1], b = RIVER[bi + 1], fx = b.x - a.x, fz = b.z - a.z, side = (e.x - p.x) * fz - (e.z - p.z) * fx > 0 ? -1 : 1;
+    E_SITES.legs = { x: p.x, z: p.z, r: Math.atan2(fx * side, fz * side) / D2R, dam: true };
+  })();
   var RIVER_NEAR = RIVER[0];
   function riverDist(x, z) {
     var best = 1e9, cx = Math.floor(x / 6), cz = Math.floor(z / 6);
@@ -923,8 +931,8 @@
     out.push({ kind: 'road', pts: AIRPORT_ROAD = fromRing({ x: AIRPORT.x - AIRPORT.dx * 14.5 + AIRPORT.dz * 4.5, z: AIRPORT.z - AIRPORT.dz * 14.5 - AIRPORT.dx * 4.5 }, 1.2) });
     // The road over the town bridge to Riverdale's square, between the sports fields.
     (function () {
-      // (along the bank first, then up through the gap between the fields)
-      var wp = [{ x: BRIDGE.a.x + BRIDGE.d.x * 11, z: BRIDGE.a.z + BRIDGE.d.z * 11 }, dtw(9, 25.2), dtw(14.8, 26.2), dtw(15.4, 34.6), dtw(17.4, 41.5), dtw(RIVERDALE.t - 0.5, RIVERDALE.n - RIVERDALE.r + 0.3)], cum = [0];
+      // (along the bank, below the sports fields, round to Riverdale on the bend)
+      var wp = [{ x: BRIDGE.a.x + BRIDGE.d.x * 11, z: BRIDGE.a.z + BRIDGE.d.z * 11 }, dtw(9, 25.4), dtw(33, 25.6), dtw(38.5, 28.4), dtw(RIVERDALE.t - 2.4, RIVERDALE.n - 2.2)], cum = [0];
       for (var i = 1; i < wp.length; i++) cum.push(cum[i - 1] + Math.hypot(wp[i].x - wp[i - 1].x, wp[i].z - wp[i - 1].z));
       out.push({ kind: 'road', pts: RIVERDALE_ROAD = curvePath(function (u) { var L = u * cum[cum.length - 1], j = 1; while (j < cum.length - 1 && cum[j] < L) j++; var f = (L - cum[j - 1]) / ((cum[j] - cum[j - 1]) || 1); return { x: wp[j - 1].x + (wp[j].x - wp[j - 1].x) * f, z: wp[j - 1].z + (wp[j].z - wp[j - 1].z) * f }; }) });
     })();
@@ -11647,7 +11655,7 @@
     CITY_ORDER.forEach(function (k) {
       CITY_STREETS[k].plan.slice(0, Cy.built[k] || 0).forEach(function (pc) {
         var w = cityLot(k, pc[1]);
-        if (w.airport || /^(dc3|trolley|skyscraper|logchurch|service)$/.test(pc[0]) && pc[1] === 'E') return;
+        if (w.airport || /^(dc3|trolley|skyscraper|logchurch|service|dam)$/.test(pc[0]) && pc[1] === 'E') return;
         var f = { x: Math.sin(w.r * D2R), z: Math.cos(w.r * D2R) }, door = { x: w.x + f.x * 1.05, z: w.z + f.z * 1.05 }, at;
         if (RIM_LOTS[k + pc[1]]) { var c = dtw(PLAZA.t, PLAZA.n), hubU = laneHub(k) !== PLAZA; at = hubU ? { k: k, d: laneHub(k).r - 0.1 } : { ring: Math.atan2(door.z - c.z, door.x - c.x) }; }
         else if (pc[1] === 'E' && E_SITES[k].front) at = { k: 'full', d: LANES.full.len };
