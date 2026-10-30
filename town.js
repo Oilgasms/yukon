@@ -11514,6 +11514,69 @@
       }
     });
   };
+  // ---- the mice go into Whitehorse: along the lanes, round the plaza, into the shops ----------
+  // A place in town is a point on a lane ({ k, d }: lane and distance along it from its square).
+  // The mice come and go by the village street that meets the top of Main Street.
+  var TOWN_ENTRY = { k: 'full2', d: LANES.full2.len }, TOWN_ENTRY_ST = { si: 0, ti: 0 }, RING_R = PLAZA.r - 1.3;
+  function laneNear(k, x, z) { var L = LANES[k], bd = 1e9, best = 0; L.pts.forEach(function (p) { var d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = p.d; } }); return best; }
+  function ringPt(a) { var c = dtw(PLAZA.t, PLAZA.n); return { x: c.x + Math.cos(a) * RING_R, z: c.z + Math.sin(a) * RING_R }; }
+  function mouthAngle(k) { var c = dtw(PLAZA.t, PLAZA.n), p = laneAt(k, PLAZA.r); return Math.atan2(p.z - c.z, p.x - c.x); }
+  // From a place in town down to the plaza's walking ring: the points, and the angle it arrives at.
+  // Uptown is reached by Steele Street and across the meadow to its square.
+  function toRing(pos) {
+    if (pos.ring != null) return { pts: [ringPt(pos.ring)], a: pos.ring };
+    var pts = [], L = LANES[pos.k];
+    for (var d = pos.d; d > L.hub.r - 0.2; d -= 0.9) { var p = laneAt(pos.k, d); pts.push({ x: p.x, z: p.z }); }
+    if (L.hub === UPTOWN) {
+      var u = dtw(UPTOWN.t, UPTOWN.n); pts.push({ x: u.x + 0.9, z: u.z + 0.9 });
+      var bk = LANES.back; for (var d2 = bk.len; d2 > PLAZA.r - 0.2; d2 -= 0.9) { var q = laneAt('back', d2); pts.push({ x: q.x, z: q.z }); }
+      return { pts: pts, a: mouthAngle('back') };
+    }
+    return { pts: pts, a: mouthAngle(pos.k) };
+  }
+  function townLeg(from, to) {
+    var A = toRing(from), B = toRing(to), out = A.pts.slice(), da = B.a - A.a;
+    while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+    for (var i = 0, n = Math.ceil(Math.abs(da) / 0.25); i <= n; i++) out.push(ringPt(A.a + da * i / Math.max(1, n)));
+    return out.concat(B.pts.slice().reverse());
+  }
+  // The doors of the buildings that are up (not the ones out at the airport or the preserve): each
+  // with the place in town it's reached from.
+  Town.prototype.townDoors = function () {
+    var Cy = this.st.city, out = [];
+    if (!Cy || !Cy.built) return out;
+    CITY_ORDER.forEach(function (k) {
+      CITY_STREETS[k].plan.slice(0, Cy.built[k] || 0).forEach(function (pc) {
+        var w = cityLot(k, pc[1]);
+        if (w.airport || /^(dc3|trolley|skyscraper|logchurch|service)$/.test(pc[0]) && pc[1] === 'E') return;
+        var f = { x: Math.sin(w.r * D2R), z: Math.cos(w.r * D2R) }, door = { x: w.x + f.x * 1.05, z: w.z + f.z * 1.05 }, at;
+        if (RIM_LOTS[k + pc[1]]) { var c = dtw(PLAZA.t, PLAZA.n), hubU = laneHub(k) === UPTOWN; at = hubU ? { k: k, d: UPTOWN.r - 0.1 } : { ring: Math.atan2(door.z - c.z, door.x - c.x) }; }
+        else if (pc[1] === 'E' && E_SITES[k].front) at = { k: 'full', d: LANES.full.len };
+        else { var lk = k === 'full' ? (laneNear('full', door.x, door.z) < LANES.full.len - 0.5 && Math.hypot(laneAt('full', laneNear('full', door.x, door.z)).x - door.x, laneAt('full', laneNear('full', door.x, door.z)).z - door.z) < Math.hypot(laneAt('full2', laneNear('full2', door.x, door.z)).x - door.x, laneAt('full2', laneNear('full2', door.x, door.z)).z - door.z) ? 'full' : 'full2') : k; at = { k: lk, d: laneNear(lk, door.x, door.z) }; }
+        out.push({ name: pc[3] || BUILDING_NAMES[pc[0]] || 'the shop', door: door, at: at });
+      });
+    });
+    return out;
+  };
+  // Further afield, from the ends of the lanes: along the riverfront, out to Bean North and the
+  // hot springs, and round the museum grounds by the airport.
+  Town.prototype.outings = function () {
+    var out = [], c = this.st.castle || {}, le = laneEnd('legs'), lp = { k: 'legs', d: LANES.legs.len };
+    var rf = laneEnd('full'), rfp = { k: 'full', d: LANES.full.len };
+    for (var i = 0; i < 3; i++) { var t = RF_T0 + 6 + Math.random() * (RF_T1 - RF_T0 - 12), p = dtw(t, WALK_N); out.push({ name: 'the riverfront', at: rfp, pts: [{ x: p.x, z: p.z }], linger: true, face: dtw(t, RIVER_N) }); }
+    if (c.hotsprings) {
+      out.push({ name: 'Bean North', at: lp, pts: [{ x: (le.x + BEAN_NORTH.x) / 2, z: (le.z + BEAN_NORTH.z) / 2 }, { x: BEAN_NORTH.x + 1.2, z: BEAN_NORTH.z + 1.2 }], inside: true });
+      out.push({ name: 'the hot springs', at: lp, pts: [{ x: (le.x + HOTSPRINGS.x) / 2, z: (le.z + HOTSPRINGS.z) / 2 }, { x: HOTSPRINGS.x + 3, z: HOTSPRINGS.z + 3 }], inside: true, soak: true });
+    }
+    if (this.st.city && this.st.city.built && this.st.city.built.legs > 4) {
+      var mx = AIRPORT.x + AIRPORT.dz * -5.6 + AIRPORT.dx * -2.3, mz = AIRPORT.z - AIRPORT.dx * -5.6 + AIRPORT.dz * -2.3;
+      out.push({ name: 'the museums', at: lp, pts: [{ x: (le.x + mx) / 2, z: (le.z + mz) / 2 }, { x: mx, z: mz }], linger: true, face: { x: AIRPORT.x, z: AIRPORT.z } });
+    }
+    return out;
+  };
+  var OUTING_LINES = { 'the riverfront': ['off for a stroll by the river', 'a walk along the riverfront, I think'], 'Bean North': ['I fancy a coffee from Bean North', 'off to Bean North for a cup'], 'the hot springs': ['off for a soak at Takhini!', 'hot springs day!'], 'the museums': ['going to see the DC-3', 'off to the museums by the airport'] };
+  var SHOP_LINES = ['just popping into ', 'off to ', 'need a few things from ', 'meeting a friend at ', 'quick stop at ', 'treating myself at '];
+  var PLAZA_LINES = ['lovely day on the plaza', 'listen to that fountain', 'ooh, market day!', 'I could sit here all afternoon', 'people-watching. well, mouse-watching'];
   var MOUSE_JOBS = { postie: 'Percy the postie', barkeep: 'Doris behind the bar', hiker: 'A hiking mouse' };
   Town.prototype.makeMouse = function (k, job, plain) {
     var g = new T.Group(), self = this, name = job ? MOUSE_JOBS[job] + (job === 'hiker' ? ' ' + (k + 1) : '') : MOUSE_NAMES[k % MOUSE_NAMES.length], pick = 'folk:' + name;
@@ -11628,7 +11691,7 @@
       if (m.state === 'inside') {
         g.visible = false;
         m.wait -= dt;
-        if (m.wait <= 0 && (!night || m.owl || pubNow)) { m.state = 'idle'; g.visible = true; g.position.set(m.home.door.x, groundY(m.home.door.x, m.home.door.z), m.home.door.z); self.pop(g, 0); }
+        if (m.wait <= 0 && (!night || m.owl || pubNow || m.exitDoor)) { var ed = m.exitDoor || m.home.door; m.exitDoor = null; m.state = 'idle'; g.visible = true; g.position.set(ed.x, groundY(ed.x, ed.z), ed.z); self.pop(g, 0); }
         return;
       }
       if (m.state === 'chase') { self.chaseStep(m, dt, now); return; }
@@ -11665,6 +11728,12 @@
         }
         return;
       }
+      if (m.state === 'linger') {
+        // Standing about on the plaza: looking round, the odd word.
+        m.wait -= dt; m.head.rotation.y = Math.sin(now / 1400 + m.k) * 0.6;
+        if (m.wait <= 0 || night || pubNow) { m.head.rotation.y = 0; m.state = 'idle'; }
+        return;
+      }
       if (m.state === 'snowfight') { self.snowFightStep(m, dt, now); return; }
       if (m.state === 'pub') {
         // Down the pub: pint raised now and then, a laugh, a song, swaying a little later on.
@@ -11697,7 +11766,7 @@
       }
       if (m.state === 'idle') {
         // Decide where to next: a neighbour's, a bench on the square, or home (always home by dark).
-        var r = Math.random(), dest, route, from = m.at || { si: m.home.si, ti: m.home.ti };
+        var r = Math.random(), dest, route, from = m.at || { si: m.home.si, ti: m.home.ti }, doors;
         var needs = winter && s.snowmen ? s.snowmen.filter(function (sm) { return sm.prog < 1 && !sm.builder; }) : [];
         if (pubNow) dest = { kind: 'pub', spot: self.pubSpot(folk.indexOf(m)) };
         else if (night && !m.owl) dest = { kind: 'home' };
@@ -11712,10 +11781,35 @@
           var tk = s.picnic || (s.picnic = []), free = [0, 1, 2, 3, 4, 5, 6, 7].filter(function (i) { return !tk[i]; });
           if (free.length) { var pi = free[Math.floor(Math.random() * free.length)]; tk[pi] = m; dest = { kind: 'picnic', i: pi, spot: self.pubSpot(pi) }; } else dest = { kind: 'home' };
         }
-        else if (r < 0.75) { var other = folk[Math.floor(Math.random() * folk.length)]; dest = { kind: 'visit', who: other }; }
-        else if (r < 0.87) dest = { kind: 'home' };
+        else if (r < 0.62) { var other = folk[Math.floor(Math.random() * folk.length)]; dest = { kind: 'visit', who: other }; }
+        else if (r < 0.86 && (doors = self.townDoors()).length) {
+          // Into Whitehorse: a shop (or wherever) that's open, or just a turn round the plaza.
+          var rr0 = Math.random(), outs = rr0 > 0.55 ? self.outings() : [];
+          if (outs.length && rr0 > 0.72) dest = { kind: 'outing', go: outs[Math.floor(Math.random() * outs.length)] };
+          else if (rr0 < 0.55) { var dr0 = doors[Math.floor(Math.random() * doors.length)]; dest = { kind: 'shop', door: dr0 }; }
+          else dest = { kind: 'plaza', ring: Math.random() * Math.PI * 2 };
+        }
+        else if (r < 0.92) dest = { kind: 'home' };
         else dest = { kind: 'stroll' };
         if (dest.kind === 'stroll') { var si = Math.floor(Math.random() * STREETS.length); dest.to = { si: si, ti: Math.floor(Math.random() * STREETS[si].length) }; }
+        var townDest = dest.kind === 'shop' || dest.kind === 'plaza' || dest.kind === 'outing';
+        if (townDest || m.inTown) {
+          // Into town, round town, or out of town and back to the village.
+          var here = [{ x: g.position.x, z: g.position.z }], tpos = dest.kind === 'shop' ? dest.door.at : dest.kind === 'plaza' ? { ring: dest.ring } : dest.kind === 'outing' ? dest.go.at : null;
+          if (townDest) route = here.concat(m.inTown ? townLeg(m.inTown, tpos) : streetRoute(from, TOWN_ENTRY_ST).concat(townLeg(TOWN_ENTRY, tpos)));
+          else {
+            var to2 = dest.kind === 'pub' || dest.kind === 'picnic' ? PUB_STREET : dest.kind === 'stroll' ? dest.to : dest.kind === 'bench' || dest.kind === 'snowman' ? SQ_STREET : dest.kind === 'visit' ? { si: dest.who.home.si, ti: dest.who.home.ti } : { si: m.home.si, ti: m.home.ti };
+            route = here.concat(townLeg(m.inTown, TOWN_ENTRY)).concat(streetRoute(TOWN_ENTRY_ST, to2)); m.at = to2; m.inTown = null;
+            var end2 = dest.kind === 'pub' || dest.kind === 'picnic' ? dest.spot : dest.kind === 'stroll' ? STREETS[dest.to.si][dest.to.ti] : dest.kind === 'snowman' ? { x: dest.sm.x + 0.45, z: dest.sm.z + 0.2 } : dest.kind === 'bench' ? dest.seat : dest.kind === 'visit' ? dest.who.home.door : m.home.door;
+            route.push({ x: end2.x, z: end2.z });
+            if (dest.kind === 'bench') dest.seat.taken = m;
+          }
+          if (dest.kind === 'shop') { route.push({ x: dest.door.door.x, z: dest.door.door.z }); m.inTown = tpos; m.at = TOWN_ENTRY_ST; if (Math.random() < 0.6) self.say(pickOne(SHOP_LINES) + dest.door.name.replace(/^The /, 'the '), g, 0.65, 2.4); }
+          if (dest.kind === 'plaza') { m.inTown = tpos; m.at = TOWN_ENTRY_ST; }
+          if (dest.kind === 'outing') { route = route.concat(dest.go.pts); m.inTown = tpos; m.at = TOWN_ENTRY_ST; if (Math.random() < 0.6) self.say(pickOne(OUTING_LINES[dest.go.name] || ['off out for a bit']), g, 0.65, 2.4); }
+          m.route = route; m.ri = 1; m.dest = dest; m.state = 'walk';
+          return;
+        }
         var to = dest.kind === 'pub' || dest.kind === 'picnic' ? PUB_STREET : dest.kind === 'stroll' ? dest.to : dest.kind === 'bench' || dest.kind === 'snowman' ? SQ_STREET : dest.kind === 'visit' ? { si: dest.who.home.si, ti: dest.who.home.ti } : { si: m.home.si, ti: m.home.ti };
         var start = from.door || (m.at ? null : m.home.door);
         route = (m.state === 'idle' && g.position ? [{ x: g.position.x, z: g.position.z }] : []).concat(streetRoute(from, to));
@@ -11764,6 +11858,14 @@
       m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; });
       if (D.kind === 'snowman') { m.state = 'build'; return; }
       if (D.kind === 'stroll') { if (m.jogging) self.stopJog(m); m.state = 'idle'; return; }
+      if (D.kind === 'outing') {
+        var G2 = D.go;
+        if (G2.inside) { m.state = 'inside'; m.wait = (G2.soak ? 25 : 12) + Math.random() * 20; m.exitDoor = G2.pts[G2.pts.length - 1]; return; }
+        if (G2.face) m.g.rotation.y = Math.atan2(G2.face.x - m.g.position.x, G2.face.z - m.g.position.z);
+        m.state = 'linger'; m.wait = 10 + Math.random() * 15; return;
+      }
+      if (D.kind === 'shop') { m.state = 'inside'; m.wait = 10 + Math.random() * 25; m.exitDoor = D.door.door; return; }
+      if (D.kind === 'plaza') { var pc0 = dtw(PLAZA.t, PLAZA.n); m.g.rotation.y = Math.atan2(pc0.x - m.g.position.x, pc0.z - m.g.position.z); m.state = 'linger'; m.wait = 8 + Math.random() * 14; if (Math.random() < 0.4) self.say(pickOne(PLAZA_LINES), m.g, 0.65, 2.2); return; }
       if (D.kind === 'picnic') {
         var ps = D.spot; m.g.rotation.y = ps.rot; m.g.position.y = ps.y; m.body.position.y = 0.06; m.legs.forEach(function (l) { l.rotation.x = -1.4; });
         m.state = 'picnic'; m.wait = 25 + Math.random() * 25; self.giveLunch(m);
