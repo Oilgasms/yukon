@@ -193,19 +193,22 @@
     return out;
   })();
   var AIRPORT = (function () { var c = polar(147.6, 52), a = 145 * D2R; return { x: c.x, z: c.z, dx: Math.sin(a), dz: Math.cos(a), len: 20, side: 1 }; })();
-  // Strickland Street's airport buildings stand in a row on the town side of the runway, facing it,
-  // at airport scale: the Transportation Museum with the DC-3 weathervane beside it (ap0), the Air
-  // North hangar, the Beringia Centre, the flying club and the weather office. Places are in the
-  // runway's frame: x across it (negative towards town), z along it.
+  // Strickland Street's airport buildings, at airport scale and facing the runway. On the town side,
+  // the museum row on its own level grounds: the DC-3 weathervane (ap0), the Transportation Museum
+  // and the Beringia Centre. Across the runway with the terminal and Alkan Air's hangar: the Air
+  // North hangar, the weather office and the flying club. Places are in the runway's frame: x
+  // across it (negative towards town), z along it.
   var AIRPORT_LOTS = (function () {
     var th = Math.atan2(AIRPORT.dx, AIRPORT.dz), ux = { x: Math.cos(th), z: -Math.sin(th) }, uz = { x: Math.sin(th), z: Math.cos(th) }, out = {};
-    [['ap0', -7.6, -12.4, 1.2, 1.6], ['ap2', -8.4, -8.2, 1.25, 2.1], ['ap1', -9, -2.6, 1.05, 2.8], ['ap3', -8.6, 2.8, 1.1, 1.7], ['ap4', -8.2, 7.2, 0.9, 1.3], ['ap5', -8.2, 11.2, 0.85, 1.2]].forEach(function (q) {
-      var x = AIRPORT.x + ux.x * q[1] + uz.x * q[2], z = AIRPORT.z + ux.z * q[1] + uz.z * q[2];
-      out['legs' + q[0]] = { x: x, z: z, r: Math.atan2(ux.x, ux.z) / D2R, scale: q[3], rad: q[4], airport: true };
+    [['ap0', -8.2, -10.6, 1.2, 1.6], ['ap2', -8.8, -5.4, 1.25, 2.1], ['ap3', -8.8, 0.8, 1.1, 1.7], ['ap1', 7.8, -8.2, 1.05, 2.8], ['ap5', 7.4, 9.2, 0.85, 1.2], ['ap4', 7.2, 12.3, 0.9, 1.3]].forEach(function (q) {
+      var x = AIRPORT.x + ux.x * q[1] + uz.x * q[2], z = AIRPORT.z + ux.z * q[1] + uz.z * q[2], f = q[1] < 0 ? 1 : -1;
+      out['legs' + q[0]] = { x: x, z: z, r: Math.atan2(ux.x * f, ux.z * f) / D2R, scale: q[3], rad: q[4], airport: true, lx: q[1], lz: q[2] };
     });
     return out;
   })();
   E_SITES.legs = AIRPORT_LOTS.legsap0;
+  // The museum grounds beside the runway (see cityInit), kept clear of trees.
+  function inMuseumGrounds(x, z) { var rx = x - AIRPORT.x, rz = z - AIRPORT.z, lx = rx * AIRPORT.dz - rz * AIRPORT.dx, lz = rx * AIRPORT.dx + rz * AIRPORT.dz; return lx > -13 && lx < -3.8 && lz > -15.5 && lz < 6; }
   // How high the town stands at (t, n): level by the river, rising gently up the hill behind the
   // plaza (the plaza itself kept flat), and Uptown up on its bench.
   function townLevel(t, n) {
@@ -524,6 +527,7 @@
       if (inAirport(p, 1) || Math.hypot(p.x - KLONDIKE.x, p.z - KLONDIKE.z) < 4.5) continue;
       if (Math.hypot(p.x - ARTS_SPOT.x, p.z - ARTS_SPOT.z) < 4 || Math.hypot(p.x - HOTSPRINGS.x, p.z - HOTSPRINGS.z) < 6 || Math.hypot(p.x - BEAN_NORTH.x, p.z - BEAN_NORTH.z) < 3.4 || Math.hypot(p.x - PRESERVE.x, p.z - PRESERVE.z) < 5) continue;
       if (Object.keys(AIRPORT_LOTS).some(function (k) { var q = AIRPORT_LOTS[k]; return Math.hypot(q.x - p.x, q.z - p.z) < q.rad + 1; })) continue;
+      if (inMuseumGrounds(p.x, p.z)) continue;
       p.order = Math.hypot(p.x - FOREST_SEED.x, p.z - FOREST_SEED.z) - n * 5 + r() * 4;
       pts.push(p); hash.add(p);
     }
@@ -710,7 +714,6 @@
   pad(PASTURE, PASTURE_R + 0.5, PASTURE_R + 3);
   pad(CHURCH, 11.8, 15.5);
   pad(ARTS_SPOT, 2.8, 4.6); pad(HOTSPRINGS, 4.9, 7.5); pad(BEAN_NORTH, 2.2, 3.8); pad(PRESERVE, 4.2, 6.2);
-  Object.keys(AIRPORT_LOTS).forEach(function (k) { var q = AIRPORT_LOTS[k]; pad(q, q.rad + 0.4, q.rad + 2.4); });
   // Each field is levelled into a terrace of its own, so the crops don't climb up and down the hills.
   FIELDS.forEach(function (f) { pad(f, f.size * 0.8, f.size + 2.6); });
   // The square sits at the lowest ground under it and the land eases up all round; it goes first
@@ -733,6 +736,8 @@
   // The airport's ground, levelled.
   AIRPORT.h = rawHeight(AIRPORT.x, AIRPORT.z) + 0.3 + ESCARP_H;
   for (var apk = -12; apk <= 12; apk += 3) [0, 4.5].forEach(function (w) { PADS.push({ x: AIRPORT.x + AIRPORT.dx * apk + AIRPORT.dz * w, z: AIRPORT.z + AIRPORT.dz * apk - AIRPORT.dx * w, rIn: 3.6, rOut: 7.5, h: AIRPORT.h }); });
+  // The museum row on the town side sits level with the airfield too.
+  for (var mk = -13.5; mk <= 3.5; mk += 2.5) PADS.push({ x: AIRPORT.x + AIRPORT.dx * mk + AIRPORT.dz * -8.6, z: AIRPORT.z + AIRPORT.dz * mk - AIRPORT.dx * -8.6, rIn: 3.4, rOut: 6.8, h: AIRPORT.h });
   // The pub fronts the square at street level, and Jo's garden next to the library is level with it too.
   PADS.forEach(function (p) { if ((p.x === PUB.x && p.z === PUB.z) || (p.x === POND.x && p.z === POND.z)) p.h = SQ_Y + 0.05; });
   // Each level spot takes the ground as it already stands there (the land, shaped by the spots
@@ -1366,7 +1371,7 @@
 
     // Hedgerows along the field edges out in the countryside.
     var spots = [], rr = rng(11);
-    function ok(x, z) { if (inAirport({ x: arguments[0], z: arguments[1] }, 1.5)) return false;
+    function ok(x, z) { if (inAirport({ x: arguments[0], z: arguments[1] }, 1.5) || inMuseumGrounds(x, z) || inDowntown(x, z, 1) || Object.keys(AIRPORT_LOTS).some(function (k) { var q = AIRPORT_LOTS[k]; return Math.hypot(q.x - x, q.z - z) < q.rad + 1.5; }) || [HOTSPRINGS, BEAN_NORTH, PRESERVE, ARTS_SPOT].some(function (q) { return Math.hypot(q.x - x, q.z - z) < 6; })) return false;
       var r = Math.hypot(x, z);
       if (r < 31 || r > 132 || townHill(x, z) > 0.2) return false;
       if (inFarmland(x, z) || inRidge(x, z) || inSector(x, z, 332, 82, 0, 55)) return false;
@@ -2168,6 +2173,23 @@
       self.part(fb, self.geo.box, self.mat('wood'), 0.08, 0.08, 6.4, sd * 0.98, 0.62, 0, 'footbridge');
       for (var pi = 0; pi < 6; pi++) self.part(fb, self.geo.box, self.mat('wood'), 0.09, 0.62, 0.09, sd * 0.98, 0.31, -3 + pi * 1.2, 'footbridge');
     });
+    // The museum grounds by the airport: a gravel walk along the front of the DC-3, the
+    // Transportation Museum and Beringia, a split-rail fence on the runway side, lawns and flower
+    // beds between them, benches facing the airfield and two flags.
+    var mg = new T.Group(); mg.position.set(AIRPORT.x, AIRPORT.h - y0, AIRPORT.z); mg.rotation.y = Math.atan2(AIRPORT.dx, AIRPORT.dz); g.add(mg);
+    function MG(geo, mat, sx, sy, sz, x, y, z) { return self.part(mg, geo, mat, sx, sy, sz, x, y, z, 'museums'); }
+    MG(this.geo.box, this.mat('path'), 2.0, 0.05, 18.2, -6.1, 0.025, -4.8).userData.passable = true;
+    MG(this.geo.box, this.mat('pitch'), 3.6, 0.04, 18.4, -9.4, 0.012, -4.8).userData.passable = true;
+    for (var fz2 = -13.8; fz2 <= 4.3; fz2 += 1.5) {
+      if (Math.abs(fz2 + 2.3) < 0.9) continue; // the gate
+      MG(this.geo.box, this.mat('wood'), 0.07, 0.5, 0.07, -4.8, 0.25, fz2);
+      if (fz2 + 1.5 <= 4.4 && Math.abs(fz2 + 0.75 + 2.3) > 1.2) [0.2, 0.4].forEach(function (y) { MG(self.geo.box, self.mat('wood'), 0.04, 0.05, 1.5, -4.8, y, fz2 + 0.75); });
+    }
+    [-12.9, -8, -2.6, 3].forEach(function (z, i) { for (var f = 0; f < 5; f++) { MG(self.geo.blob, self.mat('hedge'), 0.14, 0.09, 0.14, -7.25, 0.07, z - 0.6 + f * 0.3); MG(self.geo.blob, self.mat('flag', (i + f) % 5), 0.06, 0.05, 0.06, -7.25, 0.16, z - 0.6 + f * 0.3); } });
+    [-8, -2.6].forEach(function (z) { var bnc = new T.Group(); bnc.position.set(-5.4, 0, z); bnc.rotation.y = Math.PI / 2; mg.add(bnc);
+      self.part(bnc, self.geo.box, self.mat('wood'), 0.75, 0.05, 0.24, 0, 0.25, 0, 'museums'); self.part(bnc, self.geo.box, self.mat('wood'), 0.75, 0.22, 0.04, 0, 0.42, -0.11, 'museums');
+      [-0.3, 0.3].forEach(function (lx) { self.part(bnc, self.geo.box, self.mat('stoneDark'), 0.05, 0.25, 0.2, lx, 0.12, 0, 'museums'); }); });
+    [[-13.9, 0], [4.3, 2]].forEach(function (f) { MG(self.geo.cyl6, self.mat('stoneDark'), 0.025, 2.0, 0.025, -6.6, 1.0, f[0]); MG(self.geo.flag, self.mat('flag', f[1]), 0.9, 0.9, 0.9, -6.6, 1.95, f[0]); });
     // Cobbles and grass, all in a few instanced meshes.
     var m4 = new T.Matrix4(), qq = new T.Quaternion(), up = new T.Vector3(0, 1, 0), vv = new T.Vector3(), sc = new T.Vector3();
     [0, 1].forEach(function (mi) {
@@ -2199,7 +2221,7 @@
     for (var tt = -50; tt < 30; tt += 1.15) for (var tn = -30; tn < WALK_N - 2.5; tn += 1.15) {
       if (rt() > 0.42) continue;
       var tq = dtw(tt + (rt() - 0.5) * 0.8, tn + (rt() - 0.5) * 0.8), tf = townFar(tq.x, tq.z);
-      if (tf < 0.5 || tf > 6.5 || streetGap(tq.x, tq.z) < 1.2 || inAirport(tq, 2) || !clearOf(tq.x, tq.z) || [GREEN, OAK].some(function (o) { return o && Math.hypot(o.x - tq.x, o.z - tq.z) < 3.4; }) || trees.some(function (o) { return Math.hypot(o.x - tq.x, o.z - tq.z) < 1.3; })) continue;
+      if (tf < 0.5 || tf > 6.5 || streetGap(tq.x, tq.z) < 1.2 || inAirport(tq, 2) || inMuseumGrounds(tq.x, tq.z) || !clearOf(tq.x, tq.z) || [GREEN, OAK].some(function (o) { return o && Math.hypot(o.x - tq.x, o.z - tq.z) < 3.4; }) || trees.some(function (o) { return Math.hypot(o.x - tq.x, o.z - tq.z) < 1.3; })) continue;
       trees.push(tq);
       var tg = spot(tq, rt() * 6), kind = rt(), sz = 0.6 + rt() * 0.35; tg.scale.setScalar(sz);
       if (kind < 0.45) { // an apple tree
@@ -12611,6 +12633,7 @@
       case 'airport': return { title: 'Whitehorse airport (YXY)', lines: ['Erik Nielsen Whitehorse International, up on the hill above town.', 'Alkan Air’s King Air 350 flies a circuit over town every couple of minutes.'] };
       case 'kingair': return { title: 'Alkan Air King Air 350', lines: ['A twin-turboprop Beechcraft King Air 350, in Alkan Air colours: Whitehorse’s own charter and medevac airline.'] };
       case 'milepost': return { title: 'The Alaska Highway', lines: ['Whitehorse sits at Historic Mile 918 of the Alaska Highway, built in 1942.'] };
+      case 'museums': return { title: 'The museum grounds', lines: ['By the airport on the town side: the DC-3 weathervane, the Yukon Transportation Museum and the Beringia Centre, with lawns, flowers and benches to watch the planes from.'] };
       case 'hotsprings': return { title: 'Takhini Hot Springs', lines: ['Two steaming pools out on the edge of the country north of town, with the old log lodge beside them. Bean North Coffee is across the road.'] };
       case 'beannorth': return { title: 'Bean North Coffee', lines: ['The little log roastery on the road out to the hot springs: organic beans roasted in the Yukon since 1997.'] };
       case 'artscentre': return { title: 'The Yukon Arts Centre', lines: ['Theatre, galleries and concerts, next door to Yukon University on the campus above town.'] };
