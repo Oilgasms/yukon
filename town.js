@@ -920,6 +920,15 @@
     out.push({ kind: 'path', pts: fromRing({ x: HOCKEY.x + DT_N.x * 6, z: HOCKEY.z + DT_N.z * 6 }, 0.6) }); // to the rink
     // The road up to the airport, round the end of the runway to the apron.
     out.push({ kind: 'road', pts: AIRPORT_ROAD = fromRing({ x: AIRPORT.x - AIRPORT.dx * 14.5 + AIRPORT.dz * 4.5, z: AIRPORT.z - AIRPORT.dz * 14.5 - AIRPORT.dx * 4.5 }, 1.2) });
+    // Strickland Street carries on along the foot of the cliffs to join it, rather than stopping at the cliff face.
+    (function () {
+      function ap(x, z) { return { x: AIRPORT.x + AIRPORT.dz * x + AIRPORT.dx * z, z: AIRPORT.z - AIRPORT.dx * x + AIRPORT.dz * z }; }
+      function lx(p) { return (p.x - AIRPORT.x) * AIRPORT.dz - (p.z - AIRPORT.z) * AIRPORT.dx; }
+      // (to where the airport road reaches the foot of the cliff, before it climbs)
+      var e = laneEnd('legs'), bi = 0; AIRPORT_ROAD.forEach(function (q, i) { if (!bi && lx(q) > -15.8) bi = i; });
+      var q = AIRPORT_ROAD[bi];
+      out.push({ kind: 'road', pts: bezierPath({ x: e.x, z: e.z }, ap(-15.3, 0), ap(-15.3, -11), q) });
+    })();
     out.push({ kind: 'path', pts: trail({ x: TOWN_SQ.x - TOWN_SQ.hx, z: LIBRARY.z }, frontOf(LIBRARY, 4.2), 0.2) });
     out.push({ kind: 'path', pts: trail({ x: CINEMA.x, z: TOWN_SQ.z + TOWN_SQ.hz }, frontOf(CINEMA, 2.4), 0.2) });
     out.push({ kind: 'path', pts: trail(polar(257, 37.5), polar(CHURCH_AT[0], CHURCH_AT[1] - 6.8), 1.6) });
