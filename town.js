@@ -501,11 +501,14 @@
   // The S.S. Klondike's berth: up on the bank on the town side of the river, lying along it.
   var KLONDIKE = (function () { var p = dtw(-14.5, WALK_N + 2.6), a = dtw(-15.5, WALK_N + 2.6), b = dtw(-13.5, WALK_N + 2.6); return { x: p.x, z: p.z, rot: Math.atan2(b.x - a.x, b.z - a.z) }; })(); // on the bank at the south end of downtown
   // The clay cliffs: the airport sits up on a bench above town, as Whitehorse's does on the escarpment.
-  var ESCARP_H = 2.6;
+  // The airport and the museum row stand up on the clay cliffs above town, like the real one; the
+  // cliff face drops steeply on the town side.
+  var ESCARP_H = 4.4, AIRPORT_TOP = 1.9 + ESCARP_H; // (the clifftop, well above Uptown's bench)
   function escarp(x, z) {
     var k = (x - AIRPORT.x) * AIRPORT.dx + (z - AIRPORT.z) * AIRPORT.dz, w = (x - AIRPORT.x) * AIRPORT.dz - (z - AIRPORT.z) * AIRPORT.dx;
-    var out = Math.max(Math.abs(k) - AIRPORT.len / 2 - 5, -5.5 - w, w - 13);
-    return out < 4.5 ? 1 - smooth(0, 4.5, out) : 0;
+    // (sheer towards town, easier slopes round the ends and the far side)
+    var ke = Math.max(Math.abs(k) - AIRPORT.len / 2 - 5, w - 13);
+    return (1 - smooth(0, 3.4, -12.6 - w)) * (1 - smooth(0, 8, ke));
   }
   function inAirport(p, m) {
     var k = (p.x - AIRPORT.x) * AIRPORT.dx + (p.z - AIRPORT.z) * AIRPORT.dz, w = (p.x - AIRPORT.x) * AIRPORT.dz - (p.z - AIRPORT.z) * AIRPORT.dx;
@@ -665,7 +668,7 @@
     var dq = dtOf(x, z), de = Math.max(Math.abs(dq.t - (RF_T0 + RF_T1) / 2) - (RF_T1 - RF_T0) / 2 - 2, 4 - dq.n, dq.n - RIVER_N - 4), tf = townFar(x, z);
     var wf = Math.max(de < 7 ? 1 - smooth(0, 7, de) : 0, 1 - smooth(1.5, 9, tf));
     if (wf > 0) h += (townLevel(dq.t, dq.n) - h) * wf;
-    var es = escarp(x, z) * smooth(3, 9, tf); if (es > 0) h += ESCARP_H * es; // (the clay cliffs rise just past the edge of town)
+    var es = escarp(x, z) * smooth(0.5, 3, tf); if (es > 0) h += (Math.max(h, AIRPORT_TOP) - h) * es; // (the clay cliffs rise just past the edge of town)
     var ld = lakeDist(x, z);
     if (ld < 7) h = ld > 0 ? h + (LAKE.y + 0.45 - h) * (1 - smooth(0, 7, ld)) : LAKE.y - 0.15 - 1.6 * smooth(0, 3, -ld);
     var fr = fallRidge(x, z);
@@ -734,7 +737,7 @@
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
   CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); });
   // The airport's ground, levelled.
-  AIRPORT.h = rawHeight(AIRPORT.x, AIRPORT.z) + 0.3 + ESCARP_H;
+  AIRPORT.h = AIRPORT_TOP;
   for (var apk = -12; apk <= 12; apk += 3) [0, 4.5].forEach(function (w) { PADS.push({ x: AIRPORT.x + AIRPORT.dx * apk + AIRPORT.dz * w, z: AIRPORT.z + AIRPORT.dz * apk - AIRPORT.dx * w, rIn: 3.6, rOut: 7.5, h: AIRPORT.h }); });
   // The museum row on the town side sits level with the airfield too.
   for (var mk = -13.5; mk <= 3.5; mk += 2.5) PADS.push({ x: AIRPORT.x + AIRPORT.dx * mk + AIRPORT.dz * -8.6, z: AIRPORT.z + AIRPORT.dz * mk - AIRPORT.dx * -8.6, rIn: 3.4, rOut: 6.8, h: AIRPORT.h });
@@ -903,6 +906,7 @@
     for (var i = 0; i < n; i++) { var a = i / n * 360, p = polar(a, RING_ROAD); p.rot = (a + 90) * D2R; out.push(p); }
     return out;
   })();
+  var AIRPORT_ROAD = null;
   var PATHS = (function () {
     var out = [];
     out.push({ kind: 'path', pts: curvePath(function (u) { return dtw(-36 + u * 72, WALK_N); }) }); // the riverfront walk
@@ -915,7 +919,7 @@
     SPORT_SLOTS.forEach(function (sl, i) { var p = polar(sl[0], sl[1] - 2.2); out.push({ kind: 'path', pts: fromRing(p, i % 2 ? 0.8 : -0.8), sport: i }); });
     out.push({ kind: 'path', pts: fromRing({ x: HOCKEY.x + DT_N.x * 6, z: HOCKEY.z + DT_N.z * 6 }, 0.6) }); // to the rink
     // The road up to the airport, round the end of the runway to the apron.
-    out.push({ kind: 'road', pts: fromRing({ x: AIRPORT.x - AIRPORT.dx * 14.5 + AIRPORT.dz * 4.5, z: AIRPORT.z - AIRPORT.dz * 14.5 - AIRPORT.dx * 4.5 }, 1.2) });
+    out.push({ kind: 'road', pts: AIRPORT_ROAD = fromRing({ x: AIRPORT.x - AIRPORT.dx * 14.5 + AIRPORT.dz * 4.5, z: AIRPORT.z - AIRPORT.dz * 14.5 - AIRPORT.dx * 4.5 }, 1.2) });
     out.push({ kind: 'path', pts: trail({ x: TOWN_SQ.x - TOWN_SQ.hx, z: LIBRARY.z }, frontOf(LIBRARY, 4.2), 0.2) });
     out.push({ kind: 'path', pts: trail({ x: CINEMA.x, z: TOWN_SQ.z + TOWN_SQ.hz }, frontOf(CINEMA, 2.4), 0.2) });
     out.push({ kind: 'path', pts: trail(polar(257, 37.5), polar(CHURCH_AT[0], CHURCH_AT[1] - 6.8), 1.6) });
@@ -1491,7 +1495,8 @@
     });
     TS(this.geo.box, this.mat('wood'), 1.0, 0.35, 0.4, 0, 0.18, -(Q.hz - BW - 0.5));
     TS(this.geo.box, this.mat('water'), 0.9, 0.02, 0.3, 0, 0.35, -(Q.hz - BW - 0.5));
-    [[-(Q.hx - 0.4), 1.6, Math.PI / 2], [Q.hx - 0.4, -1.6, -Math.PI / 2], [-2.5, Q.hz - 0.4, Math.PI], [2.5, Q.hz - 0.4, Math.PI]].forEach(function (b) {
+    // (the fourth bench is on the south boardwalk too: the east side is the pub's picnic tables)
+    [[-(Q.hx - 0.4), 1.6, Math.PI / 2], [0, Q.hz - 0.4, Math.PI], [-2.5, Q.hz - 0.4, Math.PI], [2.5, Q.hz - 0.4, Math.PI]].forEach(function (b) {
       var bench = new T.Group(); bench.position.set(b[0], 0.22, b[1]); bench.rotation.y = b[2]; ts.add(bench);
       (self.seats = self.seats || []).push({ x: Q.x + b[0], z: Q.z + b[1], y: ts.position.y + 0.64, rot: b[2] });
       var seat = new T.Mesh(self.geo.box, self.mat('wood')); seat.scale.set(1.2, 0.07, 0.32); seat.position.y = 0.38; bench.add(seat);
@@ -2173,6 +2178,18 @@
       self.part(fb, self.geo.box, self.mat('wood'), 0.08, 0.08, 6.4, sd * 0.98, 0.62, 0, 'footbridge');
       for (var pi = 0; pi < 6; pi++) self.part(fb, self.geo.box, self.mat('wood'), 0.09, 0.62, 0.09, sd * 0.98, 0.31, -3 + pi * 1.2, 'footbridge');
     });
+    // The clay cliffs below the airport: a sheer face of pale clay along the edge of the clifftop
+    // that looks down on Uptown, banded with darker strata, with gaps where the roads come up.
+    var cr = rng(5150), crot = Math.atan2(AIRPORT.dx, AIRPORT.dz);
+    for (var ck = -17; ck <= 17; ck += 1.0) {
+      var cw = -12.9 + (cr() - 0.5) * 0.3, cx3 = AIRPORT.x + AIRPORT.dz * cw + AIRPORT.dx * ck, cz3 = AIRPORT.z - AIRPORT.dx * cw + AIRPORT.dz * ck;
+      var ow = cw - 1.8, ox3 = AIRPORT.x + AIRPORT.dz * ow + AIRPORT.dx * ck, oz3 = AIRPORT.z - AIRPORT.dx * ow + AIRPORT.dz * ck;
+      if (nearPath(cx3, cz3, 1.4) || townFar(cx3, cz3) < 1.2 || escarp(cx3, cz3) < 0.5) continue;
+      var top = AIRPORT_TOP + (cr() - 0.4) * 0.18, bot = Math.min(groundY(ox3, oz3), groundY(cx3, cz3)) - 0.4, hgt = top - bot;
+      if (hgt < 0.8) continue;
+      var dep = 1.3 + cr() * 0.4, wall = self.part(g, self.geo.box, self.mat(cr() < 0.55 ? 'sand' : 'woodLight'), dep, hgt, 1.06, cx3, bot + hgt / 2 - y0, cz3, 'cliffs'); wall.rotation.y = crot;
+      for (var bd2 = 0; bd2 < 2; bd2++) { var by = bot + hgt * (0.35 + bd2 * 0.3 + cr() * 0.08), band = self.part(g, self.geo.box, self.mat('dirt'), dep + 0.06, 0.12, 1.08, cx3, by - y0, cz3, 'cliffs'); band.rotation.y = crot; }
+    }
     // The museum grounds by the airport: a gravel walk along the front of the DC-3, the
     // Transportation Museum and Beringia, a split-rail fence on the runway side, lawns and flower
     // beds between them, benches facing the airfield and two flags.
@@ -11569,8 +11586,11 @@
       out.push({ name: 'the hot springs', at: lp, pts: [{ x: (le.x + HOTSPRINGS.x) / 2, z: (le.z + HOTSPRINGS.z) / 2 }, { x: HOTSPRINGS.x + 3, z: HOTSPRINGS.z + 3 }], inside: true, soak: true });
     }
     if (this.st.city && this.st.city.built && this.st.city.built.legs > 4) {
-      var mx = AIRPORT.x + AIRPORT.dz * -5.6 + AIRPORT.dx * -2.3, mz = AIRPORT.z - AIRPORT.dx * -5.6 + AIRPORT.dz * -2.3;
-      out.push({ name: 'the museums', at: lp, pts: [{ x: (le.x + mx) / 2, z: (le.z + mz) / 2 }, { x: mx, z: mz }], linger: true, face: { x: AIRPORT.x, z: AIRPORT.z } });
+      // (up the airport road, not the cliff)
+      var mx = AIRPORT.x + AIRPORT.dz * -5.6 + AIRPORT.dx * -2.3, mz = AIRPORT.z - AIRPORT.dx * -5.6 + AIRPORT.dz * -2.3, ar = AIRPORT_ROAD, bi = 0, bd = 1e9;
+      ar.forEach(function (q, i) { var d = Math.hypot(q.x - le.x, q.z - le.z); if (d < bd) { bd = d; bi = i; } });
+      var up = ar.slice(bi).filter(function (q, i) { return i % 3 === 0; }).map(function (q) { return { x: q.x, z: q.z }; });
+      out.push({ name: 'the museums', at: lp, pts: up.concat([{ x: mx, z: mz }]), linger: true, face: { x: AIRPORT.x, z: AIRPORT.z } });
     }
     return out;
   };
@@ -12735,6 +12755,7 @@
       case 'airport': return { title: 'Whitehorse airport (YXY)', lines: ['Erik Nielsen Whitehorse International, up on the hill above town.', 'Alkan Air’s King Air 350 flies a circuit over town every couple of minutes.'] };
       case 'kingair': return { title: 'Alkan Air King Air 350', lines: ['A twin-turboprop Beechcraft King Air 350, in Alkan Air colours: Whitehorse’s own charter and medevac airline.'] };
       case 'milepost': return { title: 'The Alaska Highway', lines: ['Whitehorse sits at Historic Mile 918 of the Alaska Highway, built in 1942.'] };
+      case 'cliffs': return { title: 'The clay cliffs', lines: ['The pale clay cliffs Whitehorse sits under, with the airport and the museums up on top looking down over town.'] };
       case 'museums': return { title: 'The museum grounds', lines: ['By the airport on the town side: the DC-3 weathervane, the Yukon Transportation Museum and the Beringia Centre, with lawns, flowers and benches to watch the planes from.'] };
       case 'hotsprings': return { title: 'Takhini Hot Springs', lines: ['Two steaming pools out on the edge of the country north of town, with the old log lodge beside them. Bean North Coffee is across the road.'] };
       case 'beannorth': return { title: 'Bean North Coffee', lines: ['The little log roastery on the road out to the hot springs: organic beans roasted in the Yukon since 1997.'] };
