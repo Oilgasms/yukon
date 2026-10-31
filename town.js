@@ -2973,7 +2973,7 @@
         ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, { big: true }, 'The beach on Bennett Lake'], ['front', A(1, 1), { c: 0, t: 2, two: true, sign: 2 }, 'Matthew Watson General Store'],
         ['house', A(-1, 1), { c: 4 }], ['front', lot2('A', -1, 2), { c: 8, t: 2, two: true, w: 4.5, sign: 2, balcony: true }, 'The Caribou Hotel'],
         ['commons', { x: -7.6, z: -3.6, r: 0, ground: true }, {}, 'Carcross Commons, its little shops round the totem'],
-        ['boat', at(9.6, -1.2), { wheel: true, c: 8, t: 3 }, 'The S.S. Tutshi'], ['church', A(1, 3), { c: 7, roof: 1, small: true }, 'St. Saviour’s, the little blue church'],
+        ['boat', at(9.6, -1.2), { wheel: true, burnt: true }, 'What’s left of the S.S. Tutshi'], ['church', A(1, 3), { c: 7, roof: 1, small: true }, 'St. Saviour’s, the little blue church'],
         ['house', B(-1, 0), { c: 9 }], ['front', A(1, 4), { c: 10, t: 0 }], ['loco', at(2.5, -4.2), {}, 'The Duchess, the little engine'], ['dunes', null, {}, 'The Carcross Desert'],
         ['log', at(-12.8, 6.4, 90), { w: 3.6, deck: true }, 'The carving shed'], ['house', A(1, 5), { c: 13, porch: true }], ['house', B(-1, 1), { c: 3 }], ['house', B(-1, 2), { c: 5 }],
         ['canoes', null, {}, 'Canoes on the beach'], ['house', A(1, 6), { c: 1 }], ['house', A(1, 7), { c: 2 }], ['house', A(1, 8), { c: 0 }], ['house', A(-1, 8), { c: 15 }],
@@ -3537,6 +3537,32 @@
           P(h, self.geo.box, M('whitewood'), bw2 * 0.8, 0.55, 0.9, 0, by + 0.82, 0.3); windows(h, 2, 0.6, by + 0.9, 0.76, 0.2);
           P(h, self.geo.cyl6, wood, 0.03, 1.4, 0.03, 0, by + 1.2, -0.6); P(h, self.geo.box, wood, 0.03, 0.03, 0.9, 0, by + 1.5, -0.9).rotation.x = 0.5;
           for (var cp2 = 0; cp2 < 5; cp2++) P(h, self.geo.box, M('stoneDark'), 0.35, 0.25, 0.35, -1.3 + (cp2 % 2) * 0.4, 0.13 + Math.floor(cp2 / 2) * 0.26, -1.6 + cp2 * 0.15);
+          break;
+        }
+        if (o.burnt) {
+          // The S.S. Tutshi as it is now: she burned in 1990, and all that stands on her cribbing is
+          // the charred hull and a black steel frame tracing her decks, pilothouse, stack and wheel.
+          var stl = M('wpBlack'), char = M('trunk');
+          P(h, self.geo.box, char, bw2, 0.32, bl, 0, by + 0.16, 0);
+          P(h, self.geo.box, stl, bw2 * 0.707, 0.32, bw2 * 0.707, 0, by + 0.16, bl / 2).rotation.y = Math.PI / 4;
+          for (var cb2 = 0; cb2 < 9; cb2++) P(h, self.geo.box, M('logwood', 1), bw2 * 0.9, 0.06, 0.08, 0, by + 0.34, -bl * 0.42 + cb2 * bl * 0.105);
+          var frame = function (w, d, y0, y1, zc, posts) {
+            [-1, 1].forEach(function (sd) {
+              P(h, self.geo.box, stl, 0.04, 0.04, d, sd * w / 2, y1, zc);
+              for (var fp = 0; fp <= posts; fp++) P(h, self.geo.box, stl, 0.04, y1 - y0, 0.04, sd * w / 2, (y0 + y1) / 2, zc - d / 2 + fp * d / posts);
+            });
+            [-1, 1].forEach(function (ez) { P(h, self.geo.box, stl, w, 0.04, 0.04, 0, y1, zc + ez * d / 2); });
+          };
+          frame(bw2 * 0.96, bl * 0.9, by + 0.32, by + 1.02, -bl * 0.03, 8);
+          frame(bw2 * 0.72, bl * 0.56, by + 1.02, by + 1.5, -bl * 0.06, 5);
+          frame(0.6, 0.6, by + 1.5, by + 1.88, bl * 0.18, 1);
+          P(h, self.geo.box, stl, 0.04, 0.9, 0.04, 0, by + 2.0, bl * 0.06);
+          if (o.wheel) {
+            var wh2 = new T.Group(); wh2.position.set(0, by + 0.6, -bl / 2 - 0.35); h.add(wh2);
+            [-1, 1].forEach(function (sd) { for (var sp3 = 0; sp3 < 6; sp3++) { var spk = P(wh2, self.geo.box, stl, 0.04, 1.1, 0.04, sd * bw2 * 0.42, 0, 0); spk.rotation.x = sp3 / 6 * Math.PI; } });
+          }
+          var sgn = new T.Group(); sgn.position.set(bw2 / 2 + 0.7, 0, bl * 0.25); h.add(sgn);
+          [-0.2, 0.2].forEach(function (x) { P(sgn, self.geo.cyl6, wood, 0.03, 0.6, 0.03, x, 0.3, 0); }); P(sgn, self.geo.box, M('wpCream'), 0.6, 0.35, 0.04, 0, 0.6, 0);
           break;
         }
         P(h, self.geo.box, paint(o.c), bw2, 0.5, bl, 0, by + 0.25, 0);
