@@ -5167,7 +5167,8 @@
     for (var a = 250; a <= 30 + 360; a += 1.5) {
       var sp = shoreAt(a % 360), back = 4.5;
       var bx = sp.x - COAST_N.x * back, bz = sp.z - COAST_N.z * back;
-      if (riverDist(bx, bz) < RIVER_HALF + 5 || Math.hypot(bx - HEAD.x, bz - HEAD.z) < 11) { if (beach.length) beaches.push(beach = []); continue; }
+      // (No beach where the river comes in, at the headland, or where hills and mountains come right down to the water.)
+      if (riverDist(bx, bz) < RIVER_HALF + 5 || Math.hypot(bx - HEAD.x, bz - HEAD.z) < 11 || townHill(bx, bz) > 0.3 || groundY(bx, bz) > 1.6) { if (beach.length) beaches.push(beach = []); continue; }
       beach.push({ x: bx, z: bz, y: Math.max(SEA_Y + 0.05, groundY(bx, bz) + 0.04) });
     }
     beaches.forEach(function (b) { if (b.length > 1) base.add(self.ribbon(b, 9, self.mat('sand'))); });
