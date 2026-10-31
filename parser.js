@@ -100,6 +100,17 @@
     }
     return new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7);
   }
+  // A day's own date in the first column (instead of "Monday"): "October 26 2026", "Monday,
+  // October 26, 2026", "2026-10-26" or "10/26/2026". (Week headers like "10.26.2026" stay headers.)
+  function dayDate(s) {
+    var m = s.match(/^(?:[a-z]+,?\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/i);
+    if (m) return new Date(+m[3], MONTHS.indexOf(m[1].toLowerCase()), +m[2]);
+    m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[1] - 1, +m[2]);
+    return null;
+  }
   function isoDay(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 
   function friendsIn(text) {
@@ -256,7 +267,12 @@
         found = true;
       }
       var first = r[0] || '';
-      var day = DAYS.indexOf(first.toLowerCase());
+      var day = DAYS.indexOf(first.toLowerCase()), exact = day < 0 ? dayDate(first) : null;
+      // A row dated with the day itself counts as that day (unless it heads a Monday-to-Sunday week).
+      if (exact && !(rows[ri + 1] && DAYS.indexOf(cell(rows[ri + 1][0]).toLowerCase()) >= 0)) {
+        day = (exact.getDay() + 6) % 7;
+        weekDate = new Date(exact.getFullYear(), exact.getMonth(), exact.getDate() - day);
+      }
       if (day < 0) {
         if (first) weekDate = ri in weekAt ? weekAt[ri] : parseHeaderDate(first, today);
         return;

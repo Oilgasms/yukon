@@ -1429,8 +1429,10 @@
     // under the map itself where the two overlap).
     var fn = this.soft ? 40 : 70, fg = new T.PlaneGeometry(2400, 2400, fn, fn).rotateX(-Math.PI / 2), fp = fg.attributes.position, fc = new Float32Array(fp.count * 3);
     for (i = 0; i < fp.count; i++) {
-      var fx = fp.getX(i), fz = fp.getZ(i), inner = Math.max(Math.abs(fx), Math.abs(fz)) < size / 2 - 1;
-      fp.setY(i, groundY(fx, fz) - (inner ? 1.5 : 0.3));
+      // Well inside the map it drops right away out of sight (its cells are big enough to poke up
+      // through the hollows otherwise); only round the edge does it follow the ground.
+      var fx = fp.getX(i), fz = fp.getZ(i), ext = Math.max(Math.abs(fx), Math.abs(fz)), cell = 2400 / fn;
+      fp.setY(i, ext + cell < size / 2 ? -60 : ext < size / 2 ? groundY(fx, fz) - 5 : groundY(fx, fz) - 0.3);
       var ff = 0.97 + 0.05 * noise2(fx * 0.04, fz * 0.04);
       fc[i * 3] = ff; fc[i * 3 + 1] = ff; fc[i * 3 + 2] = ff * 0.96;
     }
