@@ -819,7 +819,7 @@
   function dawsonChannel(x, z) {
     var q = townLocal(DAWSON, x, z), R = DAWSON_RIVER;
     if (q.d2 > 8100 || q.x < R.x0 - 3 || q.x > R.x1 + 3) return 0;
-    return smooth(R.x0 - 2.5, R.x0, q.x) * (1 - smooth(R.x1, R.x1 + 2.5, q.x)) * (1 - smooth(R.len - 8, R.len + 6, Math.abs(q.z)));
+    return smooth(R.x0 - 2.5, R.x0, q.x) * (1 - smooth(R.x1, R.x1 + 2.5, q.x)) * (1 - smooth(R.len, R.len + 8, Math.abs(q.z)));
   }
   var DAWSON_PAD = null;
   function DAWSON_PAD_H() { if (DAWSON_PAD == null) { var c = CASTLE_SITES[DAWSON]; DAWSON_PAD = Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift; } return DAWSON_PAD; }
@@ -4068,7 +4068,7 @@
         // banks, West Dawson's cabins on the far side, and the George Black ferry crossing back and
         // forth between its two landings.
         var R2 = DAWSON_RIVER, wy = -DAWSON_RIVER.depth + 0.5, wc = (R2.x0 + R2.x1) / 2;
-        P(h, self.geo.box, M('water'), R2.x1 - R2.x0 + 1.2, 0.08, R2.len * 2 - 4, wc, wy, 0);
+        P(h, self.geo.box, M('water'), R2.x1 - R2.x0 + 1.2, 0.08, R2.len * 2 - 2, wc, wy, 0);
         [R2.x0 - 0.4, R2.x1 + 0.4].forEach(function (bx, sd) { for (var gb2 = 0; gb2 < 9; gb2++) { var gz = -32 + gb2 * 8 + (sd ? 3 : 0); P(h, self.geo.blob, M('tstreet', 1), 1.6, 0.25, 2.6, bx, localGround(bx, gz) - 0.05, gz); } });
         [[R2.x1 + 3.2, -6], [R2.x1 + 3.6, 3], [R2.x1 + 3.0, 12], [R2.x1 + 4.2, -14]].forEach(function (cb3, i) {
           var wd = new T.Group(); wd.position.set(cb3[0], localGround(cb3[0], cb3[1]), cb3[1]); wd.rotation.y = -Math.PI / 2; h.add(wd);
