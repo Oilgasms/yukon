@@ -4311,7 +4311,7 @@
       // Miles Canyon: the suspension footbridge across the middle of the canyon below the dam, with dark
       // basalt columns along the rims.
       var best = -1, bd = 1e9;
-      for (var ri = 2; ri < RIVER.length - 2; ri++) { var rq = RIVER[ri]; if (canyonDepth(rq.x, rq.z) > 0.5) { var dd = Math.abs(Math.hypot(rq.x, rq.z) - 93); if (dd < bd) { bd = dd; best = ri; } } }
+      for (var ri = 2; ri < RIVER.length - 2; ri++) { var rq = RIVER[ri]; if (canyonDepth(rq.x, rq.z) > 0.5) { var dd = Math.abs(Math.hypot(rq.x, rq.z) - 98); if (dd < bd) { bd = dd; best = ri; } } }
       if (best < 0) return;
       var c0 = RIVER[best], ta2 = { x: RIVER[best + 1].x - RIVER[best - 1].x, z: RIVER[best + 1].z - RIVER[best - 1].z }, tl2 = Math.hypot(ta2.x, ta2.z), nx = -ta2.z / tl2, nz = ta2.x / tl2;
       // (just bank to bank over the water, not off across the canyon country either side)
