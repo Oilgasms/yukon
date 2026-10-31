@@ -1395,7 +1395,7 @@
     var base = new T.Group();
     this.scene.add(base);
     this.base = base;
-    var size = 2 * WORLD_R + 40, seg = this.soft ? 120 : 340;
+    var size = 2 * WORLD_R + 40, seg = this.soft ? 100 : 270;
     var g = new T.PlaneGeometry(size, size, seg, seg).rotateX(-Math.PI / 2);
     var pos = g.attributes.position, cols = new Float32Array(pos.count * 3);
     for (var i = 0; i < pos.count; i++) {
@@ -1426,7 +1426,7 @@
     this.ground = ground;
     // Past the edge of the map the same country runs on to the horizon on a coarser sheet (tucked
     // under the map itself where the two overlap).
-    var fn = this.soft ? 60 : 120, fg = new T.PlaneGeometry(2400, 2400, fn, fn).rotateX(-Math.PI / 2), fp = fg.attributes.position, fc = new Float32Array(fp.count * 3);
+    var fn = this.soft ? 40 : 70, fg = new T.PlaneGeometry(2400, 2400, fn, fn).rotateX(-Math.PI / 2), fp = fg.attributes.position, fc = new Float32Array(fp.count * 3);
     for (i = 0; i < fp.count; i++) {
       var fx = fp.getX(i), fz = fp.getZ(i), inner = Math.max(Math.abs(fx), Math.abs(fz)) < size / 2 - 1;
       fp.setY(i, groundY(fx, fz) - (inner ? 1.5 : 0.3));
@@ -1435,7 +1435,7 @@
     }
     fg.setAttribute('color', new T.BufferAttribute(fc, 3));
     fg.computeVertexNormals();
-    var beyond = new T.Mesh(fg, this.mat('fields')); beyond.receiveShadow = true;
+    var beyond = new T.Mesh(fg, this.mat('fields'));
     base.add(beyond);
     // Grey rock and snow on the tallest town mountains, laid over the ground on its own grid.
     var step = size / seg, nx = seg + 1, self = this;
@@ -2183,23 +2183,23 @@
     return { x: p.x + p.vx * back * sd, z: p.z + p.vz * back * sd, r: Math.atan2(-p.vx * sd, -p.vz * sd) / D2R + turn, ground: true };
   }
   // Boreal woods over the far country, out past the old edge of the map along the highways to
-  // the towns up the line: clumps of spruce, thinning out into muskeg (two tiers, instanced).
+  // the towns up the line: clumps of spruce, thinning out into muskeg (instanced, one cone each).
   Town.prototype.buildBoreal = function () {
     var r = rng(6351), spots = [], roads = {}, cell = function (x, z) { return Math.floor(x / 3) + ',' + Math.floor(z / 3); };
     CASTLE_ROADS.forEach(function (rd) { if (rd) rd.forEach(function (q) { for (var i = -1; i <= 1; i++) for (var j = -1; j <= 1; j++) roads[cell(q.x + i * 2, q.z + j * 2)] = 1; }); });
-    for (var gx = -WORLD_R; gx <= WORLD_R; gx += 3.1) for (var gz = -WORLD_R; gz <= WORLD_R; gz += 3.1) {
-      var x = gx + (r() - 0.5) * 2.6, z = gz + (r() - 0.5) * 2.6, d = Math.hypot(x, z);
-      if (d < 154 || d > WORLD_R - 3 || noise2(x * 0.55, z * 0.55) < -0.1 || r() < 0.3) continue;
+    for (var gx = -WORLD_R; gx <= WORLD_R; gx += 4.6) for (var gz = -WORLD_R; gz <= WORLD_R; gz += 4.6) {
+      var x = gx + (r() - 0.5) * 3.8, z = gz + (r() - 0.5) * 3.8, d = Math.hypot(x, z);
+      if (d < 154 || d > WORLD_R - 3 || noise2(x * 0.55, z * 0.55) < 0.1 || r() < 0.35) continue;
       if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3)) continue;
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 24; })) continue;
       spots.push({ x: x, z: z, y: groundY(x, z), s: 0.75 + r() * 0.6 });
     }
     if (!spots.length) return;
     var m4 = new T.Matrix4(), self = this;
-    [[0.7, 1.1, 0.6, 0], [0.48, 0.95, 1.2, 1]].forEach(function (t) {
+    [[0.75, 1.9, 0.95, 0]].forEach(function (t) {
       var im = new T.InstancedMesh(self.geo.cone6, self.mat('pine', t[3]), spots.length);
       spots.forEach(function (p, i) { m4.makeScale(t[0] * p.s, t[1] * p.s, t[0] * p.s); m4.setPosition(p.x, p.y + t[2] * p.s, p.z); im.setMatrixAt(i, m4); });
-      im.castShadow = true; self.base.add(im);
+      self.base.add(im); // (too far out to need shadows)
     });
   };
   // The town's name on a signpost at the end of its road, there before the town is.
