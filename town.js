@@ -268,6 +268,7 @@
   var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(265, 140), { lift: 0.6 }), Object.assign(polar(298, 160), { lift: 0.4 }), Object.assign(polar(242, 160), { lift: 0.8 }),
     Object.assign(polar(118, 150), { lift: 1.5 }), Object.assign(polar(0, 145), { lift: 1.2 }), Object.assign(polar(322, 148), { lift: 1.9 }), Object.assign(polar(195, 310), { lift: 0.6 })];
   var TOWN_FROM = [null, 0, 1, 1, 0, 0, 5, 1]; // where each town's road comes from (0 is Whitehorse)
+  var STREET_X = { 3: 7.9 }; // Atlin's main street is Lake Road, along the shore below the town
   var CARCROSS = 1, SKAGWAY = 2, HAINES = 6, WORLD_R = 345; // the map reaches out past Watson Lake
   // The river comes down from the glacier, runs straight along the front of downtown, past the
   // Riverdale dam and through Miles Canyon, then out past the farmland to the sea.
@@ -760,7 +761,7 @@
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
   CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); });
-  [[CARCROSS, 17], [3, 18]].forEach(function (lk) { var c = CASTLE_SITES[lk[0]], b = siteAt(lk[0], lk[1], -1); PADS.push({ x: b.x, z: b.z, rIn: 11, rOut: 15, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); }); // Bennett Lake's beach, and Atlin Lake's
+  [[CARCROSS, 17], [3, 20]].forEach(function (lk) { var c = CASTLE_SITES[lk[0]], b = siteAt(lk[0], lk[1], -1); PADS.push({ x: b.x, z: b.z, rIn: 11, rOut: 15, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); }); // Bennett Lake's beach, and Atlin Lake's
   // The airport's ground, levelled.
   AIRPORT.h = AIRPORT_TOP;
   for (var apk = -12; apk <= 12; apk += 3) [0, 4.5].forEach(function (w) { PADS.push({ x: AIRPORT.x + AIRPORT.dx * apk + AIRPORT.dz * w, z: AIRPORT.z + AIRPORT.dz * apk - AIRPORT.dx * w, rIn: 3.6, rOut: 7.5, h: AIRPORT.h }); });
@@ -1012,7 +1013,7 @@
   // Each town's road (laid when the town starts): out from the end of a Whitehorse street, or on
   // from the gate of the town before it. The Haines Road crosses Miles Canyon on its own bridge, and
   // the Alaska Highway swings out round the back of Atlin on its way to Watson Lake.
-  function townGate(ci) { return siteAt(ci, 0, 13.8); }
+  function townGate(ci) { return siteAt(ci, STREET_X[ci] || 0, 13.8); }
   var ROAD_WIGGLES = [3, -3, 6, -6, 10, -10, 15, -15, 22, -22, 0];
   function bestTrail(from, to, scored) {
     var best = null;
@@ -2978,6 +2979,9 @@
   function lot2(row, side, i) { var a = lot(row, side, i), b = lot(row, side, i + 1); return { x: a.x, z: (a.z + b.z) / 2, r: a.r }; }
   function at(x, z, r) { return { x: x, z: z, r: r || 0 }; }
   var A = function (s, i) { return lot('A', s, i); }, B = function (s, i) { return lot('B', s, i); }, Cr = function (s, i) { return lot('C', s, i); };
+  // Atlin faces its lake: a row along Lake Road (LK), then rows stepping up the hill behind (UP).
+  var LK = function (i) { return { x: 4.3, z: TOWN_ROWS.A.z[i], r: 90 }; }, LK2 = function (i) { return { x: 4.3, z: (TOWN_ROWS.A.z[i] + TOWN_ROWS.A.z[i + 1]) / 2, r: 90 }; };
+  var UP = function (row, i) { return { x: [0.2, -4.3, -8.6][row], z: TOWN_ROWS.A.z[i], r: 90 }; };
   // Each piece: [kind, where, options, landmark name (if it is one)].
   var TOWNS = [null,
     { key: 'carcross', name: 'Carcross', vibe: 'In the valley where Bennett Lake runs into Nares Lake, under Montana and Nares mountains: the old White Pass station, the Caribou Hotel, Matthew Watson’s store, the bright little shops of Carcross Commons round their totem, the light blue church, a long sandy beach and the desert of dunes.', street: 'dirt',
@@ -3008,21 +3012,21 @@
         ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['house', B(1, 5), { c: 1 }], ['house', B(-1, 5), { c: 10 }], ['house', B(-1, 6), { c: 4 }],
         ['lamps', null, {}, 'Lamps along Broadway']
       ] },
-    { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town climbing the hill above Atlin Lake: painted clapboard houses, St. Martin’s with its battlemented tower, Kershaw’s, the pyramid house, the M.V. Tarahne on the beach, float planes, and little spruce islands out in the lake.', street: 'dirt', slope: true,
-      homes: { house: { o: { fence: true, porch: true } } }, // pastel clapboard behind picket fences
+    { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town climbing the hill above Atlin Lake, every house looking out over the water from Lake Road up: painted clapboard of every colour, St. Martin’s with its battlemented tower, Kershaw’s, the pyramid house, the M.V. Tarahne on the beach, float planes, and little spruce islands out in the lake.', street: 'dirt', slope: true,
+      homes: { house: { vary: [7, 10, 4, 3, 15, 5, 1, 0, 12, 9] } }, // all sorts, in pastel clapboard
       plan: [
-        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, { big: true, islands: true }, 'Atlin Lake and its little islands'], ['front', A(1, 1), { c: 9, t: 0 }, 'The Atlin Trading Post'],
-        ['house', A(-1, 1), { c: 10 }], ['house', B(-1, 0), { c: 7 }], ['front', A(1, 2), { c: 11, t: 0, two: true, signText: 'KERSHAW’S' }, 'Kershaw’s'], ['house', A(-1, 2), { c: 7, porch: true }],
-        ['church', A(-1, 3), { c: 8, roof: 3, small: true, crenel: true, fence: true }, 'St. Martin’s Church'],
-        ['boat', at(9.2, -0.6, 90), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'],
-        ['house', lot2('A', 1, 3), { c: 8, w: 3.6, two: true, cupola: true, roof: 1 }, 'The courthouse'], ['house', A(-1, 4), { c: 4 }],
-        ['plane', at(15.8, 2.6, 180), { floats: true }, 'A float plane at the dock'], ['front', A(1, 5), { c: 5, t: 0, two: true }], ['house', A(-1, 5), { c: 10, porch: true }],
-        ['pyramid', B(1, 5), {}, 'The pyramid house'], ['house', B(-1, 1), { c: 15 }], ['house', B(-1, 2), { c: 3 }], ['sluice', B(1, 0), {}, 'The Pine Creek sluice box'],
-        ['church', B(-1, 3), { c: 8, roof: 2, small: true }, 'Sacred Heart Church'],
-        ['house', A(1, 6), { c: 1 }], ['house', A(-1, 6), { c: 9 }], ['cabin', B(1, 6), {}],
-        ['house', B(-1, 4), { c: 11 }], ['house', A(1, 7), { c: 0 }], ['house', A(-1, 7), { c: 7 }], ['houseboats', null, { big: true }, 'Houseboats on the lake'],
-        ['house', B(-1, 5), { c: 10 }], ['house', A(1, 8), { c: 3 }], ['house', A(-1, 8), { c: 4 }], ['house', B(-1, 6), { c: 1 }],
-        ['cabin', Cr(-1, 0), { c: 1 }], ['cabin', Cr(-1, 2), {}], ['canoes', null, {}, 'Canoes on the beach'], ['lamps', null, {}, 'Lamps along the main street']
+        ['front', LK(0), { c: 9, t: 0 }, 'The Atlin Trading Post'], ['cabin', UP(0, 0), { c: 1 }], ['lake', null, { big: true, islands: true, dx: 2.4 }, 'Atlin Lake and its little islands'],
+        ['front', LK(1), { c: 11, t: 0, two: true, signText: 'KERSHAW’S' }, 'Kershaw’s'], ['house', UP(0, 1), {}], ['house', UP(1, 0), {}],
+        ['church', UP(0, 3), { c: 8, roof: 3, small: true, crenel: true, fence: true }, 'St. Martin’s Church'],
+        ['boat', at(12.6, -1.5, 90), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'],
+        ['house', LK2(2), { c: 8, w: 3.6, two: true, cupola: true, roof: 1 }, 'The courthouse'], ['house', UP(1, 1), {}],
+        ['plane', at(18.2, 2.6, 180), { floats: true }, 'A float plane at the dock'], ['front', LK(4), { c: 5, t: 0, two: true }], ['house', UP(1, 2), {}],
+        ['pyramid', UP(0, 5), {}, 'The pyramid house'], ['house', LK(5), {}], ['house', UP(2, 0), {}], ['sluice', Cr(-1, 1), {}, 'The Pine Creek sluice box'],
+        ['church', UP(1, 4), { c: 8, roof: 2, small: true }, 'Sacred Heart Church'],
+        ['house', LK(6), {}], ['house', UP(0, 6), {}], ['cabin', UP(2, 1), {}],
+        ['house', UP(1, 5), {}], ['house', LK(7), {}], ['house', UP(0, 7), {}], ['houseboats', null, { big: true, dx: 2.4 }, 'Houseboats on the lake'],
+        ['house', UP(2, 2), {}], ['house', LK(8), {}], ['house', UP(1, 7), {}], ['house', UP(2, 4), {}],
+        ['cabin', Cr(-1, 0), { c: 1 }], ['cabin', Cr(-1, 2), {}], ['canoes', null, { dx: 2.4 }, 'Canoes on the beach'], ['lamps', null, {}, 'Lamps along Lake Road']
       ] },
     { key: 'dawson', name: 'Dawson City', vibe: 'Klondike gold-rush boomtown: false fronts in every colour, boardwalks, dirt streets, a sternwheeler on the bank and a gold dredge.', street: 'dirt', walks: true,
       homes: { house: { o: { lean: true } } }, // heaving on the permafrost
@@ -3122,11 +3126,12 @@
     }
     var streetMat = this.mat('tstreet', D.street === 'gravel' ? 1 : 0);
     // The street reaches as far into town as the buildings do.
-    C.street = this.part(g, this.geo.box, streetMat, 3.0, 0.06, 1, 0, 0.03, 0, pick);
+    var sx0 = STREET_X[ci] || 0, sw0 = siteAt(ci, sx0, 0), sy0 = sx0 ? groundY(sw0.x, sw0.z) - y : 0;
+    C.street = this.part(g, this.geo.box, streetMat, 3.0, 0.06, 1, sx0, sy0 + 0.03, 0, pick);
     C.reach = 6;
     this.townStreet(C);
     // Pennants across the street, between two poles.
-    var fl = new T.Group(); fl.position.set(0, 0, TOWN_FLAG_Z); g.add(fl);
+    var fl = new T.Group(); fl.position.set(sx0, sy0, TOWN_FLAG_Z); g.add(fl);
     [-1, 1].forEach(function (sd) { self.part(fl, self.geo.cyl6, self.mat('wood'), 0.06, 2.6, 0.06, sd * 1.8, 1.3, 0, pick); });
     this.part(fl, this.geo.box, this.mat('stoneDark'), 3.6, 0.02, 0.02, 0, 2.5, 0, pick);
     TOWERS.concat([this.st.towers.full.def]).forEach(function (t, i) {
@@ -3190,6 +3195,13 @@
     // Each town builds its everyday houses its own way (landmarks are left as they are).
     var kind = piece[0], opts = piece[2] || {}, hm = !piece[3] && D.homes && D.homes[kind];
     if (hm && !(hm.unless && opts[hm.unless]) && !(hm.every && C.built % hm.every)) { kind = hm.kind || kind; opts = Object.assign({}, hm.o || {}, opts); }
+    // Some towns mix their houses up: every one its own width, height, colour and roof, some with
+    // a porch or a fence, now and then a little false-front store.
+    if (hm && hm.vary && kind === 'house') {
+      var v = C.built * 7 + 3;
+      opts = Object.assign({}, opts, { w: 1.4 + (v * 37 % 9) / 10, two: v % 3 === 0, roof: v % 5, c: hm.vary[v % hm.vary.length], porch: v % 2 === 0, fence: v % 4 === 1, cupola: v % 11 === 4 });
+      if (v % 5 === 2) { kind = 'front'; opts = { c: hm.vary[(v + 3) % hm.vary.length], t: v % 4, two: v % 2 === 0, w: 1.7 + (v % 3) * 0.2 }; }
+    }
     var o = this.townPiece(C, kind, where, opts, C.built);
     if (where && !where.ground && where.z < C.reach) { C.reach = Math.max(-11, where.z); this.townStreet(C); }
     if (o) this.pop(o, delay + 200);
@@ -3213,7 +3225,8 @@
     g.add(h);
     // On a hillside town everything sits on the slope, buildings on a stone footing.
     if (C.town.slope) {
-      h.position.y = where ? localGround(where.x, where.z) : localGround(11, -1);
+      if (!where && o.dx) h.position.x = o.dx;
+      h.position.y = where ? localGround(where.x, where.z) : localGround(11 + (o.dx || 0), -1);
       if (where && /^(house|front|church|cabin|shop|pyramid|log)$/.test(kind)) self.part(h, self.geo.box, self.mat('stone', 1), 2.3, 1.4, 2.3, 0, -0.68, 0, pick);
     }
     function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, pick); }
@@ -4022,7 +4035,7 @@
         break;
       }
       case 'lamps': {
-        for (var lp = 0; lp < 5; lp++) [-1, 1].forEach(function (sd) { var lg = new T.Group(); lg.position.y = C.town.slope ? localGround(sd * 1.75, 9 - lp * 4.4) : 0; g.add(lg); lantern(lg, sd * 1.75, 1.4, 9 - lp * 4.4); });
+        for (var lp = 0; lp < 5; lp++) [-1, 1].forEach(function (sd) { var lx3 = (STREET_X[C.ci] || 0) + sd * 1.75, lg = new T.Group(); lg.position.y = C.town.slope ? localGround(lx3, 9 - lp * 4.4) : 0; g.add(lg); lantern(lg, lx3, 1.4, 9 - lp * 4.4); });
         g.remove(h);
         return null;
       }
