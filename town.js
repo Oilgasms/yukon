@@ -1464,8 +1464,9 @@
     return m;
   };
   Town.prototype.part = function (parent, geo, mat, sx, sy, sz, x, y, z, pick) {
-    // Windows come in five sets that light up one after another as evening comes on.
-    if (mat === this.mats.window) mat = this.mat('window', this.winSeq = ((this.winSeq || 0) + 1) % 5);
+    // Windows come in five sets that light up one after another as evening comes on (every window
+    // on one building in the same set).
+    if (mat === this.mats.window && parent) { var wv = parent.userData.winSet; if (wv == null) wv = parent.userData.winSet = this.winSeq = ((this.winSeq || 0) + 1) % 5; mat = this.mat('window', wv); }
     var m = this.mesh(geo, mat, parent);
     m.scale.set(sx, sy, sz); m.position.set(x, y, z);
     if (pick) { m.userData.pick = pick; this.picks.push(m); }
@@ -2294,7 +2295,12 @@
     M.letters.push({ from: MAIL_FROM[(k * 7 + 3) % MAIL_FROM.length], day: ev.day || ev.date || '', text: text, gift: gift });
     if (M.letters.length > 60) M.letters.shift();
   };
-  Town.prototype.mailRead = function () { try { return +localStorage.getItem('fittertown:mailRead') || 0; } catch (e) { return 0; } };
+  // How many letters you've read; on a first visit, all but the last three count as read.
+  Town.prototype.mailRead = function () {
+    var M = this.st.mail, total = M ? M.total : 0, v = null;
+    try { v = localStorage.getItem('fittertown:mailRead'); } catch (e) {}
+    return v == null ? Math.max(0, total - 3) : +v || 0;
+  };
   Town.prototype.updateMailFlag = function () {
     var M = this.st.mail, unread = M ? Math.max(0, M.total - this.mailRead()) : 0;
     if (this.mailFlag) { this.mailFlag.rotation.z = unread ? 0 : -Math.PI / 2; this.needsRender = true; }
