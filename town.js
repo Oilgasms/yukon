@@ -760,7 +760,7 @@
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
   CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); });
-  (function () { var c = CASTLE_SITES[CARCROSS], b = siteAt(CARCROSS, 17, -1); PADS.push({ x: b.x, z: b.z, rIn: 11, rOut: 15, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); })(); // Bennett Lake's beach
+  [[CARCROSS, 17], [3, 18]].forEach(function (lk) { var c = CASTLE_SITES[lk[0]], b = siteAt(lk[0], lk[1], -1); PADS.push({ x: b.x, z: b.z, rIn: 11, rOut: 15, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); }); // Bennett Lake's beach, and Atlin Lake's
   // The airport's ground, levelled.
   AIRPORT.h = AIRPORT_TOP;
   for (var apk = -12; apk <= 12; apk += 3) [0, 4.5].forEach(function (w) { PADS.push({ x: AIRPORT.x + AIRPORT.dx * apk + AIRPORT.dz * w, z: AIRPORT.z + AIRPORT.dz * apk - AIRPORT.dx * w, rIn: 3.6, rOut: 7.5, h: AIRPORT.h }); });
@@ -795,6 +795,16 @@
     }
     return h;
   }
+  // Atlin climbs its hill up from the lake: round the town the ground tilts down toward the
+  // shore (the town's local +x), level along the main street.
+  var ATLIN = 3, ATLIN_ROT = null;
+  function townSlope(x, z) {
+    var s = CASTLE_SITES[ATLIN], dx = x - s.x, dz = z - s.z;
+    if (dx * dx + dz * dz > 1900) return 0;
+    if (ATLIN_ROT == null) { var l = Math.hypot(s.x, s.z); ATLIN_ROT = Math.atan2(-s.x / l, -s.z / l); }
+    var c = Math.cos(ATLIN_ROT), sn = Math.sin(ATLIN_ROT), lx = dx * c - dz * sn, lz = dx * sn + dz * c;
+    return -0.2 * Math.max(-16, Math.min(9, lx)) * (1 - smooth(20, 27, Math.abs(lz))) * (1 - smooth(16, 24, -lx)) * (1 - smooth(28, 34, lx));
+  }
   function groundY(x, z) {
     var h = landY(x, z), rd = riverDist(x, z);
     if (rd < RIVER_HALF + 30) {
@@ -811,6 +821,7 @@
       var p = PADS[i], d = Math.hypot(x - p.x, z - p.z);
       if (d < p.rOut) h += (p.h - h) * (1 - smooth(p.rIn, p.rOut, d));
     }
+    h += townSlope(x, z);
     if (LIB_GRADE && x > LIB_GRADE.box[0] && x < LIB_GRADE.box[1] && z > LIB_GRADE.box[2] && z < LIB_GRADE.box[3] && rd > RIVER_HALF + 0.6) {
       var G = LIB_GRADE, bd = 1e9, bi = 0;
       for (var gi = 0; gi < G.pts.length; gi++) { var gd = Math.hypot(G.pts[gi].x - x, G.pts[gi].z - z); if (gd < bd) { bd = gd; bi = gi; } }
@@ -2973,7 +2984,7 @@
       keep: [[-17, -11, 9.5]], // the dunes
       homes: { house: { kind: 'shop', every: 2 } }, // every other house a little shop, like the Commons
       plan: [
-        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, { big: true }, 'The beach on Bennett Lake'], ['front', A(1, 1), { c: 0, t: 2, two: true, sign: 2 }, 'Matthew Watson General Store'],
+        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, { big: true, parasols: true }, 'The beach on Bennett Lake'], ['front', A(1, 1), { c: 0, t: 2, two: true, sign: 2 }, 'Matthew Watson General Store'],
         ['house', A(-1, 1), { c: 4 }], ['front', lot2('A', -1, 2), { c: 8, t: 2, two: true, w: 4.5, sign: 2, balcony: true }, 'The Caribou Hotel'],
         ['commons', { x: -7.6, z: -3.6, r: 0, ground: true }, {}, 'Carcross Commons, its little shops round the totem'],
         ['boat', at(9.6, -1.2), { wheel: true, burnt: true }, 'What’s left of the S.S. Tutshi'], ['church', A(1, 3), { c: 7, roof: 1, small: true }, 'St. Saviour’s, the little blue church'],
@@ -2997,18 +3008,19 @@
         ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['house', B(1, 5), { c: 1 }], ['house', B(-1, 5), { c: 10 }], ['house', B(-1, 6), { c: 4 }],
         ['lamps', null, {}, 'Lamps along Broadway']
       ] },
-    { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town on the shore of Atlin Lake: painted clapboard houses, the M.V. Tarahne on the beach and float planes at the dock.', street: 'dirt',
+    { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town climbing the hill above Atlin Lake: painted clapboard houses, St. Martin’s with its battlemented tower, Kershaw’s, the pyramid house, the M.V. Tarahne on the beach, float planes, and little spruce islands out in the lake.', street: 'dirt', slope: true,
       homes: { house: { o: { fence: true, porch: true } } }, // pastel clapboard behind picket fences
       plan: [
-        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, {}, 'The Atlin Lake shore'], ['front', A(1, 1), { c: 9, t: 0 }, 'The Atlin Trading Post'],
-        ['house', A(-1, 1), { c: 10 }], ['house', B(-1, 0), { c: 7 }], ['front', A(1, 2), { c: 11, t: 0 }], ['house', A(-1, 2), { c: 7, porch: true }],
-        ['church', A(-1, 3), { c: 8, roof: 3, small: true }, 'St. Martin’s Church'],
-        ['boat', at(8.9, -0.6), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'],
+        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, { big: true, islands: true }, 'Atlin Lake and its little islands'], ['front', A(1, 1), { c: 9, t: 0 }, 'The Atlin Trading Post'],
+        ['house', A(-1, 1), { c: 10 }], ['house', B(-1, 0), { c: 7 }], ['front', A(1, 2), { c: 11, t: 0, two: true, signText: 'KERSHAW’S' }, 'Kershaw’s'], ['house', A(-1, 2), { c: 7, porch: true }],
+        ['church', A(-1, 3), { c: 8, roof: 3, small: true, crenel: true, fence: true }, 'St. Martin’s Church'],
+        ['boat', at(9.2, -0.6, 90), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'],
         ['house', lot2('A', 1, 3), { c: 8, w: 3.6, two: true, cupola: true, roof: 1 }, 'The courthouse'], ['house', A(-1, 4), { c: 4 }],
-        ['plane', at(12.2, 1.2, 180), { floats: true }, 'A float plane at the dock'], ['front', A(1, 5), { c: 5, t: 0, two: true }], ['house', A(-1, 5), { c: 10, porch: true }],
-        ['house', B(-1, 1), { c: 15 }], ['house', B(-1, 2), { c: 3 }], ['sluice', B(1, 0), {}, 'The Pine Creek sluice box'],
-        ['house', A(1, 6), { c: 1 }], ['house', A(-1, 6), { c: 9 }], ['house', B(1, 5), { c: 4 }], ['house', B(-1, 3), { c: 5 }], ['cabin', B(1, 6), {}],
-        ['house', B(-1, 4), { c: 11 }], ['house', A(1, 7), { c: 0 }], ['house', A(-1, 7), { c: 7 }], ['houseboats', null, {}, 'Houseboats on the lake'],
+        ['plane', at(15.8, 2.6, 180), { floats: true }, 'A float plane at the dock'], ['front', A(1, 5), { c: 5, t: 0, two: true }], ['house', A(-1, 5), { c: 10, porch: true }],
+        ['pyramid', B(1, 5), {}, 'The pyramid house'], ['house', B(-1, 1), { c: 15 }], ['house', B(-1, 2), { c: 3 }], ['sluice', B(1, 0), {}, 'The Pine Creek sluice box'],
+        ['church', B(-1, 3), { c: 8, roof: 2, small: true }, 'Sacred Heart Church'],
+        ['house', A(1, 6), { c: 1 }], ['house', A(-1, 6), { c: 9 }], ['cabin', B(1, 6), {}],
+        ['house', B(-1, 4), { c: 11 }], ['house', A(1, 7), { c: 0 }], ['house', A(-1, 7), { c: 7 }], ['houseboats', null, { big: true }, 'Houseboats on the lake'],
         ['house', B(-1, 5), { c: 10 }], ['house', A(1, 8), { c: 3 }], ['house', A(-1, 8), { c: 4 }], ['house', B(-1, 6), { c: 1 }],
         ['cabin', Cr(-1, 0), { c: 1 }], ['cabin', Cr(-1, 2), {}], ['canoes', null, {}, 'Canoes on the beach'], ['lamps', null, {}, 'Lamps along the main street']
       ] },
@@ -3199,6 +3211,11 @@
     var h = new T.Group();
     if (where) { h.position.set(where.x, where.ground ? localGround(where.x, where.z) : 0, where.z); h.rotation.y = (where.r || 0) * D2R; }
     g.add(h);
+    // On a hillside town everything sits on the slope, buildings on a stone footing.
+    if (C.town.slope) {
+      h.position.y = where ? localGround(where.x, where.z) : localGround(11, -1);
+      if (where && /^(house|front|church|cabin|shop|pyramid|log)$/.test(kind)) self.part(h, self.geo.box, self.mat('stone', 1), 2.3, 1.4, 2.3, 0, -0.68, 0, pick);
+    }
     function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, pick); }
     function M(n, i) { return self.mat(n, i); }
     var paint = function (i) { return M('tpaint', i == null ? seq : i); }, trim = function (i) { return M('ttrim', i || 0); }, roofM = function (i) { return M('troof', i == null ? seq % 3 : i); };
@@ -3241,7 +3258,10 @@
         P(h, self.geo.box, trim(o.t), w + 0.24, 0.12, 0.26, 0, hh + fh, fz + 0.06);
         P(h, self.geo.box, trim(o.t), w + 0.1, 0.07, 0.16, 0, o.two ? 1.2 : 0.02, fz + 0.06);
         [-1, 1].forEach(function (sd) { P(h, self.geo.box, trim(o.t), 0.08, hh + fh, 0.16, sd * (w / 2 + 0.02), (hh + fh) / 2, fz + 0.06); });
-        if (!o.drift) {
+        if (o.signText) {
+          var stx = new T.Mesh(new T.PlaneGeometry(w * 0.86, 0.42), new T.MeshBasicMaterial({ map: signTex(o.signText, '#f3efe6', '#2f5d3a') }));
+          stx.position.set(0, hh + fh * 0.42, fz + 0.14); h.add(stx); stx.userData.pick = pick; self.picks.push(stx);
+        } else if (!o.drift) {
           P(h, self.geo.box, M('tpaint', o.sign != null ? o.sign : 6), w * 0.72, 0.34, 0.05, 0, hh + fh * 0.42, fz + 0.13);
           P(h, self.geo.box, trim(5), w * 0.5, 0.07, 0.03, 0, hh + fh * 0.42, fz + 0.16);
         }
@@ -3504,10 +3524,30 @@
         [-1, 1].forEach(function (sd) { for (var cw2 = 0; cw2 < 3; cw2++) P(h, self.geo.box, win, 0.04, 0.6 * sc, 0.26 * sc, sd * (bw / 2 + 0.01), bh * 0.55, -bd * 0.3 + cw2 * bd * 0.3); });
         var tz = bd / 2 + 0.3 * sc;
         P(h, self.geo.box, paint(o.c), 0.75 * sc, bh + 0.9 * sc, 0.75 * sc, 0, (bh + 0.9 * sc) / 2, tz);
-        P(h, self.geo.box, trim(5), 0.4 * sc, 0.4 * sc, 0.04, 0, bh + 0.5 * sc, tz + 0.38 * sc);
-        P(h, self.geo.cone4, roofM(o.roof), 0.6 * sc, 1.4 * sc, 0.6 * sc, 0, bh + 0.9 * sc + 0.7 * sc, tz).rotation.y = Math.PI / 4;
-        P(h, self.geo.box, M('gold'), 0.05, 0.4, 0.05, 0, bh + 2.75 * sc, tz); P(h, self.geo.box, M('gold'), 0.22, 0.05, 0.05, 0, bh + 2.82 * sc, tz);
-        door(h, 0, 0, tz + 0.38 * sc);
+        if (o.crenel) {
+          // St. Martin's, Atlin: a square tower with a battlemented top and a pinnacle at each
+          // corner, pointed-arch windows, green doors and trim, and a white picket fence.
+          var ty = bh + 0.9 * sc, tw2 = 0.75 * sc, grn = M('wpGreen');
+          P(h, self.geo.box, M('whitewood'), tw2 + 0.14, 0.12, tw2 + 0.14, 0, ty + 0.02, tz);
+          [-1, 1].forEach(function (a2) { [-1, 1].forEach(function (b2) { P(h, self.geo.box, M('whitewood'), 0.14, 0.38, 0.14, a2 * tw2 / 2, ty + 0.25, tz + b2 * tw2 / 2); P(h, self.geo.cone4, M('whitewood'), 0.08, 0.16, 0.08, a2 * tw2 / 2, ty + 0.52, tz + b2 * tw2 / 2); }); });
+          [-1, 1].forEach(function (a2) { P(h, self.geo.box, M('whitewood'), 0.14, 0.2, 0.12, a2 * tw2 / 2, ty + 0.16, tz); P(h, self.geo.box, M('whitewood'), 0.12, 0.2, 0.14, 0, ty + 0.16, tz + a2 * tw2 / 2); });
+          P(h, self.geo.box, dark, 0.03, 0.4, 0.03, 0, ty + 0.4, tz); P(h, self.geo.box, dark, 0.16, 0.03, 0.03, 0, ty + 0.5, tz);
+          P(h, self.geo.box, grn, 0.26 * sc, 0.4 * sc, 0.04, 0, bh + 0.35 * sc, tz + 0.38 * sc); P(h, self.geo.cone4, grn, 0.13 * sc, 0.16 * sc, 0.03, 0, bh + 0.63 * sc, tz + 0.38 * sc).rotation.y = Math.PI / 4;
+          [-1, 1].forEach(function (sd) { for (var aw3 = 0; aw3 < 3; aw3++) P(h, self.geo.cone4, grn, 0.1 * sc, 0.16 * sc, 0.1 * sc, sd * (bw / 2 + 0.02), bh * 0.55 + 0.38 * sc, -bd * 0.3 + aw3 * bd * 0.3).rotation.y = Math.PI / 4; });
+          door(h, 0, 0, tz + 0.38 * sc, grn); P(h, self.geo.cone4, grn, 0.2, 0.18, 0.03, 0, 0.7, tz + 0.39 * sc).rotation.y = Math.PI / 4;
+          P(h, self.geo.box, grn, 0.9 * sc, 0.12, 0.5, 0, 0.06, tz + 0.65 * sc);
+        } else {
+          P(h, self.geo.box, trim(5), 0.4 * sc, 0.4 * sc, 0.04, 0, bh + 0.5 * sc, tz + 0.38 * sc);
+          P(h, self.geo.cone4, roofM(o.roof), 0.6 * sc, 1.4 * sc, 0.6 * sc, 0, bh + 0.9 * sc + 0.7 * sc, tz).rotation.y = Math.PI / 4;
+          P(h, self.geo.box, M('gold'), 0.05, 0.4, 0.05, 0, bh + 2.75 * sc, tz); P(h, self.geo.box, M('gold'), 0.22, 0.05, 0.05, 0, bh + 2.82 * sc, tz);
+          door(h, 0, 0, tz + 0.38 * sc);
+        }
+        if (o.fence) {
+          var fz3 = tz + 0.95 * sc, fw3 = bw + 1.0;
+          for (var pk3 = 0; pk3 <= 14; pk3++) { if (pk3 === 7) continue; P(h, self.geo.box, M('whitewood'), 0.05, 0.32, 0.03, -fw3 / 2 + pk3 * fw3 / 14, 0.16, fz3); }
+          [0.12, 0.26].forEach(function (y) { P(h, self.geo.box, M('whitewood'), fw3, 0.03, 0.02, 0, y, fz3 - 0.02); });
+          [-1, 1].forEach(function (sd) { P(h, self.geo.box, M('whitewood'), 0.03, 0.3, bd + 0.6, sd * fw3 / 2, 0.15, fz3 - (bd + 0.6) / 2); });
+        }
         break;
       }
       case 'quonset': {
@@ -3606,8 +3646,14 @@
         if (o.big) {
           P(h, self.geo.cyl, M('sand'), 8.5, 0.05, 13.5, 16.2, 0.035, -1.0);
           P(h, self.geo.cyl, M('water'), 6.6, 0.06, 12.4, 20.0, 0.07, -1.0);
-          [[-0.4, 3.4], [5.2, -6.2]].forEach(function (u, i) { var um = new T.Group(); um.position.set(11.6 + i * 0.4, 0, u[1]); h.add(um); P(um, self.geo.cyl6, M('whitewood'), 0.03, 1.2, 0.03, 0, 0.6, 0); P(um, self.geo.cone, M('flag', i * 2), 0.6, 0.25, 0.6, 0, 1.25, 0); P(um, self.geo.box, M('flag', i + 1), 0.9, 0.04, 0.4, 0.6, 0.08, 0.2); });
+          if (o.parasols) [[-0.4, 3.4], [5.2, -6.2]].forEach(function (u, i) { var um = new T.Group(); um.position.set(11.6 + i * 0.4, 0, u[1]); h.add(um); P(um, self.geo.cyl6, M('whitewood'), 0.03, 1.2, 0.03, 0, 0.6, 0); P(um, self.geo.cone, M('flag', i * 2), 0.6, 0.25, 0.6, 0, 1.25, 0); P(um, self.geo.box, M('flag', i + 1), 0.9, 0.04, 0.4, 0.6, 0.08, 0.2); });
           for (var dk2 = 0; dk2 < 3; dk2++) P(h, self.geo.box, wood, 3.4, 0.08, 0.6, 15.6, 0.2, 7.0 - dk2 * 0.02);
+          // Atlin Lake's tiny islands, each with a few spruce.
+          if (o.islands) [[20.5, -5.5, 1.3], [23.5, 3.5, 1.0], [18.6, 9.2, 0.75], [25, -11, 1.1], [21.6, 0.2, 0.5]].forEach(function (is) {
+            var ig = new T.Group(); ig.position.set(is[0], 0.05, is[1]); h.add(ig);
+            P(ig, self.geo.cyl, M('sand'), is[2] * 1.15, 0.08, is[2], 0, 0.04, 0); P(ig, self.geo.blob, M('hill'), is[2], 0.32, is[2] * 0.85, 0, 0.12, 0);
+            for (var it = 0; it < Math.max(1, Math.round(is[2] * 3)); it++) spruce(ig, Math.cos(it * 2.3) * is[2] * 0.45, Math.sin(it * 2.3) * is[2] * 0.4, 0.45 + (it % 2) * 0.15);
+          });
           break;
         }
         [[11.4, 3.2, 2.6, 3.4], [12.0, -1.0, 2.4, 3.6], [11.6, -4.4, 2.3, 2.4]].forEach(function (e) {
@@ -3621,7 +3667,7 @@
       }
       case 'houseboats': {
         [-2.4, -4.6].forEach(function (z, i) {
-          var hb = new T.Group(); hb.position.set(12.0, 0.1, z); h.add(hb);
+          var hb = new T.Group(); hb.position.set(o.big ? 15.4 : 12.0, 0.1, z); h.add(hb);
           P(hb, self.geo.box, wood, 1.2, 0.14, 1.6, 0, 0, 0);
           P(hb, self.geo.box, M('tpaint', i ? 10 : 7), 0.9, 0.6, 1.0, 0, 0.37, -0.1);
           gable(hb, roofM(3), 1.05, 1.15, 0.3, 0.67, true); P(hb, self.geo.box, win, 0.04, 0.22, 0.3, -0.46, 0.4, 0);
@@ -3826,6 +3872,25 @@
         var cm2 = new T.Object3D(); cm2.position.set(0.6, 3.55, -1.0); h.add(cm2); C.chims.push(cm2);
         break;
       }
+      case 'pyramid': {
+        // Atlin's pyramid house: a steep four-sided roof of cedar shingles right down to the ground,
+        // with little shed dormers poking out of every face and a brick chimney at the peak.
+        var pw = 2.4, ph = 2.7, shg = M('logwood', 1);
+        P(h, self.geo.box, M('stone', 1), pw * 0.98, 0.18, pw * 0.98, 0, 0.09, 0);
+        P(h, self.geo.cone4, shg, pw / Math.SQRT2, ph, pw / Math.SQRT2, 0, 0.18 + ph / 2, 0).rotation.y = Math.PI / 4;
+        for (var sr4 = 1; sr4 < 6; sr4++) { var lv2 = 0.18 + sr4 * ph / 6, half4 = pw / 2 * (1 - sr4 / 6) + 0.02; [0, 1, 2, 3].forEach(function (f4) { var bd4 = P(h, self.geo.box, M('trunk'), half4 * 2, 0.03, 0.03, 0, lv2, 0); bd4.rotation.y = f4 * Math.PI / 2; bd4.position.set(Math.sin(f4 * Math.PI / 2) * half4, lv2, Math.cos(f4 * Math.PI / 2) * half4); }); }
+        [[0, 0.55, 0.62], [-0.55, 0.55, 0.62], [0.55, 0.55, 0.62], [0, 1.35, 0.35]].forEach(function (dm, k) {
+          [0, 1, 2, 3].forEach(function (f4) {
+            if (k > 0 && f4 % 2) return;
+            var dg = new T.Group(); dg.rotation.y = f4 * Math.PI / 2; h.add(dg);
+            var out4 = pw / 2 * (1 - (dm[1] - 0.18) / ph) - 0.05;
+            P(dg, self.geo.box, shg, 0.42, 0.32, 0.36, dm[0], dm[1] + 0.12, out4); P(dg, self.geo.box, M('trunk'), 0.5, 0.05, 0.42, dm[0], dm[1] + 0.3, out4 + 0.02).rotation.x = 0.25;
+            P(dg, self.geo.box, M('whitewood'), 0.3, 0.2, 0.04, dm[0], dm[1] + 0.12, out4 + 0.19); P(dg, self.geo.box, win, 0.22, 0.14, 0.045, dm[0], dm[1] + 0.12, out4 + 0.19);
+          });
+        });
+        door(h, 0.6, 0.08, pw / 2 - 0.25); P(h, self.geo.box, M('brick'), 0.2, 0.4, 0.2, 0, 0.18 + ph - 0.05, 0);
+        break;
+      }
       case 'shop': {
         // One of Carcross's little shops: a bright painted box under a shed roof, a big display
         // window, a formline band of black and red, a hand-painted sign and a flower box.
@@ -3957,7 +4022,7 @@
         break;
       }
       case 'lamps': {
-        for (var lp = 0; lp < 5; lp++) [-1, 1].forEach(function (sd) { lantern(g, sd * 1.75, 1.4, 9 - lp * 4.4); });
+        for (var lp = 0; lp < 5; lp++) [-1, 1].forEach(function (sd) { var lg = new T.Group(); lg.position.y = C.town.slope ? localGround(sd * 1.75, 9 - lp * 4.4) : 0; g.add(lg); lantern(lg, sd * 1.75, 1.4, 9 - lp * 4.4); });
         g.remove(h);
         return null;
       }

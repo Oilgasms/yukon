@@ -233,7 +233,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .title.min h1 { margin: 2px 22px 0 0; }
 .title { padding-right: 34px; }
 .timeline.min { width: auto; padding-right: 34px; }
-.timeline.min .caption, .timeline.min .phases, .timeline.min #scrub, .timeline.min #future, .timeline.min #future5, .timeline.min #recenter, .timeline.min #pixel { display: none; }
+.timeline.min .caption, .timeline.min .phases, .timeline.min #scrub, .timeline.min #future5, .timeline.min #recenter, .timeline.min #pixel { display: none; }
 .timeline .tl-top { padding-right: 22px; }
 .secrets { margin: 0 16px 12px; padding-top: 10px; border-top: 2px dashed var(--line); font-size: 12.5px; line-height: 1.45; }
 .secrets h3 { font-family: var(--display); font-size: 14px; margin: 0 0 6px; }
@@ -306,7 +306,6 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     <div class="tl-top">
       <button class="btn primary" id="play" type="button">Replay</button>
       <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Scrub through your workouts">
-      <button class="btn" id="future" type="button" aria-pressed="false">+2 years</button>
       <button class="btn" id="future5" type="button" aria-pressed="false">+5 years</button>
       <button class="btn" id="explore" type="button" aria-pressed="true">Map view</button>
       <button class="btn" id="recenter" type="button">Recenter</button>
@@ -355,7 +354,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v140';
+  var BUILD = 'v141';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -1229,8 +1228,6 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
     var on = years > 0;
     future = years;
     if (years) town.lockWeather(undefined); else applyWhitehorse();
-    $('future').setAttribute('aria-pressed', String(years === 2));
-    $('future').textContent = years === 2 ? 'Back to today' : '+2 years';
     $('future5').setAttribute('aria-pressed', String(years === 5));
     $('future5').textContent = years === 5 ? 'Back to today' : '+5 years';
     if (!baseEvents.length) return;
@@ -1250,7 +1247,6 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
       showUpTo(events.length);
     }
   }
-  $('future').addEventListener('click', function () { setFuture(future === 2 ? 0 : 2); });
   $('future5').addEventListener('click', function () { setFuture(future === 5 ? 0 : 5); });
 
   function setStatus(text, state) {
