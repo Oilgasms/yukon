@@ -328,7 +328,8 @@
     [2, -22, -6, 7.5, 11, 1], [2, -25, 5, 9, 14, 1], [2, -22, 17, 7, 10, 1],
     [6, 23, 13, 10.5, 20, 0.36, 0.62], [6, 26, 0, 7, 9, 0.8], [6, 20, 26, 7, 8, 1], [6, 4, 31, 7, 6, 1],
     [6, -34, -10, 7, 16, 0.3, 0.56], [6, -41, -1, 7, 15, 0.3, 0.55],
-    [1, 15, -31, 12, 18, 0.4, 0.68], [1, -5, -33, 9, 10, 1], [1, 30, -22, 8, 9, 0.8], // Carcross: Montana Mountain over Bennett Lake
+    [1, 15, -33, 12, 19, 0.4, 0.66], [1, -5, -35, 9, 10, 1], [1, 34, -10, 10, 15, 0.42, 0.68], [1, 36, -27, 9, 13, 0.5], // Carcross: Montana Mountain over Bennett Lake
+    [1, -33, -4, 11, 16, 0.45, 0.7], [1, -30, -24, 10, 12, 0.6], [1, -36, 12, 8, 10, 0.8], // and Nares Mountain on the other side of the valley
     [3, 33, -4, 9, 15, 0.35, 0.6], [3, 31, 14, 8, 11, 0.45, 0.75], [3, 36, -20, 7, 12, 0.4, 0.66], // Atlin: Atlin Mountain across the lake
     [4, 2, -31, 13, 10, 1], // Dawson: the Midnight Dome
     [5, -13, -33, 10, 21, 0.3, 0.5], [5, 13, -35, 11, 23, 0.3, 0.48], [5, 0, -46, 9, 17, 0.35, 0.55] // Haines Junction: the St. Elias
@@ -759,6 +760,7 @@
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
   CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); });
+  (function () { var c = CASTLE_SITES[CARCROSS], b = siteAt(CARCROSS, 17, -1); PADS.push({ x: b.x, z: b.z, rIn: 11, rOut: 15, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); })(); // Bennett Lake's beach
   // The airport's ground, levelled.
   AIRPORT.h = AIRPORT_TOP;
   for (var apk = -12; apk <= 12; apk += 3) [0, 4.5].forEach(function (w) { PADS.push({ x: AIRPORT.x + AIRPORT.dx * apk + AIRPORT.dz * w, z: AIRPORT.z + AIRPORT.dz * apk - AIRPORT.dx * w, rIn: 3.6, rOut: 7.5, h: AIRPORT.h }); });
@@ -2964,18 +2966,17 @@
   var A = function (s, i) { return lot('A', s, i); }, B = function (s, i) { return lot('B', s, i); }, Cr = function (s, i) { return lot('C', s, i); };
   // Each piece: [kind, where, options, landmark name (if it is one)].
   var TOWNS = [null,
-    { key: 'carcross', name: 'Carcross', vibe: 'Where Bennett Lake runs into Nares Lake under Montana Mountain: the old White Pass station, the Caribou Hotel, Matthew Watson’s store, carved totems at the Commons and the little desert of sand dunes.', street: 'dirt',
-      keep: [[-14, -9, 6.5], [7.5, 19, 6]], // the dunes, and the Commons by the road in
+    { key: 'carcross', name: 'Carcross', vibe: 'In the valley where Bennett Lake runs into Nares Lake, under Montana and Nares mountains: the old White Pass station, the Caribou Hotel, Matthew Watson’s store, the bright little shops of Carcross Commons round their totem, the light blue church, a long sandy beach and the desert of dunes.', street: 'dirt',
+      keep: [[-17, -11, 9.5]], // the dunes
       homes: { house: { kind: 'shop', every: 2 } }, // every other house a little shop, like the Commons
       plan: [
-        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, {}, 'The Bennett Lake beach'], ['front', A(1, 1), { c: 12, t: 0, two: true }, 'Matthew Watson General Store'],
-        ['house', A(-1, 1), { c: 4 }], ['front', lot2('A', -1, 2), { c: 2, t: 2, two: true, w: 4.5, sign: 4 }, 'The Caribou Hotel'], ['house', B(-1, 0), { c: 9 }],
-        ['boat', at(8.9, -1.2), { wheel: true, c: 8, t: 3 }, 'The S.S. Tutshi'], ['church', A(1, 3), { c: 8, roof: 3, small: true }, 'St. Saviour’s Church'],
-        ['commons', { x: 7.5, z: 19, r: 0, ground: true }, {}, 'Carcross Commons, its little shops and totems'], ['house', A(-1, 4), { c: 7 }], ['front', A(1, 4), { c: 6, t: 0 }],
-        ['loco', at(2.5, -4.2), {}, 'The Duchess, the little engine'], ['dunes', null, {}, 'The Carcross Desert'],
-        ['log', lot2('A', -1, 5), { w: 4.0, deck: true }, 'The carving shed'], ['house', A(1, 5), { c: 10, porch: true }], ['house', B(-1, 1), { c: 3 }], ['house', B(-1, 2), { c: 13 }],
-        ['canoes', null, {}, 'Canoes on the Nares River'], ['house', A(1, 6), { c: 1 }], ['house', A(-1, 7), { c: 9 }], ['cabin', B(-1, 3), {}], ['house', B(-1, 4), { c: 11 }],
-        ['house', A(1, 7), { c: 5 }], ['house', A(1, 8), { c: 4 }], ['house', A(-1, 8), { c: 15 }], ['house', B(-1, 5), { c: 2 }], ['cabin', B(-1, 6), { c: 1 }],
+        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, { big: true }, 'The beach on Bennett Lake'], ['front', A(1, 1), { c: 0, t: 2, two: true, sign: 2 }, 'Matthew Watson General Store'],
+        ['house', A(-1, 1), { c: 4 }], ['front', lot2('A', -1, 2), { c: 8, t: 2, two: true, w: 4.5, sign: 2, balcony: true }, 'The Caribou Hotel'],
+        ['commons', { x: -7.6, z: -3.6, r: 0, ground: true }, {}, 'Carcross Commons, its little shops round the totem'],
+        ['boat', at(9.6, -1.2), { wheel: true, c: 8, t: 3 }, 'The S.S. Tutshi'], ['church', A(1, 3), { c: 7, roof: 1, small: true }, 'St. Saviour’s, the little blue church'],
+        ['house', B(-1, 0), { c: 9 }], ['front', A(1, 4), { c: 10, t: 0 }], ['loco', at(2.5, -4.2), {}, 'The Duchess, the little engine'], ['dunes', null, {}, 'The Carcross Desert'],
+        ['log', at(-12.8, 6.4, 90), { w: 3.6, deck: true }, 'The carving shed'], ['house', A(1, 5), { c: 13, porch: true }], ['house', B(-1, 1), { c: 3 }], ['house', B(-1, 2), { c: 5 }],
+        ['canoes', null, {}, 'Canoes on the beach'], ['house', A(1, 6), { c: 1 }], ['house', A(1, 7), { c: 2 }], ['house', A(1, 8), { c: 0 }], ['house', A(-1, 8), { c: 15 }],
         ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 7 }], ['lamps', null, {}, 'Lamps along the main street']
       ] },
     { key: 'skagway', name: 'Skagway', vibe: 'The gold-rush port at the head of the Lynn Canal: Broadway’s false fronts and boardwalks, the driftwood Arctic Brotherhood Hall, the White Pass depot and cruise ships at the dock.', street: 'dirt', walks: true,
@@ -3571,7 +3572,15 @@
         break;
       }
       case 'lake': {
-        // Atlin Lake lapping at the edge of town: a pebble beach, the water, and a dock.
+        // Atlin Lake lapping at the edge of town: a pebble beach, the water, and a dock. (Bennett
+        // Lake at Carcross is bigger, behind a long, wide sandy beach.)
+        if (o.big) {
+          P(h, self.geo.cyl, M('sand'), 8.5, 0.05, 13.5, 16.2, 0.035, -1.0);
+          P(h, self.geo.cyl, M('water'), 6.6, 0.06, 12.4, 20.0, 0.07, -1.0);
+          [[-0.4, 3.4], [5.2, -6.2]].forEach(function (u, i) { var um = new T.Group(); um.position.set(11.6 + i * 0.4, 0, u[1]); h.add(um); P(um, self.geo.cyl6, M('whitewood'), 0.03, 1.2, 0.03, 0, 0.6, 0); P(um, self.geo.cone, M('flag', i * 2), 0.6, 0.25, 0.6, 0, 1.25, 0); P(um, self.geo.box, M('flag', i + 1), 0.9, 0.04, 0.4, 0.6, 0.08, 0.2); });
+          for (var dk2 = 0; dk2 < 3; dk2++) P(h, self.geo.box, wood, 3.4, 0.08, 0.6, 15.6, 0.2, 7.0 - dk2 * 0.02);
+          break;
+        }
         [[11.4, 3.2, 2.6, 3.4], [12.0, -1.0, 2.4, 3.6], [11.6, -4.4, 2.3, 2.4]].forEach(function (e) {
           P(h, self.geo.cyl, M('sand'), e[2] + 0.8, 0.05, e[3] + 0.6, e[0] - 0.4, 0.04, e[1]);
           P(h, self.geo.cyl, M('water'), e[2], 0.06, e[3], e[0] + 0.3, 0.07, e[1]);
@@ -3791,12 +3800,13 @@
       case 'shop': {
         // One of Carcross's little shops: a bright painted box under a shed roof, a big display
         // window, a formline band of black and red, a hand-painted sign and a flower box.
-        var sw = 1.35, sdp = 1.2, sh2 = 1.05, colr = [2, 9, 13, 5, 15, 7][seq % 6];
-        P(h, self.geo.box, M('tpaint', colr), sw, sh2, sdp, 0, sh2 / 2, 0);
+        var sw = 1.45, sdp = 1.25, sh2 = 1.2, body2 = [M('flag', 0), M('flag', 1), M('flag', 2), M('flag', 3), M('flag', 4), M('tpaint', 10), M('tpaint', 1)][seq % 7];
+        P(h, self.geo.box, body2, sw, sh2, sdp, 0, sh2 / 2, 0);
         var sr3 = P(h, self.geo.box, M('troof', (seq % 2) ? 5 : 1), sw + 0.3, 0.07, sdp + 0.4, 0, sh2 + 0.12, 0.05); sr3.rotation.x = -0.18;
         P(h, self.geo.box, M('wpBlack'), sw + 0.02, 0.09, 0.03, 0, sh2 - 0.12, sdp / 2 + 0.01);
         for (var fl2 = 0; fl2 < 4; fl2++) P(h, self.geo.box, M('tpaint', 2), 0.14, 0.06, 0.035, -sw / 2 + 0.22 + fl2 * 0.31, sh2 - 0.12, sdp / 2 + 0.02);
         P(h, self.geo.box, win, 0.62, 0.45, 0.04, -0.25, 0.5, sdp / 2 + 0.02); door(h, 0.4, 0, sdp / 2 + 0.02, M('ttrim', seq % 4));
+        for (var aw2 = 0; aw2 < 5; aw2++) { var st2 = P(h, self.geo.box, aw2 % 2 ? M('whitewood') : M('flag', seq + 2), sw / 5, 0.04, 0.5, -sw / 2 + (aw2 + 0.5) * sw / 5, sh2 - 0.32, sdp / 2 + 0.22); st2.rotation.x = 0.35; }
         P(h, self.geo.box, M('whitewood'), 0.7, 0.18, 0.04, 0, sh2 + 0.35, sdp / 2 + 0.2);
         P(h, self.geo.box, wood, 0.6, 0.1, 0.12, -0.25, 0.22, sdp / 2 + 0.08); [-0.45, -0.25, -0.05].forEach(function (x, i) { P(h, self.geo.ball, M('flag', seq + i), 0.07, 0.06, 0.07, x, 0.3, sdp / 2 + 0.09); });
         P(h, self.geo.box, wood, sw + 0.3, 0.06, 0.6, 0, 0.03, sdp / 2 + 0.3);
@@ -3833,33 +3843,50 @@
         break;
       }
       case 'commons': {
-        // Carcross Commons: a ring of tiny painted shops round a boardwalk square, each with its
-        // formline band and a hand-lettered sign, a carved totem in the middle and picnic tables.
-        P(h, self.geo.cyl, wood, 3.6, 0.06, 3.6, 0, 0.03, 0);
-        for (var cs2 = 0; cs2 < 6; cs2++) {
-          var ca = (cs2 / 6) * Math.PI * 1.6 + Math.PI * 0.7, sg3 = new T.Group(); sg3.position.set(Math.cos(ca) * 3.3, 0, Math.sin(ca) * 3.3); sg3.rotation.y = Math.atan2(-Math.cos(ca), -Math.sin(ca)); h.add(sg3);
-          var cw3 = 1.05 + (cs2 % 3) * 0.15, ch3 = 0.9 + (cs2 % 2) * 0.25;
-          P(sg3, self.geo.box, M('tpaint', [2, 9, 15, 13, 5, 12][cs2]), cw3, ch3, 1.0, 0, ch3 / 2, 0);
-          var rf3 = P(sg3, self.geo.box, M('troof', cs2 % 2 ? 5 : 2), cw3 + 0.2, 0.06, 1.25, 0, ch3 + 0.1, 0.05); rf3.rotation.x = -0.2;
-          P(sg3, self.geo.box, M('wpBlack'), cw3 + 0.02, 0.08, 0.03, 0, ch3 - 0.1, 0.51);
-          P(sg3, self.geo.box, M('tpaint', 2), cw3 * 0.4, 0.05, 0.035, 0, ch3 - 0.1, 0.52);
-          P(sg3, self.geo.box, win, cw3 * 0.45, 0.35, 0.04, -cw3 * 0.18, 0.45, 0.51); door(sg3, cw3 * 0.25, 0, 0.51, M('ttrim', cs2 % 4));
-          P(sg3, self.geo.box, M('whitewood'), 0.55, 0.15, 0.04, 0, ch3 + 0.3, 0.55);
+        // Carcross Commons: a horseshoe of tiny shops in loud paint, open to the main street, each
+        // with a striped awning, a formline band and a hand-lettered sign; bunting strung across,
+        // a boardwalk square, picnic tables, and a carved totem pole standing in the middle.
+        var cols3 = [M('flag', 0), M('flag', 1), M('flag', 2), M('flag', 3), M('flag', 4), M('tpaint', 10), M('tpaint', 1)];
+        P(h, self.geo.cyl, wood, 3.4, 0.06, 3.4, 0, 0.03, 0);
+        var spots3 = [];
+        for (var cs2 = 0; cs2 < 7; cs2++) {
+          var ca = (55 + cs2 * 41.7) * D2R, sx3 = Math.cos(ca) * 3.6, sz3 = Math.sin(ca) * 3.6, sg3 = new T.Group();
+          sg3.position.set(sx3, 0, sz3); sg3.rotation.y = Math.atan2(-sx3, -sz3); h.add(sg3); spots3.push(sg3.position);
+          var cw3 = 1.2 + (cs2 % 3) * 0.12, ch3 = 1.05 + (cs2 % 2) * 0.3, body = cols3[cs2];
+          P(sg3, self.geo.box, body, cw3, ch3, 1.0, 0, ch3 / 2, 0);
+          var rf3 = P(sg3, self.geo.box, M('troof', cs2 % 2 ? 5 : 2), cw3 + 0.2, 0.06, 1.25, 0, ch3 + 0.1, -0.05); rf3.rotation.x = 0.2;
+          P(sg3, self.geo.box, M('wpBlack'), cw3 + 0.02, 0.1, 0.03, 0, ch3 - 0.12, 0.51);
+          for (var fb2 = 0; fb2 < 3; fb2++) P(sg3, self.geo.box, M('flag', 0), 0.16, 0.06, 0.035, -cw3 / 2 + 0.25 + fb2 * (cw3 - 0.5) / 2, ch3 - 0.12, 0.52);
+          for (var aw = 0; aw < 5; aw++) { var stp = P(sg3, self.geo.box, aw % 2 ? M('whitewood') : cols3[(cs2 + 3) % 7], cw3 / 5, 0.04, 0.5, -cw3 / 2 + (aw + 0.5) * cw3 / 5, ch3 - 0.32, 0.72); stp.rotation.x = 0.35; }
+          P(sg3, self.geo.box, win, cw3 * 0.42, 0.4, 0.04, -cw3 * 0.2, 0.48, 0.51); door(sg3, cw3 * 0.26, 0, 0.51, M('ttrim', cs2 % 4));
+          P(sg3, self.geo.box, M('whitewood'), 0.7, 0.2, 0.04, 0, ch3 + 0.34, 0.47); P(sg3, self.geo.box, cols3[(cs2 + 2) % 7], 0.5, 0.06, 0.02, 0, ch3 + 0.34, 0.5);
+          P(sg3, self.geo.box, wood, 0.5, 0.08, 0.14, -cw3 * 0.2, 0.22, 0.58); [-0.16, 0, 0.16].forEach(function (x, k) { P(sg3, self.geo.ball, M('flag', cs2 + k), 0.07, 0.07, 0.07, -cw3 * 0.2 + x, 0.3, 0.6); });
         }
+        // Bunting from shop to shop, round the horseshoe.
+        for (var bn = 0; bn < spots3.length - 1; bn++) {
+          var p0 = spots3[bn], p1 = spots3[bn + 1];
+          for (var fl3 = 1; fl3 < 6; fl3++) { var f = fl3 / 6, pn = P(h, self.geo.cone4, M('flag', bn + fl3), 0.1, 0.16, 0.03, (p0.x + (p1.x - p0.x) * f) * 0.86, 1.62 - Math.sin(f * Math.PI) * 0.18, (p0.z + (p1.z - p0.z) * f) * 0.86); pn.rotation.z = Math.PI; pn.rotation.y = Math.atan2(p1.x - p0.x, p1.z - p0.z) + Math.PI / 2; }
+        }
+        // The totem pole in the middle, taller than the shops, with its wings spread.
         var tt = new T.Group(); h.add(tt);
-        for (var tf2 = 0; tf2 < 5; tf2++) { P(tt, self.geo.box, M('tpaint', [2, 13, 9, 14, 2][tf2]), 0.36, 0.42, 0.36, 0, 0.21 + tf2 * 0.42, 0); P(tt, self.geo.box, M('ttrim', 5), 0.26, 0.05, 0.04, 0, 0.32 + tf2 * 0.42, 0.19); }
-        [-1, 1].forEach(function (sd) { var wg2 = P(tt, self.geo.box, M('tpaint', 2), 0.5, 0.1, 0.07, sd * 0.33, 2.0, 0); wg2.rotation.z = sd * 0.35; });
-        [[-1.4, 1.2], [1.4, 1.2]].forEach(function (t) { P(h, self.geo.box, M('woodLight'), 0.9, 0.05, 0.45, t[0], 0.42, t[1]); [-1, 1].forEach(function (sd) { P(h, self.geo.box, M('woodLight'), 0.9, 0.04, 0.16, t[0], 0.24, t[1] + sd * 0.4); }); });
+        P(tt, self.geo.box, wood, 0.7, 0.12, 0.7, 0, 0.06, 0);
+        for (var tf2 = 0; tf2 < 6; tf2++) {
+          P(tt, self.geo.box, M('tpaint', [2, 13, 1, 14, 2, 13][tf2]), 0.4, 0.46, 0.4, 0, 0.35 + tf2 * 0.46, 0);
+          P(tt, self.geo.box, M('wpBlack'), 0.3, 0.06, 0.04, 0, 0.47 + tf2 * 0.46, 0.21);
+          [-1, 1].forEach(function (sd) { P(tt, self.geo.box, M('whitewood'), 0.08, 0.08, 0.04, sd * 0.1, 0.52 + tf2 * 0.46, 0.21); });
+        }
+        [-1, 1].forEach(function (sd) { var wg2 = P(tt, self.geo.box, M('tpaint', 2), 0.62, 0.12, 0.08, sd * 0.4, 2.85, 0); wg2.rotation.z = sd * 0.35; P(tt, self.geo.box, M('wpBlack'), 0.3, 0.04, 0.09, sd * 0.55, 2.95, 0).rotation.z = sd * 0.35; });
+        [[-1.3, 1.6], [-1.3, -1.6]].forEach(function (t) { P(h, self.geo.box, M('woodLight'), 0.9, 0.05, 0.45, t[0], 0.42, t[1]); [-1, 1].forEach(function (sd) { P(h, self.geo.box, M('woodLight'), 0.9, 0.04, 0.16, t[0], 0.24, t[1] + sd * 0.4); }); });
         break;
       }
       case 'dunes': {
         // The Carcross Desert: rippled sand hills out behind town, a few lodgepole pines on the edge.
-        [[-14, -9, 2.6, 0.9], [-11.6, -12.2, 1.9, 0.6], [-16.6, -6, 2.0, 0.7], [-13.2, -5.4, 1.4, 0.45], [-17, -11.2, 1.6, 0.55]].forEach(function (d) {
+        [[-16, -10, 4.6, 1.8], [-12.4, -14.6, 3.4, 1.2], [-20.4, -5.6, 3.6, 1.5], [-15.2, -3.8, 2.2, 0.8], [-20.6, -15.4, 3.4, 1.4], [-17, -19.4, 3.0, 1.0], [-23.6, -11, 2.6, 1.1]].forEach(function (d) {
           var y0 = localGround(d[0], d[1]) - 0.15;
           P(h, self.geo.ball, M('sand'), d[2], d[3], d[2] * 0.75, d[0], y0, d[1]).rotation.y = d[0];
           for (var rp = 0; rp < 3; rp++) P(h, self.geo.box, M('sand'), d[2] * (1.1 - rp * 0.25), 0.03, 0.06, d[0] + 0.2, y0 + d[3] * (0.35 + rp * 0.22), d[1] + 0.6 - rp * 0.5).rotation.y = d[0];
         });
-        [[-10.6, -6.6], [-18.2, -9.0], [-12.6, -14.0]].forEach(function (t) { var tg = new T.Group(); tg.position.set(t[0], localGround(t[0], t[1]), t[1]); h.add(tg); spruce(tg, 0, 0, 0.8); });
+        [[-10.6, -9.6], [-23.4, -2.0], [-11.2, -18.8]].forEach(function (t) { var tg = new T.Group(); tg.position.set(t[0], localGround(t[0], t[1]), t[1]); h.add(tg); spruce(tg, 0, 0, 0.8); });
         break;
       }
       case 'loco': {
