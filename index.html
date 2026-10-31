@@ -45,6 +45,8 @@ body {
   transition: background 0.8s;
 }
 #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+/* A soft warm vignette round the edges of the view. */
+#vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 58%, rgba(90,50,20,0.16) 85%, rgba(60,30,10,0.28) 100%); }
 #scene:active { cursor: grabbing; }
 .hud {
   position: fixed; inset: 0; pointer-events: none; z-index: 2;
@@ -244,6 +246,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 </style>
 
 <canvas id="scene" aria-label="Your town, built from your workouts. Walk around as the raccoon with WASD or the arrow keys (Shift runs, E looks, M for the map), or drag to look around and scroll or pinch to zoom."></canvas>
+<div id="vignette" aria-hidden="true"></div>
 
 <div class="hud">
   <section class="card title" id="title-card">
@@ -455,8 +458,8 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
   function phaseNow() {
     var n = whitehorseNow(), t = sunTimes(n.doy), h = n.h;
     if (h >= t.rise - 0.75 && h < t.rise + 0.25) return 'dawn';
-    if (h >= t.rise + 0.25 && h < t.set - 1) return 'day';
-    if (h >= t.set - 1 && h < t.set) return 'golden';
+    if (h >= t.rise + 0.25 && h < t.set - 2) return 'day';
+    if (h >= t.set - 2 && h < t.set) return 'golden'; // a long, lingering golden hour
     if (h >= t.set && h < t.set + 0.75) return 'dusk';
     return 'night';
   }

@@ -14,7 +14,7 @@
       window: '#5b7fa8', windowGlow: '#000000', glasshouse: '#d4ece8', flag: ['#d8483a', '#f2c230', '#3f73b5', '#4f9e3a', '#e8823a'],
       court: '#d9824a', ice: '#e3f1f7', pitch: '#62ad48', line: '#ffffff', rock: '#9f9585', snow: '#f8fbfd', gold: '#e8b934',
       crop: ['#f08a2a', '#f4f0e0', '#c43a6a', '#e8d03a'], balloon: ['#d8483a', '#f2c230', '#3f73b5', '#8a5cb0', '#4f9e3a', '#e8823a'],
-      roofTavern: '#5b4636', skigrass: '#7cba52', skirun: '#a8d877', birch: '#efebe2', birchleaf: '#a9d35a', redwood: '#a3472e', skisnow: '#f4f8fb', groomed: '#ffffff', run: ['#3f9a3a', '#2f6fc0', '#2a2a2a'], pine: ['#2f7a46', '#3b8a50'], hedge: '#3d7a33', hemiSky: '#fff4dc', hemiGround: '#8fa86a', sun: '#fff1d0', sunI: 0.72, hemiI: 0.7
+      roofTavern: '#5b4636', skigrass: '#7cba52', skirun: '#a8d877', birch: '#efebe2', birchleaf: '#a9d35a', redwood: '#a3472e', skisnow: '#f4f8fb', groomed: '#ffffff', run: ['#3f9a3a', '#2f6fc0', '#2a2a2a'], pine: ['#2f7a46', '#3b8a50'], hedge: '#3d7a33', hemiSky: '#ffedd2', hemiGround: '#9caa6a', sun: '#ffe6c0', sunI: 0.74, hemiI: 0.72
     },
     dusk: {
       grass: '#3f6e3a', grassDeep: '#355f33', dirt: '#5e4130', soil: '#4a3426', stone: ['#b0aca4', '#a29e95', '#959087'],
@@ -1214,7 +1214,7 @@
     else {
       this.renderer = new T.WebGLRenderer({ canvas: canvas, antialias: false, alpha: true, powerPreference: this.lite ? 'low-power' : 'default', failIfMajorPerformanceCaveat: false });
       this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = T.BasicShadowMap; // crisp, pixel-friendly shadows
+      this.renderer.shadowMap.type = this.lite ? T.BasicShadowMap : T.PCFSoftShadowMap; // soft-edged shadows (crisp ones on light devices)
     }
     this.applyPixelRatio();
     this.scene = new T.Scene();
@@ -1377,6 +1377,7 @@
     if (this.scene && this.scene.fog) this.scene.fog.color.set(haze);
     if (this.flowers) this.flowers.visible = this.season !== 'winter';
     this.sunBase = this.sun.position.clone();
+    this.winState = null;
     if (this.st && this.st.hike) this.updateSnow();
   };
   Town.prototype.setTheme = function (dark) { this.dark = dark; this.phase = dark ? 'dusk' : 'day'; this.applyPalette(); };
@@ -1384,7 +1385,54 @@
   // lighthouse come on for dawn, dusk and night.
   Town.prototype.setTimeOfDay = function (phase) {
     if (phase === this.phase && this.dark === (phase !== 'day' && phase !== 'golden')) return;
+    var wasDark = this.dark;
     this.phase = phase; this.dark = phase !== 'day' && phase !== 'golden'; this.applyPalette();
+    if (this.dark && !wasDark) this.litAt = performance.now();
+    this.winState = null;
+  };
+  // Evening: the windows light up a set at a time, a second or so apart. Late at night some go dark
+  // as their mice go to bed, and a few flicker like candles.
+  Town.prototype.stepWindows = function (now) {
+    var lit = this.dark, ph = this.phase, since = now - (this.litAt || 0), state = '';
+    for (var i = 0; i < 5; i++) {
+      var on = lit && (this.reduced || since > i * 1300) && !(ph === 'night' && i === 4), m = this.mats['window' + i];
+      state += on ? 1 : 0;
+      if (!m) continue;
+      if (on && i === 3 && !this.reduced) { m.emissive.set(this.palette.windowGlow).multiplyScalar(0.85 + 0.15 * Math.sin(now / 160) * Math.sin(now / 410)); this.needsRender = true; }
+    }
+    if (state === this.winState) return;
+    this.winState = state;
+    for (i = 0; i < 5; i++) {
+      m = this.mats['window' + i]; if (!m) continue;
+      if (state[i] === '1') { m.color.set(this.palette.window); m.emissive.set(this.palette.windowGlow); }
+      else { m.color.set(lit ? '#3a4560' : this.palette.window); m.emissive.set('#000000'); }
+    }
+    this.needsRender = true;
+  };
+  // Mouse shadows passing behind lit windows at night, a few at a time.
+  Town.prototype.stepSilhouettes = function (now) {
+    var spots = this.st.winSpots, S = this.silh || (this.silh = []), self = this;
+    if (!spots || !spots.length || !this.dark || this.reduced) { S.forEach(function (o) { if (o.g.parent) o.g.parent.remove(o.g); }); S.length = 0; return; }
+    while (S.length < Math.min(6, spots.length)) {
+      var sp = spots[Math.floor(Math.random() * spots.length)], g = new T.Group(), dk = this.mat('wpBlack');
+      [[0.06, 0.09, 0], [0.05, 0.05, 0.075]].forEach(function (b) { var mm = new T.Mesh(self.geo.ball, dk); mm.scale.set(b[0], b[1], 0.01); mm.position.y = b[2]; g.add(mm); });
+      [-0.03, 0.03].forEach(function (x) { var e = new T.Mesh(self.geo.ball, dk); e.scale.set(0.022, 0.022, 0.01); e.position.set(x, 0.12, 0); g.add(e); });
+      g.position.set(sp.x - 0.12, sp.y - 0.04, sp.z - 0.015); sp.par.add(g);
+      S.push({ g: g, sp: sp, t0: now + Math.random() * 6000, dur: 2600 + Math.random() * 1800 });
+    }
+    for (var i = S.length - 1; i >= 0; i--) {
+      var o = S[i], u = (now - o.t0) / o.dur;
+      o.g.visible = u > 0 && u < 1;
+      if (u > 0 && u < 1) { o.g.position.x = o.sp.x - 0.12 + 0.24 * u; o.g.position.y = o.sp.y - 0.04 + Math.abs(Math.sin(u * 14)) * 0.008; this.needsRender = true; }
+      if (u >= 1) { if (o.g.parent) o.g.parent.remove(o.g); S.splice(i, 1); }
+    }
+  };
+  // Washing on the lines, flapping in the breeze.
+  Town.prototype.stepLaundry = function (now) {
+    var L = this.st.laundry;
+    if (!L || !L.length || this.reduced) return;
+    for (var i = 0; i < L.length; i++) L[i].rotation.x = 0.15 + Math.sin(now / 520 + i * 1.7) * 0.18;
+    this.needsRender = true;
   };
   Town.prototype.setSeason = function (season) {
     if (!SEASONS[season] || season === this.season) return;
@@ -1416,6 +1464,8 @@
     return m;
   };
   Town.prototype.part = function (parent, geo, mat, sx, sy, sz, x, y, z, pick) {
+    // Windows come in five sets that light up one after another as evening comes on.
+    if (mat === this.mats.window) mat = this.mat('window', this.winSeq = ((this.winSeq || 0) + 1) % 5);
     var m = this.mesh(geo, mat, parent);
     m.scale.set(sx, sy, sz); m.position.set(x, y, z);
     if (pick) { m.userData.pick = pick; this.picks.push(m); }
@@ -2216,6 +2266,87 @@
     var p = laneAt(lane, laneHub(key).r + d + (h - 0.5) * 0.4), back = LOT_BACK + h * 0.15;
     return { x: p.x + p.vx * back * sd, z: p.z + p.vz * back * sd, r: Math.atan2(-p.vx * sd, -p.vz * sd) / D2R + turn, ground: true };
   }
+  // Letters from the townsfolk: now and then after a workout one of them writes to say they saw you
+  // (and sometimes tucks in a little present). Read ones are remembered in this browser.
+  var MAIL_FROM = ['Mrs. Whiskers', 'Old Tom', 'Mabel', 'Bramble', 'Clementine', 'Bartholomew', 'Primrose', 'Fennimore', 'Mr. Pemberton', 'Professor Quill', 'Madame Zelda', 'Captain Barnacle', 'Mayor Fitzwilliam'];
+  var MAIL_GIFTS = ['a smooth river stone', 'a jar of cloudberry jam', 'a knitted toque', 'a shiny brass button', 'a pinecone tied with a ribbon', 'a tiny gold nugget', 'a pressed fireweed flower', 'a tin of sourdough cookies', 'a hand-drawn map of the creek', 'a spare mitten (just the left one)', 'a wild blueberry muffin', 'a lucky horseshoe nail'];
+  var MAIL_NOTES = {
+    run: ['Saw you running past the bakery! Faster than my kettle boils.', 'You ran by while I was hanging the washing. The sheets flapped like flags for you.', 'My grandson timed you along the river. He says you are a rocket.'],
+    runWith: ['Saw you and {f} trotting along the river, chatting the whole way. Lovely to see.', 'You and {f} ran past my window today. You were laughing so much I laughed too.'],
+    lift: ['The whole street heard you lifting today. My teacups rattled, in the nicest way.', 'Strong as a moose, my husband says. He means it kindly.', 'Saw the tower grow another stone today. That was you, wasn\u2019t it?'],
+    bike: ['You whizzed past on your bike and I waved with a scone. Did you see?', 'Mind the potholes on the way to town, dear. And thank you for the wave.'],
+    walk: ['Lovely evening for a stroll, wasn\u2019t it? The fireweed is out along the path.', 'Saw you out for a walk. It is the best way to see the town, I always say.'],
+    swim: ['The otters gossip about your swimming. All good things, I promise.'],
+    hike: ['You were up the mountain today! Could you see my chimney from up there?'],
+    bible: ['I heard the church bells and thought of you reading. Which chapter today?', 'The church looks a little taller every week. Keep reading, dear.'],
+    book: ['Finished another book? Lend it to me after, I will be ever so careful with it.'],
+    sport: ['Heard about the game! I cheered from behind the hedge.'],
+    any: ['Just a note to say the town looks lovelier every day. Thank you.', 'Saw you out and about today. You always make the street feel busier, in a good way.', 'Stop by for tea sometime. I have a new tin of biscuits.']
+  };
+  Town.prototype.mailFrom = function (ev) {
+    var M = this.st.mail || (this.st.mail = { letters: [], gifts: 0, total: 0, seen: 0 });
+    M.seen++;
+    if (M.seen % 3 !== 1) return; // about one workout in three
+    var k = M.total++, f = (ev.friends || [])[0], kind = ev.kind === 'commute' || ev.kind === 'mtb' ? 'bike' : ev.kind === 'row' ? 'swim' : ev.kind;
+    var list = kind === 'run' && f ? MAIL_NOTES.runWith : MAIL_NOTES[kind] || MAIL_NOTES.any;
+    var text = list[k % list.length].replace('{f}', f || 'a friend'), gift = k % 4 === 2 ? MAIL_GIFTS[(k * 5) % MAIL_GIFTS.length] : null;
+    if (gift) M.gifts++;
+    M.letters.push({ from: MAIL_FROM[(k * 7 + 3) % MAIL_FROM.length], day: ev.day || ev.date || '', text: text, gift: gift });
+    if (M.letters.length > 60) M.letters.shift();
+  };
+  Town.prototype.mailRead = function () { try { return +localStorage.getItem('fittertown:mailRead') || 0; } catch (e) { return 0; } };
+  Town.prototype.updateMailFlag = function () {
+    var M = this.st.mail, unread = M ? Math.max(0, M.total - this.mailRead()) : 0;
+    if (this.mailFlag) { this.mailFlag.rotation.z = unread ? 0 : -Math.PI / 2; this.needsRender = true; }
+    return unread;
+  };
+  // Your letterbox, at a corner of the town square, where the townsfolk leave you notes and little
+  // presents: a red box on a post, with a flag that goes up when there's something new.
+  Town.prototype.buildLetterbox = function () {
+    var self = this, Q = TOWN_SQ, spot = null;
+    [[-1, 1], [1, 1], [-1, -1], [1, -1]].some(function (c) { var p = { x: Q.x + c[0] * (Q.hx + 0.9), z: Q.z + c[1] * (Q.hz + 0.9) }; if (!nearPath(p.x, p.z, 0.9)) { spot = p; return true; } return false; });
+    spot = spot || { x: Q.x - Q.hx - 0.9, z: Q.z + Q.hz + 0.9 };
+    var mb = new T.Group(); mb.position.set(spot.x, groundY(spot.x, spot.z), spot.z); mb.rotation.y = facingSquare(spot); this.world.add(mb);
+    function MB(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, 'mailbox'); }
+    MB(mb, this.geo.cyl6, this.mat('wood'), 0.05, 0.8, 0.05, 0, 0.4, 0);
+    MB(mb, this.geo.box, this.mat('roofJo'), 0.22, 0.17, 0.32, 0, 0.88, 0);
+    MB(mb, this.geo.cyl, this.mat('roofJo'), 0.11, 0.32, 0.11, 0, 0.96, 0).rotation.x = Math.PI / 2;
+    MB(mb, this.geo.box, this.mat('stoneDark'), 0.18, 0.13, 0.02, 0, 0.9, 0.165);
+    var flagPivot = new T.Group(); flagPivot.position.set(0.13, 0.85, -0.08); mb.add(flagPivot);
+    MB(flagPivot, this.geo.box, this.mat('flag', 0), 0.02, 0.22, 0.02, 0, 0.11, 0);
+    MB(flagPivot, this.geo.box, this.mat('flag', 0), 0.02, 0.08, 0.09, 0, 0.19, 0.045);
+    this.mailFlag = flagPivot;
+    this.updateMailFlag();
+  };
+  // Tufts of grass and wildflowers along the edges of Whitehorse's lanes (instanced).
+  Town.prototype.buildTufts = function () {
+    var r = rng(4848), tufts = [], flowers = [[], [], []], self = this;
+    Object.keys(LANES).forEach(function (k) {
+      var L = LANES[k];
+      for (var d = L.hub.r + 0.8; d < L.len; d += 0.9) {
+        var p = laneAt(k, d);
+        [-1, 1].forEach(function (sd) {
+          if (r() < 0.45) return;
+          var o = 1.45 + r() * 0.6, x = p.x + p.vx * o * sd + (r() - 0.5) * 0.3, z = p.z + p.vz * o * sd + (r() - 0.5) * 0.3;
+          if (riverDist(x, z) < RIVER_HALF + 0.8) return;
+          if (r() < 0.25) flowers[Math.floor(r() * 3)].push({ x: x, z: z, y: groundY(x, z), s: 0.8 + r() * 0.5 });
+          else tufts.push({ x: x, z: z, y: groundY(x, z), s: 0.7 + r() * 0.6, a: r() * 6 });
+        });
+      }
+    });
+    var m4 = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler();
+    if (tufts.length) {
+      var im = new T.InstancedMesh(this.geo.cone4, this.mat('leaf', 1), tufts.length);
+      tufts.forEach(function (t, i) { q.setFromEuler(e.set(0, t.a, 0)); im.setMatrixAt(i, m4.compose(new T.Vector3(t.x, t.y + 0.07 * t.s, t.z), q, new T.Vector3(0.09 * t.s, 0.16 * t.s, 0.09 * t.s))); });
+      this.base.add(im);
+    }
+    flowers.forEach(function (list, ci) {
+      if (!list.length) return;
+      var fm = new T.InstancedMesh(self.geo.ball, self.mat('flag', [0, 1, 4][ci]), list.length);
+      list.forEach(function (f, i) { fm.setMatrixAt(i, m4.compose(new T.Vector3(f.x, f.y + 0.07, f.z), q.identity(), new T.Vector3(0.05 * f.s, 0.05 * f.s, 0.05 * f.s))); });
+      self.base.add(fm);
+    });
+  };
   // Boreal woods over the far country, out past the old edge of the map along the highways to
   // the towns up the line: clumps of spruce, thinning out into muskeg (instanced, one cone each).
   Town.prototype.buildBoreal = function () {
@@ -2406,6 +2537,8 @@
     }
     this.townSigns();
     this.buildBoreal();
+    this.buildTufts();
+    this.buildLetterbox();
     return C;
   };
   // The plaza is built up as you lift: cobbles, the fountain, benches round it, lamps, tubs of
@@ -3287,6 +3420,36 @@
     function windows(par, n, w, y, z, size) { for (var i = 0; i < n; i++) P(par, self.geo.box, win, size || 0.32, (size || 0.32) * 1.25, 0.04, -w / 2 + (i + 0.5) * w / n, y, z); }
     function lantern(par, x, y, z) { P(par, self.geo.cyl6, dark, 0.04, y, 0.04, x, y / 2, z); P(par, self.geo.box, M('lantern'), 0.16, 0.2, 0.16, x, y + 0.08, z); }
     function spruce(par, x, z, s) { s = s || 1; P(par, self.geo.cyl6, M('trunk'), 0.1 * s, 0.6 * s, 0.1 * s, x, 0.3 * s, z); [[0.7, 0.9, 0.75], [0.55, 0.85, 1.25], [0.38, 0.8, 1.7]].forEach(function (c) { P(par, self.geo.cone6, M('pine'), c[0] * s, c[1] * s, c[0] * s, x, c[2] * s, z); }); }
+    // Life round a home (w wide, d deep, front at +z; its front window at wx, wy, wz): a round bush
+    // by the door, flowers and grass tufts along the front, a cat on the windowsill or a candle,
+    // a washing line out the side, a woodpile against the wall. Some windows get mouse shadows at night.
+    function homeLife(w, d, wx, wy, wz, shop) {
+      var v = seq * 7 + (C.ci || 0) * 3;
+      if (v % 3 === 1) P(h, self.geo.blob, M('hedge'), 0.3, 0.26, 0.28, w / 2 + 0.05, 0.16, d / 2 + 0.2);
+      if (v % 2 === 0) for (var fk = 0; fk < 3; fk++) { P(h, self.geo.ball, M('flag', v + fk), 0.05, 0.05, 0.05, -w / 2 + 0.2 + fk * 0.18, 0.07, d / 2 + 0.16); P(h, self.geo.cone4, M('leaf', fk), 0.07, 0.15, 0.07, -w / 2 + 0.29 + fk * 0.18, 0.06, d / 2 + 0.22); }
+      if (v % 5 === 2) {
+        var cg = new T.Group(); cg.position.set(wx + 0.07, wy - 0.2, wz + 0.05); h.add(cg); var fur = v % 2 ? M('fox', 0) : M('stoneDark');
+        P(cg, self.geo.ball, fur, 0.07, 0.06, 0.05, 0, 0.06, 0); P(cg, self.geo.ball, fur, 0.045, 0.042, 0.04, 0.01, 0.13, 0.01);
+        [-0.025, 0.035].forEach(function (x) { P(cg, self.geo.cone4, fur, 0.016, 0.03, 0.012, x, 0.175, 0.01); });
+        P(cg, self.geo.box, fur, 0.015, 0.11, 0.015, -0.06, 0.0, 0.02).rotation.z = 0.3;
+      } else if (v % 4 === 1) {
+        P(h, self.geo.cyl6, M('whitewood'), 0.018, 0.07, 0.018, wx + 0.1, wy - 0.16, wz + 0.04); P(h, self.geo.ball, M('lantern'), 0.016, 0.022, 0.016, wx + 0.1, wy - 0.11, wz + 0.04);
+      }
+      if (v % 3 === 0 && !shop) (self.st.winSpots = self.st.winSpots || []).push({ par: h, x: wx, y: wy, z: wz });
+      if (shop) return;
+      if (v % 4 === 0) {
+        var lx = w / 2 + 0.55, ld = d - 0.2;
+        [-ld / 2, ld / 2].forEach(function (z) { P(h, self.geo.cyl6, wood, 0.025, 0.78, 0.025, lx, 0.39, z); });
+        P(h, self.geo.box, M('whitewood'), 0.01, 0.01, ld, lx, 0.76, 0);
+        for (var cl = 0; cl < 4; cl++) {
+          var cp = new T.Group(); cp.position.set(lx, 0.76, -ld / 2 + (cl + 0.6) * ld / 4.4); h.add(cp);
+          P(cp, self.geo.box, cl % 3 === 2 ? M('whitewood') : M('flag', v + cl), 0.02, 0.2 + (cl % 2) * 0.06, 0.18, 0, -0.11 - (cl % 2) * 0.03, 0);
+          (self.st.laundry = self.st.laundry || []).push(cp);
+        }
+      } else if (v % 3 === 2) {
+        for (var wr = 0; wr < 2; wr++) for (var wc = 0; wc < 3 - wr; wc++) P(h, self.geo.cyl6, M('trunk'), 0.06, 0.5, 0.06, -w / 2 - 0.12 - wc * 0.12 - wr * 0.06, 0.06 + wr * 0.11, -0.15).rotation.x = Math.PI / 2;
+      }
+    }
     switch (kind) {
       case 'dam': {
         // The Whitehorse Rapids dam: a grey concrete wall with its spillway gates, water pouring down
@@ -3369,7 +3532,7 @@
         // Atlin: a picket fence round the front yard.
         if (o.fence) {
           var fz2 = hd / 2 + (o.porch ? 1.05 : 0.8), fw2 = hw + 0.7;
-          for (var pk = 0; pk <= 10; pk++) { if (pk === 5) continue; P(h, self.geo.box, M('whitewood'), 0.05, 0.32, 0.03, -fw2 / 2 + pk * fw2 / 10, 0.16, fz2); }
+          for (var pk = 0; pk <= 10; pk++) { if (pk === 5) continue; P(h, self.geo.box, M('whitewood'), 0.05, 0.32, 0.03, -fw2 / 2 + pk * fw2 / 10, 0.16, fz2).rotation.z = ((pk * 13 + seq) % 5 - 2) * 0.07; }
           [0.12, 0.26].forEach(function (y) { P(h, self.geo.box, M('whitewood'), fw2, 0.03, 0.02, 0, y, fz2 - 0.02); });
           P(h, self.geo.ball, M('flag', seq), 0.12, 0.1, 0.12, -fw2 / 2 + 0.3, 0.1, fz2 - 0.25); P(h, self.geo.ball, M('flag', seq + 2), 0.12, 0.1, 0.12, fw2 / 2 - 0.3, 0.1, fz2 - 0.25);
         }
@@ -3386,6 +3549,7 @@
         }
         // Dawson: the permafrost under it has heaved, and it leans.
         if (o.lean) { h.rotation.z = ((seq * 37) % 7 - 3) * 0.028; h.rotation.x = ((seq * 13) % 5 - 2) * 0.02; }
+        homeLife(hw, hd, -hw * 0.22, 0.6, hd / 2 + 0.02);
         chimney(h, hw * 0.28, ht + 0.45, -0.2);
         if (seq % 3 === 0) spruce(h, -hw / 2 - 0.1, -1.25, 0.6 + (seq % 4) * 0.06);
         break;
@@ -3548,6 +3712,9 @@
         door(h, 0.25, 0, cd / 2 + 0.04);
         P(h, self.geo.box, win, 0.3, 0.3, 0.04, -0.35, 0.5, cd / 2 + 0.05);
         if (o.antlers) [-1, 1].forEach(function (sd) { var an = P(h, self.geo.box, M('whitewood'), 0.3, 0.04, 0.04, sd * 0.16, 1.05, cd / 2 + 0.06); an.rotation.z = sd * 0.5; P(h, self.geo.box, M('whitewood'), 0.04, 0.16, 0.04, sd * 0.3, 1.18, cd / 2 + 0.06); });
+        // Old cabins grow moss on their roofs.
+        if (seq % 2) [[-0.35, 0.25], [0.3, -0.2], [0.05, 0.4]].forEach(function (mp) { P(h, self.geo.blob, M('hedge'), 0.32, 0.07, 0.26, mp[0], chh + 0.24 + (0.45 - Math.abs(mp[1])) * 0.25, mp[1]).rotation.x = mp[1] > 0 ? -0.6 : 0.6; });
+        homeLife(cw, cd, -0.35, 0.5, cd / 2 + 0.05);
         pipe(h, -0.4, chh + 0.55, -0.2);
         if (seq % 2) spruce(h, cw / 2 + 0.2, -1.1, 0.6);
         break;
@@ -3994,6 +4161,7 @@
         P(h, self.geo.box, M('whitewood'), 0.7, 0.18, 0.04, 0, sh2 + 0.35, sdp / 2 + 0.2);
         P(h, self.geo.box, wood, 0.6, 0.1, 0.12, -0.25, 0.22, sdp / 2 + 0.08); [-0.45, -0.25, -0.05].forEach(function (x, i) { P(h, self.geo.ball, M('flag', seq + i), 0.07, 0.06, 0.07, x, 0.3, sdp / 2 + 0.09); });
         P(h, self.geo.box, wood, sw + 0.3, 0.06, 0.6, 0, 0.03, sdp / 2 + 0.3);
+        homeLife(sw, sdp, -0.25, 0.5, sdp / 2 + 0.02, true);
         break;
       }
       case 'loghome': {
@@ -4007,6 +4175,7 @@
         P(h, self.geo.box, wood, lw2 + 0.2, 0.08, 0.6, 0, 0.04, ld2 / 2 + 0.3);
         var wp2 = new T.Group(); wp2.position.set(lw2 / 2 + 0.45, 0, -0.3); h.add(wp2);
         for (var ws2 = 0; ws2 < 3; ws2++) P(wp2, self.geo.cyl6, M('trunk'), 0.1, 0.5, 0.1, 0, 0.1 + ws2 * 0.18, (ws2 % 2) * 0.05).rotation.z = Math.PI / 2;
+        homeLife(lw2, ld2, -0.45, 0.75, ld2 / 2 + 0.05);
         pipe(h, -lw2 * 0.3, lh2 + 0.8, -0.2);
         if (seq % 2) spruce(h, -lw2 / 2 - 0.5, -0.9, 0.7);
         break;
@@ -8549,6 +8718,7 @@
     if (!this.reduced) { this.stepSwim(now); this.stepMtb(now); }
     this.stepTrain(dt, now);
     this.stepFerries(now);
+    this.stepWindows(now); this.stepSilhouettes(now); this.stepLaundry(now);
     if (night || this.st.rail || this.st.ferries) this.needsRender = true;
   };
   // Smoke drifting up from chimneys at night (and always from the train).
@@ -13135,6 +13305,7 @@
     if (ev.date && (!s.lastDate || ev.date > s.lastDate)) s.lastDate = ev.date;
     // A diary of real days, so the townsfolk know what you've been up to.
     if (ev.date && !ev.projected && !ev.planned) {
+      if (!/^(book|movie)$/.test(ev.kind)) { this.mailFrom(ev); if (!this.instant) this.updateMailFlag(); }
       var bd = s.byDay || (s.byDay = {});
       (bd[ev.date] = bd[ev.date] || []).push(ev);
       if (ev.kind === 'book' && (!s.lastBookDate || ev.date >= s.lastBookDate)) { s.lastBookDate = ev.date; s.lastBook = ev; }
@@ -13252,6 +13423,7 @@
     this.instant = true;
     for (var i = 0; i < upto; i++) this.add(events[i], 0);
     this.instant = false;
+    this.updateMailFlag();
     this.rebuildWalls();
     this.wallsDirty = false;
     this.rebatch();
@@ -13367,6 +13539,13 @@
       case 'hatstall': {
         var HS = this.keep(), hn = HATS.filter(function (h) { return HS.hats.indexOf(h[0]) < 0; })[0];
         return { title: 'The weasel\u2019s hat stall', lines: ['Hats for coins: ' + HATS.map(function (h) { return h[0] + ' ' + h[2]; }).join(' \u00b7 ') + '.', 'You have ' + HS.coins + ' coin' + (HS.coins === 1 ? '' : 's') + (hn ? '; next up: ' + hn[1] + '.' : '; you own every hat.'), 'Press E to buy the next hat, or to swap between the ones you own. Run errands for the mice to earn coins.'] };
+      }
+      case 'mailbox': {
+        var MM = s.mail || { letters: [], gifts: 0, total: 0 }, unread = Math.max(0, MM.total - this.mailRead());
+        try { localStorage.setItem('fittertown:mailRead', String(MM.total)); } catch (e) {}
+        this.updateMailFlag();
+        var recent = MM.letters.slice(-5).reverse().map(function (l) { return '\u2709 ' + l.from + (l.day ? ', ' + l.day : '') + ': \u201c' + l.text + '\u201d' + (l.gift ? ' P.S. I left you ' + l.gift + '.' : ''); });
+        return { title: 'Your letterbox', lines: [MM.total ? (unread ? plural(unread, 'new letter') + '! ' : '') + plural(MM.total, 'letter') + ' from the townsfolk so far, and ' + plural(MM.gifts, 'little present') + '.' : 'Empty for now. The townsfolk write when they see you out and about.'].concat(recent) };
       }
       case 'den': {
         var DS = this.keep(), dk = Object.keys(DS.den).sort(function (a, b) { return DS.den[b] - DS.den[a]; }), dt0 = dk.reduce(function (a, k) { return a + DS.den[k]; }, 0);
