@@ -355,7 +355,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v139';
+  var BUILD = 'v140';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -1243,7 +1243,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
     if (on) {
       var end = new Date(Date.now() + years * 365.25 * 86400000).toLocaleDateString('en-CA', { month: 'long', year: 'numeric' });
       setNotice('<b>' + (years === 5 ? 'Five' : 'Two') + ' years ahead.</b> ' + proj.length + ' more workouts at your current pace (plus rowing, swims, summer mountain biking, and winter snowboarding, Nordic skiing and hockey), out to ' + end + '. Press Back to today to return.');
-      if (reduced) showUpTo(events.length);
+      if (reduced || years === 5) { stop(); showUpTo(events.length); } // five years: straight there
       else { showUpTo(baseEvents.length); playFrom(baseEvents.length, Math.max(12, Math.round(16000 / Math.max(1, proj.length)))); }
     } else {
       setNotice('');
