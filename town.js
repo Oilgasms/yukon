@@ -303,9 +303,14 @@
     }
     return RIVER_LEVELS[i];
   }
-  // The towns up the line start here once the castle's towers can't grow any taller: Dawson City by
-  // the river, Atlin by the lake, Haines Junction behind the ranges, Skagway on the coast, then Haines.
-  var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(45, 116), { lift: 1.2 }), Object.assign(polar(242, 122), { lift: 0.8 }), Object.assign(polar(122, 118), { lift: 1.5 }), Object.assign(polar(298, 122), { lift: 0.4 }), Object.assign(polar(322, 116), { lift: 1.9 })];
+  // The towns up the line start here once the castle's towers can't grow any taller, built in the
+  // order the roads reach them: Carcross first, on Bennett Lake, and on from there to Skagway on the
+  // coast and Atlin by its lake; north to Dawson City; west to Haines Junction behind the ranges and
+  // south from there to Haines; and last, far off down the Alaska Highway from Carcross, Watson Lake.
+  var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(265, 110), { lift: 0.6 }), Object.assign(polar(298, 122), { lift: 0.4 }), Object.assign(polar(242, 122), { lift: 0.8 }),
+    Object.assign(polar(118, 118), { lift: 1.5 }), Object.assign(polar(0, 112), { lift: 1.2 }), Object.assign(polar(322, 116), { lift: 1.9 }), Object.assign(polar(195, 250), { lift: 0.6 })];
+  var TOWN_FROM = [null, 0, 1, 1, 0, 0, 5, 1]; // where each town's road comes from (0 is Whitehorse)
+  var CARCROSS = 1, SKAGWAY = 2, HAINES = 6, WORLD_R = 282, RAIL_BOW = 6; // the map reaches out past Watson Lake
   // Mountains round the coast towns, in each town's own frame (+z toward Whitehorse, x across):
   // Skagway sits in a narrow valley between steep green walls, wooded to the top, and Haines on a
   // terrace under Mount Ripinski, with hills behind and snowy peaks across the inlet. They're part
@@ -314,11 +319,18 @@
     var s = CASTLE_SITES[ci], l = Math.hypot(s.x, s.z), rot = Math.atan2(-s.x / l, -s.z / l), c = Math.cos(rot), sn = Math.sin(rot);
     return { x: s.x + lx * c + lz * sn, z: s.z - lx * sn + lz * c };
   }
+  // The White Pass & Yukon Route: from the station beside the road into Carcross, over the pass to
+  // a platform at the top of Skagway (bowing out to keep clear of the road between the two).
+  var RAIL_PATH = (function () {
+    var a = siteAt(CARCROSS, -7, 23), b = siteAt(SKAGWAY, 10, 23), dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz), nx = dz / l, nz = -dx / l;
+    return bezierPath(a, { x: a.x + dx * 0.3 + nx * RAIL_BOW, z: a.z + dz * 0.3 + nz * RAIL_BOW }, { x: a.x + dx * 0.7 + nx * RAIL_BOW, z: a.z + dz * 0.7 + nz * RAIL_BOW }, b);
+  })();
+  function nearRail(x, z, d) { for (var i = 0; i < RAIL_PATH.length; i += 2) if (Math.hypot(RAIL_PATH[i].x - x, RAIL_PATH[i].z - z) < d) return true; return false; }
   var TOWN_PEAKS = [
-    [4, 23, -5, 8, 11, 1], [4, 26, 6, 9.5, 15, 1], [4, 23, 18, 7.5, 10, 1], [4, 30, 15, 7, 12, 1],
-    [4, -22, -6, 7.5, 11, 1], [4, -25, 5, 9, 14, 1], [4, -22, 17, 7, 10, 1],
-    [5, 23, 13, 10.5, 20, 0.36, 0.62], [5, 26, 0, 7, 9, 0.8], [5, 20, 26, 7, 8, 1], [5, 4, 31, 7, 6, 1],
-    [5, -34, -10, 7, 16, 0.3, 0.56], [5, -41, -1, 7, 15, 0.3, 0.55]
+    [2, 23, -5, 8, 11, 1], [2, 26, 6, 9.5, 15, 1], [2, 23, 18, 7.5, 10, 1], [2, 30, 15, 7, 12, 1],
+    [2, -22, -6, 7.5, 11, 1], [2, -25, 5, 9, 14, 1], [2, -22, 17, 7, 10, 1],
+    [6, 23, 13, 10.5, 20, 0.36, 0.62], [6, 26, 0, 7, 9, 0.8], [6, 20, 26, 7, 8, 1], [6, 4, 31, 7, 6, 1],
+    [6, -34, -10, 7, 16, 0.3, 0.56], [6, -41, -1, 7, 15, 0.3, 0.55]
   ].map(function (p, i) { var q = siteAt(p[0], p[1], p[2]); return { ci: p[0], x: q.x, z: q.z, R: p[3], H: p[4], rock: p[5], snow: p[6] || 2, ph: i * 1.7 }; });
   var TP_BOX = TOWN_PEAKS.reduce(function (b, k) { return [Math.min(b[0], k.x - k.R), Math.max(b[1], k.x + k.R), Math.min(b[2], k.z - k.R), Math.max(b[3], k.z + k.R)]; }, [1e9, -1e9, 1e9, -1e9]);
   // How high the town mountains lift the ground here, and which peak is on top.
@@ -888,6 +900,13 @@
     Object.keys(AIRPORT_LOTS).forEach(function (k) { c(AIRPORT_LOTS[k], AIRPORT_LOTS[k].rad + 0.8); });
     return o;
   })();
+  // The Haines Road's bridge, high over Miles Canyon a little below the dam.
+  var HWY_BRIDGE = (function () {
+    var bi = 1, bd = 1e9;
+    RIVER.forEach(function (p, i) { var d = Math.hypot(p.x - 76, p.z - 46.4); if (d < bd && i > 0 && i < RIVER.length - 1) { bd = d; bi = i; } });
+    var p = RIVER[bi], q = RIVER[bi + 1], dx = q.x - p.x, dz = q.z - p.z, l = Math.hypot(dx, dz), nx = -dz / l, nz = dx / l, half = RIVER_HALF + 5.8;
+    return { c: { x: p.x, z: p.z }, rot: Math.atan2(nx, nz), half: half, a: { x: p.x + nx * half, z: p.z + nz * half }, b: { x: p.x - nx * half, z: p.z - nz * half } };
+  })();
   function pathHits(pts, to) {
     var n = 0;
     for (var i = 0; i < pts.length; i += 2) for (var j = 0; j < PATH_AVOID.length; j++) {
@@ -895,8 +914,8 @@
       if (Math.hypot(o.x - to.x, o.z - to.z) < o.r + 1.5) continue; // where it's going
       if (Math.hypot(pts[i].x - o.x, pts[i].z - o.z) < o.r) n++;
     }
-    // Only the bridge crosses the river.
-    for (i = 0; i < pts.length; i += 2) { if (riverDist(pts[i].x, pts[i].z) < RIVER_HALF + 1.2 && Math.hypot(pts[i].x - BRIDGE.c.x, pts[i].z - BRIDGE.c.z) > 3.6) n += 3; }
+    // Only the bridges cross the river.
+    for (i = 0; i < pts.length; i += 2) { if (riverDist(pts[i].x, pts[i].z) < RIVER_HALF + 1.2 && Math.hypot(pts[i].x - BRIDGE.c.x, pts[i].z - BRIDGE.c.z) > 3.6 && (!HWY_BRIDGE || Math.hypot(pts[i].x - HWY_BRIDGE.c.x, pts[i].z - HWY_BRIDGE.c.z) > HWY_BRIDGE.half + 1)) n += 3; }
     return n;
   }
   function fromStreet(to, wiggle) {
@@ -975,14 +994,31 @@
     var xs = seg.map(function (p) { return p.x; }), zs = seg.map(function (p) { return p.z; });
     return { pts: seg, y0: y0, y1: y1, box: [Math.min.apply(null, xs) - 5, Math.max.apply(null, xs) + 5, Math.min.apply(null, zs) - 5, Math.max.apply(null, zs) + 5] };
   })();
-  // Each extra castle's road home, from the ring road to its gate (laid when the castle starts).
+  // Each town's road (laid when the town starts): out from the end of a Whitehorse street, or on
+  // from the gate of the town before it. The Haines Road crosses Miles Canyon on its own bridge, and
+  // the Alaska Highway swings out round the back of Atlin on its way to Watson Lake.
+  function townGate(ci) { return siteAt(ci, 0, 13.8); }
+  var ROAD_WIGGLES = [3, -3, 6, -6, 10, -10, 15, -15, 22, -22, 0];
+  function bestTrail(from, to) {
+    var best = null;
+    ROAD_WIGGLES.forEach(function (w) {
+      var pts = trail(from, to, w), sc = pathHits(pts, to);
+      for (var i = 0; i < pts.length; i += 2) if (townHill(pts[i].x, pts[i].z) > 0.8) sc++; // round the coast towns' mountains
+      if (!best || sc < best.sc) best = { sc: sc, pts: pts };
+    });
+    return best.pts;
+  }
   var CASTLE_ROADS = CASTLE_SITES.map(function (site, ci) {
     if (!ci) return null;
-    var gp = polar(angleOf(-site.x, -site.z), 13.8);
-    var to = { x: site.x + gp.x, z: site.z + gp.z };
-    if (ci !== 2) return fromStreet(to, 3);
-    var best = null; [3, -3, 6, -6, 10, -10, 14, -14, 0].forEach(function (w) { var pts = trail({ x: -55, z: 24 }, to, w), sc = pathHits(pts, to); if (!best || sc < best.sc) best = { sc: sc, pts: pts }; });
-    return best.pts;
+    var to = townGate(ci), from = TOWN_FROM[ci];
+    if (!from) return fromStreet(to, 3);
+    var start = townGate(from);
+    if (ci === HAINES) {
+      var B = HWY_BRIDGE, hj = CASTLE_SITES[from], near = Math.hypot(B.a.x - hj.x, B.a.z - hj.z) < Math.hypot(B.b.x - hj.x, B.b.z - hj.z) ? B.a : B.b, far = near === B.a ? B.b : B.a;
+      return bestTrail(start, near).concat(curvePath(function (u) { return { x: near.x + (far.x - near.x) * u, z: near.z + (far.z - near.z) * u }; }, 24).slice(1, -1), bestTrail(far, to));
+    }
+    if (ci === 7) { var wp = polar(250, 148); return bestTrail(start, wp).concat(bestTrail(wp, to).slice(1)); }
+    return bestTrail(start, to);
   });
   // House plots keep off the paths and roads out of town.
   HOUSE_SLOTS = HOUSE_SLOTS.filter(function (h) { return !nearPath(h.x, h.z, 2.6) && !CASTLE_ROADS.some(function (rd) { return rd && rd.some(function (q) { return Math.hypot(q.x - h.x, q.z - h.z) < 2.8; }); }) && !LANE.some(function (q) { return Math.hypot(q.x - h.x, q.z - h.z) < 2.8; }); });
@@ -1129,7 +1165,7 @@
     this.controls = new T.OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.minZoom = 0.18; // far enough out to see the whole map, coast to railway
+    this.controls.minZoom = 0.1; // far enough out to see the whole map, out to Watson Lake
     this.controls.maxZoom = 4;
     this.controls.maxPolarAngle = 1.3;
     this.controls.minPolarAngle = 0.3;
@@ -1194,7 +1230,7 @@
     if (this.soft) { this.renderer.hemi = this.hemi; this.renderer.sun = this.sun; }
     this.needsRender = true;
     this.applyPalette();
-    this.scene.fog = new T.Fog('#d9f1fb', 120, 300);
+    this.scene.fog = new T.Fog('#d9f1fb', 140, 380);
     this.buildTerrain();
     this.buildWeather();
     this.reset();
@@ -1332,7 +1368,7 @@
     var base = new T.Group();
     this.scene.add(base);
     this.base = base;
-    var size = 420, seg = this.soft ? 80 : 230;
+    var size = 2 * WORLD_R + 40, seg = this.soft ? 110 : 310;
     var g = new T.PlaneGeometry(size, size, seg, seg).rotateX(-Math.PI / 2);
     var pos = g.attributes.position, cols = new Float32Array(pos.count * 3);
     for (var i = 0; i < pos.count; i++) {
@@ -1361,6 +1397,19 @@
     ground.receiveShadow = true; ground.userData.ground = true;
     base.add(ground);
     this.ground = ground;
+    // Past the edge of the map the same country runs on to the horizon on a coarser sheet (tucked
+    // under the map itself where the two overlap).
+    var fn = this.soft ? 60 : 120, fg = new T.PlaneGeometry(2400, 2400, fn, fn).rotateX(-Math.PI / 2), fp = fg.attributes.position, fc = new Float32Array(fp.count * 3);
+    for (i = 0; i < fp.count; i++) {
+      var fx = fp.getX(i), fz = fp.getZ(i), inner = Math.max(Math.abs(fx), Math.abs(fz)) < size / 2 - 1;
+      fp.setY(i, groundY(fx, fz) - (inner ? 1.5 : 0.3));
+      var ff = 0.97 + 0.05 * noise2(fx * 0.04, fz * 0.04);
+      fc[i * 3] = ff; fc[i * 3 + 1] = ff; fc[i * 3 + 2] = ff * 0.96;
+    }
+    fg.setAttribute('color', new T.BufferAttribute(fc, 3));
+    fg.computeVertexNormals();
+    var beyond = new T.Mesh(fg, this.mat('fields')); beyond.receiveShadow = true;
+    base.add(beyond);
     // Grey rock and snow on the tallest town mountains, laid over the ground on its own grid.
     var step = size / seg, nx = seg + 1, self = this;
     TOWN_PEAKS.forEach(function (k) {
@@ -2106,6 +2155,26 @@
     var p = laneAt(lane, laneHub(key).r + d + (h - 0.5) * 0.4), back = LOT_BACK + h * 0.15;
     return { x: p.x + p.vx * back * sd, z: p.z + p.vz * back * sd, r: Math.atan2(-p.vx * sd, -p.vz * sd) / D2R + turn, ground: true };
   }
+  // Boreal woods over the far country, out past the old edge of the map along the highways to
+  // the towns up the line: clumps of spruce, thinning out into muskeg (two tiers, instanced).
+  Town.prototype.buildBoreal = function () {
+    var r = rng(6351), spots = [], roads = {}, cell = function (x, z) { return Math.floor(x / 3) + ',' + Math.floor(z / 3); };
+    CASTLE_ROADS.forEach(function (rd) { if (rd) rd.forEach(function (q) { for (var i = -1; i <= 1; i++) for (var j = -1; j <= 1; j++) roads[cell(q.x + i * 2, q.z + j * 2)] = 1; }); });
+    for (var gx = -WORLD_R; gx <= WORLD_R; gx += 3.1) for (var gz = -WORLD_R; gz <= WORLD_R; gz += 3.1) {
+      var x = gx + (r() - 0.5) * 2.6, z = gz + (r() - 0.5) * 2.6, d = Math.hypot(x, z);
+      if (d < 154 || d > WORLD_R - 3 || noise2(x * 0.55, z * 0.55) < -0.1 || r() < 0.3) continue;
+      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3)) continue;
+      if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 24; })) continue;
+      spots.push({ x: x, z: z, y: groundY(x, z), s: 0.75 + r() * 0.6 });
+    }
+    if (!spots.length) return;
+    var m4 = new T.Matrix4(), self = this;
+    [[0.7, 1.1, 0.6, 0], [0.48, 0.95, 1.2, 1]].forEach(function (t) {
+      var im = new T.InstancedMesh(self.geo.cone6, self.mat('pine', t[3]), spots.length);
+      spots.forEach(function (p, i) { m4.makeScale(t[0] * p.s, t[1] * p.s, t[0] * p.s); m4.setPosition(p.x, p.y + t[2] * p.s, p.z); im.setMatrixAt(i, m4); });
+      im.castShadow = true; self.base.add(im);
+    });
+  };
   // The town's name on a signpost at the end of its road, there before the town is.
   Town.prototype.townSigns = function () {
     var self = this, base = this.world;
@@ -2117,7 +2186,7 @@
       [-0.55, 0.55].forEach(function (x) { var pst = self.mesh(self.geo.cyl6, self.mat('logwood', 0), sg); pst.scale.set(0.06, 1.3, 0.06); pst.position.set(offx + x, 0.65, 0); });
       var cv = document.createElement('canvas'); cv.width = 384; cv.height = 96; var cx = cv.getContext('2d');
       cx.fillStyle = '#6a4224'; cx.fillRect(0, 0, 384, 96); cx.strokeStyle = '#f3efe6'; cx.lineWidth = 6; cx.strokeRect(6, 6, 372, 84);
-      cx.fillStyle = '#f3efe6'; cx.font = '700 40px "Trebuchet MS", sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(STATION_NAMES[ci].toUpperCase(), 192, 50);
+      cx.fillStyle = '#f3efe6'; cx.font = '700 40px "Trebuchet MS", sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(TOWNS[ci].name.toUpperCase(), 192, 50);
       var tex = new T.CanvasTexture(cv); tex.magFilter = T.NearestFilter;
       var board = new T.Mesh(new T.PlaneGeometry(1.4, 0.36), new T.MeshBasicMaterial({ map: tex, side: T.DoubleSide })); board.position.set(offx, 1.15, 0.04); sg.add(board);
       board.userData.pick = 'townsite:' + ci; self.picks.push(board);
@@ -2275,6 +2344,7 @@
       }
     }
     this.townSigns();
+    this.buildBoreal();
     return C;
   };
   // The plaza is built up as you lift: cobbles, the fountain, benches round it, lamps, tubs of
@@ -2856,9 +2926,10 @@
 
   // ---- towns up the line ------------------------------------------------------------------
   // Once the castle's towers are full, lifting builds real towns on the far hills instead of more
-  // castles, one piece a session per muscle group: Dawson City, then Atlin, Haines Junction,
-  // Skagway and Haines. Each starts as a few cabins along a dirt street and grows into itself,
-  // landmarks and all. A finished town gets its own station on the railway.
+  // castles, one piece a session per muscle group, in the order the roads reach them: Carcross,
+  // Skagway, Atlin, Dawson City, Haines Junction, Haines and last of all Watson Lake. Each starts as
+  // a few cabins along a dirt street and grows into itself, landmarks and all. Once Carcross and
+  // Skagway are both finished, the White Pass & Yukon Route runs between them.
   // Lots along the main street (row A), behind it (row B) and out at the edge (row C). The street
   // runs along local z, out to the road home at +z; a lot's building faces the street.
   var TOWN_ROWS = { A: { x: 4.3, z: [10, 7.5, 5, 2.5, 0, -2.5, -5, -7.5, -10] }, B: { x: 8.6, z: [8, 5.2, 2.4, -0.4, -3.2, -6, -8.8] }, C: { x: 12.2, z: [3.5, 0, -3.5] } };
@@ -2868,6 +2939,47 @@
   var A = function (s, i) { return lot('A', s, i); }, B = function (s, i) { return lot('B', s, i); }, Cr = function (s, i) { return lot('C', s, i); };
   // Each piece: [kind, where, options, landmark name (if it is one)].
   var TOWNS = [null,
+    { key: 'carcross', name: 'Carcross', vibe: 'Where Bennett Lake runs into Nares Lake under Montana Mountain: the old White Pass station, the Caribou Hotel, Matthew Watson’s store, carved totems at the Commons and the little desert of sand dunes.', street: 'dirt',
+      keep: [[-14, -9, 6.5], [-7, 22, 5.5]], // the dunes, and the station by the road in
+      plan: [
+        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, {}, 'The Bennett Lake beach'], ['front', A(1, 1), { c: 12, t: 0, two: true }, 'Matthew Watson General Store'],
+        ['house', A(-1, 1), { c: 4 }], ['front', lot2('A', -1, 2), { c: 2, t: 2, two: true, w: 4.5, sign: 4 }, 'The Caribou Hotel'], ['house', B(-1, 0), { c: 9 }],
+        ['boat', at(8.9, -1.2), { wheel: true, c: 8, t: 3 }, 'The S.S. Tutshi'], ['church', A(1, 3), { c: 8, roof: 3, small: true }, 'St. Saviour’s Church'],
+        ['totems', at(-2.4, 5.6), {}, 'Carcross Commons and its totems'], ['house', A(-1, 4), { c: 7 }], ['front', A(1, 4), { c: 6, t: 0 }],
+        ['loco', at(2.5, -4.2), {}, 'The Duchess, the little engine'], ['dunes', null, {}, 'The Carcross Desert'],
+        ['log', lot2('A', -1, 5), { w: 4.0, deck: true }, 'The carving shed'], ['house', A(1, 5), { c: 10, porch: true }], ['house', B(-1, 1), { c: 3 }], ['house', B(-1, 2), { c: 13 }],
+        ['canoes', null, {}, 'Canoes on the Nares River'], ['house', A(1, 6), { c: 1 }], ['house', A(-1, 7), { c: 9 }], ['cabin', B(-1, 3), {}], ['house', B(-1, 4), { c: 11 }],
+        ['house', A(1, 7), { c: 5 }], ['house', A(1, 8), { c: 4 }], ['house', A(-1, 8), { c: 15 }], ['house', B(-1, 5), { c: 2 }], ['cabin', B(-1, 6), { c: 1 }],
+        ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 7 }], ['lamps', null, {}, 'Lamps along the main street']
+      ] },
+    { key: 'skagway', name: 'Skagway', vibe: 'The gold-rush port at the head of the Lynn Canal: Broadway’s false fronts and boardwalks, the driftwood Arctic Brotherhood Hall, the White Pass depot and cruise ships at the dock.', street: 'dirt', walks: true,
+      plan: [
+        ['front', A(1, 0), { c: 1, t: 0 }], ['front', A(-1, 0), { c: 5, t: 0 }], ['front', A(1, 1), { c: 15, t: 2, two: true }], ['front', A(-1, 1), { c: 4, t: 0 }],
+        ['front', A(1, 2), { drift: true, two: true, c: 14 }, 'The Arctic Brotherhood Hall'], ['front', A(-1, 2), { c: 7, t: 0 }],
+        ['front', A(-1, 3), { c: 2, t: 4, two: true, balcony: true, redlamps: true }, 'The Red Onion Saloon'], ['house', B(1, 0), { c: 8 }], ['front', A(1, 3), { c: 3, t: 0 }],
+        ['depot', lot2('A', 1, 4), {}, 'The White Pass & Yukon Route depot'], ['front', A(-1, 4), { c: 15, t: 3, two: true, dome: true }, 'The Golden North Hotel'],
+        ['house', B(-1, 0), { c: 6 }], ['dock', null, {}, 'The cruise ship dock'], ['front', A(-1, 5), { c: 9, t: 0, sign: 4 }, 'The Mascot Saloon'],
+        ['front', A(1, 6), { c: 10, t: 0, two: true }], ['house', B(1, 1), { c: 10 }], ['house', B(-1, 1), { c: 7 }], ['front', A(-1, 6), { c: 0, t: 2 }],
+        ['cemetery', at(0, -11.8), {}, 'The Gold Rush Cemetery'], ['house', B(1, 2), { c: 4 }], ['house', B(-1, 2), { c: 11 }],
+        ['front', A(1, 7), { c: 13, t: 0 }], ['front', A(-1, 7), { c: 5, t: 0, two: true }], ['house', B(1, 6), { c: 8, porch: true, cabin: true }, 'The Moore House'],
+        ['ship', null, {}, 'A cruise ship in port'], ['house', B(1, 3), { c: 3 }], ['house', B(-1, 3), { c: 5 }], ['front', A(1, 8), { c: 11, t: 0 }], ['front', A(-1, 8), { c: 1, t: 0 }],
+        ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['house', B(1, 5), { c: 1 }], ['house', B(-1, 5), { c: 10 }], ['house', B(-1, 6), { c: 4 }],
+        ['lamps', null, {}, 'Lamps along Broadway']
+      ] },
+    { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town on the shore of Atlin Lake: painted clapboard houses, the M.V. Tarahne on the beach and float planes at the dock.', street: 'dirt',
+      plan: [
+        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, {}, 'The Atlin Lake shore'], ['front', A(1, 1), { c: 9, t: 0 }, 'The Atlin Trading Post'],
+        ['house', A(-1, 1), { c: 10 }], ['house', B(-1, 0), { c: 7 }], ['front', A(1, 2), { c: 11, t: 0 }], ['house', A(-1, 2), { c: 7, porch: true }],
+        ['church', A(-1, 3), { c: 8, roof: 3, small: true }, 'St. Martin’s Church'],
+        ['boat', at(8.9, -0.6), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'],
+        ['house', lot2('A', 1, 3), { c: 8, w: 3.6, two: true, cupola: true, roof: 1 }, 'The courthouse'], ['house', A(-1, 4), { c: 4 }],
+        ['plane', at(12.2, 1.2, 180), { floats: true }, 'A float plane at the dock'], ['front', A(1, 5), { c: 5, t: 0, two: true }], ['house', A(-1, 5), { c: 10, porch: true }],
+        ['house', B(-1, 1), { c: 15 }], ['house', B(-1, 2), { c: 3 }], ['sluice', B(1, 0), {}, 'The Pine Creek sluice box'],
+        ['house', A(1, 6), { c: 1 }], ['house', A(-1, 6), { c: 9 }], ['house', B(1, 5), { c: 4 }], ['house', B(-1, 3), { c: 5 }], ['cabin', B(1, 6), {}],
+        ['house', B(-1, 4), { c: 11 }], ['house', A(1, 7), { c: 0 }], ['house', A(-1, 7), { c: 7 }], ['houseboats', null, {}, 'Houseboats on the lake'],
+        ['house', B(-1, 5), { c: 10 }], ['house', A(1, 8), { c: 3 }], ['house', A(-1, 8), { c: 4 }], ['house', B(-1, 6), { c: 1 }],
+        ['cabin', Cr(-1, 0), { c: 1 }], ['cabin', Cr(-1, 2), {}], ['canoes', null, {}, 'Canoes on the beach'], ['lamps', null, {}, 'Lamps along the main street']
+      ] },
     { key: 'dawson', name: 'Dawson City', vibe: 'Klondike gold-rush boomtown: false fronts in every colour, boardwalks, dirt streets, a sternwheeler on the bank and a gold dredge.', street: 'dirt', walks: true,
       plan: [
         ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['front', A(1, 1), { c: 0, t: 2 }], ['front', A(-1, 1), { c: 1, t: 0 }], ['house', B(1, 0), { c: 5 }],
@@ -2886,20 +2998,6 @@
         ['house', B(1, 6), { c: 3 }], ['house', B(-1, 6), { c: 6 }], ['cabin', at(-11.6, 5.0, 90), { c: 1 }], ['cabin', at(-11.6, -5.0, 90), {}],
         ['lamps', null, {}, 'Lamps along Front Street']
       ] },
-    { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town on the shore of Atlin Lake: painted clapboard houses, the M.V. Tarahne on the beach and float planes at the dock.', street: 'dirt',
-      plan: [
-        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, {}, 'The Atlin Lake shore'], ['front', A(1, 1), { c: 9, t: 0 }, 'The Atlin Trading Post'],
-        ['house', A(-1, 1), { c: 10 }], ['house', B(-1, 0), { c: 7 }], ['front', A(1, 2), { c: 11, t: 0 }], ['house', A(-1, 2), { c: 7, porch: true }],
-        ['church', A(-1, 3), { c: 8, roof: 3, small: true }, 'St. Martin’s Church'],
-        ['boat', at(8.9, -0.6), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'],
-        ['house', lot2('A', 1, 3), { c: 8, w: 3.6, two: true, cupola: true, roof: 1 }, 'The courthouse'], ['house', A(-1, 4), { c: 4 }],
-        ['plane', at(12.2, 1.2, 180), { floats: true }, 'A float plane at the dock'], ['front', A(1, 5), { c: 5, t: 0, two: true }], ['house', A(-1, 5), { c: 10, porch: true }],
-        ['house', B(-1, 1), { c: 15 }], ['house', B(-1, 2), { c: 3 }], ['sluice', B(1, 0), {}, 'The Pine Creek sluice box'],
-        ['house', A(1, 6), { c: 1 }], ['house', A(-1, 6), { c: 9 }], ['house', B(1, 5), { c: 4 }], ['house', B(-1, 3), { c: 5 }], ['cabin', B(1, 6), {}],
-        ['house', B(-1, 4), { c: 11 }], ['house', A(1, 7), { c: 0 }], ['house', A(-1, 7), { c: 7 }], ['houseboats', null, {}, 'Houseboats on the lake'],
-        ['house', B(-1, 5), { c: 10 }], ['house', A(1, 8), { c: 3 }], ['house', A(-1, 8), { c: 4 }], ['house', B(-1, 6), { c: 1 }],
-        ['cabin', Cr(-1, 0), { c: 1 }], ['cabin', Cr(-1, 2), {}], ['canoes', null, {}, 'Canoes on the beach'], ['lamps', null, {}, 'Lamps along the main street']
-      ] },
     { key: 'hj', name: 'Haines Junction', vibe: 'Where the Alaska Highway meets the Haines Road, under the St. Elias Mountains: log buildings, a Quonset-hut church, the bakery and bush planes for Kluane.', street: 'gravel',
       plan: [
         ['signpost', at(2.4, 12.2), {}, 'The junction signpost'], ['cabin', A(-1, 1), {}], ['log', A(1, 1), { deck: true }, 'The Village Bakery'], ['house', A(-1, 2), { c: 12, roof: 2 }],
@@ -2914,20 +3012,6 @@
         ['cabin', B(1, 0), { c: 1 }], ['house', B(-1, 0), { c: 4, roof: 1 }],
         ['peaks', null, {}, 'The St. Elias Mountains'], ['lamps', null, {}, 'Lamps along the highway']
       ] },
-    { key: 'skagway', name: 'Skagway', vibe: 'The gold-rush port at the head of the Lynn Canal: Broadway’s false fronts and boardwalks, the driftwood Arctic Brotherhood Hall, the White Pass depot and cruise ships at the dock.', street: 'dirt', walks: true,
-      plan: [
-        ['front', A(1, 0), { c: 1, t: 0 }], ['front', A(-1, 0), { c: 5, t: 0 }], ['front', A(1, 1), { c: 15, t: 2, two: true }], ['front', A(-1, 1), { c: 4, t: 0 }],
-        ['front', A(1, 2), { drift: true, two: true, c: 14 }, 'The Arctic Brotherhood Hall'], ['front', A(-1, 2), { c: 7, t: 0 }],
-        ['front', A(-1, 3), { c: 2, t: 4, two: true, balcony: true, redlamps: true }, 'The Red Onion Saloon'], ['house', B(1, 0), { c: 8 }], ['front', A(1, 3), { c: 3, t: 0 }],
-        ['depot', lot2('A', 1, 4), {}, 'The White Pass & Yukon Route depot'], ['front', A(-1, 4), { c: 15, t: 3, two: true, dome: true }, 'The Golden North Hotel'],
-        ['house', B(-1, 0), { c: 6 }], ['dock', null, {}, 'The cruise ship dock'], ['front', A(-1, 5), { c: 9, t: 0, sign: 4 }, 'The Mascot Saloon'],
-        ['front', A(1, 6), { c: 10, t: 0, two: true }], ['house', B(1, 1), { c: 10 }], ['house', B(-1, 1), { c: 7 }], ['front', A(-1, 6), { c: 0, t: 2 }],
-        ['cemetery', at(0, -11.8), {}, 'The Gold Rush Cemetery'], ['house', B(1, 2), { c: 4 }], ['house', B(-1, 2), { c: 11 }],
-        ['front', A(1, 7), { c: 13, t: 0 }], ['front', A(-1, 7), { c: 5, t: 0, two: true }], ['house', B(1, 6), { c: 8, porch: true, cabin: true }, 'The Moore House'],
-        ['ship', null, {}, 'A cruise ship in port'], ['house', B(1, 3), { c: 3 }], ['house', B(-1, 3), { c: 5 }], ['front', A(1, 8), { c: 11, t: 0 }], ['front', A(-1, 8), { c: 1, t: 0 }],
-        ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['house', B(1, 5), { c: 1 }], ['house', B(-1, 5), { c: 10 }], ['house', B(-1, 6), { c: 4 }],
-        ['lamps', null, {}, 'Lamps along Broadway']
-      ] },
     { key: 'haines', name: 'Haines', vibe: 'A fishing town on the Chilkat: the white officers’ houses of Fort Seward round their parade ground, totem poles, the Hammer Museum, a cannery and bald eagles in the cottonwoods.', street: 'gravel',
       plan: [
         ['cabin', A(1, 0), {}], ['house', A(-1, 0), { c: 7 }], ['front', A(1, 1), { c: 9, t: 0 }], ['lawn', null, {}, 'The Fort Seward parade ground'],
@@ -2940,6 +3024,18 @@
         ['house', B(1, 1), { c: 15 }], ['cannery', at(8.8, -3.8, -90), {}, 'The cannery'], ['house', A(1, 7), { c: 11 }], ['house', A(-1, 7), { c: 4 }],
         ['house', B(1, 2), { c: 7 }], ['boat', at(8.6, -8.6), { fish: true, c: 7, t: 0 }, 'A fishing boat on blocks'], ['house', A(1, 8), { c: 3 }], ['house', A(-1, 8), { c: 10 }],
         ['house', B(1, 5), { c: 6 }], ['house', A(1, 3), { c: 5, small: true }], ['lamps', null, {}, 'Lamps along Main Street']
+      ] },
+    { key: 'watson', name: 'Watson Lake', vibe: 'Mile 635 of the Alaska Highway, a long way down the road: the Sign Post Forest with its thousands of signs from home, the Northern Lights Centre, float planes on Wye Lake and the gas station that never closes.', street: 'gravel',
+      keep: [[-9.5, 13.5, 5.5]], // the sign forest by the highway
+      plan: [
+        ['cabin', A(1, 0), {}], ['signforest', null, {}, 'The Sign Post Forest'], ['lake', null, {}, 'The Wye Lake shore'], ['front', A(-1, 1), { c: 9, t: 0 }],
+        ['log', lot2('A', 1, 1), { w: 4.4 }, 'The Alaska Highway visitor centre'], ['house', A(-1, 2), { c: 5 }], ['gas', A(1, 3), {}, 'The highway gas station'],
+        ['dome', at(-9.2, -1.6, 90), {}, 'The Northern Lights Centre'], ['plane', at(12.2, 1.2, 180), { floats: true }, 'A float plane on Wye Lake'],
+        ['church', A(-1, 3), { c: 8, roof: 1, small: true }, 'St. John’s Church'], ['rv', B(1, 0), {}, 'The RV park'],
+        ['front', A(-1, 4), { c: 13, t: 0, two: true }, 'The Watson Lake Hotel'], ['house', A(1, 4), { c: 11 }], ['house', A(1, 5), { c: 3 }], ['house', A(-1, 5), { c: 10 }],
+        ['house', A(1, 6), { c: 7 }], ['house', A(-1, 6), { c: 2 }], ['house', B(-1, 5), { c: 12 }], ['cabin', B(-1, 6), {}], ['canoes', null, {}, 'Canoes on Wye Lake'],
+        ['house', A(1, 7), { c: 4 }], ['house', A(-1, 7), { c: 14 }], ['house', A(1, 8), { c: 1 }], ['house', A(-1, 8), { c: 6 }], ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 9 }],
+        ['lamps', null, {}, 'Lamps along the Alaska Highway']
       ] }
   ];
   // The outskirts: once the town itself is built, it keeps spreading out past the last lots into
@@ -2972,7 +3068,8 @@
     C.slots = [];
     for (var sr = 0; sr < 2 && C.slots.length < OUTSKIRTS.length; sr++) for (var th = 140 + sr * 8; th <= 330; th += 15) {
       var lr = 16.2 + sr * 1.8, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
-      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > 146 || nearPath(wx, wz, 1.2) || townHill(wx, wz) > 2.2) continue;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.2) || townHill(wx, wz) > 2.2 || nearRail(wx, wz, 3)) continue;
+      if ((D.keep || []).some(function (k) { return Math.hypot(lx - k[0], lz - k[1]) < k[2]; })) continue;
       C.slots.push({ x: lx, z: lz, r: Math.atan2(-lx, -lz) / D2R, ground: true });
     }
     var streetMat = this.mat('tstreet', D.street === 'gravel' ? 1 : 0);
@@ -2990,9 +3087,46 @@
       C.towers[t.key] = { def: t, n: 0, prs: 0, flag: p, flying: false, pick: pick, features: [], castle: C };
     });
     this.layPath({ kind: 'road', pts: CASTLE_ROADS[ci] }, delay);
+    if (ci === HAINES) this.highwayBridge(delay);
+    this.roadFords(CASTLE_ROADS[ci], delay);
     this.pop(g, delay);
     this.news(['have you heard? there’s a new town going up: ' + D.name + '!', D.name + ' is on the map! a few cabins so far', 'my cousin’s moving to ' + D.name + '. brave mouse']);
     return C;
+  };
+  // The Haines Road's bridge over Miles Canyon: a timber deck on steel trusses from rim to rim,
+  // with a pier standing down in the gorge either side of the water.
+  Town.prototype.highwayBridge = function (delay) {
+    var B = HWY_BRIDGE, self = this, pick = 'hwybridge', g = new T.Group();
+    var y = Math.max(groundY(B.a.x, B.a.z), groundY(B.b.x, B.b.z)) + 0.25, len = B.half * 2 + 1.2;
+    g.position.set(B.c.x, y, B.c.z); g.rotation.y = B.rot; this.world.add(g);
+    function P(geo, mat, sx, sy, sz, x, yy, z) { return self.part(g, geo, mat, sx, sy, sz, x, yy, z, pick); }
+    P(this.geo.box, this.mat('wood'), 2.0, 0.14, len, 0, 0, 0);
+    [-1, 1].forEach(function (sd) {
+      var x0 = sd * 1.05;
+      [0.15, 1.15].forEach(function (yy) { P(self.geo.box, self.mat('stoneDark'), 0.1, 0.1, len, x0, yy, 0); });
+      for (var bi = 0; bi <= 8; bi++) {
+        var z = -len / 2 + bi * len / 8;
+        P(self.geo.box, self.mat('stoneDark'), 0.09, 1.0, 0.09, x0, 0.65, z);
+        if (bi < 8) { var br = P(self.geo.box, self.mat('stoneDark'), 0.06, Math.hypot(1.0, len / 8), 0.06, x0, 0.65, z + len / 16); br.rotation.x = (bi % 2 ? 1 : -1) * Math.atan2(len / 8, 1.0); }
+      }
+    });
+    riverDist(B.c.x, B.c.z); var wl = riverLevel(RIVER_NEAR.i);
+    [-1, 1].forEach(function (sd) { var foot = wl - 0.6 - y; P(self.geo.box, self.mat('stone', 1), 0.9, -foot, 0.7, 0, foot / 2, sd * (RIVER_HALF + 0.9)); });
+    if (!this.instant) this.pop(g, delay + 300);
+  };
+  // Where a road runs over the little stream out of the lake: a log culvert bridge.
+  Town.prototype.roadFords = function (pts, delay) {
+    var last = -99;
+    for (var i = 1; i < pts.length - 1; i++) {
+      if (i - last < 12 || streamDist(pts[i].x, pts[i].z) > STREAM_HALF + 0.3) continue;
+      last = i;
+      var p = pts[i], q = pts[i + 1], g = new T.Group(), y = -1e9;
+      for (var k = -4; k <= 4; k += 4) { var pk = pts[Math.max(0, Math.min(pts.length - 1, i + k))]; y = Math.max(y, groundY(pk.x, pk.z)); }
+      g.position.set(p.x, y + 0.05, p.z); g.rotation.y = Math.atan2(q.x - p.x, q.z - p.z); this.world.add(g);
+      this.part(g, this.geo.box, this.mat('wood'), 1.7, 0.1, 3.0, 0, 0, 0, 'culvert');
+      for (var sd = -1; sd <= 1; sd += 2) this.part(g, this.geo.cyl6, this.mat('logwood', 0), 0.08, 3.0, 0.08, sd * 0.85, 0.1, 0, 'culvert').rotation.x = Math.PI / 2;
+      if (!this.instant) this.pop(g, delay + 200);
+    }
   };
   Town.prototype.townStreet = function (C) {
     var L = 13.8 - C.reach + 1.2;
@@ -3014,7 +3148,8 @@
     }
     if (C.built >= D.plan.length) {
       this.addStation(C.ci);
-      this.news([D.name + ' is finished! there’s a train station and everything', 'all aboard for ' + D.name + '!']);
+      this.news(this.st.rail && this.st.rail.group && (C.ci === CARCROSS || C.ci === SKAGWAY) ? [D.name + ' is finished, and the White Pass trains are running to ' + (C.ci === CARCROSS ? 'Skagway' : 'Carcross') + '!', 'all aboard for ' + D.name + '!']
+        : [D.name + ' is finished! every last cabin', 'my aunt says ' + D.name + ' is the nicest town up the line', 'they’re having a dance in ' + D.name + ' to celebrate']);
     }
     this.needsRender = true;
     return true;
@@ -3596,6 +3731,54 @@
         door(h, 0, 0.5, 1.81); windows(h, 3, 1.6, 1.3, 1.81, 0.3);
         P(h, self.geo.cyl, dark, 0.14, 1.6, 0.14, 0.6, 2.7, -1.0);
         var cm2 = new T.Object3D(); cm2.position.set(0.6, 3.55, -1.0); h.add(cm2); C.chims.push(cm2);
+        break;
+      }
+      case 'dunes': {
+        // The Carcross Desert: rippled sand hills out behind town, a few lodgepole pines on the edge.
+        [[-14, -9, 2.6, 0.9], [-11.6, -12.2, 1.9, 0.6], [-16.6, -6, 2.0, 0.7], [-13.2, -5.4, 1.4, 0.45], [-17, -11.2, 1.6, 0.55]].forEach(function (d) {
+          var y0 = localGround(d[0], d[1]) - 0.15;
+          P(h, self.geo.ball, M('sand'), d[2], d[3], d[2] * 0.75, d[0], y0, d[1]).rotation.y = d[0];
+          for (var rp = 0; rp < 3; rp++) P(h, self.geo.box, M('sand'), d[2] * (1.1 - rp * 0.25), 0.03, 0.06, d[0] + 0.2, y0 + d[3] * (0.35 + rp * 0.22), d[1] + 0.6 - rp * 0.5).rotation.y = d[0];
+        });
+        [[-10.6, -6.6], [-18.2, -9.0], [-12.6, -14.0]].forEach(function (t) { var tg = new T.Group(); tg.position.set(t[0], localGround(t[0], t[1]), t[1]); h.add(tg); spruce(tg, 0, 0, 0.8); });
+        break;
+      }
+      case 'loco': {
+        // The Duchess: the tiny tank engine that ran the Taku Tram, on a short length of track.
+        P(h, self.geo.box, wood, 0.9, 0.06, 2.6, 0, 0.03, 0);
+        [-0.22, 0.22].forEach(function (x) { P(h, self.geo.box, dark, 0.05, 0.05, 2.6, x, 0.09, 0); });
+        P(h, self.geo.cyl, M('wpBlack'), 0.24, 1.1, 0.24, 0, 0.45, 0.25).rotation.x = Math.PI / 2;
+        P(h, self.geo.box, M('wpBlack'), 0.62, 0.62, 0.6, 0, 0.55, -0.5);
+        P(h, self.geo.box, M('wpRed'), 0.7, 0.07, 0.68, 0, 0.9, -0.5);
+        P(h, self.geo.box, win, 0.3, 0.22, 0.04, 0, 0.62, -0.19);
+        P(h, self.geo.cyl, M('wpBlack'), 0.08, 0.35, 0.08, 0, 0.82, 0.62);
+        P(h, self.geo.cone, M('wpBlack'), 0.14, 0.16, 0.14, 0, 1.04, 0.62).rotation.z = Math.PI;
+        P(h, self.geo.box, M('wpYellow'), 0.5, 0.06, 0.04, 0, 0.32, 0.82);
+        [-0.3, 0.3].forEach(function (z) { [-1, 1].forEach(function (sd) { P(h, self.geo.cyl, M('wpRed'), 0.16, 0.05, 0.16, sd * 0.27, 0.2, z).rotation.z = Math.PI / 2; }); });
+        break;
+      }
+      case 'signforest': {
+        // The Sign Post Forest: a thicket of posts by the highway, every one plastered with signs
+        // from home (licence plates, town limits, street signs), more added every summer.
+        var sr2 = rng(6350);
+        for (var sf = 0; sf < 26; sf++) {
+          var sx2 = -13 + (sf % 7) * 1.15 + (sr2() - 0.5) * 0.5, sz2 = 10.8 + Math.floor(sf / 7) * 1.4 + (sr2() - 0.5) * 0.5, sp2 = new T.Group(), ht = 1.5 + sr2() * 0.9;
+          sp2.position.set(sx2, localGround(sx2, sz2), sz2); h.add(sp2);
+          P(sp2, self.geo.cyl6, M('trunk'), 0.05, ht, 0.05, 0, ht / 2, 0);
+          for (var sg2 = 0; sg2 < 4; sg2++) {
+            var face = sr2() < 0.5 ? 1 : -1, plate = P(sp2, self.geo.box, M('tpaint', Math.floor(sr2() * 16)), 0.32 + sr2() * 0.22, 0.14 + sr2() * 0.1, 0.02, 0, ht - 0.15 - sg2 * 0.3, face * 0.05);
+            plate.rotation.y = Math.floor(sr2() * 4) * Math.PI / 2;
+          }
+        }
+        break;
+      }
+      case 'dome': {
+        // The Northern Lights Centre: a planetarium dome with the aurora swirling over it.
+        P(h, self.geo.box, M('whitewood'), 3.0, 0.9, 2.2, 0, 0.45, 0);
+        P(h, self.geo.ball, M('tpaint', 13), 1.25, 1.25, 1.25, 0, 0.9, -0.1);
+        door(h, 0, 0, 1.12, M('tpaint', 13)); windows(h, 2, 2.2, 0.55, 1.12, 0.32);
+        P(h, self.geo.box, M('tpaint', 13), 1.6, 0.28, 0.05, 0, 1.05, 1.14);
+        [[-0.5, 2.45, 7], [0.1, 2.7, 3], [0.6, 2.5, 7]].forEach(function (b, i) { var rib = P(h, self.geo.box, M('flag', b[2]), 0.12, 0.7, 2.2, b[0], b[1], -0.1); rib.rotation.z = (i - 1) * 0.35; rib.rotation.x = 0.2; });
         break;
       }
       case 'lamps': {
@@ -4580,10 +4763,10 @@
     var self = this;
     function P(parent, geo, mat, sx, sy, sz, x, y, z) { var m = self.mesh(geo, mat, parent); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; return m; }
     // The sea: one big sheet past the shoreline.
-    var sea = new T.Mesh(new T.PlaneGeometry(640, 300).rotateX(-Math.PI / 2), this.mat('water'));
+    var sea = new T.Mesh(new T.PlaneGeometry(3000, 1400).rotateX(-Math.PI / 2), this.mat('water'));
     var th = Math.atan2(-COAST_T.z, COAST_T.x);
     sea.rotation.y = th;
-    sea.position.set(COAST_N.x * 276, SEA_Y, COAST_N.z * 276);
+    sea.position.set(COAST_N.x * 826, SEA_Y, COAST_N.z * 826);
     sea.receiveShadow = true;
     base.add(sea);
     // A sandy beach along the shore.
@@ -8017,53 +8200,34 @@
     this.smoke.puffs.push({ m: m, age: 0, life: 3.5 + Math.random() * 2, s: 0.07 + Math.random() * 0.05, ph: Math.random() * 6.28 });
   };
 
-  // ---- the railway: a station opens at each finished castle ----------------
-  // A White Pass & Yukon Route style narrow-gauge line round the edge of the map: an even grade,
-  // timber trestles over low ground and the bay, and tunnels through four rocky hills.
-  var RAIL_R = 142, RAIL_STEP = 0.5;
-  // The line swings out over the water round the lighthouse headland.
-  function railR(a) {
-    var d = angleDiff(a, 338), d2 = angleDiff(a, 70); // the lighthouse headland, and the glacier's foot
-    return RAIL_R + (d < 15 ? 17 * Math.pow(Math.cos(d / 15 * Math.PI / 2), 2) : 0) + (d2 < 10 ? 6 * Math.pow(Math.cos(d2 / 10 * Math.PI / 2), 2) : 0);
-  }
-  var RAIL_TUNNELS = [15, 100, 262], TUNNEL_HALF = 3.8; // hill centres, and the portals' angle either side
-  var STATION_NAMES = ['Whitehorse', 'Dawson City', 'Atlin', 'Haines Junction', 'Skagway', 'Haines'];
-  function inTunnel(a, pad) { return RAIL_TUNNELS.some(function (t) { return angleDiff(a, t) < TUNNEL_HALF + (pad || 0); }); }
-  var RAIL_LINE = null;
+  // ---- the railway: the White Pass & Yukon Route, Carcross to Skagway -------------------
+  // Once Carcross and Skagway are both finished, a narrow-gauge line runs between them: an even
+  // grade on timber trestles over the low ground, a depot at each end, and a steam train that
+  // runs down to Skagway and backs up the hill again.
   function railLine() {
     if (RAIL_LINE) return RAIL_LINE;
-    var n = Math.round(360 / RAIL_STEP), raw = [], pts = [];
-    for (var i = 0; i < n; i++) {
-      var p = polar(i * RAIL_STEP, railR(i * RAIL_STEP)), g = groundY(p.x, p.z);
-      p.ground = g; p.a = i * RAIL_STEP;
-      raw.push(Math.max(g + 0.12, SEA_Y + 1.6));
-      pts.push(p);
-    }
-    // Ease the grade: average over a few degrees either side, then make sure the rails clear
-    // the ground (except in the tunnels, where the hill covers them).
-    var W = 10;
+    var pts = RAIL_PATH.map(function (q) { return { x: q.x, z: q.z, ground: groundY(q.x, q.z) }; }), n = pts.length, W = 10;
+    var raw = pts.map(function (p) { return Math.max(p.ground + 0.12, SEA_Y + 1.6); });
+    // Ease the grade (averaging a little way either side), and keep the rails clear of the ground.
     pts.forEach(function (p, i) {
-      var sum = 0;
-      for (var k = -W; k <= W; k++) sum += raw[(i + k + n) % n];
-      p.y = sum / (2 * W + 1);
-      if (!inTunnel(p.a, 1)) p.y = Math.max(p.y, p.ground + 0.12);
+      var sum = 0, cnt = 0;
+      for (var k = -W; k <= W; k++) { var j = i + k; if (j < 0 || j >= n) continue; sum += raw[j]; cnt++; }
+      p.y = Math.max(sum / cnt, p.ground + 0.12);
     });
     return (RAIL_LINE = pts);
   }
-  function railPoint(a) {
-    var pts = railLine();
-    return pts[((Math.round(a / RAIL_STEP) % pts.length) + pts.length) % pts.length];
-  }
+  var RAIL_LINE = null;
   Town.prototype.buildRailway = function () {
     var R = this.st.rail, self = this, g = new T.Group(), pick = 'railway';
     R.group = g; this.world.add(g);
     R.pts = railLine();
     var n = R.pts.length;
-    function off(i, o) { var p = R.pts[i], q = R.pts[(i + 1) % n], dx = q.x - p.x, dz = q.z - p.z, l = Math.hypot(dx, dz) || 1; return { x: p.x - dz / l * o, z: p.z + dx / l * o, y: p.y + 0.12 }; }
-    function heading(i) { var p = R.pts[i], q = R.pts[(i + 1) % n]; return -Math.atan2(q.z - p.z, q.x - p.x); }
+    function dir(i) { var p = R.pts[Math.max(0, Math.min(n - 2, i))], q = R.pts[Math.max(1, Math.min(n - 1, i + 1))]; return { x: q.x - p.x, z: q.z - p.z }; }
+    function off(i, o) { var p = R.pts[i], d = dir(i), l = Math.hypot(d.x, d.z) || 1; return { x: p.x - d.z / l * o, z: p.z + d.x / l * o, y: p.y + 0.12 }; }
+    function heading(i) { var d = dir(i); return -Math.atan2(d.z, d.x); }
     function P(parent, geo, mat, sx, sy, sz, x, y, z) { return self.part(parent, geo, mat, sx, sy, sz, x, y, z, pick); }
     [-0.32, 0.32].forEach(function (o) {
-      var line = []; for (var i = 0; i <= n; i++) line.push(off(i % n, o));
+      var line = []; for (var i = 0; i < n; i++) line.push(off(i, o));
       var r = self.ribbon(line, 0.09, self.mat('stoneDark')); r.userData.pick = pick; self.picks.push(r); g.add(r);
     });
     if (!this.soft) {
@@ -8073,22 +8237,21 @@
         q.setFromEuler(new T.Euler(0, heading(i), 0));
         sleepers.setMatrixAt(k++, m4.compose(new T.Vector3(p.x, p.y, p.z), q, new T.Vector3(0.35, 0.08, 1.0)));
       }
+      sleepers.count = k;
       g.add(sleepers);
     }
-    // Timber trestles wherever the line runs above the ground or the sea: a cap beam, two
-    // battered legs and, on the tall ones, an X of bracing.
-    var timber = this.mat('logwood', 1);
-    // A timber deck under the rails along every raised stretch.
-    var run = [];
+    // Timber trestles wherever the line runs above the ground: a cap beam, two battered legs and,
+    // on the tall ones, an X of bracing; a timber deck under the rails along every raised stretch.
+    var timber = this.mat('logwood', 1), run = [];
     for (i = 0; i <= n; i++) {
-      var dp = R.pts[i % n], raised = dp.y - dp.ground >= 0.5 && !inTunnel(dp.a, 0.5);
+      var dp = R.pts[Math.min(i, n - 1)], raised = i < n && dp.y - dp.ground >= 0.5;
       if (raised) run.push({ x: dp.x, z: dp.z, y: dp.y + 0.02 });
-      if ((!raised || i === n) && run.length > 1) { var deck = this.ribbon(run, 1.25, timber); deck.userData.pick = pick; this.picks.push(deck); g.add(deck); }
+      if (!raised && run.length > 1) { var deck = this.ribbon(run, 1.25, timber); deck.userData.pick = pick; this.picks.push(deck); g.add(deck); }
       if (!raised) run = [];
     }
     for (i = 0; i < n; i += 2) {
       var tp = R.pts[i], foot = Math.min(tp.ground, SEA_Y - 0.6), hgt = tp.y - foot;
-      if (tp.y - tp.ground < 0.5 || inTunnel(tp.a, 0.5)) continue;
+      if (tp.y - tp.ground < 0.5) continue;
       var bent = new T.Group();
       bent.position.set(tp.x, foot, tp.z); bent.rotation.y = heading(i);
       P(bent, this.geo.box, timber, 0.16, 0.14, 1.5, 0, hgt - 0.02, 0);
@@ -8102,39 +8265,8 @@
       });
       g.add(bent);
     }
-    // Tunnel bluffs: a steep rocky block over the line whose end faces stand right at the portals,
-    // topped with grass and a few spruces.
-    var bluffGeo = this.geo.bluff || (this.geo.bluff = new T.CylinderGeometry(0.75, 1, 1, 8, 1).rotateY(Math.PI / 8).translate(0, 0.5, 0));
-    RAIL_TUNNELS.forEach(function (ta) {
-      var ti = Math.round(ta / RAIL_STEP) % n, c = R.pts[ti], base = Math.min(c.ground, c.y) - 0.4, hill = new T.Group(), H = 4.6;
-      hill.position.set(c.x, base, c.z); hill.rotation.y = heading(ti);
-      // Half-length so the end facets meet the portals about half way up the opening.
-      var half = RAIL_R * TUNNEL_HALF * D2R, mid = (c.y - base + 1.1) / H, L = half / (Math.cos(Math.PI / 8) * (1 - 0.25 * mid)) + 0.6;
-      var rock = new T.Mesh(bluffGeo, self.mat('rock')); rock.scale.set(L, H, 4.8); hill.add(rock);
-      var cap = new T.Mesh(self.geo.blob, self.mat('hill')); cap.scale.set(L * 0.72, 0.9, 3.4); cap.position.y = H + 0.05; hill.add(cap);
-      [[-0.35, 0.6, 1.0], [0.1, -1.1, 1.25], [0.45, 0.9, 0.85]].forEach(function (t) {
-        var tree = new T.Mesh(self.geo.cone, self.mat('pine', 0)); tree.scale.set(0.55 * t[2], 1.7 * t[2], 0.55 * t[2]); tree.position.set(t[0] * L, H + 0.6 + 0.85 * t[2], t[1]); hill.add(tree);
-      });
-      // A lower rocky shoulder off one side breaks up the outline.
-      var side = ta % 2 ? 1 : -1, sh = new T.Mesh(bluffGeo, self.mat('rock')); sh.scale.set(L * 0.55, H * 0.62, 3.2); sh.position.set(L * 0.2 * side, 0, 3.1 * side); sh.rotation.y = 0.3 * side; hill.add(sh);
-      var shCap = new T.Mesh(self.geo.blob, self.mat('hill')); shCap.scale.set(L * 0.38, 0.6, 2.2); shCap.position.set(L * 0.2 * side, H * 0.62 + 0.02, 3.1 * side); hill.add(shCap);
-      hill.children.forEach(function (m) { m.userData.pick = pick; self.picks.push(m); });
-      g.add(hill);
-      [-1, 1].forEach(function (sd) {
-        var pi = Math.round((ta + sd * TUNNEL_HALF) / RAIL_STEP + n) % n, pp = R.pts[pi], portal = new T.Group();
-        portal.position.set(pp.x, pp.y, pp.z); portal.rotation.y = heading(pi) + (sd < 0 ? 0 : Math.PI);
-        // Headwall round a 1.7 x 2.1 opening, timber posts and lintel, and darkness in the opening
-        // (the train slips into it and is gone).
-        [-1, 1].forEach(function (s2) {
-          P(portal, self.geo.box, self.mat('rock'), 0.4, 2.9, 1.0, 0.1, 1.2, s2 * 1.35);
-          P(portal, self.geo.box, timber, 0.22, 2.2, 0.22, -0.15, 1.0, s2 * 0.95);
-        });
-        P(portal, self.geo.box, self.mat('rock'), 0.4, 0.8, 3.1, 0.1, 2.55, 0);
-        P(portal, self.geo.box, timber, 0.26, 0.22, 2.2, -0.15, 2.15, 0);
-        P(portal, self.geo.box, self.mat('wpBlack'), 0.03, 2.05, 1.65, -0.13, 1.0, 0);
-        g.add(portal);
-      });
-    });
+    // A depot at each end of the line, beside the track and facing away from it.
+    [0, n - 1].forEach(function (ei) { self.railStation(ei, ei ? -1 : 1); });
     // The train: a black steam engine with a red cowcatcher, its tender, and three green-and-gold coaches.
     var train = [], green = this.mat('wpGreen'), gold = this.mat('wpYellow'), black = this.mat('wpBlack');
     for (var c2 = 0; c2 < 5; c2++) {
@@ -8166,24 +8298,20 @@
       [-0.55, 0.55].forEach(function (x) { [-0.42, 0.42].forEach(function (z) { P(car, self.geo.cyl, self.mat('stoneDark'), 0.2, 0.08, 0.2, x, 0.2, z).rotation.x = Math.PI / 2; }); });
       train.push(car);
     }
-    R.train = train; R.u = 0.1;
+    R.train = train; R.s = 8; R.dir = 1; R.wait = 0;
     this.stepTrain(0, 0); // place it on the line straight away (it stays put with reduced motion)
     this.pop(g, 300);
   };
-  Town.prototype.addStation = function (ci) {
-    var s = this.st, R = s.rail || (s.rail = { stations: [] });
-    if (R.stations.indexOf(ci) >= 0) return;
-    R.stations.push(ci);
-    if (!R.group) this.buildRailway();
-    var site = CASTLE_SITES[ci], a = ci ? angleOf(site.x, site.z) : 180;
-    // Find dry land for the platform near the castle's direction, clear of the tunnels.
-    for (var d = 0; d < 60; d++) {
-      var t = a + (d % 2 ? 1 : -1) * Math.ceil(d / 2) * 1.5, p0 = polar(t, railR(t));
-      if (coastSd(p0.x, p0.z) < -4 && riverDist(p0.x, p0.z) > 6 && !inTunnel(t, 4)) { a = t; break; }
-    }
-    var p = railPoint(a), g = new T.Group(), self = this, pick = 'railway';
-    var up = p.y - p.ground;
-    g.position.set(p.x, p.ground, p.z); g.rotation.y = Math.atan2(-p.x, -p.z);
+  // A station at one end of the line (sd: which way the line runs on from it).
+  Town.prototype.railStation = function (ei, sd) {
+    var R = this.st.rail, pts = R.pts, p = pts[ei], q = pts[ei + sd * 6], self = this, pick = 'railway', g = new T.Group();
+    var dx = q.x - p.x, dz = q.z - p.z, l = Math.hypot(dx, dz) || 1, side = 1;
+    // The depot goes on whichever side of the track is further from the town's road.
+    var lx = -dz / l, lz = dx / l;
+    if (nearPath(p.x + lx * 3, p.z + lz * 3, 2) && !nearPath(p.x - lx * 3, p.z - lz * 3, 2)) side = -1;
+    // The platform runs along the last few yards of track (local x along the line, +z to the depot).
+    var up = 0, th = Math.atan2(lx * side, lz * side), ux = dx / l, uz = dz / l, along = ux * Math.cos(th) - uz * Math.sin(th);
+    g.position.set(p.x + ux * 2.4, p.ground, p.z + uz * 2.4); g.rotation.y = th;
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
     // A plank platform, then a clapboard depot: cream boards, green trim, a deep red roof with a
     // bay for the station agent, a baggage cart and a lamp.
@@ -8203,18 +8331,33 @@
     P(this.geo.box, this.mat('woodLight'), 0.3, 0.3, 0.3, 1.5, up + 0.66, 1.1);
     P(this.geo.cyl6, this.mat('stoneDark'), 0.04, 2.0, 0.04, -2.1, up + 1.0, 1.6);
     P(this.geo.box, this.mat('lantern'), 0.18, 0.22, 0.18, -2.1, up + 2.05, 1.6);
+    // A buffer stop at the end of the track.
+    P(this.geo.box, this.mat('wpRed'), 0.2, 0.3, 1.2, -2.4 * along, 0.35, 0);
     R.group.add(g);
-    // A path from the castle out to its station.
-    if (ci) { var from = polar(angleOf(site.x, site.z), Math.hypot(site.x, site.z) + 14.5), to = polar(a, railR(a) - 4.5); this.layPath({ kind: 'path', pts: trail(from, to, 1) }, 200); }
     if (!this.instant) this.pop(g, 500);
+  };
+  // A station opens once Carcross and Skagway are both finished, and the line with it.
+  Town.prototype.addStation = function (ci) {
+    if (ci !== CARCROSS && ci !== SKAGWAY) return;
+    var s = this.st, R = s.rail || (s.rail = { stations: [] });
+    if (R.stations.indexOf(ci) >= 0) return;
+    R.stations.push(ci);
+    if (R.stations.length === 2 && !R.group) this.buildRailway();
   };
   Town.prototype.stepTrain = function (dt, now) {
     var R = this.st.rail;
     if (!R || !R.train) return;
-    var n = R.pts.length, pts = R.pts;
-    R.u = (R.u + dt * 0.006) % 1;
+    var n = R.pts.length, pts = R.pts, gap = 7.4, lo = gap * 4 + 2, hi = n - 3;
+    // Down the line to Skagway engine-first, a pause at the platform, then backing up the hill
+    // to Carcross and another pause.
+    if (R.wait > 0) R.wait -= dt;
+    else {
+      R.s += R.dir * dt * 10;
+      if (R.s >= hi) { R.s = hi; R.dir = -1; R.wait = 4; }
+      if (R.s <= lo) { R.s = lo; R.dir = 1; R.wait = 4; }
+    }
     R.train.forEach(function (car, k) {
-      var f = ((R.u - k * 0.0042) % 1 + 1) % 1 * n, i = Math.floor(f), t = f - i, p = pts[i % n], q = pts[(i + 1) % n];
+      var f = Math.max(0, Math.min(n - 1.001, R.s - k * gap)), i = Math.floor(f), t = f - i, p = pts[i], q = pts[i + 1];
       car.position.set(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t + 0.12, p.z + (q.z - p.z) * t);
       car.rotation.y = -Math.atan2(q.z - p.z, q.x - p.x);
     });
@@ -12727,7 +12870,7 @@
     zoom = Math.min(zoom, (half * this.aspect) / 40);
     this.fit.zoom = zoom;
     this.fit.y = targetY;
-    this.controls.minZoom = Math.min(0.5, zoom * 0.3); // far enough out to see the outlying castles
+    this.controls.minZoom = Math.min(0.5, zoom * 0.14); // far enough out to see the towns up the line, Watson Lake and all
   };
 
   Town.prototype.info = function (key) {
@@ -12773,7 +12916,7 @@
           tw.n ? (tw.flying ? 'Flag flying: your last session here set a PR.' : 'No flag: your last session here didn’t set a PR.') : '',
           tw.features.length ? 'Added so far: ' + tw.features.join(', ') + '.' : '',
           'Next addition (' + FEATURE_NAMES[Math.floor(tw.n / TIER) % 4] + ') at ' + next + ' layers.',
-          tw.def.key === 'full' ? '' : 'Height limit right now: ' + Math.min(MAX_LAYERS, this.towerCap()) + ' layers (rises with all your lifting, up to ' + MAX_LAYERS + '). Extra sessions build halls and turrets beside it' + (tw.bailey ? ': ' + tw.bailey.done + ' built so far.' : '.') + ' After that, lifting builds the towns up the line: Dawson City, Atlin, Haines Junction, Skagway and Haines.',
+          tw.def.key === 'full' ? '' : 'Height limit right now: ' + Math.min(MAX_LAYERS, this.towerCap()) + ' layers (rises with all your lifting, up to ' + MAX_LAYERS + '). Extra sessions build halls and turrets beside it' + (tw.bailey ? ': ' + tw.bailey.done + ' built so far.' : '.') + ' After that, lifting builds the towns up the line, as the roads reach them: Carcross, then Skagway and Atlin, Dawson City, Haines Junction and Haines, and far off down the highway, Watson Lake.',
           tail || 'Empty plot. Log one of these to start building.'] };
       case 'secret':
         var sc = SECRET_BY_ID[p[1]], extra = '';
@@ -12831,7 +12974,7 @@
         return EM ? { title: EM.name + ' needs a favour', lines: [EM.errand.ask, 'Bring it over and they\u2019ll pay you a coin. Errands run: ' + ES.errands + (ES.errands < 10 ? ' (the mice have a surprise at 10).' : ES.errands < 50 ? ' (and another at 50).' : '.')] } : null;
       }
       case 'city': return { title: 'Whitehorse', lines: ['The capital of the Yukon: downtown is a grid on the river flat, with the airport up on the clay cliffs. Each cross street grows with one muscle group: Main Street with full-body days, Lambert (chest), Steele (back), Wood (shoulders), Strickland (legs), Elliott (posterior chain) and Hanson (core).', 'Hover a street for what\u2019s next.'] };
-      case 'townsite': { var TD = TOWNS[+p[1]], TC = s.castles[+p[1]]; return { title: TD.name, lines: [TD.vibe, TC ? plural(TC.built, 'piece') + ' of ' + TD.plan.length + ' built.' : 'Not started yet: it grows here once your Whitehorse streets fill up and spill over.'] }; }
+      case 'townsite': { var TD = TOWNS[+p[1]], TC = s.castles[+p[1]]; return { title: TD.name, lines: [TD.vibe, TC ? plural(TC.built, 'piece') + ' of ' + TD.plan.length + ' built.' : 'Not started yet: it grows here once your Whitehorse streets fill up and spill over' + (TOWN_FROM[+p[1]] ? ', and ' + TOWNS[TOWN_FROM[+p[1]]].name + ' is finished.' : '.')] }; }
       case 'xb': return { title: (s.extraNames && s.extraNames[p[1]]) || 'A building', lines: [p[1] === 'preserve' ? 'Out on the road to Takhini Hot Springs: muskox, elk and mountain goats in a big fenced meadow.' : 'Up at the airport on the clay cliffs above town.', 'Built as a Whitehorse milestone.'] };
       case 'cbld': {
         // A building in Whitehorse: its name, and where and when it went up.
@@ -12848,6 +12991,8 @@
       case 'airport': return { title: 'Whitehorse airport (YXY)', lines: ['Erik Nielsen Whitehorse International, up on the hill above town.', 'Alkan Air’s King Air 350 flies a circuit over town every couple of minutes.'] };
       case 'kingair': return { title: 'Alkan Air King Air 350', lines: ['A twin-turboprop Beechcraft King Air 350, in Alkan Air colours: Whitehorse’s own charter and medevac airline.'] };
       case 'milepost': return { title: 'The Alaska Highway', lines: ['Whitehorse sits at Historic Mile 918 of the Alaska Highway, built in 1942.'] };
+      case 'hwybridge': return { title: 'The Haines Road bridge', lines: ['Steel trusses high over Miles Canyon, on the road from Haines Junction down to Haines.'] };
+      case 'culvert': return { title: 'A log bridge', lines: ['Where the highway hops over the stream out of the lake.'] };
       case 'cliffs': return { title: 'The clay cliffs', lines: ['The pale clay cliffs Whitehorse sits under, with the airport and the museums up on top looking down over town.'] };
       case 'museums': return { title: 'The museum grounds', lines: ['By the airport on the town side: the DC-3 weathervane, the Yukon Transportation Museum and the Beringia Centre, with lawns, flowers and benches to watch the planes from.'] };
       case 'hotsprings': return { title: 'Takhini Hot Springs', lines: ['Two steaming pools out on the edge of the country north of town, with the old log lodge beside them. Bean North Coffee is across the road.'] };
@@ -12942,8 +13087,7 @@
         return { title: 'The island', lines: ['One more thing for every full year you keep logging: ' + plural(IS ? IS.n : 0, 'year') + ' so far.', IS && IS.n + 1 < ISLAND_STEPS.length ? 'Next year: ' + ISLAND_STEPS[IS.n + 1] + '.' : ''] };
       case 'railway':
         var RW = s.rail;
-        var names = RW ? RW.stations.map(function (ci) { return STATION_NAMES[ci] || 'a halt'; }) : [];
-        return { title: 'The White Pass & Yukon Route', lines: [plural(names.length, 'station') + ' open' + (names.length ? ': ' + names.join(', ') : '') + '.', 'Through three tunnels, over the trestles and round the lighthouse.', 'A new station opens at each town up the line when it\u2019s finished.'] };
+        return { title: 'The White Pass & Yukon Route', lines: ['Carcross to Skagway, over the pass on timber trestles.', 'Steam down to the coast, then backing up the hill again. Climb aboard!'] };
       case 'hike':
         var h = s.hike, peaks = h.peaks.filter(Boolean), done = peaks.filter(function (x) { return x.done; }).length;
         var cur = peaks[peaks.length - 1];
@@ -13121,7 +13265,7 @@
     }
     // Keep the view over the countryside.
     var tg = this.controls.target, far = Math.hypot(tg.x, tg.z);
-    if (far > 150 && !(this.player && this.player.inDen)) { var back = new T.Vector3(tg.x, 0, tg.z).multiplyScalar(1 - 150 / far); tg.sub(back); this.camera.position.sub(back); }
+    if (far > WORLD_R - 6 && !(this.player && this.player.inDen)) { var back = new T.Vector3(tg.x, 0, tg.z).multiplyScalar(1 - (WORLD_R - 6) / far); tg.sub(back); this.camera.position.sub(back); }
     var changed = this.controls.update();
     if (this.soft) {
       if (!(changed || moved || this.anims.length || this.needsRender) || now - (this.lastPaint || 0) < 33) return;
@@ -13260,7 +13404,7 @@
   // feet: how high the raccoon's feet are mid-jump; anything lower than that can be hopped over.
   Town.prototype.walkable = function (x, z, feet, aloft) {
     var r = 0.22;
-    if (Math.hypot(x, z) > 150) return false;
+    if (Math.hypot(x, z) > WORLD_R) return false;
     var deck = this.deckAt(x, z);
     if (deck || aloft) return this.clearOfSolids(x, z, feet);
     // Raccoons swim: the lake, the ponds, the sea and the river are all fair game, except the
