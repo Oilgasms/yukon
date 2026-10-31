@@ -310,7 +310,7 @@
   var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(265, 110), { lift: 0.6 }), Object.assign(polar(298, 122), { lift: 0.4 }), Object.assign(polar(242, 122), { lift: 0.8 }),
     Object.assign(polar(118, 118), { lift: 1.5 }), Object.assign(polar(0, 112), { lift: 1.2 }), Object.assign(polar(322, 116), { lift: 1.9 }), Object.assign(polar(195, 250), { lift: 0.6 })];
   var TOWN_FROM = [null, 0, 1, 1, 0, 0, 5, 1]; // where each town's road comes from (0 is Whitehorse)
-  var CARCROSS = 1, SKAGWAY = 2, HAINES = 6, WORLD_R = 282, RAIL_BOW = 6; // the map reaches out past Watson Lake
+  var CARCROSS = 1, SKAGWAY = 2, HAINES = 6, WORLD_R = 282; // the map reaches out past Watson Lake
   // Mountains round the coast towns, in each town's own frame (+z toward Whitehorse, x across):
   // Skagway sits in a narrow valley between steep green walls, wooded to the top, and Haines on a
   // terrace under Mount Ripinski, with hills behind and snowy peaks across the inlet. They're part
@@ -319,12 +319,7 @@
     var s = CASTLE_SITES[ci], l = Math.hypot(s.x, s.z), rot = Math.atan2(-s.x / l, -s.z / l), c = Math.cos(rot), sn = Math.sin(rot);
     return { x: s.x + lx * c + lz * sn, z: s.z - lx * sn + lz * c };
   }
-  // The White Pass & Yukon Route: from the station beside the road into Carcross, over the pass to
-  // a platform at the top of Skagway (bowing out to keep clear of the road between the two).
-  var RAIL_PATH = (function () {
-    var a = siteAt(CARCROSS, -7, 23), b = siteAt(SKAGWAY, 10, 23), dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz), nx = dz / l, nz = -dx / l;
-    return bezierPath(a, { x: a.x + dx * 0.3 + nx * RAIL_BOW, z: a.z + dz * 0.3 + nz * RAIL_BOW }, { x: a.x + dx * 0.7 + nx * RAIL_BOW, z: a.z + dz * 0.7 + nz * RAIL_BOW }, b);
-  })();
+  var RAIL_PATH = []; // (laid out beside the road once the roads are, below)
   function nearRail(x, z, d) { for (var i = 0; i < RAIL_PATH.length; i += 2) if (Math.hypot(RAIL_PATH[i].x - x, RAIL_PATH[i].z - z) < d) return true; return false; }
   var TOWN_PEAKS = [
     [2, 23, -5, 8, 11, 1], [2, 26, 6, 9.5, 15, 1], [2, 23, 18, 7.5, 10, 1], [2, 30, 15, 7, 12, 1],
@@ -1020,6 +1015,23 @@
     if (ci === 7) { var wp = polar(250, 148); return bestTrail(start, wp).concat(bestTrail(wp, to).slice(1)); }
     return bestTrail(start, to);
   });
+  // The White Pass & Yukon Route runs beside the road from Carcross to Skagway, on whichever side
+  // keeps it off the fields and the mountains, from just outside one town's gate to the other's.
+  RAIL_PATH = (function () {
+    var rd = CASTLE_ROADS[SKAGWAY], a = townGate(CARCROSS), b = townGate(SKAGWAY), best = null;
+    [-1, 1].forEach(function (sd) {
+      var pts = [], sc = 0;
+      for (var i = 0; i < rd.length; i++) {
+        var q = rd[Math.min(rd.length - 1, i + 3)], o = rd[Math.max(0, i - 3)], dx = q.x - o.x, dz = q.z - o.z, l = Math.hypot(dx, dz) || 1;
+        var p = { x: rd[i].x - dz / l * 3.4 * sd, z: rd[i].z + dx / l * 3.4 * sd };
+        if (Math.hypot(p.x - a.x, p.z - a.z) < 7 || Math.hypot(p.x - b.x, p.z - b.z) < 7) continue;
+        if (townHill(p.x, p.z) > 0.4 || FIELDS.some(function (f) { return Math.hypot(f.x - p.x, f.z - p.z) < f.size + 1.5; })) sc++;
+        pts.push(p);
+      }
+      if (!best || sc < best.sc) best = { sc: sc, pts: pts };
+    });
+    return best.pts;
+  })();
   // House plots keep off the paths and roads out of town.
   HOUSE_SLOTS = HOUSE_SLOTS.filter(function (h) { return !nearPath(h.x, h.z, 2.6) && !CASTLE_ROADS.some(function (rd) { return rd && rd.some(function (q) { return Math.hypot(q.x - h.x, q.z - h.z) < 2.8; }); }) && !LANE.some(function (q) { return Math.hypot(q.x - h.x, q.z - h.z) < 2.8; }); });
   FOREST = FOREST.filter(function (p) { return !nearPath(p.x, p.z, 1.8); });
