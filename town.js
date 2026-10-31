@@ -896,6 +896,7 @@
     c(CHURCH, 12.5); c(STATUE, 3.6); c(KLONDIKE, 3.8); c(OFFICE, 8.5); c(polar(FARM.angle, FARM.r + 3.2), 4.6); c(LODGE, 4); c(SNOW.c, SNOW.R + 2); c(PASTURE, PASTURE_R + 2); c(LAKE.c, LAKE.R + 11.5); // the lake and its ski trail
     for (var k = -10; k <= 10; k += 5) c({ x: AIRPORT.x + AIRPORT.dx * k + AIRPORT.dz * 3, z: AIRPORT.z + AIRPORT.dz * k - AIRPORT.dx * 3 }, 7);
     CASTLE_SITES.forEach(function (cs, ci) { if (ci) c(cs, 14.5); });
+    c(siteAt(CARCROSS, 18, -1), 12); // Bennett Lake and its beach
     // and round the town's houses and landmarks
     Object.keys(E_SITES).forEach(function (k) { c(E_SITES[k], 2.8); });
     Object.keys(RIM_LOTS).forEach(function (k) { c(RIM_LOTS[k], 2.3); });
@@ -3542,9 +3543,9 @@
         if (o.burnt) {
           // The S.S. Tutshi as it is now: she burned in 1990, and all that stands on her cribbing is
           // the charred hull and a black steel frame tracing her decks, pilothouse, stack and wheel.
-          var stl = M('wpBlack'), char = M('trunk');
+          var stl = M('wpBlack'), char = M('stoneDark');
           P(h, self.geo.box, char, bw2, 0.32, bl, 0, by + 0.16, 0);
-          P(h, self.geo.box, stl, bw2 * 0.707, 0.32, bw2 * 0.707, 0, by + 0.16, bl / 2).rotation.y = Math.PI / 4;
+          P(h, self.geo.box, char, bw2 * 0.707, 0.32, bw2 * 0.707, 0, by + 0.16, bl / 2).rotation.y = Math.PI / 4;
           for (var cb2 = 0; cb2 < 9; cb2++) P(h, self.geo.box, M('logwood', 1), bw2 * 0.9, 0.06, 0.08, 0, by + 0.34, -bl * 0.42 + cb2 * bl * 0.105);
           var frame = function (w, d, y0, y1, zc, posts) {
             [-1, 1].forEach(function (sd) {
