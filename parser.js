@@ -413,7 +413,9 @@
   // Each row becomes one reading event; "Chapters Logged" covers rows without chapter numbers.
   function chaptersIn(text) {
     var out = [];
-    String(text || '').split(/[,;&]|\band\b/).forEach(function (part) {
+    // Verses count as their chapter: "119:1-24" is Psalm 119, "27-28:19" is 27 and 28, "1:1-2:3" is 1 and 2.
+    text = String(text || '').replace(/(\d+)\s*:\s*\d+\s*[-–]\s*(\d+)\s*:\s*\d+/g, '$1-$2').replace(/(\d+)\s*:\s*\d+\s*[-–]\s*\d+/g, '$1').replace(/(\d+)\s*:\s*\d+/g, '$1');
+    text.split(/[,;&]|\band\b/).forEach(function (part) {
       var m = part.match(/(\d+)\s*(?:-|–|to)\s*(\d+)/);
       if (m) { for (var c = +m[1]; c <= +m[2] && c - +m[1] < 200; c++) out.push(c); return; }
       var n = part.match(/\d+/);
@@ -421,9 +423,39 @@
     });
     return out;
   }
+  // A reading plan (M'Cheyne's): a header row with Date and reading columns (Family 1, Secret 2,
+  // Reading…), each followed by a tick-box column. Every ticked reading counts, on its day.
+  function parsePlan(rows) {
+    var events = [], head = -1, date = -1, reads = [];
+    for (var r = 0; r < Math.min(rows.length, 15) && head < 0; r++) {
+      var low = rows[r].map(function (c) { return String(c).trim().toLowerCase(); });
+      var rd = [];
+      low.forEach(function (c, i) { if (/^(family|secret|reading)\b/.test(c) && /^(done|read|✓|✔|tick|check)/.test(low[i + 1] || '')) rd.push(i); });
+      if (rd.length && low.indexOf('date') >= 0) { head = r; date = low.indexOf('date'); reads = rd; }
+    }
+    if (head < 0) return null;
+    for (var i = head + 1; i < rows.length; i++) {
+      var row = rows[i], dateText = String(row[date] || '').trim(), d = null, m = dateText.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) d = m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+      else { var dt = new Date(dateText); if (!isNaN(dt)) d = dt.getFullYear() + '-' + ('0' + (dt.getMonth() + 1)).slice(-2) + '-' + ('0' + dt.getDate()).slice(-2); }
+      reads.forEach(function (ci) {
+        var text = String(row[ci] || '').trim(), tick = String(row[ci + 1] || '').trim().toLowerCase();
+        if (!text || !/^(true|yes|y|x|✓|✔|1|done)$/.test(tick)) return;
+        var bm = text.match(/^((?:[1-3]\s*)?[A-Za-z][A-Za-z .]*?)\s+(\d.*)$/);
+        if (!bm) return;
+        var chapters = chaptersIn(bm[2]);
+        events.push({ kind: 'bible', book: bm[1].trim(), chapters: chapters, count: chapters.length, date: d,
+          day: d ? new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : '', label: text,
+          note: '', phase: 'Bible', friends: [], dogs: [] });
+      });
+    }
+    return events;
+  }
   function parseBible(sheets) {
     var events = [];
     sheets.forEach(function (sh) {
+      var plan = parsePlan(sh.rows);
+      if (plan) { plan.forEach(function (e) { events.push(e); }); return; }
       var rows = sh.rows, head = -1, cols = null;
       for (var r = 0; r < Math.min(rows.length, 15) && head < 0; r++) {
         var low = rows[r].map(function (c) { return String(c).trim().toLowerCase(); });
