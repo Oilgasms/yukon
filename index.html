@@ -312,7 +312,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn" id="future5" type="button" aria-pressed="false">+5 years</button>
       <button class="btn" id="explore" type="button" aria-pressed="true">Map view</button>
       <button class="btn" id="recenter" type="button">Recenter</button>
-      <button class="btn" id="pixel" type="button" aria-pressed="true">Pixel</button>
+      <button class="btn" id="pixel" type="button" aria-pressed="true">Style: Handmade</button>
       <button class="btn" id="motion" type="button" aria-pressed="true">Motion</button>
       <button class="btn" id="sound" type="button" aria-pressed="false">Sound: off</button>
     </div>
@@ -371,8 +371,11 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
 
   // Start the 3D view, falling back to a lighter renderer on a fresh canvas if the first try is refused.
   var LITE_KEY = 'fittertown:lite', PIXEL_KEY = 'fittertown:pixel';
-  var pixelOn = true;
-  try { pixelOn = localStorage.getItem(PIXEL_KEY) !== '0'; } catch (e) {}
+  // The look: handmade (ink and watercolour on paper), pixel, or smooth. Handmade unless you've picked another.
+  var STYLE_KEY = 'fittertown:style', STYLES = ['hand', 'pixel', 'smooth'], STYLE_NAMES = { hand: 'Handmade', pixel: 'Pixel', smooth: 'Smooth' };
+  var artStyle = 'hand';
+  try { var st0 = localStorage.getItem(STYLE_KEY); if (STYLES.indexOf(st0) >= 0) artStyle = st0; } catch (e) {}
+  var pixelOn = artStyle === 'pixel';
   var preferLite = false;
   // Lite mode (after a graphics driver reset) lasts a day, then full graphics get another go.
   try { var liteAt = localStorage.getItem(LITE_KEY); preferLite = !!liteAt && (liteAt === '1' ? false : Date.now() - (+liteAt) < 86400000); if (liteAt === '1') localStorage.removeItem(LITE_KEY); } catch (e) {}
@@ -395,7 +398,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
     var tries = preferLite ? [{ lite: true }] : [{ lite: false }, { lite: true }];
     tries.push({ software: true }); // last resort: no WebGL at all
     for (var t = 0; t < tries.length && !town; t++) {
-      try { town = new Town(t ? freshCanvas() : $('scene'), { reducedMotion: reduced, lite: tries[t].lite, software: tries[t].software, pixel: pixelOn }); }
+      try { town = new Town(t ? freshCanvas() : $('scene'), { reducedMotion: reduced, lite: tries[t].lite, software: tries[t].software, pixel: pixelOn, handmade: artStyle === 'hand' }); }
       catch (e) { if (!startErr || !tries[t].software) startErr = e; }
     }
   }
@@ -641,14 +644,15 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
     p.textContent = 'Part of the town stopped moving (' + part + '): ' + msg + ' \u00b7 build ' + BUILD;
     n.append(p); n.hidden = false;
   };
-  // Pixel-art rendering is on by default; the button switches to a smooth render.
-  function syncPixelButton() { $('pixel').setAttribute('aria-pressed', String(pixelOn)); $('pixel').textContent = pixelOn ? 'Pixel: on' : 'Pixel: off'; }
+  // The style button cycles through handmade, pixel and smooth.
+  function syncPixelButton() { $('pixel').setAttribute('aria-pressed', String(artStyle !== 'smooth')); $('pixel').textContent = 'Style: ' + STYLE_NAMES[artStyle]; }
   syncPixelButton();
   $('recenter').addEventListener('click', function () { town.recenter(); });
   $('pixel').addEventListener('click', function () {
-    pixelOn = !pixelOn;
-    try { localStorage.setItem(PIXEL_KEY, pixelOn ? '1' : '0'); } catch (e) {}
-    town.setPixel(pixelOn);
+    artStyle = STYLES[(STYLES.indexOf(artStyle) + 1) % STYLES.length];
+    pixelOn = artStyle === 'pixel';
+    try { localStorage.setItem(STYLE_KEY, artStyle); } catch (e) {}
+    town.setStyle(artStyle);
     syncPixelButton();
   });
   function syncMotionButton() { $('motion').setAttribute('aria-pressed', String(!reduced)); $('motion').textContent = reduced ? 'Motion: off' : 'Motion: on'; }

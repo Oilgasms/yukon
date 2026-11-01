@@ -1210,6 +1210,7 @@
     this.lite = !!opts.lite;
     this.soft = !!opts.software;
     this.pixel = opts.pixel !== false;
+    this.handmade = !!opts.handmade && !this.pixel;
     if (this.soft) { this.lite = true; this.renderer = new SoftRenderer(canvas); }
     else {
       this.renderer = new T.WebGLRenderer({ canvas: canvas, antialias: false, alpha: true, powerPreference: this.lite ? 'low-power' : 'default', failIfMajorPerformanceCaveat: false });
@@ -1312,6 +1313,76 @@
     this.pixel = on;
     this.applyPixelRatio();
     this.resize();
+  };
+  // The look: 'hand' (inked and painted on paper), 'pixel' or 'smooth'.
+  Town.prototype.setStyle = function (style) {
+    this.handmade = style === 'hand';
+    this.setPixel(style === 'pixel');
+  };
+  // The handmade look: the town is drawn to an offscreen picture first, then painted onto the page
+  // with wobbly ink outlines wherever one thing stands in front of another (the pen lifting now and
+  // then), watercolour pooling darker at the edges of each shape, and paper grain under it all.
+  Town.prototype.setupHandmade = function () {
+    var gl = this.renderer.getContext(), sz = this.renderer.getDrawingBufferSize(new T.Vector2());
+    if (!this.renderer.capabilities.isWebGL2 && !this.renderer.extensions.get('WEBGL_depth_texture')) { this.handmade = false; return; }
+    var rt = new T.WebGLRenderTarget(sz.x, sz.y, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat });
+    rt.depthTexture = new T.DepthTexture(sz.x, sz.y); rt.depthTexture.type = T.UnsignedIntType;
+    var mat = new T.ShaderMaterial({
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 } },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: [
+        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px;',
+        'varying vec2 vUv;',
+        'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+        'float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
+        '  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }',
+        'float dep(vec2 uv) { return texture2D(tDepth, uv).x * depthRange; }',
+        'float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }',
+        'void main() {',
+        '  vec2 p = vUv * res, o = px / res;',
+        // the hand wobbles: sample from slightly shifted places, slowly varying across the page
+        '  vec2 wob = (vec2(noise(p / 70.0), noise(p / 70.0 + 31.7)) - 0.5) * o * 2.6;',
+        '  vec2 uv = vUv + wob;',
+        '  vec4 c4 = texture2D(tColor, uv); vec3 col = c4.rgb; float a = c4.a;',
+        // ink where the depth jumps (second difference, so flat ground and slopes stay clean)
+        '  float c = dep(uv), l = dep(uv - vec2(o.x, 0.0)), r = dep(uv + vec2(o.x, 0.0)), d = dep(uv - vec2(0.0, o.y)), u = dep(uv + vec2(0.0, o.y));',
+        '  float e = max(abs(l + r - 2.0 * c), abs(d + u - 2.0 * c));',
+        '  float edge = smoothstep(0.18, 0.55, e);',
+        // softer pencil lines where colours change sharply
+        '  float ce = max(abs(lum(texture2D(tColor, uv + vec2(o.x, 0.0)).rgb) - lum(col)), abs(lum(texture2D(tColor, uv + vec2(0.0, o.y)).rgb) - lum(col)));',
+        '  float pencil = smoothstep(0.10, 0.28, ce) * 0.35;',
+        // the pen lifts now and then, and presses harder in places
+        '  float stroke = 0.55 + 0.45 * smoothstep(0.25, 0.6, noise(p / 7.0 + 3.1));',
+        '  edge *= stroke; pencil *= stroke;',
+        // watercolour: uneven wash and pigment pooling at the edges
+        '  float wash = 0.95 + 0.08 * (noise(p / 26.0) - 0.5) + 0.05 * (noise(p / 5.0) - 0.5);',
+        '  col *= wash;',
+        '  col = mix(col, col * 0.84, smoothstep(0.05, 0.3, e) * 0.6);',
+        // paper fibres
+        '  float fib = noise(vec2(p.x / 1.6, p.y / 9.0)) * 0.5 + noise(vec2(p.x / 9.0, p.y / 1.6)) * 0.5;',
+        '  col *= 0.97 + 0.05 * fib;',
+        '  col = mix(col, ink * a, clamp(edge * 0.9 + pencil, 0.0, 1.0));',
+        '  gl_FragColor = vec4(col, max(a, edge * 0.9));',
+        '}'
+      ].join('\n'),
+      depthTest: false, depthWrite: false
+    });
+    var quad = new T.Mesh(new T.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+    this.post = { rt: rt, mat: mat, scene: new T.Scene(), cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
+    this.post.scene.add(quad);
+  };
+  Town.prototype.draw = function () {
+    if (this.handmade && !this.post) this.setupHandmade();
+    if (!this.handmade || !this.post) { this.renderer.render(this.scene, this.camera); return; }
+    var P = this.post, sz = this.renderer.getDrawingBufferSize(new T.Vector2());
+    if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
+    P.mat.uniforms.depthRange.value = this.camera.far - this.camera.near;
+    P.mat.uniforms.px.value = Math.max(1, this.renderer.getPixelRatio() * 0.9);
+    this.renderer.setRenderTarget(P.rt);
+    this.renderer.clear();
+    this.renderer.render(this.scene, this.camera);
+    this.renderer.setRenderTarget(null);
+    this.renderer.render(P.scene, P.cam);
   };
 
   Town.prototype.mat = function (name, idx) {
@@ -13861,7 +13932,7 @@
       this.lastPaint = now;
       this.needsRender = false;
     }
-    this.renderer.render(this.scene, this.camera);
+    this.draw();
   };
 
   // ---- explore: walk the town as the raccoon ---------------------------------
