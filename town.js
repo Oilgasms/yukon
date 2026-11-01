@@ -1347,7 +1347,7 @@
         // ink where the depth jumps (second difference, so flat ground and slopes stay clean)
         '  float c = dep(uv), l = dep(uv - vec2(o.x, 0.0)), r = dep(uv + vec2(o.x, 0.0)), d = dep(uv - vec2(0.0, o.y)), u = dep(uv + vec2(0.0, o.y));',
         '  float e = max(abs(l + r - 2.0 * c), abs(d + u - 2.0 * c));',
-        '  float edge = smoothstep(0.18, 0.55, e);',
+        '  float edge = smoothstep(0.13, 0.45, e);',
         // softer pencil lines where colours change sharply
         '  float ce = max(abs(lum(texture2D(tColor, uv + vec2(o.x, 0.0)).rgb) - lum(col)), abs(lum(texture2D(tColor, uv + vec2(0.0, o.y)).rgb) - lum(col)));',
         '  float pencil = smoothstep(0.10, 0.28, ce) * 0.35;',
@@ -1355,12 +1355,12 @@
         '  float stroke = 0.55 + 0.45 * smoothstep(0.25, 0.6, noise(p / 7.0 + 3.1));',
         '  edge *= stroke; pencil *= stroke;',
         // watercolour: uneven wash and pigment pooling at the edges
-        '  float wash = 0.95 + 0.08 * (noise(p / 26.0) - 0.5) + 0.05 * (noise(p / 5.0) - 0.5);',
+        '  float wash = 0.95 + 0.11 * (noise(p / 26.0) - 0.5) + 0.06 * (noise(p / 5.0) - 0.5);',
         '  col *= wash;',
         '  col = mix(col, col * 0.84, smoothstep(0.05, 0.3, e) * 0.6);',
         // paper fibres
         '  float fib = noise(vec2(p.x / 1.6, p.y / 9.0)) * 0.5 + noise(vec2(p.x / 9.0, p.y / 1.6)) * 0.5;',
-        '  col *= 0.97 + 0.05 * fib;',
+        '  col *= 0.965 + 0.07 * fib;',
         '  col = mix(col, ink * a, clamp(edge * 0.9 + pencil, 0.0, 1.0));',
         '  gl_FragColor = vec4(col, max(a, edge * 0.9));',
         '}'
@@ -1377,7 +1377,7 @@
     var P = this.post, sz = this.renderer.getDrawingBufferSize(new T.Vector2());
     if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
     P.mat.uniforms.depthRange.value = this.camera.far - this.camera.near;
-    P.mat.uniforms.px.value = Math.max(1, this.renderer.getPixelRatio() * 0.9);
+    P.mat.uniforms.px.value = Math.max(1.2, this.renderer.getPixelRatio() * 1.05);
     this.renderer.setRenderTarget(P.rt);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
