@@ -1372,9 +1372,18 @@
     this.post = { rt: rt, mat: mat, scene: new T.Scene(), cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
     this.post.scene.add(quad);
   };
+  // Speech bubbles live on their own layer, drawn last and straight onto the page.
+  var OVERLAY_LAYER = 2;
+  Town.prototype.drawOverlay = function () {
+    if (this.soft || !this.fx || !(this.fx.bubbles || []).length) return;
+    var R = this.renderer, ac = R.autoClear, cam = this.camera, sm = R.shadowMap && R.shadowMap.autoUpdate;
+    cam.layers.set(OVERLAY_LAYER); R.autoClear = false; if (R.shadowMap) R.shadowMap.autoUpdate = false;
+    R.render(this.scene, cam);
+    R.autoClear = ac; cam.layers.set(0); if (R.shadowMap) R.shadowMap.autoUpdate = sm;
+  };
   Town.prototype.draw = function () {
     if (this.handmade && !this.post) this.setupHandmade();
-    if (!this.handmade || !this.post) { this.renderer.render(this.scene, this.camera); return; }
+    if (!this.handmade || !this.post) { this.renderer.render(this.scene, this.camera); this.drawOverlay(); return; }
     var P = this.post, sz = this.renderer.getDrawingBufferSize(new T.Vector2());
     if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
     P.mat.uniforms.depthRange.value = this.camera.far - this.camera.near;
@@ -1384,6 +1393,7 @@
     this.renderer.render(this.scene, this.camera);
     this.renderer.setRenderTarget(null);
     this.renderer.render(P.scene, P.cam);
+    this.drawOverlay();
   };
 
   Town.prototype.mat = function (name, idx) {
@@ -12315,7 +12325,12 @@
         : gap < 14 ? ['a whole week without your Bible?!', gap + ' days! the church spire\u2019s starting to droop', 'the vicar sent a search party. ' + gap + ' days!', 'the prodigal son came home. so can you!', 'not a single chapter in ' + gap + ' days? start with a psalm, it\u2019s short', 'the church mice have started reading it FOR you']
         : ['it\u2019s been ' + gap + ' days since your Bible, love. come home', 'the vicar\u2019s put your name on the prayer list', 'we\u2019ve forgotten what your Bible looks like', gap + ' days! even Jonah got out of the whale sooner', 'just one chapter today? for the mice?', 'the church bells have gone very quiet. ' + gap + ' days\u2026'];
       callouts.push(pickOne(lines)); if (gap >= 4) callouts.push(pickOne(lines));
-    } else if (bibleOn && gap === 1) callouts.push(pickOne(['read your Bible today, dear?', 'a chapter a day keeps the devil away!', 'haven\u2019t seen your Bible out today', 'the vicar was asking after you\u2026']));
+    } else if (bibleOn && gap === 1) {
+      // You read yesterday: a kind word for it, and only a gentle nudge once it's evening.
+      var yd = (s.byDay[new Date(Date.parse(t) - 864e5).toISOString().slice(0, 10)] || []).filter(function (e) { return e.kind === 'bible' && e.book; });
+      if (new Date().getHours() >= 18) { if (Math.random() < 0.5) callouts.push(pickOne(['evening reading tonight, dear?', 'the vicar says the evening psalms are the nicest', 'a chapter before bed?'])); }
+      else if (yd.length && Math.random() < 0.3) callouts.push(pickOne(['saw you with your Bible last night. lovely', 'how was ' + pickOne(yd).label + ' yesterday?', 'the church mice say you read ' + yd.length + (yd.length === 1 ? ' passage' : ' passages') + ' yesterday!', 'the bells rang a bit brighter this morning']));
+    }
     // Books: nothing finished in a month.
     if (s.lastBookDate) {
       var since = Math.round((Date.parse(t) - Date.parse(s.lastBookDate)) / 864e5);
@@ -15522,7 +15537,7 @@
     var aspect = W / 160, hs = cv.height / 72;
     // Anchored at the tail, so taller (wrapped) bubbles grow upwards from the speaker.
     sp.center.set(0.5, 0);
-    sp.scale.set(1.5 * aspect, 0.68 * hs, 1); sp.renderOrder = 10;
+    sp.scale.set(1.5 * aspect, 0.68 * hs, 1); sp.renderOrder = 10; sp.layers.set(OVERLAY_LAYER); sp.material.depthWrite = false; // drawn after the handmade ink, so no outlines over it
     this.scene.add(sp);
     // Long lines stay up long enough to read.
     if (text.length > 14) dur = Math.max(dur || 2, Math.min(9, 2 + text.length / 11));
