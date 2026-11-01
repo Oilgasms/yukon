@@ -266,8 +266,12 @@
   // south from there to Haines; and last, far off down the Alaska Highway from Carcross, Watson Lake.
   // (They sit well out in the country, with room to breathe between them.)
   var CASTLE_SITES = [{ x: 0, z: 0, lift: 0 }, Object.assign(polar(265, 140), { lift: 0.6 }), Object.assign(polar(298, 160), { lift: 0.4 }), Object.assign(polar(242, 160), { lift: 0.8 }),
-    Object.assign(polar(118, 150), { lift: 1.5 }), Object.assign(polar(0, 145), { lift: 1.2 }), Object.assign(polar(322, 148), { lift: 1.9 }), Object.assign(polar(195, 310), { lift: 0.6 })];
-  var TOWN_FROM = [null, 0, 1, 1, 0, 0, 5, 1]; // where each town's road comes from (0 is Whitehorse)
+    Object.assign(polar(118, 150), { lift: 1.5 }), Object.assign(polar(0, 145), { lift: 1.2 }), Object.assign(polar(322, 148), { lift: 1.9 }), Object.assign(polar(195, 310), { lift: 0.6 }),
+    Object.assign(polar(342.5, 262), { lift: 0.7 })]; // and Juneau, out on its island: no road goes there
+  var TOWN_FROM = [null, 0, 1, 1, 0, 0, 5, 1, null]; // where each town's road comes from (0 is Whitehorse)
+  var JUNEAU = 8, JN_ISLE = polar(342.5, 288);
+  // How far outside Juneau's island this is (negative on the island).
+  function isleSd(x, z) { var dx = x - JN_ISLE.x, dz = z - JN_ISLE.z, a = Math.atan2(dz, dx); return Math.hypot(dx, dz) - (41 + 4 * Math.sin(a * 3 + 0.7) + 2.5 * Math.sin(a * 5 + 2.1)); }
   var STREET_X = { 3: 7.9 }; // Atlin's main street is Lake Road, along the shore below the town
   var CARCROSS = 1, SKAGWAY = 2, HAINES = 6, WORLD_R = 345; // the map reaches out past Watson Lake
   // The river comes down from the glacier, runs straight along the front of downtown, past the
@@ -333,7 +337,8 @@
     [1, -33, -4, 11, 16, 0.45, 0.7], [1, -30, -24, 10, 12, 0.6], [1, -36, 12, 8, 10, 0.8], // and Nares Mountain on the other side of the valley
     [3, 33, -4, 9, 15, 0.35, 0.6], [3, 31, 14, 8, 11, 0.45, 0.75], [3, 36, -20, 7, 12, 0.4, 0.66], // Atlin: Atlin Mountain across the lake
     [4, -2, -35, 15, 14, 0.85], [4, -16, -30, 8, 7, 1], // Dawson: the Midnight Dome, and its shoulder
-    [5, -13, -33, 10, 21, 0.3, 0.5], [5, 13, -35, 11, 23, 0.3, 0.48], [5, 0, -46, 9, 17, 0.35, 0.55] // Haines Junction: the St. Elias
+    [5, -13, -33, 10, 21, 0.3, 0.5], [5, 13, -35, 11, 23, 0.3, 0.48], [5, 0, -46, 9, 17, 0.35, 0.55], // Haines Junction: the St. Elias
+    [8, -11, -28, 10, 19, 0.45, 0.72], [8, 12, -26, 10, 17, 0.45, 0.72], [8, -1, -45, 12, 18, 0.4, 0.62] // Juneau: Mount Juneau, Mount Roberts and the icefield
   ].map(function (p, i) { var q = siteAt(p[0], p[1], p[2]); return { ci: p[0], x: q.x, z: q.z, R: p[3], H: p[4], rock: p[5], snow: p[6] || 2, ph: i * 1.7 }; });
   var TP_BOX = TOWN_PEAKS.reduce(function (b, k) { return [Math.min(b[0], k.x - k.R), Math.max(b[1], k.x + k.R), Math.min(b[2], k.z - k.R), Math.max(b[3], k.z + k.R)]; }, [1e9, -1e9, 1e9, -1e9]);
   // How high the town mountains lift the ground here, and which peak is on top.
@@ -607,7 +612,8 @@
   var COAST_N = { x: Math.cos(320 * D2R), z: -Math.sin(320 * D2R) }, COAST_T = { x: -COAST_N.z, z: COAST_N.x };
   function coastSd(x, z) {
     var tp = x * COAST_T.x + z * COAST_T.z;
-    return x * COAST_N.x + z * COAST_N.z - (162 + 4 * Math.sin(tp * 0.06) + 2.5 * Math.sin(tp * 0.17 + 1));
+    var sd = x * COAST_N.x + z * COAST_N.z - (162 + 4 * Math.sin(tp * 0.06) + 2.5 * Math.sin(tp * 0.17 + 1));
+    return sd > 40 ? Math.min(sd, isleSd(x, z)) : sd;
   }
   var SEA_Y = -0.55;
   // The lighthouse headland: a point of high ground on the shore that ends in sheer cliffs.
@@ -761,6 +767,7 @@
   pad(polar(FARM.angle, FARM.r + 3.2), 4.8, 6.4);
   pad(SNOW.c, SNOW.R + 1, SNOW.R + 4);
   CASTLE_SITES.forEach(function (c, ci) { if (ci) PADS.push({ x: c.x, z: c.z, rIn: 14.2, rOut: 20, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); });
+  (function () { var c = CASTLE_SITES[JUNEAU], b = siteAt(JUNEAU, 15, 1); PADS.push({ x: b.x, z: b.z, rIn: 10, rOut: 13, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); })();
   [[CARCROSS, 17], [3, 20]].forEach(function (lk) { var c = CASTLE_SITES[lk[0]], b = siteAt(lk[0], lk[1], -1); PADS.push({ x: b.x, z: b.z, rIn: 11, rOut: 15, h: Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift }); }); // Bennett Lake's beach, and Atlin Lake's
   // The airport's ground, levelled.
   AIRPORT.h = AIRPORT_TOP;
@@ -881,6 +888,12 @@
       if (ch > 0) h += (Math.min(h, skagLevel(q.z) - 0.75) - h) * ch;
     }
     return h;
+  }
+  // Juneau's glacier valley and the tram line up Mount Roberts stay clear of trees.
+  function jnClear(x, z) {
+    var q = townLocal(JUNEAU, x, z); if (q.d2 > 3600) return false;
+    if (q.x < -16 && q.z < -6) return true;
+    var t = Math.max(0, Math.min(1, (12 - q.z) / 37)), cx = 7 + 4.5 * t; return Math.abs(q.x - cx) < 1.8 && q.z < 13 && q.z > -26;
   }
   var DAWSON_PAD = null;
   function DAWSON_PAD_H() { if (DAWSON_PAD == null) { var c = CASTLE_SITES[DAWSON]; DAWSON_PAD = Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift; } return DAWSON_PAD; }
@@ -1108,7 +1121,7 @@
     return scored ? best : best.pts;
   }
   var CASTLE_ROADS = CASTLE_SITES.map(function (site, ci) {
-    if (!ci) return null;
+    if (!ci || ci === JUNEAU) return null;
     var to = townGate(ci), from = TOWN_FROM[ci];
     if (!from) return fromStreet(to, 3);
     var start = townGate(from);
@@ -1153,6 +1166,7 @@
     var out = [];
     CASTLE_SITES.forEach(function (site, ci) {
       if (!ci) return;
+      if (ci === 5 || ci === JUNEAU) { var sx1 = ci === 5 ? 12 : 15, za = ci === 5 ? 4.7 : 10, zb = ci === 5 ? -4.7 : -8, a1 = siteAt(ci, sx1, za), b1 = siteAt(ci, sx1, zb), L1 = Math.hypot(b1.x - a1.x, b1.z - a1.z); out[ci] = { ci: ci, x: (a1.x + b1.x) / 2, z: (a1.z + b1.z) / 2, dx: (b1.x - a1.x) / L1, dz: (b1.z - a1.z) / L1, len: L1, paved: true }; return; }
       if (ci === SKAGWAY) { var a0 = siteAt(ci, -13.6, 17), b0 = siteAt(ci, -13.6, -6), L0 = Math.hypot(b0.x - a0.x, b0.z - a0.z); out[ci] = { ci: ci, x: (a0.x + b0.x) / 2, z: (a0.z + b0.z) / 2, dx: (b0.x - a0.x) / L0, dz: (b0.z - a0.z) / L0, len: L0, paved: true }; return; }
       var best = null, HL = 7.5;
       for (var ang = 0; ang < 360; ang += 12) for (var dist = 27; dist <= 42; dist += 5) for (var ori = 0; ori < 180; ori += 30) {
@@ -1190,7 +1204,7 @@
   function nearPath(x, z, dist) {
     for (var i = 0; i < PATHS.length; i++) for (var k = 0; k < PATHS[i].pts.length; k += 2) if (Math.hypot(PATHS[i].pts[k].x - x, PATHS[i].pts[k].z - z) < dist) return true;
     for (i = 0; i < STREETS.length; i++) for (k = 0; k < STREETS[i].length; k += 2) if (Math.hypot(STREETS[i][k].x - x, STREETS[i][k].z - z) < dist) return true;
-    for (i = 1; i < CASTLE_ROADS.length; i++) for (k = 0; k < CASTLE_ROADS[i].length; k += 2) if (Math.hypot(CASTLE_ROADS[i][k].x - x, CASTLE_ROADS[i][k].z - z) < dist + 0.4) return true;
+    for (i = 1; i < CASTLE_ROADS.length; i++) if (CASTLE_ROADS[i]) for (k = 0; k < CASTLE_ROADS[i].length; k += 2) if (Math.hypot(CASTLE_ROADS[i][k].x - x, CASTLE_ROADS[i][k].z - z) < dist + 0.4) return true;
     return false;
   }
 
@@ -2560,7 +2574,7 @@
     for (var gx = -WORLD_R; gx <= WORLD_R; gx += 4.6) for (var gz = -WORLD_R; gz <= WORLD_R; gz += 4.6) {
       var x = gx + (r() - 0.5) * 3.8, z = gz + (r() - 0.5) * 3.8, d = Math.hypot(x, z);
       if (d < 154 || d > WORLD_R - 3 || noise2(x * 0.55, z * 0.55) < 0.1 || r() < 0.35) continue;
-      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5) || nearSkagRiver(x, z, 2) || stripAt(x, z, 3)) continue;
+      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5) || nearSkagRiver(x, z, 2) || stripAt(x, z, 3) || jnClear(x, z)) continue;
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 24; })) continue;
       spots.push({ x: x, z: z, y: groundY(x, z), s: 0.75 + r() * 0.6 });
     }
@@ -2594,7 +2608,7 @@
       var n = Math.round(k.R * k.R * 0.55), site = CASTLE_SITES[k.ci];
       for (var i = 0; i < n; i++) {
         var a = r() * Math.PI * 2, d = Math.sqrt(r()) * k.R, x = k.x + Math.cos(a) * d, z = k.z + Math.sin(a) * d, th = townHill(x, z);
-        if (th < 0.9 || !TP_TOP || th / TP_TOP.H > TP_TOP.rock * 0.92 || Math.hypot(x - site.x, z - site.z) < 16 || Math.hypot(x, z) > WORLD_R || nearPath(x, z, 1.2)) continue;
+        if (th < 0.9 || !TP_TOP || th / TP_TOP.H > TP_TOP.rock * 0.92 || Math.hypot(x - site.x, z - site.z) < 16 || Math.hypot(x, z) > WORLD_R || nearPath(x, z, 1.2) || jnClear(x, z)) continue;
         spots.push({ x: x, z: z, y: groundY(x, z), s: 0.7 + r() * 0.5 });
       }
     });
@@ -3427,7 +3441,7 @@
         ['muffin', at(-4.3, 10.2), {}, 'The Village Monument (“the muffin”)'], ['cabin', B(1, 1), { c: 1 }],
         ['quonset', A(1, 3), {}, 'Our Lady of the Way'], ['gas', A(1, 0), {}], ['house', A(-1, 3), { c: 9, roof: 1 }],
         ['kluane', at(0, -11.2), {}, 'The Kluane National Park visitor centre'], ['log', lot2('A', 1, 4), { w: 4.4, motel: true }, 'The log motel'], ['house', A(-1, 4), { c: 13, roof: 1 }],
-        ['house', B(-1, 1), { c: 11, roof: 0 }], ['strip', null, {}, 'The airstrip'], ['plane', at(12.0, -1.2, 180), {}, 'A flightseeing plane'],
+        ['house', B(-1, 1), { c: 11, roof: 0 }], ['strip', null, {}, 'The airstrip'], ['plane', at(10.2, -3.0, 180), {}, 'A flightseeing plane'],
         ['house', A(-1, 5), { c: 7, roof: 2 }], ['rv', B(-1, 5), {}, 'The RV park'], ['daku', B(1, 2), {}, 'The Da Kų Cultural Centre'],
         ['house', A(1, 6), { c: 4, roof: 2 }], ['house', A(-1, 6), { c: 2, roof: 1 }], ['cabin', B(1, 3), {}], ['house', B(-1, 2), { c: 14, roof: 0 }],
         ['house', A(1, 7), { c: 9, roof: 1 }], ['house', A(-1, 7), { c: 12, roof: 2 }], ['cabin', B(1, 4), { c: 1 }], ['house', B(-1, 3), { c: 0, roof: 1 }],
@@ -3461,6 +3475,25 @@
         ['house', A(1, 6), { c: 7 }], ['house', A(-1, 6), { c: 2 }], ['house', B(-1, 5), { c: 12 }], ['cabin', B(-1, 6), {}], ['canoes', null, {}, 'Canoes on Wye Lake'],
         ['house', A(1, 7), { c: 4 }], ['house', A(-1, 7), { c: 14 }], ['house', A(1, 8), { c: 1 }], ['house', A(-1, 8), { c: 6 }], ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 9 }],
         ['quonset', Cr(-1, 1), { plain: true }, 'The 1942 airport hangar'], ['lamps', null, {}, 'Lamps along the Alaska Highway']
+      ] },
+    { key: 'juneau', name: 'Juneau', vibe: 'Alaska’s capital, out on its island where no road goes: wooden houses stacked up the mountainsides under Mount Juneau and Mount Roberts, the marble-columned Capitol, the onion dome of St. Nicholas, cruise ships and float planes on the channel, the tram climbing Mount Roberts and the Mendenhall Glacier pouring down behind town.', street: 'gravel', walks: true,
+      homes: { house: { vary: [7, 12, 3, 10, 15, 6, 4, 9, 1, 11] } }, // painted wooden houses of every colour, stacked up the hill
+      keep: [[15, 1, 10], [-21, -12, 6], [-22, -24, 6], [9, -8, 3]],
+      plan: [
+        ['front', A(1, 0), { c: 5, t: 0 }], ['front', A(-1, 0), { c: 11, t: 0 }], ['jndocks', null, {}, 'The cruise ship docks and float planes on Gastineau Channel'],
+        ['front', A(1, 1), { c: 2, t: 4, two: true, swing: true, signText: 'RED DOG SALOON' }, 'The Red Dog Saloon'], ['house', B(1, 0), {}],
+        ['front', A(-1, 1), { c: 15, t: 3, two: true, signText: 'ALASKAN HOTEL' }, 'The Alaskan Hotel'],
+        ['jnairport', null, {}, 'Juneau International Airport'],
+        ['capitol', at(-9.6, -1.6, 90), {}, 'The Alaska State Capitol'], ['front', A(1, 2), { c: 8, t: 0 }], ['house', B(-1, 0), {}],
+        ['stnick', at(9.2, -6.2, -90), {}, 'St. Nicholas Russian Orthodox Church'], ['front', A(-1, 2), { c: 4, t: 0, two: true }], ['house', B(1, 1), {}],
+        ['tram', null, {}, 'The Mount Roberts Tramway'], ['front', A(1, 3), { c: 13, t: 0 }], ['house', B(-1, 1), {}],
+        ['whale', at(-3.2, 13.2, 180), {}, 'The breaching whale fountain'], ['front', A(-1, 3), { c: 9, t: 2, two: true }],
+        ['mansion', at(-9.4, -7.6, 90), {}, 'The Governor’s Mansion'], ['house', B(1, 2), {}], ['front', A(1, 4), { c: 1, t: 0, two: true }],
+        ['glacier', null, {}, 'The Mendenhall Glacier'], ['front', A(-1, 4), { c: 6, t: 0, two: true, w: 2.4, signText: 'STATE MUSEUM' }, 'The Alaska State Museum'],
+        ['house', B(1, 3), {}], ['front', A(1, 5), { c: 12, t: 0 }], ['front', A(-1, 5), { c: 3, t: 0 }], ['house', B(1, 4), {}],
+        ['front', A(1, 6), { c: 10, t: 0, two: true }], ['front', A(-1, 6), { c: 14, t: 0 }], ['house', B(1, 6), {}],
+        ['front', A(1, 7), { c: 7, t: 0 }], ['front', A(-1, 7), { c: 0, t: 0 }], ['front', A(1, 8), { c: 15, t: 0 }], ['front', A(-1, 8), { c: 5, t: 0, two: true }],
+        ['lamps', null, {}, 'Lamps along Franklin Street']
       ] }
   ];
   // The outskirts: once the town itself is built, it keeps spreading out past the last lots into
@@ -3512,11 +3545,11 @@
       p.rotation.y = -Math.PI / 2; p.visible = false;
       C.towers[t.key] = { def: t, n: 0, prs: 0, flag: p, flying: false, pick: pick, features: [], castle: C };
     });
-    this.layPath({ kind: 'road', pts: CASTLE_ROADS[ci] }, delay);
+    if (CASTLE_ROADS[ci]) { this.layPath({ kind: 'road', pts: CASTLE_ROADS[ci] }, delay); this.roadFords(CASTLE_ROADS[ci], delay); }
     if (ci === HAINES) this.highwayBridge(delay);
-    this.roadFords(CASTLE_ROADS[ci], delay);
     this.pop(g, delay);
-    this.news(['have you heard? there’s a new town going up: ' + D.name + '!', D.name + ' is on the map! a few cabins so far', 'my cousin’s moving to ' + D.name + '. brave mouse']);
+    if (ci === JUNEAU) this.news(['have you heard? there’s a town out on an island past Haines. Juneau, they call it!', 'no road goes to Juneau. you’ll have to fly. ask at the airport', 'Juneau! the capital, hiding out across the water all this time']);
+    else this.news(['have you heard? there’s a new town going up: ' + D.name + '!', D.name + ' is on the map! a few cabins so far', 'my cousin’s moving to ' + D.name + '. brave mouse']);
     return C;
   };
   // The Haines Road's bridge below Miles Canyon: a timber deck on steel trusses from bank to bank,
@@ -4272,6 +4305,100 @@
         P(h, self.geo.box, wood, bl, 0.07, 0.6, bmx, by + 0.2, bz).userData.passable = true;
         [bxa, bxb].forEach(function (tx) { [-0.32, 0.32].forEach(function (ozz) { P(h, self.geo.box, M('logwood', 0), 0.1, 1.4, 0.1, tx, by + 0.7, bz + ozz); }); P(h, self.geo.box, M('logwood', 0), 0.1, 0.1, 0.74, tx, by + 1.4, bz); });
         [-0.32, 0.32].forEach(function (ozz) { for (var cs3 = 0; cs3 < 6; cs3++) { var cx0 = bxb + bl * cs3 / 6, cx1 = bxb + bl * (cs3 + 1) / 6, sag = function (xx) { var u = (xx - bxb) / bl; return by + 1.4 - 1.0 * 4 * u * (1 - u); }; var cab = P(h, self.geo.box, dark, Math.hypot(cx1 - cx0, sag(cx1) - sag(cx0)), 0.025, 0.025, (cx0 + cx1) / 2, (sag(cx0) + sag(cx1)) / 2, bz + ozz); cab.rotation.z = Math.atan2(sag(cx1) - sag(cx0), cx1 - cx0); } });
+        break;
+      }
+      case 'capitol': {
+        // The Alaska State Capitol: four storeys of brick, the marble portico of four columns, a flag.
+        P(h, self.geo.box, M('brick'), 4.2, 2.5, 2.0, 0, 1.25, 0);
+        P(h, self.geo.box, M('stone', 2), 4.36, 0.16, 2.12, 0, 2.55, 0);
+        [0.55, 1.15, 1.75, 2.3].forEach(function (y) { windows(h, 7, 3.9, y, 1.01, 0.24); });
+        P(h, self.geo.box, M('whitewood'), 2.4, 0.18, 0.7, 0, 0.09, 1.3);
+        for (var cc = 0; cc < 4; cc++) P(h, self.geo.cyl, M('whitewood'), 0.11, 1.5, 0.11, -0.84 + cc * 0.56, 0.93, 1.38);
+        P(h, self.geo.box, M('whitewood'), 2.3, 0.22, 0.6, 0, 1.78, 1.32); door(h, 0, 0.18, 1.02, M('wood'));
+        P(h, self.geo.cyl6, M('stoneDark'), 0.03, 1.2, 0.03, 1.6, 3.2, -0.4); P(h, self.geo.flag, M('flag', 2), 0.7, 0.7, 0.7, 1.6, 3.6, -0.4);
+        break;
+      }
+      case 'mansion': {
+        // The Governor's Mansion: white, two storeys, six columns across the front, a lawn and a flag.
+        P(h, self.geo.box, M('grassDeep'), 4.4, 0.05, 3.6, 0, 0.03, 0.4);
+        P(h, self.geo.box, M('whitewood'), 3.4, 1.7, 1.8, 0, 0.85, -0.3); gable(h, roofM(2), 3.6, 2.0, 0.6, 1.7, true);
+        for (var mc = 0; mc < 6; mc++) P(h, self.geo.cyl, M('whitewood'), 0.07, 1.6, 0.07, -1.4 + mc * 0.56, 0.8, 0.75);
+        P(h, self.geo.box, M('whitewood'), 3.2, 0.12, 0.5, 0, 1.62, 0.7); windows(h, 5, 3.0, 0.5, 0.61, 0.26); windows(h, 5, 3.0, 1.2, 0.61, 0.26); door(h, 0, 0, 0.62, M('wood'));
+        P(h, self.geo.cyl6, M('stoneDark'), 0.03, 1.6, 0.03, 1.8, 0.8, 1.6); P(h, self.geo.flag, M('flag', 2), 0.6, 0.6, 0.6, 1.8, 1.5, 1.6);
+        break;
+      }
+      case 'stnick': {
+        // St. Nicholas: a little octagonal wooden church, cream with blue trim, an onion dome and a three-barred cross.
+        P(h, self.geo.cyl, M('plaster', 0), 0.9, 1.1, 0.9, 0, 0.55, 0); P(h, self.geo.cone, M('tpaint', 9), 1.05, 0.55, 1.05, 0, 1.38, 0);
+        P(h, self.geo.cyl, M('plaster', 0), 0.32, 0.4, 0.32, 0, 1.75, 0); P(h, self.geo.ball, M('tpaint', 9), 0.3, 0.34, 0.3, 0, 2.08, 0); P(h, self.geo.cone, M('tpaint', 9), 0.12, 0.25, 0.12, 0, 2.48, 0);
+        P(h, self.geo.box, M('gold'), 0.03, 0.42, 0.03, 0, 2.78, 0); [0.08, 0.0, -0.1].forEach(function (y, i) { var bar = P(h, self.geo.box, M('gold'), i === 1 ? 0.22 : 0.13, 0.025, 0.025, 0, 2.78 + y, 0); if (i === 2) bar.rotation.z = 0.35; });
+        P(h, self.geo.box, M('plaster', 0), 0.6, 0.8, 0.6, 0, 0.4, 0.9); P(h, self.geo.cone4, M('tpaint', 9), 0.5, 0.35, 0.5, 0, 0.98, 0.9).rotation.y = Math.PI / 4; door(h, 0, 0, 1.21, M('tpaint', 9));
+        break;
+      }
+      case 'whale': {
+        // The whale fountain: a bronze humpback breaching out of a pool, spray coming off it.
+        P(h, self.geo.cyl, M('stone', 1), 1.2, 0.25, 1.2, 0, 0.12, 0); P(h, self.geo.cyl, M('water'), 1.05, 0.05, 1.05, 0, 0.26, 0);
+        var wh = new T.Group(); wh.position.set(0, 0.5, 0); wh.rotation.x = -0.9; h.add(wh);
+        var bronze = M('trunk');
+        P(wh, self.geo.ball, bronze, 0.32, 0.3, 0.95, 0, 0.5, 0); P(wh, self.geo.ball, bronze, 0.24, 0.2, 0.4, 0, 0.42, 0.8);
+        [-1, 1].forEach(function (sd) { var fl = P(wh, self.geo.box, bronze, 0.9, 0.04, 0.22, sd * 0.45, 0.4, 0.3); fl.rotation.z = sd * 0.5; });
+        P(wh, self.geo.box, bronze, 0.7, 0.04, 0.24, 0, 0.5, -0.95);
+        (C.spray = C.spray || []).push(h);
+        break;
+      }
+      case 'jndocks': {
+        // Out from the waterfront: the cruise ship docks with two big ships alongside, and the float
+        // plane dock with its little planes bobbing.
+        var shoreZ = 12; while (shoreZ < 30 && localGround(0, shoreZ) > SEA_Y - base - 0.2) shoreZ += 0.5;
+        var sea = new T.Group(); sea.position.set(0, SEA_Y - base, shoreZ); h.add(sea);
+        [[2, 0], [11, 0]].forEach(function (dk) { P(sea, self.geo.box, wood, 1.4, 0.12, 6.5, dk[0], 1.0, 2.5); for (var pp = 0; pp < 6; pp++) [-0.55, 0.55].forEach(function (x) { P(sea, self.geo.cyl6, M('trunk'), 0.07, 1.6, 0.07, dk[0] + x, 0.3, 0 + pp * 1.2); }); });
+        self.cruiseShip(sea, 2 + 3.2, 5.0, 13, 0.95, pick); self.cruiseShip(sea, 11 + 3.2, 5.5, 0, 0.85, pick);
+        // the float plane dock
+        P(sea, self.geo.box, wood, 4.0, 0.1, 0.8, -6, 0.1, 1.4);
+        [[-7.4, 0], [-5.6, 1], [-3.8, 0]].forEach(function (fp, i) {
+          var pl = new T.Group(); pl.position.set(fp[0], 0.32, 2.6); pl.rotation.y = Math.PI; sea.add(pl);
+          var col = M('tpaint', [15, 5, 9][i]);
+          P(pl, self.geo.box, col, 0.36, 0.38, 1.6, 0, 0.3, 0); P(pl, self.geo.box, col, 2.4, 0.05, 0.42, 0, 0.52, 0.18); P(pl, self.geo.box, col, 0.9, 0.04, 0.26, 0, 0.42, -0.72); P(pl, self.geo.box, col, 0.04, 0.34, 0.28, 0, 0.6, -0.72);
+          P(pl, self.geo.box, win, 0.38, 0.14, 0.4, 0, 0.42, 0.35);
+          [-1, 1].forEach(function (sd) { P(pl, self.geo.box, M('whitewood'), 0.14, 0.12, 1.5, sd * 0.36, -0.2, 0.05); P(pl, self.geo.box, dark, 0.03, 0.3, 0.03, sd * 0.3, -0.05, 0.3); });
+          (C.floats = C.floats || []).push(pl);
+        });
+        break;
+      }
+      case 'jnairport': {
+        // The airport out on the flats: a paved strip, a little terminal, a hangar and a windsock.
+        var jx = 15, j0 = 10, j1 = -8, jl = j0 - j1;
+        for (var js = 0; js < 6; js++) { var za = j0 - js * jl / 6, zb = za - jl / 6, yA = localGround(jx, za), yB = localGround(jx, zb); var sg = P(h, self.geo.box, M('stoneDark'), 1.9, 0.05, Math.hypot(jl / 6, yA - yB) + 0.02, jx, (yA + yB) / 2 + 0.03, (za + zb) / 2); sg.rotation.x = -Math.atan2(yA - yB, jl / 6); sg.userData.passable = true; }
+        for (var jd = 0; jd < 7; jd++) { var dz2 = j0 - 1.5 - jd * 2.5; P(h, self.geo.box, M('whitewood'), 0.08, 0.06, 1.0, jx, localGround(jx, dz2) + 0.06, dz2); }
+        var jt = new T.Group(); jt.position.set(12.0, localGround(12, 6), 6); jt.rotation.y = Math.PI / 2; h.add(jt);
+        P(jt, self.geo.box, M('tpaint', 12), 2.4, 0.9, 1.2, 0, 0.45, 0); gable(jt, M('troof', 1), 2.6, 1.4, 0.4, 0.9, true); windows(jt, 4, 2.0, 0.5, 0.61, 0.28);
+        var jsn = new T.Mesh(new T.PlaneGeometry(1.8, 0.34), new T.MeshBasicMaterial({ map: signTex('JUNEAU', '#f3efe6', '#28466b') })); jsn.position.set(0, 1.1, 0.62); jt.add(jsn); jsn.userData.pick = pick; self.picks.push(jsn);
+        var jw = new T.Group(); jw.position.set(13, localGround(13, -6), -6); h.add(jw); P(jw, self.geo.cyl6, dark, 0.03, 1.4, 0.03, 0, 0.7, 0); var jsk = P(jw, self.geo.cone, M('tpaint', 5), 0.1, 0.45, 0.1, 0.22, 1.32, 0); jsk.rotation.z = Math.PI / 2;
+        break;
+      }
+      case 'tram': {
+        // The Mount Roberts Tramway: from the docks to the top of the mountain, two red cabins
+        // passing halfway, a station at each end.
+        var b0 = new T.Vector3(7, localGround(7, 12) + 2.2, 12), t0 = new T.Vector3(11.5, localGround(11.5, -24) + 0.9, -24);
+        [b0, t0].forEach(function (q, i) { P(h, self.geo.box, M(i ? 'logwood' : 'whitewood', 0), 1.3, i ? 0.9 : 2.2, 1.1, q.x, q.y - (i ? 0.45 : 1.1), q.z); P(h, self.geo.box, M('troof', 1), 1.4, 0.08, 1.2, q.x, q.y + (i ? 0.04 : 0.02), q.z); });
+        var dirV = t0.clone().sub(b0), cl = dirV.length(), mid = b0.clone().add(t0).multiplyScalar(0.5);
+        [-0.22, 0.22].forEach(function (ox) { var cab = P(h, self.geo.box, dark, 0.02, 0.02, cl, mid.x + ox, mid.y, mid.z); cab.rotation.order = 'YXZ'; cab.rotation.set(-Math.atan2(dirV.y, Math.hypot(dirV.x, dirV.z)), Math.atan2(dirV.x, dirV.z), 0); });
+        for (var tw2 = 1; tw2 < 3; tw2++) { var tp = b0.clone().lerp(t0, tw2 / 3), gyy = localGround(tp.x, tp.z); P(h, self.geo.box, M('stoneDark'), 0.12, tp.y - gyy, 0.12, tp.x, (tp.y + gyy) / 2, tp.z); }
+        C.tram = { a: b0, b: t0, cabins: [0, 1].map(function (i) { var cb = new T.Group(); h.add(cb); P(cb, self.geo.box, M('tpaint', 2), 0.42, 0.34, 0.5, 0, -0.25, 0); P(cb, self.geo.box, win, 0.44, 0.14, 0.52, 0, -0.2, 0); P(cb, self.geo.box, dark, 0.03, 0.2, 0.03, 0, -0.04, 0); return cb; }) };
+        break;
+      }
+      case 'glacier': {
+        // The Mendenhall Glacier: a river of blue-white ice down from the icefield behind Mount
+        // Juneau, cracked with crevasses, ending in a lake with little icebergs.
+        var ice = new T.MeshToonMaterial({ gradientMap: self.toonSteps, color: '#dff1fb' }), blue = new T.MeshToonMaterial({ gradientMap: self.toonSteps, color: '#8cc6e6' });
+        for (var gi = 0; gi <= 26; gi++) {
+          var gt = gi / 26, gx = -26 + gt * 4.5 + Math.sin(gt * 5) * 1.2, gz = -48 + gt * 33, wdt = 5.2 - gt * 2.2, gyy2 = localGround(gx, gz);
+          var slab = P(h, self.geo.blob, gi % 4 ? ice : blue, wdt * 0.6, 0.4, 2.2, gx, gyy2 + 0.12, gz); slab.rotation.y = 0.15;
+          if (gi % 3 === 1) P(h, self.geo.box, blue, wdt * 0.8, 0.05, 0.08, gx, gyy2 + 0.5, gz + 0.6).rotation.y = 0.2;
+        }
+        var lx2 = -21, lz2 = -12, ly2 = localGround(lx2, lz2);
+        P(h, self.geo.blob, M('water'), 3.2, 0.1, 2.6, lx2, ly2 + 0.06, lz2);
+        [[-1, 0.5], [0.8, -0.6], [1.6, 0.9]].forEach(function (ib) { P(h, self.geo.blob, ice, 0.35, 0.25, 0.3, lx2 + ib[0], ly2 + 0.15, lz2 + ib[1]); });
         break;
       }
       case 'tourists': {
@@ -14176,7 +14303,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -16498,6 +16625,13 @@
     }
     for (var f = 0; f < 14; f++) { var fl = new T.Mesh(this.geo.box, M('snow') || M('whitewood')); fl.scale.set(1 + (f % 3) * 0.6, 0.12, 0.8 + (f % 4) * 0.4); fl.rotation.y = f; this.base.add(fl); this.northRiver.floes.push({ m: fl, z: R.len - f * 18, lx: R.x0 + 2 + (f * 37 % 9) }); }
   };
+  Town.prototype.stepJuneau = function (dt, now) {
+    var C = this.st.castles[JUNEAU]; if (!C) return;
+    if (C.tram) { var T0 = C.tram, u = (Math.sin(now / 9000) + 1) / 2; T0.cabins.forEach(function (cb, i) { var f = i ? 1 - u : u; cb.position.copy(T0.a).lerp(T0.b, f); cb.position.x += i ? 0.22 : -0.22; }); }
+    (C.floats || []).forEach(function (pl, i) { pl.position.y = 0.32 + Math.sin(now / 800 + i * 2) * 0.03; pl.rotation.z = Math.sin(now / 1100 + i) * 0.03; });
+    var self = this;
+    (C.spray || []).forEach(function (w) { if (Math.random() < dt * 3) { var wp = w.localToWorld(new T.Vector3((Math.random() - 0.5) * 0.4, 1.3, 0.3)); self.puff(wp.x, wp.y, wp.z, 1, 'mist', 0.1); } });
+  };
   Town.prototype.stepFalls = function (dt) {
     var self = this;
     (this.skFalls || []).forEach(function (f) { if (Math.random() < dt * 1.2) self.puff(f.foot.x + (Math.random() - 0.5) * 0.6, f.foot.y + 0.2, f.foot.z + (Math.random() - 0.5) * 0.6, 1, 'mist', 0.15); });
@@ -16635,7 +16769,9 @@
     var C = A.charter, pts = depart(from, A), b = arrive(to, A);
     pts = pts.concat(cruise(pts[pts.length - 1], b[0]), b);
     var curve = new T.CatmullRomCurve3(pts, false, 'centripetal');
-    C.flight = { curve: curve, len: curve.getLength(), s: 0, to: to, roll: 0, speed: 1 };
+    // How far it taxis at each end (park to the runway, and the runway back to its spot).
+    var d0 = pts.slice(0, 3), d1 = b.slice(-3), seg = function (a) { var l = 0; for (var i = 1; i < a.length; i++) l += Math.hypot(a[i].x - a[i - 1].x, a[i].z - a[i - 1].z); return l; };
+    C.flight = { curve: curve, len: curve.getLength(), s: 0, to: to, roll: 0, pitch: 0, speed: 0.2, taxiOut: seg(d0), taxiIn: seg(d1), yaw: C.g.rotation.y };
     if (pl.seat) this.leaveSeat(pl);
     this.flying = { p: C };
     pl.g.visible = false;
@@ -16648,18 +16784,25 @@
     var A = this.st.airport, C = A && A.charter;
     if (!C || !C.flight) return;
     var F = C.flight, g = C.g, v = new T.Vector3(), t1 = new T.Vector3(), t2 = new T.Vector3();
-    F.curve.getPointAt(Math.min(1, F.s / F.len), v);
-    var onGround = v.y < gy(v.x, v.z) + 0.6, sp = onGround ? 3.5 : 11;
-    F.speed += (sp - F.speed) * Math.min(1, dt * 1.4);
+    // Speed: a slow taxi out, the takeoff roll picking up speed, a quick cruise, then easing off
+    // on the way down so it touches down gently and brakes to a taxi at the far end.
+    var TAXI = 1.6, CRUISE = 13, toStop = Math.max(0, F.len - F.taxiIn - F.s);
+    var want = F.s < F.taxiOut ? TAXI : Math.min(CRUISE, Math.sqrt(TAXI * TAXI + 2 * 1.25 * toStop));
+    if (F.s >= F.len - F.taxiIn) want = TAXI;
+    var acc = want > F.speed ? (F.s < F.taxiOut ? 1.0 : 2.6) : 3.2;
+    F.speed += Math.max(-acc * dt, Math.min(acc * dt, want - F.speed));
     F.s += F.speed * dt;
     var u = Math.min(1, F.s / F.len);
-    F.curve.getPointAt(u, v); F.curve.getTangentAt(u, t1); F.curve.getTangentAt(Math.min(1, u + 0.01), t2);
-    v.y = Math.max(v.y, gy(v.x, v.z) + 0.02);
+    F.curve.getPointAt(u, v); F.curve.getTangentAt(u, t1); F.curve.getTangentAt(Math.min(1, u + 0.012), t2);
+    var gh = gy(v.x, v.z); v.y = Math.max(v.y, gh + 0.02);
     g.position.copy(v);
-    var yaw = Math.atan2(t1.x, t1.z), turn = Math.atan2(t1.x * t2.z - t1.z * t2.x, t1.x * t2.x + t1.z * t2.z), air = v.y > gy(v.x, v.z) + 0.5;
-    F.roll += ((air ? Math.max(-0.6, Math.min(0.6, -turn * 14)) : 0) - F.roll) * Math.min(1, dt * 2);
-    g.rotation.set(0, 0, 0); g.rotateY(yaw); g.rotateX(air ? -Math.asin(Math.max(-0.45, Math.min(0.45, t1.y))) : 0); g.rotateZ(F.roll);
-    (g.userData.props || []).forEach(function (p) { p.rotation.z += dt * 40; });
+    var air = v.y > gh + 0.4, yaw = Math.atan2(t1.x, t1.z), turn = Math.atan2(t1.x * t2.z - t1.z * t2.x, t1.x * t2.x + t1.z * t2.z);
+    var dy = yaw - F.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+    F.yaw += dy * Math.min(1, dt * (air ? 3 : 5));
+    F.roll += ((air ? Math.max(-0.55, Math.min(0.55, -turn * 12)) : 0) - F.roll) * Math.min(1, dt * 1.6);
+    F.pitch += ((air ? -Math.asin(Math.max(-0.35, Math.min(0.35, t1.y))) : 0) - F.pitch) * Math.min(1, dt * 2.2);
+    g.rotation.set(0, 0, 0); g.rotateY(F.yaw); g.rotateX(F.pitch); g.rotateZ(F.roll);
+    (g.userData.props || []).forEach(function (p) { p.rotation.z += dt * (12 + F.speed * 3); });
     if (u >= 1) {
       C.flight = null; C.at = F.to;
       if (F.to === 0) { this.world.remove(g); A.charter = null; A.plane.visible = true; A.until = now + 60000; }
