@@ -1210,7 +1210,7 @@
     this.lite = !!opts.lite;
     this.soft = !!opts.software;
     this.pixel = opts.pixel !== false;
-    this.handmade = !!opts.handmade && !this.pixel; this.crt = !!opts.crt && this.handmade;
+    this.handmade = !!opts.handmade && !this.pixel;
     if (this.soft) { this.lite = true; this.renderer = new SoftRenderer(canvas); }
     else {
       this.renderer = new T.WebGLRenderer({ canvas: canvas, antialias: false, alpha: true, powerPreference: this.lite ? 'low-power' : 'default', failIfMajorPerformanceCaveat: false });
@@ -1316,8 +1316,7 @@
   };
   // The look: 'hand' (inked and painted on paper), 'pixel' or 'smooth'.
   Town.prototype.setStyle = function (style) {
-    this.handmade = style === 'hand' || style === 'crt';
-    this.crt = style === 'crt';
+    this.handmade = style === 'hand';
     this.setPixel(style === 'pixel');
     this.needsRender = true;
   };
@@ -1330,10 +1329,10 @@
     var rt = new T.WebGLRenderTarget(sz.x, sz.y, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat });
     rt.depthTexture = new T.DepthTexture(sz.x, sz.y); rt.depthTexture.type = T.UnsignedIntType;
     var mat = new T.ShaderMaterial({
-      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 }, crt: { value: 0 }, time: { value: 0 }, skyTop: { value: new T.Color('#7ec8ee') }, skyBot: { value: new T.Color('#d9f1fb') } },
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: [
-        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px; uniform float crt; uniform float time; uniform vec3 skyTop; uniform vec3 skyBot;',
+        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px;',
         'varying vec2 vUv;',
         'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
         'float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
@@ -1341,14 +1340,10 @@
         'float dep(vec2 uv) { return texture2D(tDepth, uv).x * depthRange; }',
         'float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }',
         'void main() {',
-        // through an old CRT: the picture bulges on the curved glass
-        '  vec2 sc = vUv * 2.0 - 1.0;',
-        '  vec2 bent = sc * (1.0 + crt * 0.055 * dot(sc, sc));',
-        '  vec2 suv = mix(vUv, bent * 0.5 + 0.5, crt);',
-        '  vec2 p = suv * res, o = px / res;',
+        '  vec2 p = vUv * res, o = px / res;',
         // the hand wobbles: sample from slightly shifted places, slowly varying across the page
         '  vec2 wob = (vec2(noise(p / 70.0), noise(p / 70.0 + 31.7)) - 0.5) * o * 2.6;',
-        '  vec2 uv = suv + wob;',
+        '  vec2 uv = vUv + wob;',
         '  vec4 c4 = texture2D(tColor, uv); vec3 col = c4.rgb; float a = c4.a;',
         // ink where the depth jumps (second difference, so flat ground and slopes stay clean)
         '  float c = dep(uv), l = dep(uv - vec2(o.x, 0.0)), r = dep(uv + vec2(o.x, 0.0)), d = dep(uv - vec2(0.0, o.y)), u = dep(uv + vec2(0.0, o.y));',
@@ -1368,32 +1363,7 @@
         '  float fib = noise(vec2(p.x / 1.6, p.y / 9.0)) * 0.5 + noise(vec2(p.x / 9.0, p.y / 1.6)) * 0.5;',
         '  col *= 0.965 + 0.07 * fib;',
         '  col = mix(col, ink * a, clamp(edge * 0.9 + pencil, 0.0, 1.0));',
-        '  a = max(a, edge * 0.9);',
-        '  if (crt > 0.5) {',
-        // the tube shows the whole picture, sky and all (the sky is the page behind the canvas otherwise)
-        '    col = col + mix(skyBot, skyTop, smoothstep(0.0, 1.0, suv.y)) * (1.0 - a);',
-        // colour fringes that grow toward the edges of the tube
-        '    vec2 fr = sc * o * 1.6;',
-        '    vec4 cr = texture2D(tColor, uv + fr), cb = texture2D(tColor, uv - fr);',
-        '    col.r = mix(col.r, mix(col.r, cr.r, 0.55), cr.a); col.b = mix(col.b, mix(col.b, cb.b, 0.55), cb.a);',
-        // scanlines and the shadow mask of phosphor dots
-        '    float sl = 0.82 + 0.18 * sin(p.y * 3.14159 / max(1.5, px * 1.3));',
-        '    float m3 = mod(floor(gl_FragCoord.x), 3.0);',
-        '    vec3 mask = vec3(m3 < 0.5 ? 1.0 : 0.88, m3 > 0.5 && m3 < 1.5 ? 1.0 : 0.88, m3 > 1.5 ? 1.0 : 0.88);',
-        '    col *= sl * mask * 1.12;',
-        // a faint bar that rolls slowly up the screen, and a little flicker
-        '    float bar = smoothstep(0.0, 0.08, fract(suv.y * 0.6 - time * 0.035)) * (1.0 - smoothstep(0.08, 0.2, fract(suv.y * 0.6 - time * 0.035)));',
-        '    col *= 1.0 + bar * 0.05 + (hash(vec2(floor(time * 18.0), 1.7)) - 0.5) * 0.02;',
-        // a phosphor glow lifts the blacks a touch; the glass darkens toward its rounded corners
-        '    col = col * 0.96 + vec3(0.025, 0.03, 0.02);',
-        '    vec2 cq = abs(bent);',
-        '    float vig = 1.0 - 0.42 * smoothstep(0.35, 1.6, dot(cq, cq));',
-        '    float rr = length(max(cq - vec2(1.0 - 0.07), 0.0)) - 0.07;',
-        '    float glass = 1.0 - smoothstep(-0.012, 0.0, rr);',
-        '    col = mix(vec3(0.035, 0.03, 0.025), col * vig, glass);',
-        '    a = 1.0;',
-        '  }',
-        '  gl_FragColor = vec4(col, a);',
+        '  gl_FragColor = vec4(col, max(a, edge * 0.9));',
         '}'
       ].join('\n'),
       depthTest: false, depthWrite: false
@@ -1409,12 +1379,6 @@
     if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
     P.mat.uniforms.depthRange.value = this.camera.far - this.camera.near;
     P.mat.uniforms.px.value = Math.max(1.2, this.renderer.getPixelRatio() * 1.05);
-    P.mat.uniforms.crt.value = this.crt ? 1 : 0;
-    P.mat.uniforms.time.value = performance.now() / 1000;
-    if (this.crt && (!P.skyAt || performance.now() - P.skyAt > 1000)) {
-      P.skyAt = performance.now();
-      try { var cs = getComputedStyle(document.body); P.mat.uniforms.skyTop.value.setStyle(cs.getPropertyValue('--sky-top').trim() || '#7ec8ee'); P.mat.uniforms.skyBot.value.setStyle(cs.getPropertyValue('--sky-bottom').trim() || '#d9f1fb'); } catch (e) {}
-    }
     this.renderer.setRenderTarget(P.rt);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
@@ -13480,7 +13444,7 @@
       case 'drink': s.drinks += ev.count; this.addDrink(ev.count, delay); mark('pub'); break;
       case 'weight': this.addWeight(ev, delay); mark('statue'); break;
       case 'social': s.social++; break;
-      case 'bible': this.addBible(ev, delay); mark('church'); break;
+      case 'bible': this.addBible(ev, delay); if (!s.last.church || !s.last.church.date || (ev.date && ev.date >= s.last.church.date)) mark('church'); break; // the latest day's reading, whatever order the logs arrive in
       case 'book': this.addBook(ev, delay); mark('library'); break;
     }
     // Couples share a house: a workout with both counts once for the household.
@@ -13636,7 +13600,7 @@
         var BB = s.bible, nextC = CHURCH_STAGES.filter(function (x) { return BB.chapters < x[0]; })[0];
         return { title: 'The church', lines: [fmtN(BB.chapters) + ' of 1,189 chapters read (' + (BB.chapters / BIBLE_TOTAL * 100).toFixed(1) + '%) · ' + plural(BB.books.length, 'book') + ' of 66 finished.',
           'Every chapter builds; every finished book lights a stained-glass window.' + (BB.books.length ? ' Lit so far: ' + BB.books.map(function (bi) { return BIBLE[bi][0]; }).join(', ') + '.' : ''),
-          nextC ? 'Next: ' + nextC[1].toLowerCase() + ' at ' + fmtN(nextC[0]) + ' chapters.' : 'The church is complete.', s.last.church ? 'Last: ' + s.last.church.day + ' · ' + s.last.church.label : ''] };
+          nextC ? 'Next: ' + nextC[1].toLowerCase() + ' at ' + fmtN(nextC[0]) + ' chapters.' : 'The church is complete.', s.last.church ? 'Last read: ' + s.last.church.day + ' · ' + ((s.byDay && !s.last.church.projected && (s.byDay[s.last.church.date] || []).filter(function (e) { return e.kind === 'bible'; }).map(function (e) { return e.label; }).join(', ')) || s.last.church.label) : ''] };
       case 'folk': {
         var mo = (this.st.folk || []).filter(function (q) { return q.name === p[1]; })[0];
         var CHAR_NOTE = { prof: 'A retired professor of almost everything. Lodges at the ' + (mo && mo.homeName) + ' house.', captain: 'An old sea captain with a great many stories, some of them true.', zelda: 'Fortune teller. Out late, reading the stars.', mayor: 'Mayor of Yukon, unopposed, for life.' };
@@ -13858,7 +13822,6 @@
   Town.prototype.pick = function (clientX, clientY) {
     var rect = this.canvas.getBoundingClientRect();
     var v = new T.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
-    if (this.crt && this.post) v.multiplyScalar(1 + 0.055 * v.lengthSq()); // what's under the pointer, through the curved glass
     this.raycaster.setFromCamera(v, this.camera);
     var hits = this.raycaster.intersectObjects(this.snowMtn ? this.picks.concat([this.snowMtn]) : this.picks, false);
     for (var i = 0; i < hits.length; i++) {
