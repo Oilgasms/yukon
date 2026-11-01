@@ -312,6 +312,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn" id="future5" type="button" aria-pressed="false">+5 years</button>
       <button class="btn" id="explore" type="button" aria-pressed="true">Map view</button>
       <button class="btn" id="recenter" type="button">Recenter</button>
+      <button class="btn" id="postcard" type="button" title="Jump to a postcard view of each town in turn">Postcard</button>
       <button class="btn" id="pixel" type="button" aria-pressed="true">Style: Handmade</button>
       <button class="btn" id="motion" type="button" aria-pressed="true">Motion</button>
       <button class="btn" id="sound" type="button" aria-pressed="false">Sound: off</button>
@@ -354,7 +355,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v149';
+var BUILD = 'v150';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -648,6 +649,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   function syncPixelButton() { $('pixel').setAttribute('aria-pressed', String(artStyle !== 'smooth')); $('pixel').textContent = 'Style: ' + STYLE_NAMES[artStyle]; }
   syncPixelButton();
   $('recenter').addEventListener('click', function () { town.recenter(); });
+  $('postcard').addEventListener('click', function () { var n = town.postcard && town.postcard(); if (n) toast('Greetings from ' + n + '!'); });
   $('pixel').addEventListener('click', function () {
     artStyle = STYLES[(STYLES.indexOf(artStyle) + 1) % STYLES.length];
     pixelOn = artStyle === 'pixel';

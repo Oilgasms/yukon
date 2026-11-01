@@ -816,10 +816,46 @@
     return h;
   }
   // How far below the town's level the Yukon's channel cuts here (0 off the river).
+  // Past the town the Yukon carries on north, winding off the edge of the map (local -z).
+  var DR_FAR = -206, DR_Z = 0;
+  function dawsonOff(z) { return z > -50 ? 0 : 10 * Math.sin((-50 - z) * 0.033) * smooth(-50, -90, z) - 4 * smooth(-120, -190, z); }
   function dawsonChannel(x, z) {
     var q = townLocal(DAWSON, x, z), R = DAWSON_RIVER;
-    if (q.d2 > 8100 || q.x < R.x0 - 3 || q.x > R.x1 + 3) return 0;
-    return smooth(R.x0 - 2.5, R.x0, q.x) * (1 - smooth(R.x1, R.x1 + 2.5, q.x)) * (1 - smooth(R.len, R.len + 8, Math.abs(q.z)));
+    if (q.d2 > 47000 || q.z < DR_FAR || q.z > R.len + 8) return 0;
+    var ox = q.x - dawsonOff(q.z), bw = 2.5 + 5 * smooth(-45, -70, q.z); // gentler banks out in the country
+    if (ox < R.x0 - bw - 0.5 || ox > R.x1 + bw + 0.5) return 0;
+    DR_Z = q.z;
+    return smooth(R.x0 - bw, R.x0, ox) * (1 - smooth(R.x1, R.x1 + bw, ox)) * (1 - smooth(R.len, R.len + 8, q.z));
+  }
+  // Within d of the river past Dawson (for keeping trees and cabins off its banks).
+  function nearDawsonRiver(x, z, d) {
+    var q = townLocal(DAWSON, x, z), R = DAWSON_RIVER;
+    if (q.d2 > 52000 || q.z < DR_FAR - d || q.z > R.len + d) return false;
+    var ox = q.x - dawsonOff(q.z);
+    var bw = 2.5 + 5 * smooth(-45, -70, q.z);
+    return ox > R.x0 - bw - d && ox < R.x1 + bw + d;
+  }
+  // The water level along the river: level with Dawson's waterfront, then stepping down with the
+  // land as it heads north (never back up), so it always sits in its banks.
+  var DR_PROF = null;
+  function dawsonLevel(z) {
+    var R = DAWSON_RIVER, top = DAWSON_PAD_H() - R.depth + 0.5;
+    if (!DR_PROF) {
+      DR_PROF = []; var lev = top;
+      for (var zz = R.len + 8; zz >= DR_FAR - 2; zz -= 2) {
+        if (zz < -54) {
+          var lo = 1e9;
+          for (var xx = R.x0 - 3; xx <= R.x1 + 3; xx += 2) { var w = siteAt(DAWSON, xx + dawsonOff(zz), zz); lo = Math.min(lo, landY(w.x, w.z)); }
+          lev = Math.min(lev, lo - 0.55);
+        }
+        DR_PROF.push(lev);
+      }
+      // Ease the drops: walk back upstream so the river never falls faster than a gentle slope
+      // (starting below the waterfront, past the north end of town).
+      for (var pi = DR_PROF.length - 2; pi >= 0; pi--) { var pz = R.len + 8 - pi * 2; if (pz < -22) DR_PROF[pi] = Math.min(DR_PROF[pi], DR_PROF[pi + 1] + 0.09); }
+    }
+    var f = (R.len + 8 - z) / 2, i = Math.max(0, Math.min(DR_PROF.length - 2, Math.floor(f))), t = Math.max(0, Math.min(1, f - i));
+    return DR_PROF[i] + (DR_PROF[i + 1] - DR_PROF[i]) * t;
   }
   var DAWSON_PAD = null;
   function DAWSON_PAD_H() { if (DAWSON_PAD == null) { var c = CASTLE_SITES[DAWSON]; DAWSON_PAD = Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift; } return DAWSON_PAD; }
@@ -841,7 +877,7 @@
     }
     h += townSlope(x, z);
     var ch = dawsonChannel(x, z);
-    if (ch > 0) { var dp = DAWSON_PAD_H(); h += (Math.min(h, dp - DAWSON_RIVER.depth - 0.5) - h) * ch; }
+    if (ch > 0) h += (Math.min(h, dawsonLevel(DR_Z) - 1.0) - h) * ch;
     if (LIB_GRADE && x > LIB_GRADE.box[0] && x < LIB_GRADE.box[1] && z > LIB_GRADE.box[2] && z < LIB_GRADE.box[3] && rd > RIVER_HALF + 0.6) {
       var G = LIB_GRADE, bd = 1e9, bi = 0;
       for (var gi = 0; gi < G.pts.length; gi++) { var gd = Math.hypot(G.pts[gi].x - x, G.pts[gi].z - z); if (gd < bd) { bd = gd; bi = gi; } }
@@ -1329,10 +1365,10 @@
     var rt = new T.WebGLRenderTarget(sz.x, sz.y, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat });
     rt.depthTexture = new T.DepthTexture(sz.x, sz.y); rt.depthTexture.type = T.UnsignedIntType;
     var mat = new T.ShaderMaterial({
-      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 } },
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 }, edgeK: { value: 1 } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: [
-        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px;',
+        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px; uniform float edgeK;',
         'varying vec2 vUv;',
         'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
         'float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
@@ -1348,7 +1384,7 @@
         // ink where the depth jumps (second difference, so flat ground and slopes stay clean)
         '  float c = dep(uv), l = dep(uv - vec2(o.x, 0.0)), r = dep(uv + vec2(o.x, 0.0)), d = dep(uv - vec2(0.0, o.y)), u = dep(uv + vec2(0.0, o.y));',
         '  float e = max(abs(l + r - 2.0 * c), abs(d + u - 2.0 * c));',
-        '  float edge = smoothstep(0.13, 0.45, e);',
+        '  float edge = smoothstep(0.13 * edgeK, 0.45 * edgeK, e);',
         // softer pencil lines where colours change sharply
         '  float ce = max(abs(lum(texture2D(tColor, uv + vec2(o.x, 0.0)).rgb) - lum(col)), abs(lum(texture2D(tColor, uv + vec2(0.0, o.y)).rgb) - lum(col)));',
         '  float pencil = smoothstep(0.10, 0.28, ce) * 0.35;',
@@ -1358,7 +1394,7 @@
         // watercolour: uneven wash and pigment pooling at the edges
         '  float wash = 0.95 + 0.11 * (noise(p / 26.0) - 0.5) + 0.06 * (noise(p / 5.0) - 0.5);',
         '  col *= wash;',
-        '  col = mix(col, col * 0.84, smoothstep(0.05, 0.3, e) * 0.6);',
+        '  col = mix(col, col * 0.84, smoothstep(0.05 * edgeK, 0.3 * edgeK, e) * 0.6);',
         // paper fibres
         '  float fib = noise(vec2(p.x / 1.6, p.y / 9.0)) * 0.5 + noise(vec2(p.x / 9.0, p.y / 1.6)) * 0.5;',
         '  col *= 0.965 + 0.07 * fib;',
@@ -1375,7 +1411,7 @@
   // Speech bubbles live on their own layer, drawn last and straight onto the page.
   var OVERLAY_LAYER = 2;
   Town.prototype.drawOverlay = function () {
-    if (this.soft || !this.fx || !(this.fx.bubbles || []).length) return;
+    if (this.soft || !((this.fx && (this.fx.bubbles || []).length) || (this.clouds && this.clouds.visible) || (this.fluff && this.fluff.pts.visible))) return;
     var R = this.renderer, ac = R.autoClear, cam = this.camera, sm = R.shadowMap && R.shadowMap.autoUpdate;
     cam.layers.set(OVERLAY_LAYER); R.autoClear = false; if (R.shadowMap) R.shadowMap.autoUpdate = false;
     R.render(this.scene, cam);
@@ -1388,6 +1424,9 @@
     if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
     P.mat.uniforms.depthRange.value = this.camera.far - this.camera.near;
     P.mat.uniforms.px.value = Math.max(1.2, this.renderer.getPixelRatio() * 1.05);
+    // Zoomed far out, each pixel spans more ground and gentle hills would ink over: raise the bar.
+    var cam = this.camera, wpp = (cam.right - cam.left) / cam.zoom / Math.max(1, sz.x) * P.mat.uniforms.px.value;
+    P.mat.uniforms.edgeK.value = Math.max(1, Math.pow(wpp / 0.12, 2));
     this.renderer.setRenderTarget(P.rt);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
@@ -1513,6 +1552,7 @@
   Town.prototype.stepLaundry = function (now) {
     var L = this.st.laundry;
     if (!L || !L.length || this.reduced) return;
+    (this.st.catTails || []).forEach(function (t, j) { t.rotation.z = Math.sin(now / 700 + j * 2) * 0.35; });
     for (var i = 0; i < L.length; i++) L[i].rotation.z = Math.sin(now / 520 + i * 1.7) * 0.22 + Math.sin(now / 210 + i) * 0.05;
     this.needsRender = true;
   };
@@ -1596,7 +1636,7 @@
       // Well inside the map it drops right away out of sight (its cells are big enough to poke up
       // through the hollows otherwise); only round the edge does it follow the ground.
       var fx = fp.getX(i), fz = fp.getZ(i), ext = Math.max(Math.abs(fx), Math.abs(fz)), cell = 2400 / fn;
-      fp.setY(i, ext + cell < size / 2 ? -60 : ext < size / 2 ? groundY(fx, fz) - 5 : groundY(fx, fz) - 0.3);
+      fp.setY(i, ext + cell < size / 2 || ext < size / 2 && nearDawsonRiver(fx, fz, cell) ? -60 : ext < size / 2 ? groundY(fx, fz) - 5 : groundY(fx, fz) - 0.3);
       var ff = 0.97 + 0.05 * noise2(fx * 0.04, fz * 0.04);
       fc[i * 3] = ff; fc[i * 3 + 1] = ff; fc[i * 3 + 2] = ff * 0.96;
     }
@@ -2443,7 +2483,7 @@
     for (var gx = -WORLD_R; gx <= WORLD_R; gx += 4.6) for (var gz = -WORLD_R; gz <= WORLD_R; gz += 4.6) {
       var x = gx + (r() - 0.5) * 3.8, z = gz + (r() - 0.5) * 3.8, d = Math.hypot(x, z);
       if (d < 154 || d > WORLD_R - 3 || noise2(x * 0.55, z * 0.55) < 0.1 || r() < 0.35) continue;
-      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3)) continue;
+      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5)) continue;
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 24; })) continue;
       spots.push({ x: x, z: z, y: groundY(x, z), s: 0.75 + r() * 0.6 });
     }
@@ -2624,8 +2664,13 @@
       }
     }
     this.townSigns();
-    this.buildBoreal();
-    this.buildTufts();
+    if (!this.sceneryBuilt) {
+      this.sceneryBuilt = true;
+      this.buildBoreal();
+      this.buildTufts();
+      var self2 = this;
+      ['paintMaterials', 'buildClouds', 'buildMeadows', 'windifyScenery', 'buildNorthRiver'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
+    }
     this.buildLetterbox();
     return C;
   };
@@ -2947,6 +2992,14 @@
         P(self.geo.box, pm, len, 0.04, 0.03, cx, 0.12, fz); P(self.geo.box, pm, len, 0.04, 0.03, cx, 0.24, fz);
         for (var k = 0; k <= Math.round(len / 0.15); k++) P(self.geo.box, pm, 0.05, 0.3, 0.025, x0 + (x1 - x0) * k / Math.round(len / 0.15), 0.15, fz);
         P(self.geo.box, pm, 0.04, 0.04, fz - front - 0.1, x1, 0.24, (fz + front + 0.1) / 2);
+        // now and then a cat sits on the fence, tail hanging down
+        if (sd > 0 && (i + key.length) % 3 === 0) {
+          var cat = new T.Group(); cat.position.set(cx, 0.27, fz); cat.rotation.y = (i % 2 ? 0.6 : -0.6); g.add(cat);
+          var cf = (i % 2 ? self.mat('fox', 0) : self.mat('stoneDark'));
+          P(self.geo.ball, cf, 0.07, 0.065, 0.09, 0, 0.05, 0); P(self.geo.ball, cf, 0.05, 0.045, 0.045, 0, 0.12, 0.06);
+          [-0.025, 0.025].forEach(function (ex) { P(self.geo.cone4, cf, 0.015, 0.035, 0.012, ex, 0.17, 0.065); });
+          var tl = P(self.geo.box, cf, 0.015, 0.16, 0.015, 0, -0.04, -0.08); tl.userData.sway = true; (self.st.catTails = self.st.catTails || []).push(tl);
+        }
       } else if (style === 1) {
         // a dry-stone wall with a cap of flat stones
         P(self.geo.box, self.mat('stone', 2), len, 0.22, 0.14, cx, 0.11, fz);
@@ -3524,6 +3577,13 @@
         P(h, self.geo.cyl6, M('whitewood'), 0.018, 0.07, 0.018, wx + 0.1, wy - 0.16, wz + 0.04); P(h, self.geo.ball, M('lantern'), 0.016, 0.022, 0.016, wx + 0.1, wy - 0.11, wz + 0.04);
       }
       if (v % 3 === 0 && !shop) (self.st.winSpots = self.st.winSpots || []).push({ par: h, x: wx, y: wy, z: wz });
+      // Old places get overgrown: ivy or wild hops climbing a front corner and along under the eaves.
+      if (v % 7 < 3) {
+        var vx2 = (v % 2 ? 1 : -1) * (w / 2 + 0.02), vm = M('leaf', v % 3);
+        for (var vy = 0; vy < 6; vy++) P(h, self.geo.blob, vm, 0.09 + (vy % 2) * 0.03, 0.1, 0.07, vx2 + Math.sin(vy * 1.9) * 0.05, 0.1 + vy * 0.14, d / 2 + 0.03);
+        for (var vh = 0; vh < 4; vh++) P(h, self.geo.blob, vm, 0.08, 0.06, 0.06, vx2 - Math.sign(vx2) * (0.12 + vh * 0.14), 0.82 - (vh % 2) * 0.05, d / 2 + 0.03);
+        if (v % 2) P(h, self.geo.ball, M('flag', 4), 0.03, 0.03, 0.03, vx2, 0.5, d / 2 + 0.07);
+      }
       if (shop) return;
       if (v % 5 < 2) {
         // a washing line out the side: two posts, a line and the week's washing flapping on it
@@ -4334,7 +4394,6 @@
         // banks, West Dawson's cabins on the far side, and the George Black ferry crossing back and
         // forth between its two landings.
         var R2 = DAWSON_RIVER, wy = -DAWSON_RIVER.depth + 0.5, wc = (R2.x0 + R2.x1) / 2;
-        P(h, self.geo.box, M('water'), R2.x1 - R2.x0 + 1.2, 0.08, R2.len * 2 - 2, wc, wy, 0);
         [R2.x0 - 0.4, R2.x1 + 0.4].forEach(function (bx, sd) { for (var gb2 = 0; gb2 < 9; gb2++) { var gz = -32 + gb2 * 8 + (sd ? 3 : 0); P(h, self.geo.blob, M('tstreet', 1), 1.6, 0.25, 2.6, bx, localGround(bx, gz) - 0.05, gz); } });
         [[R2.x1 + 3.2, -6], [R2.x1 + 3.6, 3], [R2.x1 + 3.0, 12], [R2.x1 + 4.2, -14]].forEach(function (cb3, i) {
           var wd = new T.Group(); wd.position.set(cb3[0], localGround(cb3[0], cb3[1]), cb3[1]); wd.rotation.y = -Math.PI / 2; h.add(wd);
@@ -8832,11 +8891,11 @@
   Town.prototype.stepSmoke = function (dt, now, night) {
     if (!this.smoke) this.smoke = { puffs: [], clock: 0, list: [], listAt: 0 };
     var S = this.smoke, self = this;
-    if (night && now > S.listAt) { S.list = this.chimneys(); S.listAt = now + 3000; }
+    if (now > S.listAt) { S.list = this.chimneys(); S.listAt = now + (night ? 3000 : 8000); }
     S.clock -= dt;
     if (S.clock <= 0) {
       S.clock = 0.18;
-      var src = night ? S.list.slice() : [];
+      var src = night ? S.list.slice() : S.list.filter(function (p, i) { return i % 3 === 0 && Math.random() < 0.4; }); // supper on the stove: a thin wisp from some chimneys by day
       if (this.st.rail && this.st.rail.chimney) { var cv = new T.Vector3(); this.st.rail.chimney.getWorldPosition(cv); src.push(cv, cv); }
       src.forEach(function (p) { if (Math.random() < 0.6) self.puff(p); });
     }
@@ -13936,6 +13995,10 @@
         }); });
       }
     }
+    if (!this.soft) {
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
+    }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
     this.safe('effects', function () { if (self.stepFx(dt, now)) moved = true; });
     // Keyboard: WASD or arrows move across the ground, Q and E turn.
@@ -14937,10 +15000,10 @@
   Town.prototype.sfx = function (kind) {
     var A = this.audio;
     if (!this.soundOn || !A) return;
-    var ctx = A.ctx, t = ctx.currentTime;
+    var ctx = A.ctx, t = ctx.currentTime, echo = /^(loon|bellfar|whistle)$/.test(kind) && this.amb && this.amb.echo;
     function env(node, peak, attack, decay, at) {
       var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + attack); g.gain.exponentialRampToValueAtTime(0.0001, at + attack + decay);
-      node.connect(g); g.connect(A.out); return g;
+      node.connect(g); g.connect(A.out); if (echo) g.connect(echo); return g;
     }
     function noise(type, freq, q, peak, decay, at) {
       var src = ctx.createBufferSource(); src.buffer = A.noise; src.playbackRate.value = 0.8 + Math.random() * 0.4;
@@ -14984,6 +15047,10 @@
       case 'nom': [0, 0.14, 0.28].forEach(function (d) { noise('bandpass', 900, 1.2, 0.08, 0.05, t + d); }); break;
       case 'scrabble': noise('highpass', 2500, 0.6, 0.06, 0.04, t); break;
       case 'found': tone('square', 660, null, 0.05, 0.005, 0.08, t, 2500); tone('square', 990, null, 0.05, 0.005, 0.14, t + 0.09, 2500); break;
+      case 'loon': tone('sine', 480, 760, 0.05, 0.45, 1.3, t); tone('sine', 760, 620, 0.045, 0.25, 1.1, t + 1.7); tone('sine', 620, 820, 0.035, 0.3, 0.9, t + 2.9); break;
+      case 'bellfar': [0, 1.3].forEach(function (d, i) { var b0 = i ? 392 : 440; [[1, 0.05], [2, 0.022], [2.76, 0.014]].forEach(function (h) { tone('sine', b0 * h[0], null, h[1], 0.005, 2.6 / h[0] + 0.3, t + d, 1400); }); }); break;
+      case 'whistle': [0, 1.0].forEach(function (d) { tone('sawtooth', 440, 430, 0.025, 0.15, 0.8, t + d, 900); tone('sawtooth', 554, 545, 0.02, 0.15, 0.8, t + d, 900); }); break;
+      case 'flutter': for (var fu = 0; fu < 7; fu++) noise('bandpass', 1300 + fu * 60, 1.4, 0.035, 0.03, t + fu * 0.045); break;
     }
   };
 
@@ -15732,6 +15799,638 @@
     this.fit.auto = true;
     this.fitDirty = true;
     this.needsRender = true;
+  };
+
+  // ===== the living world: wind, clouds, painted ground, meadows, travellers, birds, sound =====
+
+  // ---- wind: grass, flowers and trees lean together, and gusts roll across the land in waves ----
+  var WIND_DIR = [0.83, -0.55];
+  Town.prototype.windU = null;
+  Town.prototype.windMat = function (base, amp, push, tag) {
+    var U = this.windU || (this.windU = { uTime: { value: 0 }, uPlayer: { value: new T.Vector3(1e4, 0, 1e4) }, uGust: { value: 1 } });
+    var m = base.clone();
+    m.onBeforeCompile = function (sh) {
+      sh.uniforms.uTime = U.uTime; sh.uniforms.uPlayer = U.uPlayer; sh.uniforms.uGust = U.uGust;
+      sh.vertexShader = 'uniform float uTime; uniform vec3 uPlayer; uniform float uGust;\n' + sh.vertexShader.replace('#include <project_vertex>', [
+        'vec4 wpos = vec4(transformed, 1.0);',
+        '#ifdef USE_INSTANCING',
+        'wpos = instanceMatrix * wpos;',
+        '#endif',
+        'wpos = modelMatrix * wpos;',
+        'float hgt = clamp(position.y + 0.5, 0.0, 1.0); hgt *= hgt;',
+        'float wave = sin(dot(wpos.xz, vec2(0.045, 0.03)) - uTime * 0.9) * 0.6 + sin(dot(wpos.xz, vec2(-0.02, 0.05)) - uTime * 0.5) * 0.4;',
+        'float gust = pow(0.5 + 0.5 * wave, 3.0) * uGust;',
+        'float flutter = sin(uTime * 3.1 + wpos.x * 1.7 + wpos.z * 1.3);',
+        'wpos.xz += vec2(' + WIND_DIR[0] + ', ' + WIND_DIR[1] + ') * hgt * ' + amp.toFixed(3) + ' * (0.3 + gust * 1.7 + flutter * (0.12 + gust * 0.3));',
+        push ? 'vec2 aw = wpos.xz - uPlayer.xz; float pd = length(aw), pk = (1.0 - smoothstep(0.15, 0.85, pd)) * hgt;' : '',
+        push ? 'wpos.xz += (pd > 0.001 ? aw / pd : vec2(0.0)) * pk * ' + push.toFixed(3) + '; wpos.y -= pk * ' + (push * 0.5).toFixed(3) + ';' : '',
+        'vec4 mvPosition = viewMatrix * wpos;',
+        'gl_Position = projectionMatrix * mvPosition;'
+      ].join('\n'));
+    };
+    m.customProgramCacheKey = function () { return 'wind-' + tag; };
+    (this.windMats = this.windMats || []).push({ m: m, base: base });
+    return m;
+  };
+  Town.prototype.stepWind = function (dt, now) {
+    var U = this.windU;
+    if (!U) return;
+    var t = now / 1000;
+    this.stepMeadow();
+    U.uTime.value = this.reduced ? 0 : t;
+    if (U.uDetail) U.uDetail.value = smooth(0.35, 1.1, this.camera.zoom);
+    // Calm spells and blustery ones; winter's windier.
+    var g = 0.75 + 0.35 * Math.sin(t * 0.05) + 0.2 * Math.sin(t * 0.13 + 1.7);
+    U.uGust.value = this.reduced ? 0 : Math.max(0.2, g) * (this.season === 'winter' ? 1.25 : 1);
+    this.gustNow = U.uGust.value;
+    var pl = this.player;
+    if (pl && pl.g.visible && this.explore) U.uPlayer.value.copy(pl.g.position); else U.uPlayer.value.set(1e4, 0, 1e4);
+    // The swaying copies follow their materials' seasonal colours.
+    (this.windMats || []).forEach(function (w) { w.m.color.copy(w.base.color); if (w.m.emissive && w.base.emissive) w.m.emissive.copy(w.base.emissive); w.m.visible = w.base.visible; });
+  };
+
+  // ---- painted ground and water: brushy patches of green and a soft moving sheen ----
+  Town.prototype.paintMaterials = function () {
+    var U = this.windU || (this.windU = { uTime: { value: 0 }, uPlayer: { value: new T.Vector3(1e4, 0, 1e4) }, uGust: { value: 1 } });
+    U.uDetail = U.uDetail || { value: 1 };
+    var NOISE = [
+      'float pHash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }',
+      'float pNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
+      '  return mix(mix(pHash(i), pHash(i + vec2(1.0, 0.0)), f.x), mix(pHash(i + vec2(0.0, 1.0)), pHash(i + vec2(1.0, 1.0)), f.x), f.y); }'
+    ].join('\n');
+    function addWorldPos(sh) {
+      sh.vertexShader = 'varying vec3 vPaintW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvPaintW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = 'varying vec3 vPaintW;\nuniform float uTime;\nuniform float uDetail;\n' + NOISE + '\n' + sh.fragmentShader;
+      sh.uniforms.uTime = U.uTime; sh.uniforms.uDetail = U.uDetail;
+    }
+    var fields = this.mat('fields');
+    fields.onBeforeCompile = function (sh) {
+      addWorldPos(sh);
+      // Brush strokes: each patch of ground leans its strokes its own way, a little lighter or
+      // darker, warmer or cooler, like gouache laid on in dabs.
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', [
+        '#include <color_fragment>',
+        'vec2 bw = vPaintW.xz;',
+        'float ang = 0.6 + (pNoise(bw * 0.012) - 0.5) * 1.6;',
+        'vec2 dir = vec2(cos(ang), sin(ang));',
+        'vec2 sp = vec2(dot(bw, dir), dot(bw, vec2(-dir.y, dir.x)));',
+        'float strokes = pNoise(sp * vec2(0.55, 2.6)) * 0.6 + pNoise(sp * vec2(1.3, 5.5)) * 0.4;',
+        'float big = pNoise(bw * 0.06);',
+        'diffuseColor.rgb *= 1.0 + (strokes - 0.5) * 0.1 * uDetail;',
+        'diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.06, 1.04, 0.86), smoothstep(0.55, 0.85, big) * 0.6);',
+        'diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.9, 1.0, 1.04), smoothstep(0.45, 0.15, big) * 0.5);'
+      ].join('\n'));
+    };
+    fields.customProgramCacheKey = function () { return 'painted-fields'; };
+    fields.needsUpdate = true;
+    var water = this.mat('water');
+    water.onBeforeCompile = function (sh) {
+      addWorldPos(sh);
+      // Water: slow bands of light drifting across it, and darker ripples between.
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', [
+        '#include <color_fragment>',
+        'vec2 ww = vPaintW.xz;',
+        'float band = pNoise(vec2(ww.x * 0.35 + uTime * 0.12, ww.y * 1.4 - uTime * 0.05));',
+        'float rip = pNoise(ww * 0.9 + vec2(uTime * 0.2, -uTime * 0.15));',
+        'diffuseColor.rgb *= 1.0 + (rip - 0.5) * 0.08 * uDetail;',
+        'diffuseColor.rgb += vec3(0.16, 0.18, 0.17) * smoothstep(0.72, 0.92, band) * uDetail;'
+      ].join('\n'));
+    };
+    water.customProgramCacheKey = function () { return 'painted-water'; };
+    water.needsUpdate = true;
+  };
+
+  // ---- clouds: big soft cumulus round the horizon, and their shadows drifting over the land ----
+  Town.prototype.buildClouds = function () {
+    if (this.soft) return;
+    var r = rng(5150), self = this, g = new T.Group();
+    var cm = new T.MeshLambertMaterial({ color: '#ffffff', emissive: '#8f97a8', emissiveIntensity: 0.55, fog: false, transparent: true, opacity: 0, depthWrite: false });
+    var under = new T.MeshLambertMaterial({ color: '#e4e8f2', emissive: '#7d8597', emissiveIntensity: 0.5, fog: false, transparent: true, opacity: 0, depthWrite: false });
+    this.cloudMats = [cm, under];
+    // (they float over the far country, and only show once you've zoomed out to the whole map)
+    for (var i = 0; i < 14; i++) {
+      var a = (i / 14) * Math.PI * 2 + (r() - 0.5) * 0.3, rad = 70 + r() * 120, y = 34 + r() * 12, sc = 6 + r() * 6;
+      var c = new T.Group(); c.position.set(Math.cos(a) * rad, y, Math.sin(a) * rad); c.rotation.y = -a;
+      var n = 6 + Math.floor(r() * 5);
+      for (var k = 0; k < n; k++) {
+        var t = k / (n - 1) - 0.5, bs = sc * (0.55 + (1 - Math.abs(t) * 1.6) * 0.6) * (0.8 + r() * 0.4);
+        var b = new T.Mesh(this.geo.blob, cm); b.scale.set(bs, bs * (0.75 + r() * 0.2), bs * 0.9);
+        b.position.set((r() - 0.5) * sc * 0.6, bs * 0.45 + (1 - Math.abs(t) * 2) * sc * 0.25, t * sc * 3.4); c.add(b);
+      }
+      // a flat, slightly grey base
+      var base = new T.Mesh(this.geo.blob, under); base.scale.set(sc * 0.9, sc * 0.18, sc * 1.9); base.position.y = 0; c.add(base);
+      c.userData.drift = 0.002 + r() * 0.003;
+      g.add(c);
+    }
+    g.traverse(function (o) { o.layers.set(OVERLAY_LAYER); }); // drawn after the ink, soft and clean
+    this.hemi.layers.enable(OVERLAY_LAYER); this.sun.layers.enable(OVERLAY_LAYER);
+    this.scene.add(g);
+    this.clouds = g;
+    // Shadows: invisible puffs high over the middle of the map that only cast shadows.
+    var sm = new T.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+    this.cloudShadows = [];
+    for (var j = 0; j < 7; j++) {
+      var s = new T.Group(), n2 = 3 + Math.floor(r() * 3), base2 = 6 + r() * 6;
+      for (var q = 0; q < n2; q++) { var p = new T.Mesh(this.geo.blob, sm); p.castShadow = true; p.receiveShadow = false; p.scale.set(base2 * (0.8 + r() * 0.5), 0.8, base2 * (0.7 + r() * 0.5)); p.position.set((r() - 0.5) * base2 * 1.6, 0, (r() - 0.5) * base2 * 1.2); s.add(p); }
+      s.position.set((r() - 0.5) * 220, 58, (r() - 0.5) * 220);
+      s.userData.speed = 1.2 + r() * 1.3;
+      this.scene.add(s); this.cloudShadows.push(s);
+    }
+  };
+  Town.prototype.stepClouds = function (dt, now) {
+    if (!this.clouds) return;
+    var night = this.dark, ph = this.phase;
+    // Tint them with the time of day: gold at golden hour, rosy at dusk, blue-grey at night.
+    var tint = ph === 'golden' ? ['#fff3df', '#c99a6b'] : ph === 'dusk' || ph === 'dawn' ? ['#ffe3e6', '#a77c90'] : night ? ['#55607a', '#20263a'] : ['#ffffff', '#8f97a8'];
+    if (this.cloudTint !== ph) { this.cloudTint = ph; this.cloudMats[0].color.set(tint[0]); this.cloudMats[0].emissive.set(tint[1]); this.cloudMats[1].color.set(tint[0]).multiplyScalar(0.9); this.cloudMats[1].emissive.set(tint[1]).multiplyScalar(0.9); }
+    this.clouds.rotation.y += dt * 0.0025 * (this.reduced ? 0 : 1);
+    var op = smooth(0.42, 0.22, this.explore ? 9 : this.camera.zoom) * 0.88;
+    this.cloudMats.forEach(function (m) { m.opacity = op; });
+    this.clouds.visible = op > 0.01;
+    var wx = WIND_DIR[0], wz = WIND_DIR[1], vis = !night;
+    this.cloudShadows.forEach(function (s) {
+      if (!this.reduced) { s.position.x += wx * s.userData.speed * dt; s.position.z += wz * s.userData.speed * dt; }
+      if (s.position.x > 130) s.position.x -= 260; if (s.position.z < -130) s.position.z += 260;
+      s.visible = vis && op < 0.3;
+    }, this);
+  };
+
+  // ---- meadows of tall grass the raccoon wades through, and wildflowers along every road ----
+  Town.prototype.buildMeadows = function () {
+    if (this.soft) return;
+    var r = rng(7272), blades = [], flowers = [[], [], [], [], []], self = this;
+    var centres = [];
+    for (var tries = 0; tries < 260 && centres.length < 22; tries++) {
+      var a = r() * Math.PI * 2, d = 34 + r() * 88, p = { x: Math.cos(a) * d, z: Math.sin(a) * d };
+      if (!groundClear(p, 2.2, true) || centres.some(function (c) { return Math.hypot(c.x - p.x, c.z - p.z) < 10; })) continue;
+      centres.push(p);
+    }
+    centres.forEach(function (c, ci) {
+      var R = 2.4 + r() * 1.8;
+      for (var k = 0; k < 230; k++) {
+        var aa = r() * Math.PI * 2, dd = Math.sqrt(r()) * R, x = c.x + Math.cos(aa) * dd * 1.3, z = c.z + Math.sin(aa) * dd;
+        if (nearPath(x, z, 0.9) || waterAt(x, z) != null) continue;
+        if (r() < 0.08) flowers[Math.floor(r() * 5)].push({ x: x, z: z, y: groundY(x, z), s: 0.9 + r() * 0.5, tall: true });
+        else blades.push({ x: x, z: z, y: groundY(x, z), s: 0.8 + r() * 0.6, a: r() * 6, t: r() * 0.1 });
+      }
+    });
+    // Wildflowers and tufts along the roads out to the towns, thinning as they go.
+    var tufts = [];
+    CASTLE_ROADS.forEach(function (rd) {
+      if (!rd) return;
+      for (var i = 2; i < rd.length - 1; i += 1) {
+        var q = rd[i], n = rd[i + 1], vx = n.x - q.x, vz = n.z - q.z, L = Math.hypot(vx, vz) || 1; vx /= L; vz /= L;
+        [-1, 1].forEach(function (sd) {
+          if (r() < 0.35) return;
+          var o = 1.5 + r() * 1.3, x = q.x - vz * o * sd + (r() - 0.5) * 0.5, z = q.z + vx * o * sd + (r() - 0.5) * 0.5;
+          if (waterAt(x, z) != null || nearPath(x, z, 1.0) || coastSd(x, z) > -1 || townHill(x, z) > 1.5) return;
+          if (r() < 0.45) flowers[Math.floor(r() * 5)].push({ x: x, z: z, y: groundY(x, z), s: 0.8 + r() * 0.5 });
+          else tufts.push({ x: x, z: z, y: groundY(x, z), s: 0.7 + r() * 0.6, a: r() * 6 });
+        });
+      }
+    });
+    var m4 = new T.Matrix4(), q4 = new T.Quaternion(), e = new T.Euler(), v3 = new T.Vector3(), s3 = new T.Vector3();
+    if (blades.length) {
+      var gm = this.windMat(this.meadowMat(), 0.22, 0.22, 'meadow');
+      var im = new T.InstancedMesh(this.geo.cone4, gm, blades.length);
+      blades.forEach(function (b, i) { q4.setFromEuler(e.set(b.t, b.a, b.t * 0.5)); im.setMatrixAt(i, m4.compose(v3.set(b.x, b.y + 0.21 * b.s, b.z), q4, s3.set(0.032 * b.s, 0.46 * b.s, 0.032 * b.s))); });
+      im.receiveShadow = true;
+      this.base.add(im);
+    }
+    if (tufts.length) {
+      var tm = this.windMat(this.meadowMat(), 0.1, 0, 'tuft');
+      var it = new T.InstancedMesh(this.geo.cone4, tm, tufts.length);
+      tufts.forEach(function (t, i) { q4.setFromEuler(e.set(0, t.a, 0)); it.setMatrixAt(i, m4.compose(v3.set(t.x, t.y + 0.08 * t.s, t.z), q4, s3.set(0.09 * t.s, 0.17 * t.s, 0.09 * t.s))); });
+      this.base.add(it);
+    }
+    // Each flower is a stem and a head; the heads nod in the wind.
+    var stems = [], cols = [0, 1, 4, 3, 2];
+    flowers.forEach(function (list, ci) {
+      if (!list.length) return;
+      var fm = new T.InstancedMesh(self.geo.ball, self.windMat(self.mat('flag', cols[ci]), 0.04, 0.04, 'flower' + ci), list.length);
+      list.forEach(function (f, i) { var hy = f.tall ? 0.42 : 0.16; fm.setMatrixAt(i, m4.compose(v3.set(f.x, f.y + hy * f.s, f.z), q4.identity(), s3.set(0.045 * f.s, 0.04 * f.s, 0.045 * f.s))); stems.push({ x: f.x, y: f.y, z: f.z, h: hy * f.s }); });
+      self.base.add(fm);
+    });
+    if (stems.length) {
+      var sm = new T.InstancedMesh(this.geo.cone4, this.windMat(this.meadowMat(), 0.12, 0.2, 'stem'), stems.length);
+      stems.forEach(function (st, i) { sm.setMatrixAt(i, m4.compose(v3.set(st.x, st.y + st.h / 2, st.z), q4.identity(), s3.set(0.015, st.h, 0.015))); });
+      this.base.add(sm);
+    }
+  };
+
+  // Long grass: fresh green in spring, deep in summer, straw-gold in the fall, pale under winter's frost.
+  var MEADOW_COL = { spring: '#8fc95a', summer: '#79b347', fall: '#d6bd6c', winter: '#d9d3bd' };
+  Town.prototype.meadowMat = function () {
+    if (!this.meadowM) { this.meadowM = new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: MEADOW_COL.summer }); this.meadowM.userData.name = 'meadow'; }
+    return this.meadowM;
+  };
+  Town.prototype.stepMeadow = function () {
+    var m = this.meadowM; if (!m) return;
+    var key = this.season + (this.dark ? 'n' : '');
+    if (m.userData.key === key) return;
+    m.userData.key = key; m.color.set(MEADOW_COL[this.season] || MEADOW_COL.summer); if (this.dark) m.color.multiplyScalar(0.55);
+  };
+  // ---- the forest and tufts lean in the wind too ----
+  Town.prototype.windifyScenery = function () {
+    var self = this;
+    this.base.children.forEach(function (o) {
+      if (!o.isInstancedMesh || o.material.customProgramCacheKey && /wind/.test(o.material.customProgramCacheKey())) return;
+      var name = o.material.userData && o.material.userData.name;
+      if (o.geometry === self.geo.cone6 && /^pine/.test(name || '')) o.material = self.windMat(o.material, 0.25, 0, 'pine');
+      else if (o.geometry === self.geo.cone4 && /^leaf/.test(name || '')) o.material = self.windMat(o.material, 0.1, 0.12, 'lanetuft');
+      else if (o.geometry === self.geo.ball && /^flag/.test(name || '')) o.material = self.windMat(o.material, 0.04, 0.04, 'laneflower' + name);
+    });
+  };
+
+  // ---- travellers on the roads between towns once they're open ----
+  var TRAVEL_LINES = {
+    hiker: ['long road from {from}!', 'off to {to}. my feet are not happy', 'is it much further to {to}?', 'saw a moose back there. a big one', 'lovely day for a walk, eh?', 'I’ve got bannock in my pack. want some?'],
+    wagon: ['whoa there, Bessie', 'taking supplies up to {to}', 'mind the wheel ruts!', 'flour, sugar and a crate of nails for {to}', 'Bessie knows the way better than I do'],
+    bike: ['ding ding!', 'downhill all the way to {to}! I hope', 'training for the Klondike Road Relay', 'nice wheels? thanks, I built them'],
+    sled: ['hike! hike!', 'the dogs love this cold', 'mush! on to {to}!', 'gee! haw! good dogs'],
+    camp: ['pull up a log, friend', 'the fire’s just right for marshmallows', 'halfway to {to}. time for tea', 'stars’ll be out soon. best part of the trip']
+  };
+  Town.prototype.buildTraveller = function (kind, k) {
+    var self = this, g = new T.Group(), pick = 'traveller';
+    function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, pick); }
+    var tr = { kind: kind, g: g, legs: [], wheels: [], phase: 0 };
+    if (kind === 'hiker' || kind === 'bike') {
+      var m = this.makeMouse(k, 'hiker');
+      m.g.parent && m.g.parent.remove(m.g);
+      g.add(m.g); tr.m = m; m.g.scale.setScalar(1.25);
+      if (kind === 'hiker') { P(m.body, this.geo.box, this.mat('flag', 3 + k % 3), 0.12, 0.14, 0.07, 0, 0.12, -0.08); P(m.body, this.geo.cyl6, this.mat('trunk'), 0.012, 0.36, 0.012, 0.09, 0.05, 0.05); }
+      else {
+        var bk = new T.Group(); g.add(bk);
+        [-0.22, 0.22].forEach(function (z) { var wh = P(bk, self.geo.torus, self.mat('stoneDark'), 0.12, 0.12, 0.12, 0, 0.12, z); wh.rotation.y = Math.PI / 2; tr.wheels.push(wh); });
+        P(bk, this.geo.box, this.mat('flag', k % 5), 0.03, 0.03, 0.44, 0, 0.22, 0); P(bk, this.geo.box, this.mat('flag', k % 5), 0.03, 0.16, 0.03, 0, 0.2, 0.12);
+        m.g.position.set(0, 0.1, -0.02); m.body.rotation.x = 0.3;
+      }
+    } else if (kind === 'wagon' || kind === 'sled') {
+      var sled = kind === 'sled';
+      var cart = new T.Group(); g.add(cart);
+      if (sled) { P(cart, this.geo.box, this.mat('woodLight'), 0.34, 0.06, 0.8, 0, 0.1, -0.3); [-0.15, 0.15].forEach(function (x) { P(cart, self.geo.box, self.mat('stoneDark'), 0.02, 0.02, 0.9, x, 0.03, -0.3); }); P(cart, this.geo.box, this.mat('tpaint', 2), 0.3, 0.16, 0.36, 0, 0.21, -0.45); }
+      else {
+        P(cart, this.geo.box, this.mat('wood'), 0.5, 0.18, 0.8, 0, 0.32, -0.45); P(cart, this.geo.box, this.mat('whitewood'), 0.5, 0.3, 0.7, 0, 0.56, -0.48).scale.y = 0.3;
+        var cov = P(cart, this.geo.cyl, this.mat('whitewood'), 0.27, 0.66, 0.27, 0, 0.5, -0.48); cov.rotation.x = Math.PI / 2;
+        [[-0.28, -0.2], [0.28, -0.2], [-0.28, -0.72], [0.28, -0.72]].forEach(function (w) { var wh = P(cart, self.geo.torus, self.mat('trunk'), 0.13, 0.13, 0.13, w[0], 0.14, w[1]); wh.rotation.y = Math.PI / 2; tr.wheels.push(wh); });
+        // the driver
+        var dm = this.makeMouse(k + 3, 'hiker'); dm.g.parent && dm.g.parent.remove(dm.g); dm.g.position.set(0, 0.32, -0.08); dm.legs.forEach(function (l) { l.rotation.x = -1.4; }); cart.add(dm.g);
+      }
+      // a horse, or a team of dogs
+      if (sled) for (var dg = 0; dg < 4; dg++) {
+        var dog = new T.Group(); dog.position.set(dg % 2 ? 0.12 : -0.12, 0, 0.25 + Math.floor(dg / 2) * 0.38); g.add(dog);
+        var fur = this.mat('fur', dg % 2); P(dog, this.geo.box, fur, 0.1, 0.1, 0.26, 0, 0.16, 0); P(dog, this.geo.box, fur, 0.09, 0.09, 0.1, 0, 0.23, 0.15);
+        for (var l = 0; l < 4; l++) tr.legs.push(P(dog, this.geo.box, fur, 0.03, 0.12, 0.03, l % 2 ? 0.035 : -0.035, 0.06, l < 2 ? 0.09 : -0.09));
+      } else {
+        var horse = new T.Group(); horse.position.set(0, 0, 0.35); g.add(horse);
+        var hf = this.mat('fox', 0);
+        P(horse, this.geo.box, hf, 0.2, 0.22, 0.5, 0, 0.42, 0); P(horse, this.geo.box, hf, 0.11, 0.26, 0.12, 0, 0.6, 0.24).rotation.x = -0.5; P(horse, this.geo.box, hf, 0.1, 0.1, 0.2, 0, 0.72, 0.34);
+        P(horse, this.geo.box, this.mat('stoneDark'), 0.04, 0.18, 0.12, 0, 0.66, 0.2).rotation.x = -0.5;
+        for (var hl = 0; hl < 4; hl++) tr.legs.push(P(horse, this.geo.box, hf, 0.05, 0.32, 0.05, hl % 2 ? 0.07 : -0.07, 0.16, hl < 2 ? 0.18 : -0.18));
+      }
+    }
+    this.world.add(g);
+    return tr;
+  };
+  Town.prototype.stepTravellers = function (dt, now) {
+    var S = this.st, self = this, TV = S.travel || (S.travel = { roads: {} });
+    if (now > (TV.checkAt || 0)) {
+      TV.checkAt = now + 2000;
+      // A road gets its travellers once the town at its far end has a few buildings up.
+      CASTLE_ROADS.forEach(function (rd, ci) {
+        if (!rd || !ci || TV.roads[ci]) return;
+        var C = S.castles[ci];
+        if (!C || !C.town || C.built < 3) return;
+        // (roads out of Whitehorse start at the city's own streets: travel only from the edge of town)
+        var i0 = 0; while (!TOWN_FROM[ci] && i0 < rd.length / 3 && Math.hypot(rd[i0].x, rd[i0].z) < 118) i0++;
+        rd = rd.slice(i0);
+        var len = 0, cum = [0];
+        for (var i = 1; i < rd.length; i++) { len += Math.hypot(rd[i].x - rd[i - 1].x, rd[i].z - rd[i - 1].z); cum.push(len); }
+        var from = TOWN_FROM[ci] ? TOWNS[TOWN_FROM[ci]].name : 'Whitehorse', to = TOWNS[ci].name;
+        var kinds = ['hiker', ci % 2 ? 'wagon' : 'bike', 'hiker'], list = kinds.map(function (kd, j) {
+          var t = self.buildTraveller(kd, ci + j);
+          t.s = len * (0.15 + j * 0.3); t.dir = j % 2 ? -1 : 1; t.speed = kd === 'bike' ? 1.7 : kd === 'wagon' ? 0.75 : 0.5; t.wait = 0; t.base = kd;
+          return t;
+        });
+        // a campfire halfway, with someone resting by it
+        var mid = Math.floor(rd.length / 2), mq = rd[mid], mn = rd[Math.min(rd.length - 1, mid + 1)], vx = mn.x - mq.x, vz = mn.z - mq.z, vl = Math.hypot(vx, vz) || 1;
+        var cx = mq.x - vz / vl * 2.6, cz = mq.z + vx / vl * 2.6, camp = null;
+        if (len > 40 && waterAt(cx, cz) == null && townHill(cx, cz) < 1 && !nearPath(cx, cz, 1.2)) {
+          camp = new T.Group(); camp.position.set(cx, groundY(cx, cz), cz); self.world.add(camp);
+          var P = function (geo, mat, sx, sy, sz, x, y, z) { return self.part(camp, geo, mat, sx, sy, sz, x, y, z, 'travelcamp'); };
+          for (var st = 0; st < 6; st++) P(self.geo.box, self.mat('stone', st % 2), 0.08, 0.06, 0.08, Math.cos(st) * 0.18, 0.03, Math.sin(st) * 0.18);
+          [0.4, -0.4].forEach(function (a2) { P(self.geo.cyl6, self.mat('trunk'), 0.025, 0.28, 0.025, 0, 0.06, 0).rotation.set(Math.PI / 2 - 0.3, a2, 0); });
+          var fl = P(self.geo.cone, self.mat('lantern'), 0.09, 0.2, 0.09, 0, 0.14, 0);
+          P(self.geo.cyl6, self.mat('logwood', 0), 0.06, 0.6, 0.06, 0.45, 0.06, 0).rotation.x = Math.PI / 2;
+          var tent = P(self.geo.cone4, self.mat('tpaint', 3 + ci % 4), 0.42, 0.5, 0.42, -0.55, 0.25, -0.5); tent.rotation.y = Math.PI / 4;
+          var sitter = self.makeMouse(ci + 7, 'hiker'); sitter.g.parent && sitter.g.parent.remove(sitter.g); sitter.g.position.set(0.45, 0.06, 0.05); sitter.g.rotation.y = -Math.PI / 2; sitter.body.position.y = 0.06; sitter.legs.forEach(function (l) { l.rotation.x = -1.4; }); camp.add(sitter.g);
+          camp.userData = { flame: fl, sitter: sitter, at: new T.Vector3(cx, 0, cz) };
+          self.pop(camp, 300);
+        }
+        TV.roads[ci] = { rd: rd, cum: cum, len: len, list: list, from: from, to: to, camp: camp };
+      });
+    }
+    var pl = this.player, pp = pl && this.explore && pl.g.visible ? pl.g.position : null, winter = this.season === 'winter';
+    Object.keys(TV.roads).forEach(function (ci) {
+      var R = TV.roads[ci], rd = R.rd;
+      if (R.camp) {
+        var fl = R.camp.userData.flame; fl.scale.y = 0.2 * (0.85 + 0.25 * Math.sin(now / 110 + +ci)); fl.scale.x = fl.scale.z = 0.09 * (0.9 + 0.15 * Math.sin(now / 70));
+        if (Math.random() < dt * 1.5) { var cw = R.camp.position; self.puff(cw.x, cw.y + 0.35, cw.z, 1, 'smoke', 0.05); }
+        if (pp && Math.hypot(pp.x - R.camp.position.x, pp.z - R.camp.position.z) < 2.5 && now > (R.campSaid || 0)) { R.campSaid = now + 9000; self.say(pickOne(TRAVEL_LINES.camp).replace('{to}', R.to), R.camp.userData.sitter.g, 0.6, 2.6); }
+      }
+      R.list.forEach(function (t) {
+        // In winter the wagon swaps for a dog sled.
+        if (t.base === 'wagon' && (t.kind === 'sled') !== winter) { var s0 = t.s, d0 = t.dir, sp0 = t.speed; self.world.remove(t.g); var nt = self.buildTraveller(winter ? 'sled' : 'wagon', +ci); nt.s = s0; nt.dir = d0; nt.speed = winter ? 1.2 : 0.75; nt.wait = 0; nt.base = 'wagon'; Object.assign(t, nt); }
+        if (t.base === 'bike') t.g.visible = !winter;
+        if (t.wait > 0) { t.wait -= dt; if (t.wait <= 0) t.dir = -t.dir; t.legs.forEach(function (l) { l.rotation.x = 0; }); if (t.m) t.m.legs.forEach(function (l) { l.rotation.x = 0; }); return; }
+        // Step aside and stop to chat when the raccoon's in the way.
+        var close = pp && Math.hypot(pp.x - t.g.position.x, pp.z - t.g.position.z) < 1.6;
+        if (close && now > (t.saidAt || 0)) { t.saidAt = now + 8000; self.say(pickOne(TRAVEL_LINES[t.kind]).replace('{to}', t.dir > 0 ? R.to : R.from).replace('{from}', t.dir > 0 ? R.from : R.to), t.g, t.kind === 'wagon' ? 1.1 : 0.7, 2.4); }
+        if (!close && !self.reduced) t.s += t.dir * t.speed * dt;
+        if (t.s <= 0 || t.s >= R.len) { t.s = Math.max(0, Math.min(R.len, t.s)); t.wait = 6 + Math.random() * 10; }
+        // Where on the road, a little to the right of the middle.
+        var i = 1; while (i < R.cum.length - 1 && R.cum[i] < t.s) i++;
+        var a = rd[i - 1], b = rd[i], f = (t.s - R.cum[i - 1]) / Math.max(0.001, R.cum[i] - R.cum[i - 1]);
+        var vx = b.x - a.x, vz = b.z - a.z, L = Math.hypot(vx, vz) || 1; vx /= L; vz /= L;
+        var side = t.dir > 0 ? 0.45 : -0.45, x = a.x + (b.x - a.x) * f - vz * side, z = a.z + (b.z - a.z) * f + vx * side;
+        t.g.position.set(x, groundY(x, z), z);
+        var want = Math.atan2(vx * t.dir, vz * t.dir), dr = ((want - t.g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        t.g.rotation.y += dr * Math.min(1, dt * 5);
+        if (!close) {
+          t.phase += dt * t.speed * 9;
+          t.legs.forEach(function (l, li) { l.rotation.x = Math.sin(t.phase + (li % 2 ? Math.PI : 0) + (li > 1 ? Math.PI / 2 : 0)) * 0.5; });
+          t.wheels.forEach(function (w) { w.rotation.x -= dt * t.speed * 6; });
+          if (t.m && t.kind === 'hiker') t.m.legs.forEach(function (l, li) { l.rotation.x = Math.sin(t.phase * 1.4 + li * Math.PI) * 0.6; });
+          if (t.m && t.kind === 'bike') t.m.legs.forEach(function (l, li) { l.rotation.x = -0.9 + Math.sin(t.phase * 1.6 + li * Math.PI) * 0.5; });
+        }
+      });
+    });
+  };
+
+  // ---- the edge of each town: the bits and pieces that trail off into the country ----
+  var EDGE_KINDS = ['outhouse', 'shed', 'garden', 'truck', 'logs', 'canoe', 'barrels', 'doghouse', 'cache', 'woodshed'];
+  Town.prototype.townEdges = function (C) {
+    if (C.edges || !C.town || C.built < 6) return;
+    C.edges = true;
+    var self = this, site = C.site, g = C.group, rc = Math.cos(g.rotation.y), rs = Math.sin(g.rotation.y), r = rng(777 + C.ci * 31), placed = [];
+    var D = C.town, n = 0;
+    for (var th = 0; th < 360 && n < 9; th += 23 + r() * 10) {
+      var lr = 19.8 + r() * 3, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.6) || townHill(wx, wz) > 1.6 || nearRail(wx, wz, 3) || nearDawsonRiver(wx, wz, 1.5)) continue;
+      if ((D.keep || []).some(function (k) { return Math.hypot(lx - k[0], lz - k[1]) < k[2]; })) continue;
+      if ((C.slots || []).some(function (sl) { return Math.hypot(sl.x - lx, sl.z - lz) < 3.2; }) || placed.some(function (q) { return Math.hypot(q.x - wx, q.z - wz) < 4; })) continue;
+      if (Math.abs(groundY(wx + 1, wz) - groundY(wx - 1, wz)) > 0.9 || Math.abs(groundY(wx, wz + 1) - groundY(wx, wz - 1)) > 0.9) continue;
+      placed.push({ x: wx, z: wz });
+      this.edgeProp(EDGE_KINDS[(n * 3 + C.ci) % EDGE_KINDS.length], wx, wz, Math.atan2(site.x - wx, site.z - wz) + (r() - 0.5) * 0.8, C.ci * 10 + n, n * 220);
+      n++;
+    }
+  };
+  Town.prototype.edgeProp = function (kind, x, z, rot, seed, delay, parent) {
+    var self = this, h = new T.Group(), pick = 'edge:' + kind;
+    h.position.set(x, groundY(x, z), z); h.rotation.y = rot; (parent || this.world).add(h);
+    function P(geo, mat, sx, sy, sz, px, py, pz) { return self.part(h, geo, mat, sx, sy, sz, px, py, pz, pick); }
+    var M = function (n, i) { return self.mat(n, i); }, wood = M('wood'), roof = M('troof', seed % 3);
+    switch (kind) {
+      case 'outhouse': P(this.geo.box, M('woodLight'), 0.6, 1.0, 0.6, 0, 0.5, 0); P(this.geo.box, roof, 0.75, 0.06, 0.75, 0, 1.04, 0).rotation.x = 0.15; P(this.geo.box, M('stoneDark'), 0.14, 0.1, 0.02, 0, 0.8, 0.31); P(this.geo.box, M('lantern'), 0.06, 0.08, 0.02, 0, 0.82, 0.315); break;
+      case 'shed': P(this.geo.box, M('tpaint', seed % 9), 1.3, 0.8, 1.0, 0, 0.4, 0); P(this.geo.gable, roof, 1.5 / 1.7, 0.4 / 0.75, 1.15 / 1.5, 0, 0.8, 0); P(this.geo.box, wood, 0.5, 0.6, 0.04, 0.2, 0.3, 0.51); P(this.geo.box, M('woodLight'), 0.04, 0.9, 0.04, -0.75, 0.42, 0.42).rotation.z = 0.25; break;
+      case 'garden': {
+        for (var b = 0; b < 3; b++) { P(this.geo.box, M('tstreet', 1), 1.6, 0.12, 0.4, 0, 0.06, -0.6 + b * 0.6); for (var c = 0; c < 5; c++) P(this.geo.blob, M('leaf', (b + c) % 3), 0.13, 0.12, 0.13, -0.65 + c * 0.32, 0.18, -0.6 + b * 0.6); }
+        [-1, 1].forEach(function (sd) { P(self.geo.box, M('woodLight'), 2.0, 0.04, 0.03, 0, 0.3, sd * 1.0); P(self.geo.box, M('woodLight'), 0.03, 0.04, 2.0, sd * 1.0, 0.3, 0); for (var k = 0; k < 6; k++) { P(self.geo.box, M('woodLight'), 0.04, 0.4, 0.04, -1 + k * 0.4, 0.2, sd); P(self.geo.box, M('woodLight'), 0.04, 0.4, 0.04, sd, 0.2, -1 + k * 0.4); } });
+        P(this.geo.box, M('whitewood'), 0.08, 0.3, 0.3, 0.6, 0.5, 0.5); P(this.geo.ball, M('gold'), 0.16, 0.08, 0.16, 0.6, 0.72, 0.5); // a scarecrow
+        P(this.geo.cyl6, wood, 0.03, 0.8, 0.03, 0.6, 0.4, 0.5); P(this.geo.box, wood, 0.5, 0.03, 0.03, 0.6, 0.55, 0.5);
+        break;
+      }
+      case 'truck': {
+        // an old pickup, gone to rust in the grass
+        var rust = M('tpaint', 13);
+        P(this.geo.box, rust, 0.7, 0.32, 1.5, 0, 0.32, 0); P(this.geo.box, rust, 0.66, 0.3, 0.55, 0, 0.62, 0.15); P(this.geo.box, M('window'), 0.6, 0.18, 0.04, 0, 0.66, 0.43);
+        P(this.geo.box, M('stoneDark'), 0.72, 0.06, 0.08, 0, 0.18, 0.76);
+        [[-0.36, 0.5], [0.36, 0.5], [-0.36, -0.5], [0.36, -0.5]].forEach(function (w) { var wh = P(self.geo.cyl, M('stoneDark'), 0.15, 0.1, 0.15, w[0], 0.13, w[1]); wh.rotation.z = Math.PI / 2; });
+        for (var gr = 0; gr < 7; gr++) P(this.geo.cone4, M('leaf', gr % 2), 0.09, 0.32, 0.09, (gr % 3 - 1) * 0.42, 0.14, -0.7 + gr * 0.24);
+        h.rotation.z = 0.03; break;
+      }
+      case 'logs': for (var lr2 = 0; lr2 < 3; lr2++) for (var lc = 0; lc < 4 - lr2; lc++) P(this.geo.cyl6, M('logwood', 0), 0.13, 1.6, 0.13, -0.4 + lc * 0.26 + lr2 * 0.13, 0.13 + lr2 * 0.22, 0).rotation.x = Math.PI / 2; P(this.geo.cyl6, M('trunk'), 0.18, 0.3, 0.18, 0.9, 0.15, 0.3); break;
+      case 'canoe': {
+        [-0.5, 0.5].forEach(function (zz) { P(self.geo.box, wood, 0.5, 0.04, 0.05, 0, 0.42, zz); [-0.2, 0.2].forEach(function (xx) { P(self.geo.box, wood, 0.04, 0.44, 0.04, xx, 0.21, zz).rotation.z = xx * 1.5; }); });
+        var cn = P(this.geo.ball, M('tpaint', 0), 0.2, 0.12, 0.85, 0, 0.5, 0); cn.scale.y = 0.1; P(this.geo.box, M('woodLight'), 0.02, 0.2, 0.02, 0.35, 0.1, 0.6).rotation.z = 0.9; break;
+      }
+      case 'barrels': for (var br = 0; br < 4; br++) P(this.geo.cyl, M('tpaint', [2, 13, 5, 2][br]), 0.16, 0.42, 0.16, (br % 2) * 0.36 - 0.18, 0.21, Math.floor(br / 2) * 0.36 - 0.18); P(this.geo.cyl, M('tpaint', 13), 0.16, 0.42, 0.16, 0.5, 0.16, 0.3).rotation.z = Math.PI / 2; break;
+      case 'doghouse': P(this.geo.box, M('tpaint', 0), 0.6, 0.45, 0.7, 0, 0.23, 0); P(this.geo.gable, roof, 0.75 / 1.7, 0.3 / 0.75, 0.8 / 1.5, 0, 0.45, 0); P(this.geo.box, M('stoneDark'), 0.24, 0.26, 0.02, 0, 0.16, 0.36); P(this.geo.blob, M('fur', seed % 2), 0.14, 0.1, 0.2, 0.2, 0.08, 0.6); P(this.geo.cyl, M('silver'), 0.08, 0.04, 0.08, -0.3, 0.02, 0.55); break;
+      case 'cache': {
+        // a food cache up on stilts, away from the bears
+        [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]].forEach(function (s2) { P(self.geo.cyl6, M('trunk'), 0.06, 1.6, 0.06, s2[0], 0.8, s2[1]); P(self.geo.cyl6, M('silver'), 0.08, 0.15, 0.08, s2[0], 0.9, s2[1]); });
+        P(this.geo.box, M('logwood', 0), 0.8, 0.5, 0.8, 0, 1.85, 0); P(this.geo.gable, roof, 1.0 / 1.7, 0.35 / 0.75, 1.0 / 1.5, 0, 2.1, 0);
+        var lad = P(this.geo.box, wood, 0.25, 1.7, 0.03, 0, 0.85, 0.6); lad.rotation.x = -0.3; break;
+      }
+      default: { // an open woodshed full of split wood
+        P(this.geo.box, roof, 1.5, 0.05, 0.9, 0, 1.0, 0).rotation.x = 0.2;
+        [[-0.7, -0.4], [0.7, -0.4], [-0.7, 0.4], [0.7, 0.4]].forEach(function (s3) { P(self.geo.box, wood, 0.06, s3[1] < 0 ? 1.08 : 0.92, 0.06, s3[0], (s3[1] < 0 ? 1.08 : 0.92) / 2, s3[1]); });
+        for (var wr = 0; wr < 4; wr++) for (var wc = 0; wc < 7; wc++) P(this.geo.cyl6, M('trunk'), 0.07, 0.7, 0.07, -0.6 + wc * 0.2, 0.08 + wr * 0.15, 0).rotation.x = Math.PI / 2;
+      }
+    }
+    // weeds and wildflowers round its feet
+    for (var wd = 0; wd < 6; wd++) { var a = wd * 1.1 + seed, rr = 0.8 + (wd % 3) * 0.2; P(wd % 3 ? this.geo.cone4 : this.geo.ball, wd % 3 ? M('leaf', 1) : M('flag', (seed + wd) % 5), wd % 3 ? 0.08 : 0.04, wd % 3 ? 0.22 : 0.04, wd % 3 ? 0.08 : 0.04, Math.cos(a) * rr, wd % 3 ? 0.1 : 0.15, Math.sin(a) * rr); }
+    if (!parent) this.pop(h, delay || 0);
+    return h;
+  };
+
+  // ---- the Yukon north of Dawson: water to the edge of the map, and life along it ----
+  Town.prototype.buildNorthRiver = function () {
+    var R = DAWSON_RIVER, self = this, rows = [], z, k;
+    var pts = [], idx = [];
+    for (z = R.len + 3; z >= DR_FAR; z -= 2) {
+      var off = dawsonOff(z), lv = dawsonLevel(z) + 0.02;
+      var wide = 0.9 + 2.6 * smooth(-45, -70, z);
+      [R.x0 - wide, R.x1 + wide].forEach(function (lx) { var w = siteAt(DAWSON, lx + off, z); pts.push(w.x, lv, w.z); });
+      rows.push(z);
+    }
+    for (k = 0; k < rows.length - 1; k++) { var a = k * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    var geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    var water = new T.Mesh(geo, this.mat('water')); water.receiveShadow = true; water.userData.pick = 'yukonriver'; this.base.add(water); this.picks.push(water);
+    function at(lx, lz) { var w = siteAt(DAWSON, lx + dawsonOff(lz), lz); return { x: w.x, z: w.z, y: dawsonLevel(lz) }; }
+    var rot = Math.atan2(-CASTLE_SITES[DAWSON].x, -CASTLE_SITES[DAWSON].z);
+    function grp(lx, lz, onBank) { var p = at(lx, lz), g = new T.Group(); g.position.set(p.x, onBank ? groundY(p.x, p.z) : p.y, p.z); g.rotation.y = rot; self.base.add(g); return g; }
+    function P(g, geo, mat, sx, sy, sz, x, y, zz) { return self.part(g, geo, mat, sx, sy, sz, x, y, zz, 'yukonriver'); }
+    var M = function (n, i) { return self.mat(n, i); };
+    // gravel bars mid-river
+    [[17, -78, 2.2, 7], [22, -128, 1.8, 6], [16, -162, 2.6, 8], [21, -100, 1.2, 4]].forEach(function (b) { var g = grp(b[0], b[1]); P(g, self.geo.blob, M('tstreet', 1), b[2], 0.22, b[3], 0, 0.0, 0); P(g, self.geo.cone4, M('leaf', 1), 0.15, 0.4, 0.15, b[2] * 0.3, 0.15, b[3] * 0.2); });
+    // a sternwheeler wreck, pulled up and left on the east bank
+    var wr = grp(R.x1 + 0.8, -92); wr.position.y -= 0.2; wr.rotation.y += 0.25; wr.rotation.z = 0.14;
+    P(wr, this.geo.box, M('whitewood'), 2.2, 0.5, 7.5, 0, 0.25, 0); P(wr, this.geo.box, M('whitewood'), 1.9, 0.7, 4.2, 0, 0.85, 0.6); P(wr, this.geo.box, M('stoneDark'), 2.3, 0.08, 7.6, 0, 0.5, 0);
+    for (var wk = 0; wk < 5; wk++) P(wr, this.geo.box, M('window'), 0.04, 0.22, 0.4, 0.96, 0.9, -0.8 + wk * 0.75);
+    P(wr, this.geo.box, M('woodLight'), 1.6, 0.4, 1.4, 0, 1.4, 1.8); P(wr, this.geo.cyl6, M('stoneDark'), 0.14, 1.3, 0.14, 0, 1.9, 0.3).rotation.z = 0.2;
+    var wheel = new T.Group(); wheel.position.set(0, 0.7, -4.1); wr.add(wheel);
+    for (var sp2 = 0; sp2 < 8; sp2++) { var b2 = P(wheel, this.geo.box, M('tpaint', 0), 2.1, 0.08, 0.08, 0, 0, 0); b2.rotation.x = sp2 * Math.PI / 8; b2.scale.y = 0.08; P(wheel, this.geo.box, M('woodLight'), 2.0, 0.06, 0.5, 0, Math.cos(sp2 * Math.PI / 4) * 0.6, Math.sin(sp2 * Math.PI / 4) * 0.6).rotation.x = sp2 * Math.PI / 4; }
+    for (var vn = 0; vn < 8; vn++) P(wr, this.geo.blob, M('leaf', vn % 3), 0.25, 0.2, 0.3, (vn % 2 ? 1 : -1) * 1.05, 0.3 + (vn % 3) * 0.2, -3 + vn * 0.8);
+    // a fish wheel turning in the current by the west bank
+    var fw = grp(R.x0 + 1.6, -66); P(fw, this.geo.box, M('logwood', 0), 1.0, 0.18, 2.4, 0.7, 0.08, 0); P(fw, this.geo.box, M('logwood', 0), 1.0, 0.18, 2.4, -0.7, 0.08, 0);
+    [-0.7, 0.7].forEach(function (xx) { P(fw, self.geo.box, M('wood'), 0.06, 1.1, 0.06, xx, 0.6, 0); });
+    var fwh = new T.Group(); fwh.position.set(0, 1.0, 0); fw.add(fwh);
+    for (var bs = 0; bs < 4; bs++) { var arm = new T.Group(); arm.rotation.x = bs * Math.PI / 2; fwh.add(arm); P(arm, this.geo.box, M('woodLight'), 0.05, 1.5, 0.05, 0, 0.75, 0); P(arm, this.geo.box, M('whitewood'), 1.1, 0.04, 0.5, 0, 1.4, 0.05); }
+    P(fw, this.geo.box, M('wood'), 0.6, 0.3, 0.5, 0.75, 0.32, 0.9);
+    // cabins and a cache on the west bank, with a canoe pulled up
+    [[-118, 0], [-124, 1]].forEach(function (cb, i) { var g = grp(R.x0 - 4.2 - i * 2.5, cb[0], true); g.rotation.y += Math.PI / 2; P(g, self.geo.box, M('logwood', i), 1.4, 0.75, 1.2, 0, 0.38, 0); P(g, self.geo.gable, M('troof', 2), 1.6 / 1.7, 0.45 / 0.75, 1.35 / 1.5, 0, 0.75, 0); P(g, self.geo.box, M('window'), 0.3, 0.25, 0.04, 0.3, 0.45, 0.61); P(g, self.geo.box, M('brick'), 0.18, 0.4, 0.18, -0.45, 1.0, -0.2); });
+    var chp = siteAt(DAWSON, R.x0 - 5 + dawsonOff(-130), -130); this.edgeProp('cache', chp.x, chp.z, rot, 3, 0, this.base);
+    var cnp = at(R.x0 - 1.4, -121), cnv = new T.Group(); cnv.position.set(cnp.x, groundY(cnp.x, cnp.z) + 0.05, cnp.z); cnv.rotation.y = rot + 0.3; this.base.add(cnv); P(cnv, this.geo.ball, M('tpaint', 0), 0.22, 0.06, 0.95, 0, 0.06, 0);
+    // paddlers drifting down to the edge of the map; ice floes in the spring break-up
+    this.northRiver = { wheel: fwh, canoes: [], floes: [] };
+    for (var c = 0; c < 2; c++) {
+      var cg = new T.Group(); this.base.add(cg);
+      P(cg, this.geo.ball, M('tpaint', c ? 3 : 0), 0.22, 0.07, 0.9, 0, 0.04, 0);
+      [-0.35, 0.35].forEach(function (zz, j) { var pm = self.makeMouse(c * 2 + j, 'hiker'); pm.g.parent && pm.g.parent.remove(pm.g); pm.g.position.set(0, 0.0, zz); pm.body.position.y = 0.04; pm.legs.forEach(function (l) { l.rotation.x = -1.4; }); cg.add(pm.g); var pd = P(pm.body, self.geo.box, M('woodLight'), 0.02, 0.02, 0.5, 0.12, 0.12, 0); pd.rotation.x = 0.6; pm.paddle = pd; (cg.userData.pad = cg.userData.pad || []).push(pm); });
+      this.northRiver.canoes.push({ g: cg, z: -60 - c * 70, lx: 17.5 + c * 3 });
+    }
+    for (var f = 0; f < 14; f++) { var fl = new T.Mesh(this.geo.box, M('snow') || M('whitewood')); fl.scale.set(1 + (f % 3) * 0.6, 0.12, 0.8 + (f % 4) * 0.4); fl.rotation.y = f; this.base.add(fl); this.northRiver.floes.push({ m: fl, z: R.len - f * 18, lx: R.x0 + 2 + (f * 37 % 9) }); }
+  };
+  Town.prototype.stepNorthRiver = function (dt, now) {
+    var N = this.northRiver;
+    if (!N) return;
+    var R = DAWSON_RIVER, spring = this.season === 'spring', winter = this.season === 'winter', still = this.reduced;
+    N.wheel.rotation.x = winter ? N.wheel.rotation.x : now / 1600;
+    N.canoes.forEach(function (c) {
+      c.g.visible = !winter && !spring && !this.dark;
+      if (!c.g.visible) return;
+      if (!still) c.z -= dt * 1.1;
+      if (c.z < DR_FAR + 6) c.z = -58;
+      var w = siteAt(DAWSON, c.lx + dawsonOff(c.z), c.z), w2 = siteAt(DAWSON, c.lx + dawsonOff(c.z - 1), c.z - 1);
+      c.g.position.set(w.x, dawsonLevel(c.z) + 0.03, w.z); c.g.rotation.y = Math.atan2(w2.x - w.x, w2.z - w.z);
+      c.g.userData.pad.forEach(function (pm, j) { pm.paddle.rotation.z = Math.sin(now / 400 + j * Math.PI) * 0.7; pm.paddle.position.x = Math.sin(now / 400 + j * Math.PI) > 0 ? 0.12 : -0.12; });
+    }, this);
+    N.floes.forEach(function (f) {
+      f.m.visible = spring;
+      if (!spring) return;
+      if (!still) f.z -= dt * 1.6;
+      if (f.z < DR_FAR + 4) f.z = R.len - 4;
+      var w = siteAt(DAWSON, f.lx + dawsonOff(f.z), f.z); f.m.position.set(w.x, dawsonLevel(f.z) + 0.05, w.z); f.m.rotation.y += dt * 0.05;
+    });
+  };
+
+  // ---- small life: birds on the rooftops, dandelion fluff, a cat on a fence ----
+  Town.prototype.stepBirds = function (dt, now) {
+    var Cy = this.st.city, self = this;
+    if (!Cy || !Cy.perches.length) return;
+    var B = this.birds;
+    if (!B) {
+      B = this.birds = [];
+      var mat = this.mat('swan', 2), wingM = this.mat('stoneDark');
+      for (var i = 0; i < 12; i++) {
+        var g = new T.Group(), body = this.mesh(this.geo.ball, i % 3 ? this.mat('fox', 0) : mat, g); body.scale.set(0.06, 0.05, 0.09); body.castShadow = false;
+        var hd = this.mesh(this.geo.ball, mat, g); hd.scale.setScalar(0.035); hd.position.set(0, 0.04, 0.07); hd.castShadow = false;
+        var wl = new T.Group(), wrg = new T.Group(); g.add(wl); g.add(wrg);
+        var a = this.mesh(this.geo.box, wingM, wl); a.scale.set(0.12, 0.01, 0.06); a.position.x = -0.06; a.castShadow = false;
+        var b = this.mesh(this.geo.box, wingM, wrg); b.scale.set(0.12, 0.01, 0.06); b.position.x = 0.06; b.castShadow = false;
+        self.scene.add(g);
+        B.push({ g: g, wl: wl, wr: wrg, perch: Math.floor(i / 4) * 5, state: 'sit', t: Math.random() * 5, off: new T.Vector3((i % 3 - 1) * 0.18, 0, (Math.floor(i / 3) % 2) * 0.16) });
+      }
+    }
+    var pp = this.player && this.explore && this.player.g.visible ? this.player.g.position : null, scare = !pp && Math.random() < dt / 40;
+    B.forEach(function (b, i) {
+      var home = Cy.perches[b.perch % Cy.perches.length];
+      if (b.state === 'sit') {
+        b.g.position.copy(home).add(b.off); b.g.position.y = home.y;
+        b.wl.rotation.z = 0.1; b.wr.rotation.z = -0.1;
+        b.t -= dt; if (b.t < 0) { b.t = 1 + Math.random() * 4; b.g.rotation.y += (Math.random() - 0.5) * 2; } // hop round
+        var near = pp && Math.hypot(pp.x - home.x, pp.z - home.z) < 3.2 && Math.abs(pp.y - home.y) < 6;
+        if (near || (scare && i % 4 === (Math.floor(now / 1000) % 4))) {
+          b.state = 'fly'; b.ft = 0; b.vx = (Math.random() - 0.5) * 4; b.vz = (Math.random() - 0.5) * 4; if (pp) { b.vx += (home.x - pp.x); b.vz += (home.z - pp.z); }
+          if (i % 3 === 0) self.sfx('flutter');
+        }
+      } else if (b.state === 'fly') {
+        b.ft += dt;
+        b.g.position.x += b.vx * dt; b.g.position.z += b.vz * dt; b.g.position.y += (2.2 - b.ft * 0.3) * dt + Math.sin(b.ft * 3) * 0.02;
+        b.g.rotation.y = Math.atan2(b.vx, b.vz);
+        var fl = Math.sin(now / 45 + i) * 0.9; b.wl.rotation.z = fl; b.wr.rotation.z = -fl;
+        if (b.ft > 6) { b.state = 'back'; b.perch = (Math.floor(i / 4) * 5 + Math.floor(now / 60000) * 3) % Cy.perches.length; }
+      } else {
+        var tgt = Cy.perches[b.perch % Cy.perches.length], to = new T.Vector3().copy(tgt).add(b.off).sub(b.g.position), d = to.length();
+        if (d < 0.15) { b.state = 'sit'; b.t = 2; return; }
+        to.multiplyScalar(Math.min(1, dt * 3.5 / d)); b.g.position.add(to); b.g.rotation.y = Math.atan2(to.x, to.z);
+        var fl2 = Math.sin(now / 50 + i) * 0.8; b.wl.rotation.z = fl2; b.wr.rotation.z = -fl2;
+      }
+    });
+  };
+  Town.prototype.stepFluff = function (dt, now) {
+    if (this.soft) return;
+    var on = (this.season === 'summer' || this.season === 'spring') && !this.dark && !this.reduced, F = this.fluff;
+    if (!F) {
+      var n = 90, pos = new Float32Array(n * 3), cv = document.createElement('canvas'); cv.width = cv.height = 32;
+      var cx = cv.getContext('2d'), gr = cx.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,245,0.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      cx.fillStyle = gr; cx.fillRect(0, 0, 32, 32);
+      for (var i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * 50; pos[i * 3 + 1] = Math.random() * 6; pos[i * 3 + 2] = (Math.random() - 0.5) * 50; }
+      var geo = new T.BufferGeometry(); geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+      var pts = new T.Points(geo, new T.PointsMaterial({ map: new T.CanvasTexture(cv), color: '#fffbe8', size: 0.22, transparent: true, depthWrite: false, opacity: 0.85 }));
+      pts.frustumCulled = false; pts.layers.set(OVERLAY_LAYER); // (drawn over the ink, like the bubbles)
+      this.scene.add(pts); F = this.fluff = { pts: pts, ph: [] };
+      for (var j = 0; j < n; j++) F.ph.push(Math.random() * 6.28);
+    }
+    F.pts.visible = on;
+    if (!on) return;
+    var c = this.explore && this.player ? this.player.g.position : this.controls.target, P = F.pts.geometry.attributes.position, a = P.array, g = this.gustNow || 1;
+    for (var k = 0; k < P.count; k++) {
+      var x = a[k * 3] + WIND_DIR[0] * dt * (0.6 + g * 1.2), y = a[k * 3 + 1] + Math.sin(now / 900 + F.ph[k]) * dt * 0.25, z = a[k * 3 + 2] + WIND_DIR[1] * dt * (0.6 + g * 1.2);
+      x += Math.sin(now / 1300 + F.ph[k] * 3) * dt * 0.2;
+      // Keep the fluff near where you're looking.
+      var rx = x - c.x, rz = z - c.z;
+      if (rx > 25) x -= 50; if (rx < -25) x += 50; if (rz > 25) z -= 50; if (rz < -25) z += 50;
+      var gy = groundY(x, z);
+      if (y < gy + 0.3) y = gy + 0.3; if (y > gy + 6) y = gy + 0.5;
+      a[k * 3] = x; a[k * 3 + 1] = y; a[k * 3 + 2] = z;
+    }
+    P.needsUpdate = true;
+  };
+
+  // ---- the sound of the place: wind, running water, loons, distant bells, a train's whistle ----
+  Town.prototype.stepAmbient = function (dt, now) {
+    var A = this.audio;
+    if (!this.soundOn || !A) { if (this.amb) { this.amb.wind.g.gain.value = 0; this.amb.water.g.gain.value = 0; } return; }
+    var ctx = A.ctx, self = this;
+    if (!this.amb) {
+      var loop = function (type, freq, q) {
+        var src = ctx.createBufferSource(); src.buffer = A.noise; src.loop = true; src.playbackRate.value = 0.5;
+        var f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+        var g = ctx.createGain(); g.gain.value = 0; src.connect(f); f.connect(g); g.connect(A.out); src.start();
+        return { src: src, f: f, g: g };
+      };
+      this.amb = { wind: loop('lowpass', 420, 0.6), water: loop('bandpass', 900, 0.5), loonAt: now + 20000, bellAt: now + 30000, whistleAt: now + 45000 };
+      // a little echo for things far off
+      var d = ctx.createDelay(1.5), fb = ctx.createGain(), wet = ctx.createGain(); d.delayTime.value = 0.42; fb.gain.value = 0.35; wet.gain.value = 0.5;
+      d.connect(fb); fb.connect(d); d.connect(wet); wet.connect(A.out); this.amb.echo = d;
+    }
+    var B = this.amb, L = this.explore && this.player ? this.player.g.position : this.controls.target, g = this.gustNow || 1, t = ctx.currentTime;
+    var inDen = this.player && this.player.inDen;
+    B.wind.g.gain.setTargetAtTime(inDen ? 0 : 0.018 + 0.03 * Math.min(1.6, g), t, 0.8);
+    B.wind.f.frequency.setTargetAtTime(300 + 260 * g, t, 1.2);
+    // Water: louder near the river, the sea, the lakes or the Yukon past Dawson.
+    var wd = Math.min(riverDist(L.x, L.z) - RIVER_HALF, Math.max(0, -coastSd(L.x, L.z)), Math.max(0, lakeDist(L.x, L.z)) + 6, nearDawsonRiver(L.x, L.z, 0) ? 0 : 99);
+    B.water.g.gain.setTargetAtTime(inDen ? 0 : 0.07 * (1 - smooth(1, 22, wd)), t, 0.6);
+    var now2 = now;
+    // Loons on the lakes, mostly at dawn and dusk (and on summer nights).
+    if (now2 > B.loonAt) {
+      B.loonAt = now2 + 35000 + Math.random() * 50000;
+      if (this.season !== 'winter' && (this.phase === 'dusk' || this.phase === 'dawn' || this.dark || Math.random() < 0.3)) this.sfx('loon');
+    }
+    // Church bells from somewhere across the valley, now and then in the daytime.
+    if (now2 > B.bellAt) { B.bellAt = now2 + 70000 + Math.random() * 60000; if (!this.dark && this.st.bible && this.st.bible.chapters) this.sfx('bellfar'); }
+    // A train whistle echoing off the mountains, when there's a railway.
+    if (now2 > B.whistleAt) { B.whistleAt = now2 + 80000 + Math.random() * 70000; if (this.st.rail) this.sfx('whistle'); }
+  };
+
+  // ---- a postcard view of each town ----
+  var POSTCARD_VIEW = { 1: [-16, 9, 22], 2: [-20, 12, 18], 3: [24, 11, 16], 4: [-18, 14, 20], 5: [18, 10, 20], 6: [-18, 11, 22], 7: [20, 9, 20] };
+  Town.prototype.postcard = function () {
+    var self = this, open = [0].concat(CASTLE_SITES.map(function (c, ci) { return ci; }).filter(function (ci) { return ci && self.st.castles[ci] && self.st.castles[ci].town; }));
+    this.postIdx = ((this.postIdx == null ? -1 : this.postIdx) + 1) % open.length;
+    var ci = open[this.postIdx];
+    if (this.explore) this.setExplore(false);
+    var c = this.controls, cam = this.camera;
+    this.fit.auto = false; c.autoRotate = false;
+    if (!ci) { this.recenter(); return 'Whitehorse'; }
+    var s = CASTLE_SITES[ci], v = POSTCARD_VIEW[ci] || [-18, 12, 20], y = groundY(s.x, s.z), from = siteAt(ci, v[0], v[2]), dir = new T.Vector3(from.x - s.x, 0, from.z - s.z).normalize();
+    c.target.set(s.x, y + 1, s.z);
+    cam.position.set(s.x + dir.x * 40, y + 1 + v[1] * 2.2, s.z + dir.z * 40);
+    cam.zoom = 2.3; cam.updateProjectionMatrix(); c.update();
+    this.needsRender = true;
+    return TOWNS[ci].name;
   };
 
   Town.seasonOf = function (iso) {
