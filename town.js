@@ -325,8 +325,8 @@
   var RAIL_PATH = []; // (laid out beside the road once the roads are, below)
   function nearRail(x, z, d) { for (var i = 0; i < RAIL_PATH.length; i += 2) if (Math.hypot(RAIL_PATH[i].x - x, RAIL_PATH[i].z - z) < d) return true; return false; }
   var TOWN_PEAKS = [
-    [2, 24, -5, 8.5, 16, 0.6, 0.85], [2, 27, 6, 10, 21, 0.55, 0.8], [2, 24, 19, 8, 15, 0.6, 0.85], [2, 31, 15, 7.5, 17, 0.6, 0.85], [2, 22, 31, 9, 15, 0.6, 0.85], // Skagway: AB Mountain and the east wall
-    [2, -31, -7, 8, 15, 0.6, 0.85], [2, -34, 5, 10, 20, 0.55, 0.8], [2, -31, 18, 8, 16, 0.6, 0.85], [2, -27, 31, 8, 13, 0.6, 0.85], // and the west wall across the Skagway River
+    [2, 24, -5, 8.5, 16, 0.6, 0.85], [2, 27, 6, 10, 21, 0.55, 0.8], [2, 23, 18, 7.5, 11, 0.7, 0.9], [2, 30, 15, 7, 12, 0.7, 0.9], // Skagway: AB Mountain and the east wall
+    [2, -31, -7, 8, 15, 0.6, 0.85], [2, -34, 5, 10, 20, 0.55, 0.8], [2, -31, 18, 8, 16, 0.6, 0.85], // and the west wall across the Skagway River
     [6, 23, 13, 10.5, 20, 0.36, 0.62], [6, 26, 0, 7, 9, 0.8], [6, 20, 26, 7, 8, 1], [6, 4, 31, 7, 6, 1],
     [6, -34, -10, 7, 16, 0.3, 0.56], [6, -41, -1, 7, 15, 0.3, 0.55],
     [1, 15, -33, 12, 19, 0.4, 0.66], [1, -5, -35, 9, 10, 1], [1, 34, -10, 10, 15, 0.42, 0.68], [1, 36, -27, 9, 13, 0.5], // Carcross: Montana Mountain over Bennett Lake
@@ -904,6 +904,8 @@
     var ch = dawsonChannel(x, z);
     if (ch > 0) h += (Math.min(h, dawsonLevel(DR_Z) - 1.0) - h) * ch;
     h = skagwayShape(h, x, z);
+    var sa = STRIPS && stripAt(x, z, 0);
+    if (sa) h += (sa.S.h - h) * (1 - smooth(1.4, 3.2, Math.abs(sa.w))) * (1 - smooth(sa.S.len / 2, sa.S.len / 2 + 3, Math.abs(sa.u)));
     if (LIB_GRADE && x > LIB_GRADE.box[0] && x < LIB_GRADE.box[1] && z > LIB_GRADE.box[2] && z < LIB_GRADE.box[3] && rd > RIVER_HALF + 0.6) {
       var G = LIB_GRADE, bd = 1e9, bi = 0;
       for (var gi = 0; gi < G.pts.length; gi++) { var gd = Math.hypot(G.pts[gi].x - x, G.pts[gi].z - z); if (gd < bd) { bd = gd; bi = gi; } }
@@ -1144,6 +1146,45 @@
   // House plots keep off the paths and roads out of town.
   HOUSE_SLOTS = HOUSE_SLOTS.filter(function (h) { return !nearPath(h.x, h.z, 2.6) && !CASTLE_ROADS.some(function (rd) { return rd && rd.some(function (q) { return Math.hypot(q.x - h.x, q.z - h.z) < 2.8; }); }) && !LANE.some(function (q) { return Math.hypot(q.x - h.x, q.z - h.z) < 2.8; }); });
   FOREST = FOREST.filter(function (p) { return !nearPath(p.x, p.z, 1.8); });
+  // Bush strips: a flat, clear run of ground near each town for the King Air to land on (Skagway
+  // has its real airstrip). Each is levelled into the land; dir runs from the touchdown end.
+  var STRIPS = null;
+  STRIPS = (function () {
+    var out = [];
+    CASTLE_SITES.forEach(function (site, ci) {
+      if (!ci) return;
+      if (ci === SKAGWAY) { var a0 = siteAt(ci, -13.6, 17), b0 = siteAt(ci, -13.6, -6), L0 = Math.hypot(b0.x - a0.x, b0.z - a0.z); out[ci] = { ci: ci, x: (a0.x + b0.x) / 2, z: (a0.z + b0.z) / 2, dx: (b0.x - a0.x) / L0, dz: (b0.z - a0.z) / L0, len: L0, paved: true }; return; }
+      var best = null, HL = 7.5;
+      for (var ang = 0; ang < 360; ang += 12) for (var dist = 27; dist <= 42; dist += 5) for (var ori = 0; ori < 180; ori += 30) {
+        var cx = site.x + Math.sin(ang * D2R) * dist, cz = site.z + Math.cos(ang * D2R) * dist, dx = Math.sin(ori * D2R), dz = Math.cos(ori * D2R);
+        if (Math.hypot(cx, cz) > WORLD_R - 12 || CASTLE_SITES.some(function (c, cj) { return Math.hypot(c.x - cx, c.z - cz) < (cj ? 25 : 140); })) continue;
+        var hs = [], ok = true;
+        for (var u = -HL - 1; u <= HL + 1 && ok; u += 1.5) for (var w = -1.8; w <= 1.8 && ok; w += 1.8) {
+          var x = cx + dx * u - dz * w, z = cz + dz * u + dx * w;
+          if (waterAt(x, z) != null || townHill(x, z) > 0.5 || nearPath(x, z, 1.4) || nearRail(x, z, 3) || coastSd(x, z) > -3 || nearDawsonRiver(x, z, 2) || nearSkagRiver(x, z, 2) || streamDist(x, z) < 2) ok = false;
+          else hs.push(landY(x, z));
+        }
+        if (!ok) continue;
+        var mean = hs.reduce(function (a, b) { return a + b; }, 0) / hs.length, vr = hs.reduce(function (a, b) { return a + (b - mean) * (b - mean); }, 0) / hs.length;
+        // and clear air on the approaches
+        for (var e = 2; e <= 22 && ok; e += 4) [-1, 1].forEach(function (sd) { var ax = cx + dx * sd * (HL + e), az = cz + dz * sd * (HL + e); if (landY(ax, az) + townHill(ax, az) > mean + e * 0.35 + 1.5) ok = false; });
+        if (!ok) continue;
+        var sc = vr + dist * 0.004;
+        if (!best || sc < best.sc) best = { sc: sc, ci: ci, x: cx, z: cz, dx: dx, dz: dz, len: HL * 2, h: mean };
+      }
+      if (best) out[ci] = best;
+    });
+    return out;
+  })();
+  function stripAt(x, z, pad, paved) {
+    if (!STRIPS) return null;
+    for (var i = 1; i < STRIPS.length; i++) {
+      var S = STRIPS[i]; if (!S || (S.paved && !paved)) continue;
+      var ox = x - S.x, oz = z - S.z, u = ox * S.dx + oz * S.dz, w = -ox * S.dz + oz * S.dx;
+      if (Math.abs(u) < S.len / 2 + 3 + pad && Math.abs(w) < 3.2 + pad) return { S: S, u: u, w: w };
+    }
+    return null;
+  }
   FOREST = FOREST.filter(function (p) { return !LANE.some(function (q) { return Math.hypot(q.x - p.x, q.z - p.z) < 2.1; }); });
   FOREST.hash = new Scatter(4); FOREST.forEach(function (p) { FOREST.hash.add(p); });
   function nearPath(x, z, dist) {
@@ -2519,7 +2560,7 @@
     for (var gx = -WORLD_R; gx <= WORLD_R; gx += 4.6) for (var gz = -WORLD_R; gz <= WORLD_R; gz += 4.6) {
       var x = gx + (r() - 0.5) * 3.8, z = gz + (r() - 0.5) * 3.8, d = Math.hypot(x, z);
       if (d < 154 || d > WORLD_R - 3 || noise2(x * 0.55, z * 0.55) < 0.1 || r() < 0.35) continue;
-      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5) || nearSkagRiver(x, z, 2)) continue;
+      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5) || nearSkagRiver(x, z, 2) || stripAt(x, z, 3)) continue;
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 24; })) continue;
       spots.push({ x: x, z: z, y: groundY(x, z), s: 0.75 + r() * 0.6 });
     }
@@ -13799,12 +13840,12 @@
         return { title: sc.title, lines: [sc.text, extra, 'Secret: ' + sc.hint] };
       case 'detective': return { title: 'A mouse in a trench coat', lines: ['Leans on the lamp post by the motel sign most nights. Nobody knows what case he’s on.', this.explore ? 'Press E to ask him.' : 'Walk the raccoon over and press E to ask him.'] };
       case 'noir': return { title: 'The Northern Lights Motel', lines: ['Vacancy. Mostly.'] };
-      case 'biplane': {
-        var bp = s.planes && s.planes[p[1]], tn = TOWNS[+p[1]] ? TOWNS[+p[1]].name : 'town';
-        if (!bp) return null;
-        return { title: bp.flight ? 'The ' + tn + ' biplane, in the air' : bp.at === 'home' ? 'Fly to ' + tn : 'Fly home to Whitehorse',
-          lines: ['A little open-cockpit biplane, flown by a mouse in goggles. It waits ' + (bp.at === 'home' ? 'at the Whitehorse airport' : 'out at ' + tn) + '.', this.explore ? 'Press E to climb in up front.' : 'Walk the raccoon up to it (Walk around) and press E to fly.'] };
+      case 'drifter': return { title: 'Someone down on their luck', lines: [this.explore ? 'Press E to say hello' + (this.keep().coins ? ' (and drop a coin in the cup).' : '.') : 'Sitting out on the sidewalk downtown.'] };
+      case 'charter': {
+        var Ac = s.airport, atc = Ac && Ac.charter ? Ac.charter.at : 0;
+        return { title: 'The King Air charter', lines: ['Alkan Air’s King Air 350, ' + (atc ? 'waiting on the strip at ' + TOWNS[atc].name : 'on the apron at Whitehorse') + '.', 'Press E to pick where to fly: any town you’ve opened up.'] };
       }
+      case 'strip': return { title: (TOWNS[+p[1]] ? TOWNS[+p[1]].name : 'A') + ' bush strip', lines: ['A dirt runway for the King Air charter.'] };
       case 'sheep':
         var SH = s.sheep;
         return { title: 'The sheep pasture', lines: [plural(SH.list.length, 'sheep').replace('sheeps', 'sheep') + ' · one for every Strava ride over 100 km.',
@@ -14372,7 +14413,7 @@
     if (!this.solids || now > this.solidAt) { this.buildSolids(); this.solidAt = now + (this.anims.length ? 1500 : 6000); }
     var roam = this.st.critters && this.st.critters.raccoon; if (roam && roam.g.visible) roam.g.visible = false; // you are the raccoon now
     if (this.brawl) { var bc = this.brawl.cloud; this.stepBrawl(dt, now); this.followCam(bc.position, dt); return true; }
-    if (this.flying) { this.followCam(this.flying.p.g.position, dt); return true; }
+    if (this.flying) { this.followCam(this.flying.p.g.position, dt); if (this.weather) this.weather.visible = false; return true; }
     var K = this.keys, g = pl.g, P = g.position, c = this.controls, cam = this.camera, self = this;
     var mx = (K.d || K.arrowright ? 1 : 0) - (K.a || K.arrowleft ? 1 : 0) + (this.stick ? this.stick.x : 0);
     var mz = (K.w || K.arrowup ? 1 : 0) - (K.s || K.arrowdown ? 1 : 0) + (this.stick ? -this.stick.y : 0);
@@ -14537,8 +14578,9 @@
       var em = this.errandMouse();
       if (em && em.g.visible && Math.hypot(em.g.position.x - P.x, em.g.position.z - P.z) < 1.8) best = 'errand';
       if (this.lunchNear(P)) best = 'lunch';
-      var bpn = this.biplaneNear(P); if (bpn) best = 'biplane:' + bpn.ci;
+      if (this.kingAirNear(P)) best = 'charter';
       if (this.noir && Math.hypot(this.noir.g.position.x - P.x, this.noir.g.position.z - P.z) < 2.2) best = 'detective';
+      if (this.noir) this.noir.drifters.forEach(function (d) { if (d.g.visible && Math.hypot(d.g.position.x - P.x, d.g.position.z - P.z) < 1.6) { best = 'drifter'; self.nearDrifter = d; } });
       if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
     }
     return moving || air || pl.idle < 60 || mv;
@@ -14584,7 +14626,19 @@
     if (pl && pl.ride) { this.dismount(pl); return; }
     if (this.flying) return;
     if (pl && this.near === 'detective' && this.noir) { this.say(pickOne(NOIR_LINES), this.noir.det.g, 0.9, 4); return; }
-    if (pl && /^biplane:/.test(this.near || '')) { var bpl = this.st.planes && this.st.planes[this.near.split(':')[1]]; if (bpl) { this.flyBiplane(bpl); return; } }
+    if (pl && this.near === 'drifter' && this.nearDrifter) {
+      var KS = this.keep(), dr = this.nearDrifter;
+      if (KS.coins > 0) { KS.coins--; this.saveStore(); this.sfx('found'); this.say(['bless you, friend', 'thank you kindly', 'that’s a hot coffee, that is'][Math.floor(Math.random() * 3)], dr.m.g, 0.7, 2.4); this.say('*drops a coin in the cup*', pl.g, 1.0, 1.6); }
+      else this.say(pickOne(DRIFTER_LINES), dr.m.g, 0.7, 2.6);
+      return;
+    }
+    if (pl && this.near === 'charter') {
+      var A0 = this.st.airport, here = A0.charter ? A0.charter.at : 0, self0 = this;
+      var opts = [0].concat(this.charterTowns()).filter(function (ci) { return ci !== here; }).map(function (ci) { return { ci: ci, name: ci ? TOWNS[ci].name : 'Whitehorse' }; });
+      if (opts.length && this.onCharter) this.onCharter(opts, function (ci) { self0.charterTo(ci); });
+      else this.say(opts.length ? 'hop in!' : 'no towns open yet. lift some more!', pl.g, 1.0, 2);
+      return;
+    }
     if (pl && pl.cook) { this.endCook(pl, true); return; }
     if (pl && this.near === 'coyotes' && this.gangNear(pl.g.position, 3.5)) { this.squareUp(); return; }
     if (pl && pl.mine) return;
@@ -16260,7 +16314,7 @@
         // a campfire halfway, with someone resting by it
         var mid = Math.floor(rd.length / 2), mq = rd[mid], mn = rd[Math.min(rd.length - 1, mid + 1)], vx = mn.x - mq.x, vz = mn.z - mq.z, vl = Math.hypot(vx, vz) || 1;
         var cx = mq.x - vz / vl * 2.6, cz = mq.z + vx / vl * 2.6, camp = null;
-        if (len > 40 && waterAt(cx, cz) == null && townHill(cx, cz) < 1 && !nearPath(cx, cz, 1.2)) {
+        if (len > 40 && waterAt(cx, cz) == null && townHill(cx, cz) < 1 && !nearPath(cx, cz, 1.2) && !stripAt(cx, cz, 3, true)) {
           camp = new T.Group(); camp.position.set(cx, groundY(cx, cz), cz); self.world.add(camp);
           var P = function (geo, mat, sx, sy, sz, x, y, z) { return self.part(camp, geo, mat, sx, sy, sz, x, y, z, 'travelcamp'); };
           for (var st = 0; st < 6; st++) P(self.geo.box, self.mat('stone', st % 2), 0.08, 0.06, 0.08, Math.cos(st) * 0.18, 0.03, Math.sin(st) * 0.18);
@@ -16287,6 +16341,23 @@
         // In winter the wagon swaps for a dog sled.
         if (t.base === 'wagon' && (t.kind === 'sled') !== winter) { var s0 = t.s, d0 = t.dir, sp0 = t.speed; self.world.remove(t.g); var nt = self.buildTraveller(winter ? 'sled' : 'wagon', +ci); nt.s = s0; nt.dir = d0; nt.speed = winter ? 1.2 : 0.75; nt.wait = 0; nt.base = 'wagon'; Object.assign(t, nt); }
         if (t.base === 'bike') t.g.visible = !winter;
+        // In town: a stroll up the main street and back down the other side before heading home.
+        if (t.town) {
+          var tw = t.town, q = tw.pts[tw.i], dxw = q.x - t.g.position.x, dzw = q.z - t.g.position.z, dw = Math.hypot(dxw, dzw);
+          var closeT = pp && Math.hypot(pp.x - t.g.position.x, pp.z - t.g.position.z) < 1.6;
+          if (closeT && now > (t.saidAt || 0)) { t.saidAt = now + 8000; self.say(pickOne(['lovely town, isn’t it?', 'just stretching my legs before the walk back', 'where’s the good coffee round here?', 'I’ve heard the pie at the café is famous']), t.g, 0.7, 2.4); }
+          if (dw < 0.25) { tw.i++; if (tw.i >= tw.pts.length) { t.town = null; t.s = R.len - 0.5; t.dir = -1; t.wait = 0; } return; }
+          if (!closeT && !self.reduced) { var stp = Math.min(dw, t.speed * dt); t.g.position.x += dxw / dw * stp; t.g.position.z += dzw / dw * stp; }
+          t.g.position.y = groundY(t.g.position.x, t.g.position.z);
+          var wy = Math.atan2(dxw, dzw), dry = ((wy - t.g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI; t.g.rotation.y += dry * Math.min(1, dt * 5);
+          if (!closeT) { t.phase += dt * t.speed * 9; if (t.m) t.m.legs.forEach(function (l, li) { l.rotation.x = Math.sin(t.phase * 1.4 + li * Math.PI) * 0.6; }); }
+          return;
+        }
+        if (t.kind === 'hiker' && t.dir > 0 && t.s >= R.len - 0.01 && !t.town) {
+          var ci0 = +ci, sx = STREET_X[ci0] || 0, jit = (Math.random() - 0.5) * 0.6;
+          t.town = { i: 0, pts: [[sx + 0.9, 12], [sx + 1.0 + jit, 6], [sx + 1.1, -2], [sx + 1.0, -8.5], [sx - 1.0, -8.5], [sx - 1.1 + jit, 0], [sx - 1.0, 7], [sx - 0.6, 13]].map(function (q2) { return siteAt(ci0, q2[0], q2[1]); }) };
+          return;
+        }
         if (t.wait > 0) { t.wait -= dt; if (t.wait <= 0) t.dir = -t.dir; t.legs.forEach(function (l) { l.rotation.x = 0; }); if (t.m) t.m.legs.forEach(function (l) { l.rotation.x = 0; }); return; }
         // Step aside and stop to chat when the raccoon's in the way.
         var close = pp && Math.hypot(pp.x - t.g.position.x, pp.z - t.g.position.z) < 1.6;
@@ -16321,7 +16392,7 @@
     var D = C.town, n = 0;
     for (var th = 0; th < 360 && n < 9; th += 23 + r() * 10) {
       var lr = 19.8 + r() * 3, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
-      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.6) || townHill(wx, wz) > 1.6 || nearRail(wx, wz, 3) || nearDawsonRiver(wx, wz, 1.5) || nearSkagRiver(wx, wz, 1.5)) continue;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.6) || townHill(wx, wz) > 1.6 || nearRail(wx, wz, 3) || nearDawsonRiver(wx, wz, 1.5) || nearSkagRiver(wx, wz, 1.5) || stripAt(wx, wz, 2)) continue;
       if ((D.keep || []).some(function (k) { return Math.hypot(lx - k[0], lz - k[1]) < k[2]; })) continue;
       if ((C.slots || []).some(function (sl) { return Math.hypot(sl.x - lx, sl.z - lz) < 3.2; }) || placed.some(function (q) { return Math.hypot(q.x - wx, q.z - wz) < 4; })) continue;
       if (Math.abs(groundY(wx + 1, wz) - groundY(wx - 1, wz)) > 0.9 || Math.abs(groundY(wx, wz + 1) - groundY(wx, wz - 1)) > 0.9) continue;
@@ -16483,63 +16554,31 @@
     g.userData.prop = prop;
     return g;
   };
-  // ---- biplanes: one for each open town, waiting in a row at the Whitehorse airport ----------
-  // Walk the raccoon up to one and press E to fly out to its town; it waits there to fly you home.
-  // Now and then one goes up for a joyride round Whitehorse and comes back.
-  Town.prototype.biplane = function (ci) {
-    var g = new T.Group(), self = this, pick = 'biplane:' + ci;
-    function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, pick); }
-    var body = this.mat('tpaint', CESSNA_COLS[ci % CESSNA_COLS.length]), wing = this.mat('whitewood'), dark = this.mat('stoneDark'), wood = this.mat('wood');
-    P(g, this.geo.box, body, 0.24, 0.26, 0.95, 0, 0.3, 0.05); // the fuselage
-    P(g, this.geo.box, body, 0.14, 0.16, 0.55, 0, 0.33, -0.65);
-    P(g, this.geo.cyl, dark, 0.15, 0.12, 0.15, 0, 0.3, 0.55).rotation.x = Math.PI / 2; // the round engine cowling
-    [0.62, 0.0].forEach(function (y, i) { P(g, self.geo.box, wing, 1.9 - i * 0.2, 0.035, 0.32, 0, y + 0.15, 0.16 - i * 0.03); }); // two wings
-    [-0.7, 0.7].forEach(function (x) { [0.06, 0.28].forEach(function (z) { P(g, self.geo.box, wood, 0.025, 0.6, 0.025, x, 0.46, z); }); P(g, self.geo.box, body, 0.12, 0.04, 0.33, x * 1.32, 0.77, 0.16); });
-    [-0.12, 0.12].forEach(function (x) { P(g, self.geo.box, dark, 0.02, 0.3, 0.02, x, 0.63, 0.2); }); // cabane struts
-    P(g, this.geo.box, wing, 0.62, 0.03, 0.2, 0, 0.36, -0.9); P(g, this.geo.box, body, 0.03, 0.26, 0.22, 0, 0.48, -0.9); // tail
-    [-0.16, 0.16].forEach(function (x) { P(g, self.geo.box, dark, 0.02, 0.22, 0.02, x, 0.11, 0.22).rotation.z = x > 0 ? 0.35 : -0.35; P(g, self.geo.cyl, dark, 0.07, 0.04, 0.07, x * 1.3, 0.04, 0.22).rotation.z = Math.PI / 2; });
-    P(g, this.geo.box, dark, 0.03, 0.03, 0.12, 0, 0.18, -0.95);
-    // two open cockpits: a passenger seat up front, the pilot behind
-    P(g, this.geo.box, dark, 0.18, 0.04, 0.2, 0, 0.44, 0.16); P(g, this.geo.box, dark, 0.18, 0.04, 0.2, 0, 0.44, -0.18);
-    var fur = this.mat('mouse', ci % 3);
-    P(g, this.geo.ball, fur, 0.065, 0.06, 0.065, 0, 0.5, -0.2); [-0.05, 0.05].forEach(function (x) { P(g, self.geo.ball, self.mat('mouse', 3), 0.03, 0.03, 0.012, x, 0.57, -0.21); });
-    P(g, this.geo.ball, this.mat('wood'), 0.068, 0.035, 0.068, 0, 0.54, -0.2); P(g, this.geo.box, this.mat('silver'), 0.1, 0.02, 0.02, 0, 0.51, -0.14);
-    var scarf = P(g, this.geo.box, this.mat('flag', 0), 0.02, 0.02, 0.2, 0, 0.48, -0.34);
-    // (the raccoon, when it's along for the ride)
-    var pax = new T.Group(); pax.position.set(0, 0.5, 0.16); g.add(pax); pax.visible = false;
-    P(pax, this.geo.ball, this.mat('fur', 0), 0.08, 0.07, 0.08, 0, 0, 0); P(pax, this.geo.box, this.mat('swan', 2), 0.13, 0.03, 0.02, 0, 0.01, 0.07); [-0.05, 0.05].forEach(function (x) { P(pax, self.geo.cone4, self.mat('fur', 0), 0.025, 0.05, 0.02, x, 0.07, 0); });
-    var prop = new T.Group(); prop.position.set(0, 0.3, 0.63); g.add(prop); P(prop, this.geo.box, wood, 0.03, 0.55, 0.02, 0, 0, 0);
-    g.userData = { prop: prop, scarf: scarf, pax: pax };
-    g.scale.setScalar(1.4);
-    return g;
-  };
-  function airportFrame() { var A = AIRPORT, r = Math.atan2(A.dx, A.dz); return { c: A, r: r, x: { x: A.dz, z: -A.dx }, d: { x: A.dx, z: A.dz }, y: groundY(A.x, A.z) }; }
-  function apAt(F, lx, lz) { return { x: F.c.x + F.x.x * lx + F.d.x * lz, z: F.c.z + F.x.z * lx + F.d.z * lz }; }
-  // Where each town's plane waits at home: a row on the grass across the runway from the terminal.
-  function homeSpot(ci) { var F = airportFrame(), side = AIRPORT.side, p = apAt(F, -side * 3.4, -8.5 + (ci - 1) * 2.8); return { x: p.x, z: p.z, yaw: Math.atan2(F.x.x * side, F.x.z * side) }; }
-  // And where it lands out at the town: on Skagway's strip, or the flats on the road in.
-  function townSpot(ci) {
-    var lx = ci === SKAGWAY ? -13.6 : 0, lz = ci === SKAGWAY ? 14 : 24, p = siteAt(ci, lx, lz), q = siteAt(ci, lx, lz - 1);
-    return { x: p.x, z: p.z, yaw: Math.atan2(q.x - p.x, q.z - p.z) };
-  }
+  // ---- the King Air charter: walk up to it at the Whitehorse airport, press E, pick a town ----
+  // It flies you out to that town's bush strip (Skagway's own airstrip), waits there, and from any
+  // strip it'll take you on to another town or home to Whitehorse.
   function V3(x, y, z) { return new T.Vector3(x, y, z); }
   function gy(x, z) { return groundY(x, z); }
-  // Up from Whitehorse: taxi to the end of the runway, roll, lift off and climb away.
-  function departHome(ci) {
-    var F = airportFrame(), L = AIRPORT.len, h = homeSpot(ci), side = AIRPORT.side, s = apAt(F, -side * 3.4, -8.5 + (ci - 1) * 2.8), a = apAt(F, -side * 1.6, -L / 2 + 1.5), b = apAt(F, 0, -L / 2 + 1), c2 = apAt(F, 0, L / 2 - 3), d = apAt(F, 0, L / 2 + 8), e = apAt(F, 0, L / 2 + 24);
-    return [V3(s.x, 0, s.z), V3(a.x, 0, a.z), V3(b.x, 0, b.z), V3(c2.x, 0, c2.z), V3(d.x, F.y + 3, d.z), V3(e.x, F.y + 11, e.z)];
+  function airportFrame() { var A = AIRPORT; return { c: A, x: { x: A.dz, z: -A.dx }, d: { x: A.dx, z: A.dz }, y: groundY(A.x, A.z) }; }
+  function apAt(F, lx, lz, h) { var x = F.c.x + F.x.x * lx + F.d.x * lz, z = F.c.z + F.x.z * lx + F.d.z * lz; return V3(x, h == null ? 0 : gy(x, z) + h, z); }
+  function stripPt(S, u, w, h) { var x = S.x + S.dx * u - S.dz * w, z = S.z + S.dz * u + S.dx * w; return V3(x, h == null ? 0 : gy(x, z) + h, z); }
+  // Parked: at the far end of its strip, turned round ready to go.
+  function stripPark(S) { var p = stripPt(S, S.len / 2 - 2.5, 0.6); return { x: p.x, z: p.z, yaw: Math.atan2(-S.dx, -S.dz) }; }
+  function depart(from, A) {
+    if (from === 0) {
+      var F = airportFrame(), L = AIRPORT.len, side = AIRPORT.side, pk = A.g.localToWorld(A.park.clone());
+      return [V3(pk.x, 0, pk.z), apAt(F, side * 2.2, 2), apAt(F, 0, -L / 2 + 1.5), apAt(F, 0, L / 2 - 3), apAt(F, 0, L / 2 + 8, 4), apAt(F, 0, L / 2 + 26, 12)];
+    }
+    var S = STRIPS[from], pp = stripPark(S);
+    return [V3(pp.x, 0, pp.z), stripPt(S, S.len / 2 - 4, -0.3), stripPt(S, S.len / 2 - 6, 0), stripPt(S, -S.len / 2 + 1, 0), stripPt(S, -S.len / 2 - 9, 0, 4), stripPt(S, -S.len / 2 - 26, 0, 12)];
   }
-  function arriveHome(ci) {
-    var F = airportFrame(), L = AIRPORT.len, side = AIRPORT.side, a = apAt(F, 0, -L / 2 - 26), b = apAt(F, 0, -L / 2 - 9), c2 = apAt(F, 0, -L / 2 + 2), d = apAt(F, 0, L / 2 - 6), e = apAt(F, -side * 1.8, -8.5 + (ci - 1) * 2.8 + 1.5), s = apAt(F, -side * 3.4, -8.5 + (ci - 1) * 2.8);
-    return [V3(a.x, F.y + 11, a.z), V3(b.x, F.y + 3, b.z), V3(c2.x, 0, c2.z), V3(d.x, 0, d.z), V3(e.x, 0, e.z), V3(s.x, 0, s.z)];
-  }
-  function departTown(ci) {
-    if (ci === SKAGWAY) return [[-13.6, 14, 0], [-13.6, 2, 0], [-13.6, -6, 3], [-8, -22, 9], [8, -24, 14], [16, 0, 20]].map(function (q) { var w = siteAt(ci, q[0], q[1]); return V3(w.x, q[2] ? gy(w.x, w.z) + q[2] : 0, w.z); });
-    return [[0, 24, 0], [1.6, 22.5, 0], [0.8, 27, 0], [0, 38, 0], [0, 48, 3.5], [0, 62, 12]].map(function (q) { var w = siteAt(ci, q[0], q[1]); return V3(w.x, q[2] ? gy(w.x, w.z) + q[2] : 0, w.z); });
-  }
-  function arriveTown(ci) {
-    if (ci === SKAGWAY) return [[-12, 44, 11], [-13.6, 28, 3.5], [-13.6, 20, 0], [-13.6, 14, 0]].map(function (q) { var w = siteAt(ci, q[0], q[1]); return V3(w.x, q[2] ? gy(w.x, w.z) + q[2] : 0, w.z); });
-    return [[0, 74, 12], [0, 50, 3.5], [0, 37, 0], [0, 24, 0]].map(function (q) { var w = siteAt(ci, q[0], q[1]); return V3(w.x, q[2] ? gy(w.x, w.z) + q[2] : 0, w.z); });
+  function arrive(to, A) {
+    if (to === 0) {
+      var F = airportFrame(), L = AIRPORT.len, side = AIRPORT.side, pk = A.g.localToWorld(A.park.clone());
+      return [apAt(F, 0, -L / 2 - 28, 12), apAt(F, 0, -L / 2 - 10, 4), apAt(F, 0, -L / 2 + 3), apAt(F, 0, L / 2 - 4), apAt(F, side * 2.2, 2), V3(pk.x, 0, pk.z)];
+    }
+    var S = STRIPS[to], pp = stripPark(S);
+    return [stripPt(S, -S.len / 2 - 28, 0, 12), stripPt(S, -S.len / 2 - 10, 0, 4), stripPt(S, -S.len / 2 + 1.5, 0), stripPt(S, S.len / 2 - 1.5, 0), stripPt(S, S.len / 2 - 0.8, 1.2), V3(pp.x, 0, pp.z)];
   }
   // The middle of a trip: high enough to clear whatever's underneath.
   function cruise(a, b) {
@@ -16547,97 +16586,96 @@
     for (var i = 1; i < n; i++) {
       var t = i / n, x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t, top = 0;
       for (var j = -2; j <= 2; j++) for (var k = -2; k <= 2; k++) top = Math.max(top, gy(x + j * 6, z + k * 6));
-      out.push(V3(x, Math.max(16, top + 9), z));
+      out.push(V3(x, Math.max(18, top + 10), z));
     }
     return out;
   }
-  Town.prototype.planFlight = function (P, kind, ci) {
-    var pts;
-    if (kind === 'out') { var d = departHome(ci), r = arriveTown(ci); pts = d.concat(cruise(d[d.length - 1], r[0]), r); }
-    else if (kind === 'home') { var d2 = departTown(ci), r2 = arriveHome(ci); pts = d2.concat(cruise(d2[d2.length - 1], r2[0]), r2); }
-    else { // a joyride round Whitehorse
-      var d3 = departHome(ci), r3 = arriveHome(ci), loop = [];
-      for (var k = 0; k < 6; k++) { var a = k / 6 * Math.PI * 2 + 0.6; loop.push(V3(Math.cos(a) * 46, 19 + (k % 2) * 3, Math.sin(a) * 46)); }
-      pts = d3.concat(loop, r3);
-    }
-    var curve = new T.CatmullRomCurve3(pts, false, 'centripetal');
-    P.flight = { curve: curve, len: curve.getLength(), s: 0, kind: kind, roll: 0 };
+  Town.prototype.charterTowns = function () {
+    var S = this.st;
+    return CASTLE_SITES.map(function (c, ci) { return ci; }).filter(function (ci) { var C = S.castles[ci]; return ci && STRIPS[ci] && C && C.town && C.built >= 4; });
   };
-  Town.prototype.stepPlanes = function (dt, now) {
-    var S = this.st, self = this, PL = S.planes || (S.planes = {});
-    if (now > (PL.checkAt || 0)) {
-      PL.checkAt = now + 2500;
-      CASTLE_SITES.forEach(function (site, ci) {
-        var C = S.castles[ci];
-        if (!ci || PL[ci] || !C || !C.town || C.built < 4) return;
-        var g = self.biplane(ci), h = homeSpot(ci); self.world.add(g);
-        g.position.set(h.x, gy(h.x, h.z), h.z); g.rotation.y = h.yaw;
-        g.traverse(function (m) { if (m.isMesh) self.picks.push(m); });
-        PL[ci] = { g: g, ci: ci, at: 'home', flight: null };
-      });
-      // a joyride now and then, when nobody's flying
-      if (!this.flying && now > (PL.joyAt || (PL.joyAt = now + 40000))) {
-        PL.joyAt = now + 70000 + Math.random() * 70000;
-        var idle = Object.keys(PL).filter(function (k) { return PL[k] && PL[k].g && PL[k].at === 'home' && !PL[k].flight; });
-        if (idle.length && !this.reduced) { var jp = PL[idle[Math.floor(Math.random() * idle.length)]]; this.planFlight(jp, 'joy', jp.ci); }
-      }
-    }
-    var v = new T.Vector3(), t1 = new T.Vector3(), t2 = new T.Vector3();
-    Object.keys(PL).forEach(function (k) {
-      var p = PL[k]; if (!p || !p.g) return;
-      var g = p.g;
-      if (!p.flight) { g.userData.prop.rotation.z += dt * 2; return; }
-      var F = p.flight;
-      // slow on the ground, quick in the air
-      F.curve.getPointAt(Math.min(1, F.s / F.len), v);
-      var gh = gy(v.x, v.z), onGround = v.y < gh + 0.6, sp = onGround ? 3.2 : 9.5;
-      F.speed = (F.speed || 1) + (sp - (F.speed || 1)) * Math.min(1, dt * 1.5);
-      F.s += F.speed * dt;
-      var u = Math.min(1, F.s / F.len);
-      F.curve.getPointAt(u, v); F.curve.getTangentAt(u, t1); F.curve.getTangentAt(Math.min(1, u + 0.01), t2);
-      v.y = Math.max(v.y, gy(v.x, v.z) + 0.02);
-      g.position.copy(v);
-      var yaw = Math.atan2(t1.x, t1.z), turn = Math.atan2(t1.x * t2.z - t1.z * t2.x, t1.x * t2.x + t1.z * t2.z), air = v.y > gy(v.x, v.z) + 0.5;
-      F.roll += ((air ? Math.max(-0.7, Math.min(0.7, -turn * 16)) : 0) - F.roll) * Math.min(1, dt * 2);
-      g.rotation.set(0, 0, 0); g.rotateY(yaw); g.rotateX(air ? -Math.asin(Math.max(-0.5, Math.min(0.5, t1.y))) : 0); g.rotateZ(F.roll);
-      g.userData.prop.rotation.z += dt * 45;
-      g.userData.scarf.rotation.y = Math.sin(now / 80) * 0.35;
-      if (u >= 1) {
-        p.flight = null;
-        if (F.kind === 'out') p.at = 'town'; else if (F.kind === 'home') p.at = 'home';
-        var spot = p.at === 'town' ? townSpot(p.ci) : homeSpot(p.ci);
-        g.position.set(spot.x, gy(spot.x, spot.z), spot.z); g.rotation.set(0, spot.yaw, 0);
-        if (self.flying && self.flying.p === p) self.landPlayer(p);
-      }
+  // A bush strip by each open town: a dirt runway, its edge markers, a windsock and a fuel drum.
+  Town.prototype.stepStrips = function () {
+    var S = this.st, self = this, done = S.strips || (S.strips = {});
+    this.charterTowns().forEach(function (ci) {
+      if (done[ci] || STRIPS[ci].paved) { done[ci] = true; return; }
+      done[ci] = true;
+      var T0 = STRIPS[ci], g = new T.Group(); self.world.add(g);
+      function P(geo, mat, sx, sy, sz, p, rotY) { var m = self.part(g, geo, mat, sx, sy, sz, p.x, p.y, p.z, 'strip:' + ci); if (rotY != null) m.rotation.y = rotY; return m; }
+      var yaw = Math.atan2(T0.dx, T0.dz);
+      for (var k = 0; k < 8; k++) { var u = -T0.len / 2 + (k + 0.5) * T0.len / 8, c = stripPt(T0, u, 0, 0.02); P(self.geo.box, self.mat('tstreet', 1), 1.8, 0.04, T0.len / 8 + 0.05, c, yaw).userData.passable = true; }
+      for (var m = 0; m < 6; m++) [-1.1, 1.1].forEach(function (w) { var u = -T0.len / 2 + m * T0.len / 5; P(self.geo.box, self.mat(m % 2 ? 'whitewood' : 'tpaint', 5), 0.14, 0.12, 0.14, stripPt(T0, u, w, 0.06), yaw); });
+      var ws = stripPt(T0, T0.len / 2 - 1, 2.4, 0);
+      P(self.geo.cyl6, self.mat('stoneDark'), 0.03, 1.3, 0.03, ws.clone().setY(ws.y + 0.65)); var sock = P(self.geo.cone, self.mat('tpaint', 5), 0.09, 0.42, 0.09, ws.clone().setY(ws.y + 1.22)); sock.rotation.z = Math.PI / 2;
+      [0, 1].forEach(function (i) { var dp = stripPt(T0, T0.len / 2 - 2 - i * 0.4, -2.2, 0.21); P(self.geo.cyl, self.mat('tpaint', 2), 0.17, 0.42, 0.17, dp); });
+      self.pop(g, 300);
     });
   };
-  Town.prototype.biplaneNear = function (P) {
-    var PL = this.st.planes, best = null, bd = 1.9;
-    if (!PL) return null;
-    Object.keys(PL).forEach(function (k) { var p = PL[k]; if (!p || !p.g || p.flight) return; var d = Math.hypot(p.g.position.x - P.x, p.g.position.z - P.z); if (d < bd) { bd = d; best = p; } });
-    return best;
+  Town.prototype.chartering = function () { var A = this.st.airport; return A && A.charter; };
+  // Where's the King Air you can climb into, if you're beside it?
+  Town.prototype.kingAirNear = function (P) {
+    var A = this.st.airport; if (!A) return null;
+    var C = A.charter, pos;
+    if (C && C.flight) return null;
+    if (C) pos = C.g.position; else { if (A.phase !== 'park') return null; pos = A.plane.getWorldPosition(new T.Vector3()); }
+    return Math.hypot(pos.x - P.x, pos.z - P.z) < 3.0 ? A : null;
   };
-  // Climb in: the raccoon rides up front and the camera follows the plane all the way there.
-  Town.prototype.flyBiplane = function (p) {
-    var pl = this.player;
-    if (!pl || p.flight) return;
+  // From the menu: fly to town ci (0 is Whitehorse).
+  Town.prototype.charterTo = function (to) {
+    var A = this.st.airport, pl = this.player;
+    if (!A || !pl) return;
+    var from = A.charter ? A.charter.at : 0;
+    if (to === from) return;
+    if (!A.charter) {
+      // The King Air leaves the apron: its double takes over for the trip.
+      var g = this.kingAir(this.world), wp = A.plane.getWorldPosition(new T.Vector3()); g.position.copy(wp); g.rotation.y = A.plane.getWorldQuaternion(new T.Quaternion()) && new T.Euler().setFromQuaternion(A.plane.getWorldQuaternion(new T.Quaternion()), 'YXZ').y;
+      A.plane.visible = false; A.until = Infinity;
+      A.charter = { g: g, at: 0 };
+    }
+    var C = A.charter, pts = depart(from, A), b = arrive(to, A);
+    pts = pts.concat(cruise(pts[pts.length - 1], b[0]), b);
+    var curve = new T.CatmullRomCurve3(pts, false, 'centripetal');
+    C.flight = { curve: curve, len: curve.getLength(), s: 0, to: to, roll: 0, speed: 1 };
     if (pl.seat) this.leaveSeat(pl);
-    this.planFlight(p, p.at === 'home' ? 'out' : 'home', p.ci);
-    this.flying = { p: p };
-    pl.g.visible = false; p.g.userData.pax.visible = true;
+    this.flying = { p: C };
+    pl.g.visible = false;
     this.near = null; if (this.onNear) this.onNear(null);
     this.sfx('found');
-    this.say(p.at === 'home' ? 'off to ' + TOWNS[p.ci].name + '!' : 'home to Whitehorse!', p.g, 1.3, 2);
+    this.say(to ? 'next stop, ' + TOWNS[to].name + '!' : 'home to Whitehorse', C.g, 1.6, 2.2);
   };
-  Town.prototype.landPlayer = function (p) {
-    var pl = this.player, g = p.g;
-    this.flying = null; p.g.userData.pax.visible = false;
+  Town.prototype.stepPlanes = function (dt, now) {
+    this.stepStrips();
+    var A = this.st.airport, C = A && A.charter;
+    if (!C || !C.flight) return;
+    var F = C.flight, g = C.g, v = new T.Vector3(), t1 = new T.Vector3(), t2 = new T.Vector3();
+    F.curve.getPointAt(Math.min(1, F.s / F.len), v);
+    var onGround = v.y < gy(v.x, v.z) + 0.6, sp = onGround ? 3.5 : 11;
+    F.speed += (sp - F.speed) * Math.min(1, dt * 1.4);
+    F.s += F.speed * dt;
+    var u = Math.min(1, F.s / F.len);
+    F.curve.getPointAt(u, v); F.curve.getTangentAt(u, t1); F.curve.getTangentAt(Math.min(1, u + 0.01), t2);
+    v.y = Math.max(v.y, gy(v.x, v.z) + 0.02);
+    g.position.copy(v);
+    var yaw = Math.atan2(t1.x, t1.z), turn = Math.atan2(t1.x * t2.z - t1.z * t2.x, t1.x * t2.x + t1.z * t2.z), air = v.y > gy(v.x, v.z) + 0.5;
+    F.roll += ((air ? Math.max(-0.6, Math.min(0.6, -turn * 14)) : 0) - F.roll) * Math.min(1, dt * 2);
+    g.rotation.set(0, 0, 0); g.rotateY(yaw); g.rotateX(air ? -Math.asin(Math.max(-0.45, Math.min(0.45, t1.y))) : 0); g.rotateZ(F.roll);
+    (g.userData.props || []).forEach(function (p) { p.rotation.z += dt * 40; });
+    if (u >= 1) {
+      C.flight = null; C.at = F.to;
+      if (F.to === 0) { this.world.remove(g); A.charter = null; A.plane.visible = true; A.until = now + 60000; }
+      else { var pp = stripPark(STRIPS[F.to]); g.position.set(pp.x, gy(pp.x, pp.z), pp.z); g.rotation.set(0, pp.yaw, 0); }
+      if (this.flying) this.landPlayer(g, F.to);
+    }
+  };
+  Town.prototype.landPlayer = function (g, to) {
+    var pl = this.player;
+    this.flying = null;
     if (!pl) return;
-    var side = new T.Vector3(1.4, 0, -0.4).applyAxisAngle(new T.Vector3(0, 1, 0), g.rotation.y), P = pl.g.position;
+    var side = new T.Vector3(1.8, 0, -0.6).applyAxisAngle(new T.Vector3(0, 1, 0), g.rotation.y), P = pl.g.position;
     P.set(g.position.x + side.x, 0, g.position.z + side.z); P.y = this.floorAt(P.x, P.z, gy(P.x, P.z) + 0.4);
     pl.g.rotation.y = g.rotation.y; pl.g.visible = true; pl.vy = 0; pl.air = 0;
     this.solidAt = 0;
-    this.say(p.at === 'town' ? 'welcome to ' + TOWNS[p.ci].name + '!' : 'back in Whitehorse', pl.g, 1.0, 2);
+    this.say(to ? 'welcome to ' + TOWNS[to].name + '!' : 'back in Whitehorse', pl.g, 1.0, 2);
   };
   // ---- Skagway's valley: the Skagway River and the waterfalls down the walls ----
   Town.prototype.buildSkagScenery = function () {
@@ -16691,45 +16729,71 @@
     var t = new T.CanvasTexture(cv); return t;
   }
   Town.prototype.buildNoir = function () {
-    var self = this, spot = null;
-    for (var tries = 0; tries < 400 && !spot; tries++) {
-      var a = tries * 2.399, d = 8 + tries * 0.06, q = { x: PUB.x + Math.cos(a) * d, z: PUB.z + Math.sin(a) * d };
-      if (groundClear(q, 1.7, true) && nearPath(q.x, q.z, 3.4)) spot = q;
-    }
-    if (!spot) return;
-    var g = new T.Group(), y = groundY(spot.x, spot.z); g.position.set(spot.x, y, spot.z); this.base.add(g);
-    g.rotation.y = Math.atan2(PUB.x - spot.x, PUB.z - spot.z);
+    var self = this, k = 'chest', L = LANES[k], lp = laneAt(k, L.len * 0.55), off = L.w / 2 + 0.55;
+    var g = new T.Group(), gx = lp.x + lp.vx * off, gz = lp.z + lp.vz * off; g.position.set(gx, groundY(gx, gz), gz); this.base.add(g);
+    g.rotation.y = Math.atan2(-lp.vx, -lp.vz); // local +z faces the street
     function P(geo, mat, sx, sy, sz, x, yy, z, par) { return self.part(par || g, geo, mat, sx, sy, sz, x, yy, z, 'noir'); }
     var M = function (n, i) { return self.mat(n, i); }, dark = M('stoneDark');
-    // the sedan: long, low and boxy, in a tired maroon, chrome bumpers
-    var car = new T.Group(); car.position.set(-0.9, 0, 0.2); car.rotation.y = 0.15; g.add(car);
-    var paint = new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: '#5e2a2e' });
-    P(this.geo.box, paint, 0.62, 0.22, 1.5, 0, 0.2, 0, car); P(this.geo.box, paint, 0.56, 0.2, 0.72, 0, 0.41, -0.08, car); P(this.geo.box, M('window'), 0.57, 0.13, 0.6, 0, 0.43, -0.08, car);
-    [0.76, -0.76].forEach(function (z) { P(self.geo.box, M('silver'), 0.66, 0.06, 0.04, 0, 0.12, z, car); });
-    [-0.2, 0.2].forEach(function (x) { P(self.geo.box, M('lantern'), 0.1, 0.06, 0.02, x, 0.22, 0.76, car); P(self.geo.box, M('flag', 0), 0.1, 0.05, 0.02, x, 0.22, -0.76, car); });
-    [[-0.3, 0.48], [0.3, 0.48], [-0.3, -0.48], [0.3, -0.48]].forEach(function (w) { P(self.geo.cyl, dark, 0.11, 0.07, 0.11, w[0], 0.1, w[1], car).rotation.z = Math.PI / 2; });
     // the streetlamp, which flickers
-    P(this.geo.cyl6, dark, 0.04, 2.0, 0.04, 0.3, 1.0, -0.4); P(this.geo.box, dark, 0.4, 0.04, 0.04, 0.12, 2.0, -0.4);
-    var bulbM = new T.MeshBasicMaterial({ color: '#ffc46a' }), bulb = new T.Mesh(this.geo.box, bulbM); bulb.scale.set(0.16, 0.06, 0.12); bulb.position.set(-0.04, 1.96, -0.4); g.add(bulb);
-    var pool = new T.Mesh(new T.CircleGeometry(1.0, 20), new T.MeshBasicMaterial({ color: '#ffb35a', transparent: true, opacity: 0.18, depthWrite: false })); pool.rotation.x = -Math.PI / 2; pool.position.set(-0.1, 0.03, -0.3); g.add(pool);
+    P(this.geo.cyl6, dark, 0.04, 2.0, 0.04, 0, 1.0, 0.3); P(this.geo.box, dark, 0.04, 0.04, 0.4, 0, 2.0, 0.48);
+    var bulbM = new T.MeshBasicMaterial({ color: '#ffc46a' }), bulb = new T.Mesh(this.geo.box, bulbM); bulb.scale.set(0.12, 0.06, 0.16); bulb.position.set(0, 1.96, 0.62); g.add(bulb);
+    var pool = new T.Mesh(new T.CircleGeometry(1.0, 20), new T.MeshBasicMaterial({ color: '#ffb35a', transparent: true, opacity: 0.16, depthWrite: false })); pool.rotation.x = -Math.PI / 2; pool.position.set(0, 0.04, 0.6); g.add(pool);
     // the motel sign on its pole: MOTEL in pink, VACANCY in blue (half the letters out)
-    P(this.geo.cyl6, dark, 0.05, 2.6, 0.05, 1.3, 1.3, 0.3);
-    var mT = new T.Mesh(new T.PlaneGeometry(1.2, 0.32), new T.MeshBasicMaterial({ map: neonTex('MOTEL', '#ff4fa3'), side: T.DoubleSide })); mT.position.set(1.3, 2.45, 0.3); g.add(mT);
-    var vT = new T.Mesh(new T.PlaneGeometry(1.0, 0.22), new T.MeshBasicMaterial({ map: neonTex('VACANCY', '#53c8ff'), side: T.DoubleSide })); vT.position.set(1.3, 2.12, 0.3); g.add(vT);
-    // a steaming grate, a payphone, a bin
-    P(this.geo.box, dark, 0.4, 0.02, 0.3, 0.2, 0.02, 0.8);
-    P(this.geo.box, M('tpaint', 13), 0.3, 0.75, 0.25, 0.95, 0.38, -0.7); P(this.geo.box, M('window'), 0.24, 0.35, 0.02, 0.95, 0.5, -0.57); P(this.geo.box, dark, 0.06, 0.12, 0.04, 0.95, 0.42, -0.55);
-    P(this.geo.cyl, M('silver'), 0.13, 0.36, 0.13, 0.65, 0.18, 0.9);
+    P(this.geo.cyl6, dark, 0.05, 2.6, 0.05, 1.1, 1.3, -0.1);
+    var mT = new T.Mesh(new T.PlaneGeometry(1.2, 0.32), new T.MeshBasicMaterial({ map: neonTex('MOTEL', '#ff4fa3'), side: T.DoubleSide })); mT.position.set(1.1, 2.45, -0.1); mT.rotation.y = Math.PI / 2; g.add(mT);
+    var vT = new T.Mesh(new T.PlaneGeometry(1.0, 0.22), new T.MeshBasicMaterial({ map: neonTex('VACANCY', '#53c8ff'), side: T.DoubleSide })); vT.position.set(1.1, 2.12, -0.1); vT.rotation.y = Math.PI / 2; g.add(vT);
+    // a steaming grate out in the street, a payphone, an overflowing bin
+    P(this.geo.box, dark, 0.4, 0.02, 0.3, 0.3, 0.02, 1.2);
+    P(this.geo.box, M('tpaint', 13), 0.3, 0.75, 0.25, 1.75, 0.38, -0.2); P(this.geo.box, M('window'), 0.02, 0.35, 0.18, 1.6, 0.5, -0.2); P(this.geo.box, dark, 0.04, 0.12, 0.06, 1.58, 0.42, -0.2);
+    P(this.geo.cyl, M('silver'), 0.13, 0.36, 0.13, -1.0, 0.18, 0.2); P(this.geo.blob, M('paper', 0), 0.1, 0.07, 0.1, -1.0, 0.4, 0.2); P(this.geo.blob, M('paper', 1), 0.08, 0.06, 0.08, -0.85, 0.03, 0.45);
     // the detective: trench coat, fedora, leaning on the lamp post, a cigarette glowing
-    var dm = this.makeMouse(6, null, true); dm.g.parent && dm.g.parent.remove(dm.g); dm.g.position.set(0.48, 0, -0.25); dm.g.rotation.y = -0.9; dm.g.scale.setScalar(1.25); g.add(dm.g);
+    var dm = this.makeMouse(6, null, true); dm.g.parent && dm.g.parent.remove(dm.g); dm.g.position.set(-0.25, 0, 0.25); dm.g.rotation.y = 0.7; dm.g.scale.setScalar(1.25); g.add(dm.g);
     var coat = new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: '#9a8158' });
     P(this.geo.cone, coat, 0.12, 0.3, 0.12, 0, 0.1, 0, dm.body); P(this.geo.box, coat, 0.15, 0.05, 0.1, 0, 0.22, 0.01, dm.body);
     P(this.geo.cyl, M('swan', 2), 0.075, 0.06, 0.075, 0, 0.08, 0, dm.head); P(this.geo.cyl, M('swan', 2), 0.12, 0.01, 0.12, 0, 0.05, 0, dm.head);
     var emb = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ color: '#ff7a2e' })); emb.scale.set(0.015, 0.015, 0.06); emb.position.set(0.04, -0.04, 0.1); dm.head.add(emb);
     // a newspaper that blows down the street now and then
     var paper = new T.Mesh(this.geo.box, M('paper', 0)); paper.scale.set(0.22, 0.01, 0.16); paper.visible = false; this.base.add(paper);
-    this.noir = { g: g, bulb: bulb, bulbM: bulbM, pool: pool, mT: mT, vT: vT, grate: g.localToWorld(new T.Vector3(0.2, 0.05, 0.8)), det: dm, emb: emb, paper: paper, paperT: 0 };
+    // Down on their luck: a few mice sitting out on the sidewalks with a blanket and a cardboard
+    // sign (not every day), one with a shopping cart, one with a burning barrel at night.
+    var drifters = [];
+    [['back', 0.45, 1], ['core', 0.6, -1], ['shoulders', 0.35, 1], ['full2', 0.7, -1]].forEach(function (d, i) {
+      var Ld = LANES[d[0]]; if (!Ld) return;
+      var q = laneAt(d[0], Ld.len * d[1]), o = Ld.w / 2 + 0.7, x = q.x + q.vx * o * d[2], z = q.z + q.vz * o * d[2];
+      var dg = new T.Group(); dg.position.set(x, groundY(x, z), z); dg.rotation.y = Math.atan2(-q.vx * d[2], -q.vz * d[2]); self.base.add(dg);
+      var mm = self.makeMouse(i + 9, null, true); mm.g.parent && mm.g.parent.remove(mm.g); mm.body.position.y = 0.06; mm.legs.forEach(function (l) { l.rotation.x = -1.4; }); mm.g.scale.setScalar(1.15); dg.add(mm.g);
+      P(self.geo.box, M('tpaint', [13, 6, 4, 9][i]), 0.34, 0.06, 0.3, 0, 0.06, 0.12, dg); P(self.geo.box, M('tpaint', [13, 6, 4, 9][i]), 0.3, 0.18, 0.04, 0, 0.12, -0.08, dg);
+      var sign = P(self.geo.box, M('woodLight'), 0.24, 0.16, 0.01, 0.2, 0.16, 0.22, dg); sign.rotation.x = -0.3;
+      P(self.geo.cyl, M('silver'), 0.04, 0.05, 0.04, -0.2, 0.03, 0.25, dg); // a tin cup
+      if (i === 1) { // the shopping cart
+        var cg = new T.Group(); cg.position.set(-0.55, 0, -0.05); cg.rotation.y = 0.4; dg.add(cg);
+        P(self.geo.box, M('silver'), 0.3, 0.2, 0.42, 0, 0.32, 0, cg); P(self.geo.box, M('paper', 1), 0.26, 0.12, 0.36, 0, 0.45, 0, cg);
+        [[-0.12, -0.16], [0.12, -0.16], [-0.12, 0.16], [0.12, 0.16]].forEach(function (w) { P(self.geo.box, dark, 0.02, 0.22, 0.02, w[0], 0.11, w[1], cg); });
+      }
+      var fire = null;
+      if (i === 2) { // the barrel
+        P(self.geo.cyl, M('tpaint', 13), 0.15, 0.38, 0.15, 0.55, 0.19, 0.1, dg);
+        fire = new T.Mesh(self.geo.cone, new T.MeshBasicMaterial({ color: '#ff8a2a' })); fire.scale.set(0.11, 0.2, 0.11); fire.position.set(0.55, 0.46, 0.1); dg.add(fire);
+      }
+      drifters.push({ g: dg, m: mm, fire: fire, i: i });
+    });
+    // and some litter along the downtown streets
+    var r = rng(8181);
+    Object.keys(LANES).forEach(function (lk) {
+      var Ll = LANES[lk];
+      for (var t = 0; t < 5; t++) {
+        var q2 = laneAt(lk, Ll.len * (0.15 + r() * 0.8)), sd = r() < 0.5 ? -1 : 1, o2 = Ll.w / 2 - 0.15 + r() * 0.6, x2 = q2.x + q2.vx * o2 * sd, z2 = q2.z + q2.vz * o2 * sd, y2 = groundY(x2, z2), kind = Math.floor(r() * 4);
+        var m = kind === 0 ? new T.Mesh(self.geo.blob, M('paper', 0)) : kind === 1 ? new T.Mesh(self.geo.cyl, M('flag', Math.floor(r() * 3))) : kind === 2 ? new T.Mesh(self.geo.box, M('paper', 1)) : new T.Mesh(self.geo.box, M('paper', 0));
+        if (kind === 0) { m.scale.setScalar(0.05); m.position.set(x2, y2 + 0.04, z2); }
+        else if (kind === 1) { m.scale.set(0.035, 0.09, 0.035); m.rotation.z = Math.PI / 2; m.rotation.y = r() * 6; m.position.set(x2, y2 + 0.035, z2); }
+        else if (kind === 2) { m.scale.set(0.12, 0.14, 0.08); m.rotation.y = r() * 6; m.rotation.z = 0.4; m.position.set(x2, y2 + 0.06, z2); }
+        else { m.scale.set(0.16, 0.01, 0.12); m.rotation.y = r() * 6; m.position.set(x2, y2 + 0.02, z2); }
+        self.base.add(m);
+      }
+    });
+    this.noir = { g: g, bulb: bulb, bulbM: bulbM, pool: pool, mT: mT, vT: vT, grate: g.localToWorld(new T.Vector3(0.3, 0.05, 1.2)), det: dm, emb: emb, paper: paper, paperT: 0, drifters: drifters };
   };
+  var DRIFTER_LINES = ['spare a crumb, friend?', 'cold one tonight', 'I used to run the hardware store. long story', 'don’t mind me. just watching the street', 'the soup kitchen opens at five', 'nice tail. very stripy'];
   Town.prototype.stepNoir = function (dt, now) {
     var N = this.noir; if (!N) return;
     var night = this.dark, dusk = night || this.phase === 'golden';
@@ -16740,6 +16804,11 @@
     N.vT.material.color.setScalar(dusk ? (Math.sin(now / 900) > -0.3 ? 1 : 0.25) : 0.4);
     N.emb.visible = Math.sin(now / 2600) > -0.4; N.emb.material.color.set(Math.sin(now / 300) > 0.6 ? '#ffb070' : '#e05a20');
     if (night && Math.random() < dt * 2) this.puff(N.grate.x, N.grate.y + 0.05, N.grate.z, 1, 'mist', 0.12);
+    var dayN = this.today ? +this.today.replace(/-/g, '') : 0;
+    N.drifters.forEach(function (d) {
+      d.g.visible = (dayN * 7 + d.i * 5) % 3 !== 0;
+      if (d.fire) { d.fire.visible = night && d.g.visible; d.fire.scale.y = 0.2 * (0.8 + 0.3 * Math.sin(now / 90 + d.i)); }
+    });
     if (Math.random() < dt * 0.4 && this.st.pub) { var wp = N.det.head.getWorldPosition(new T.Vector3()); this.puff(wp.x + 0.08, wp.y + 0.05, wp.z, 1, 'smoke', 0.02); }
     // the newspaper
     var p = N.paper;
