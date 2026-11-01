@@ -1210,7 +1210,7 @@
     this.lite = !!opts.lite;
     this.soft = !!opts.software;
     this.pixel = opts.pixel !== false;
-    this.handmade = !!opts.handmade && !this.pixel;
+    this.handmade = !!opts.handmade && !this.pixel; this.crt = !!opts.crt && this.handmade;
     if (this.soft) { this.lite = true; this.renderer = new SoftRenderer(canvas); }
     else {
       this.renderer = new T.WebGLRenderer({ canvas: canvas, antialias: false, alpha: true, powerPreference: this.lite ? 'low-power' : 'default', failIfMajorPerformanceCaveat: false });
@@ -1316,8 +1316,10 @@
   };
   // The look: 'hand' (inked and painted on paper), 'pixel' or 'smooth'.
   Town.prototype.setStyle = function (style) {
-    this.handmade = style === 'hand';
+    this.handmade = style === 'hand' || style === 'crt';
+    this.crt = style === 'crt';
     this.setPixel(style === 'pixel');
+    this.needsRender = true;
   };
   // The handmade look: the town is drawn to an offscreen picture first, then painted onto the page
   // with wobbly ink outlines wherever one thing stands in front of another (the pen lifting now and
@@ -1328,10 +1330,10 @@
     var rt = new T.WebGLRenderTarget(sz.x, sz.y, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat });
     rt.depthTexture = new T.DepthTexture(sz.x, sz.y); rt.depthTexture.type = T.UnsignedIntType;
     var mat = new T.ShaderMaterial({
-      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 } },
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 }, crt: { value: 0 }, time: { value: 0 }, skyTop: { value: new T.Color('#7ec8ee') }, skyBot: { value: new T.Color('#d9f1fb') } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: [
-        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px;',
+        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px; uniform float crt; uniform float time; uniform vec3 skyTop; uniform vec3 skyBot;',
         'varying vec2 vUv;',
         'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
         'float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
@@ -1339,10 +1341,14 @@
         'float dep(vec2 uv) { return texture2D(tDepth, uv).x * depthRange; }',
         'float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }',
         'void main() {',
-        '  vec2 p = vUv * res, o = px / res;',
+        // through an old CRT: the picture bulges on the curved glass
+        '  vec2 sc = vUv * 2.0 - 1.0;',
+        '  vec2 bent = sc * (1.0 + crt * 0.055 * dot(sc, sc));',
+        '  vec2 suv = mix(vUv, bent * 0.5 + 0.5, crt);',
+        '  vec2 p = suv * res, o = px / res;',
         // the hand wobbles: sample from slightly shifted places, slowly varying across the page
         '  vec2 wob = (vec2(noise(p / 70.0), noise(p / 70.0 + 31.7)) - 0.5) * o * 2.6;',
-        '  vec2 uv = vUv + wob;',
+        '  vec2 uv = suv + wob;',
         '  vec4 c4 = texture2D(tColor, uv); vec3 col = c4.rgb; float a = c4.a;',
         // ink where the depth jumps (second difference, so flat ground and slopes stay clean)
         '  float c = dep(uv), l = dep(uv - vec2(o.x, 0.0)), r = dep(uv + vec2(o.x, 0.0)), d = dep(uv - vec2(0.0, o.y)), u = dep(uv + vec2(0.0, o.y));',
@@ -1362,7 +1368,32 @@
         '  float fib = noise(vec2(p.x / 1.6, p.y / 9.0)) * 0.5 + noise(vec2(p.x / 9.0, p.y / 1.6)) * 0.5;',
         '  col *= 0.965 + 0.07 * fib;',
         '  col = mix(col, ink * a, clamp(edge * 0.9 + pencil, 0.0, 1.0));',
-        '  gl_FragColor = vec4(col, max(a, edge * 0.9));',
+        '  a = max(a, edge * 0.9);',
+        '  if (crt > 0.5) {',
+        // the tube shows the whole picture, sky and all (the sky is the page behind the canvas otherwise)
+        '    col = col + mix(skyBot, skyTop, smoothstep(0.0, 1.0, suv.y)) * (1.0 - a);',
+        // colour fringes that grow toward the edges of the tube
+        '    vec2 fr = sc * o * 1.6;',
+        '    vec4 cr = texture2D(tColor, uv + fr), cb = texture2D(tColor, uv - fr);',
+        '    col.r = mix(col.r, mix(col.r, cr.r, 0.55), cr.a); col.b = mix(col.b, mix(col.b, cb.b, 0.55), cb.a);',
+        // scanlines and the shadow mask of phosphor dots
+        '    float sl = 0.82 + 0.18 * sin(p.y * 3.14159 / max(1.5, px * 1.3));',
+        '    float m3 = mod(floor(gl_FragCoord.x), 3.0);',
+        '    vec3 mask = vec3(m3 < 0.5 ? 1.0 : 0.88, m3 > 0.5 && m3 < 1.5 ? 1.0 : 0.88, m3 > 1.5 ? 1.0 : 0.88);',
+        '    col *= sl * mask * 1.12;',
+        // a faint bar that rolls slowly up the screen, and a little flicker
+        '    float bar = smoothstep(0.0, 0.08, fract(suv.y * 0.6 - time * 0.035)) * (1.0 - smoothstep(0.08, 0.2, fract(suv.y * 0.6 - time * 0.035)));',
+        '    col *= 1.0 + bar * 0.05 + (hash(vec2(floor(time * 18.0), 1.7)) - 0.5) * 0.02;',
+        // a phosphor glow lifts the blacks a touch; the glass darkens toward its rounded corners
+        '    col = col * 0.96 + vec3(0.025, 0.03, 0.02);',
+        '    vec2 cq = abs(bent);',
+        '    float vig = 1.0 - 0.42 * smoothstep(0.35, 1.6, dot(cq, cq));',
+        '    float rr = length(max(cq - vec2(1.0 - 0.07), 0.0)) - 0.07;',
+        '    float glass = 1.0 - smoothstep(-0.012, 0.0, rr);',
+        '    col = mix(vec3(0.035, 0.03, 0.025), col * vig, glass);',
+        '    a = 1.0;',
+        '  }',
+        '  gl_FragColor = vec4(col, a);',
         '}'
       ].join('\n'),
       depthTest: false, depthWrite: false
@@ -1378,6 +1409,12 @@
     if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
     P.mat.uniforms.depthRange.value = this.camera.far - this.camera.near;
     P.mat.uniforms.px.value = Math.max(1.2, this.renderer.getPixelRatio() * 1.05);
+    P.mat.uniforms.crt.value = this.crt ? 1 : 0;
+    P.mat.uniforms.time.value = performance.now() / 1000;
+    if (this.crt && (!P.skyAt || performance.now() - P.skyAt > 1000)) {
+      P.skyAt = performance.now();
+      try { var cs = getComputedStyle(document.body); P.mat.uniforms.skyTop.value.setStyle(cs.getPropertyValue('--sky-top').trim() || '#7ec8ee'); P.mat.uniforms.skyBot.value.setStyle(cs.getPropertyValue('--sky-bottom').trim() || '#d9f1fb'); } catch (e) {}
+    }
     this.renderer.setRenderTarget(P.rt);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
@@ -1502,7 +1539,7 @@
   Town.prototype.stepLaundry = function (now) {
     var L = this.st.laundry;
     if (!L || !L.length || this.reduced) return;
-    for (var i = 0; i < L.length; i++) L[i].rotation.x = 0.15 + Math.sin(now / 520 + i * 1.7) * 0.18;
+    for (var i = 0; i < L.length; i++) L[i].rotation.z = Math.sin(now / 520 + i * 1.7) * 0.22 + Math.sin(now / 210 + i) * 0.05;
     this.needsRender = true;
   };
   Town.prototype.setSeason = function (season) {
@@ -3514,17 +3551,26 @@
       }
       if (v % 3 === 0 && !shop) (self.st.winSpots = self.st.winSpots || []).push({ par: h, x: wx, y: wy, z: wz });
       if (shop) return;
-      if (v % 4 === 0) {
-        var lx = w / 2 + 0.55, ld = d - 0.2;
-        [-ld / 2, ld / 2].forEach(function (z) { P(h, self.geo.cyl6, wood, 0.025, 0.78, 0.025, lx, 0.39, z); });
-        P(h, self.geo.box, M('whitewood'), 0.01, 0.01, ld, lx, 0.76, 0);
-        for (var cl = 0; cl < 4; cl++) {
-          var cp = new T.Group(); cp.position.set(lx, 0.76, -ld / 2 + (cl + 0.6) * ld / 4.4); h.add(cp);
-          P(cp, self.geo.box, cl % 3 === 2 ? M('whitewood') : M('flag', v + cl), 0.02, 0.2 + (cl % 2) * 0.06, 0.18, 0, -0.11 - (cl % 2) * 0.03, 0);
+      if (v % 5 < 2) {
+        // a washing line out the side: two posts, a line and the week's washing flapping on it
+        var lx = w / 2 + 0.6, ld = Math.max(1.1, d - 0.1);
+        [-ld / 2, ld / 2].forEach(function (z) { P(h, self.geo.cyl6, wood, 0.035, 1.0, 0.035, lx, 0.5, z); P(h, self.geo.box, wood, 0.03, 0.03, 0.16, lx, 0.96, z); });
+        P(h, self.geo.box, M('whitewood'), 0.012, 0.012, ld, lx, 0.96, 0);
+        for (var cl = 0; cl < 5; cl++) {
+          var cp = new T.Group(); cp.position.set(lx, 0.96, -ld / 2 + (cl + 0.55) * ld / 5.3); h.add(cp);
+          var big = cl % 2 ? 0.36 : 0.26, cm = cl % 3 === 2 ? M('whitewood') : M('flag', v + cl);
+          P(cp, self.geo.box, cm, 0.025, big, cl === 2 ? 0.34 : 0.2, 0, -big / 2, 0).userData.sway = true;
+          if (cl === 1) [-0.07, 0.07].forEach(function (z) { P(cp, self.geo.box, cm, 0.025, 0.14, 0.06, 0, -big - 0.06, z).userData.sway = true; });
           (self.st.laundry = self.st.laundry || []).push(cp);
         }
-      } else if (v % 3 === 2) {
-        for (var wr = 0; wr < 2; wr++) for (var wc = 0; wc < 3 - wr; wc++) P(h, self.geo.cyl6, M('trunk'), 0.06, 0.5, 0.06, -w / 2 - 0.12 - wc * 0.12 - wr * 0.06, 0.06 + wr * 0.11, -0.15).rotation.x = Math.PI / 2;
+      } else {
+        // a woodpile stacked against the wall, a chopping block and the axe in it
+        var wx0 = -w / 2 - 0.2;
+        for (var wr = 0; wr < 3; wr++) for (var wc = 0; wc < 5 - wr; wc++) P(h, self.geo.cyl6, M('trunk'), 0.09, 0.6, 0.09, wx0 - 0.04, 0.09 + wr * 0.16, -d / 2 + 0.35 + wc * 0.18 + wr * 0.09).rotation.z = Math.PI / 2;
+        P(h, self.geo.box, roofM(), 0.5, 0.04, 1.1, wx0 - 0.04, 0.62, -d / 2 + 0.75);
+        P(h, self.geo.cyl6, M('trunk'), 0.13, 0.22, 0.13, wx0 - 0.15, 0.11, d / 2 - 0.15);
+        P(h, self.geo.box, wood, 0.025, 0.24, 0.025, wx0 - 0.12, 0.3, d / 2 - 0.15).rotation.z = 0.5;
+        P(h, self.geo.box, M('silver'), 0.08, 0.05, 0.02, wx0 - 0.07, 0.38, d / 2 - 0.15);
       }
     }
     switch (kind) {
@@ -10063,12 +10109,18 @@
         vel.push(r * Math.cos(th) * sp, u * sp, r * Math.sin(th) * sp);
       }
       var geo = new T.BufferGeometry(); geo.setAttribute('position', new T.BufferAttribute(pos, 3));
-      var mat = new T.PointsMaterial({ color: FW_COLORS[Math.floor(Math.random() * FW_COLORS.length)], size: 11, sizeAttenuation: false, transparent: true, opacity: 1, depthWrite: false, blending: T.AdditiveBlending, fog: false });
+      if (!F.spark) { // a round, soft spark rather than a square
+        var sc = document.createElement('canvas'); sc.width = sc.height = 32; var sx = sc.getContext('2d'), gr = sx.createRadialGradient(16, 16, 0, 16, 16, 16);
+        gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        sx.fillStyle = gr; sx.fillRect(0, 0, 32, 32); F.spark = new T.CanvasTexture(sc);
+      }
+      var mat = new T.PointsMaterial({ map: F.spark, color: FW_COLORS[Math.floor(Math.random() * FW_COLORS.length)], size: 13 * Math.min(2, this.renderer.getPixelRatio ? this.renderer.getPixelRatio() : 1), sizeAttenuation: false, transparent: true, opacity: 1, depthWrite: false, blending: T.AdditiveBlending, fog: false });
       var pts = new T.Points(geo, mat);
       this.scene.add(pts);
       F.bursts.push({ pts: pts, vel: vel, age: 0 });
     }
     var self = this;
+    dt = Math.min(dt, 0.05);
     F.bursts = F.bursts.filter(function (b) {
       b.age += dt;
       var p = b.pts.geometry.attributes.position, v = b.vel;
@@ -13461,7 +13513,7 @@
     inv.copy(this.world.matrixWorld).invert();
     (function walk(o) {
       if (o.visible === false && !o.userData.inBatch) return;
-      if (o.isMesh && !o.isInstancedMesh && BATCH_PICKS[String(o.userData.pick).split(':')[0]] && !o.material.transparent) {
+      if (o.isMesh && !o.isInstancedMesh && BATCH_PICKS[String(o.userData.pick).split(':')[0]] && !o.material.transparent && !o.userData.sway) {
         o.visible = false; o.userData.inBatch = true;
         (groups[o.material.uuid] = groups[o.material.uuid] || { mat: o.material, list: [] }).list.push(o);
       }
@@ -13806,6 +13858,7 @@
   Town.prototype.pick = function (clientX, clientY) {
     var rect = this.canvas.getBoundingClientRect();
     var v = new T.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    if (this.crt && this.post) v.multiplyScalar(1 + 0.055 * v.lengthSq()); // what's under the pointer, through the curved glass
     this.raycaster.setFromCamera(v, this.camera);
     var hits = this.raycaster.intersectObjects(this.snowMtn ? this.picks.concat([this.snowMtn]) : this.picks, false);
     for (var i = 0; i < hits.length; i++) {

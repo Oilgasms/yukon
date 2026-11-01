@@ -48,6 +48,9 @@ body {
 /* A soft warm vignette round the edges of the view. */
 #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 58%, rgba(90,50,20,0.16) 85%, rgba(60,30,10,0.28) 100%); }
 #scene:active { cursor: grabbing; }
+/* On the old TV: the glass of the tube, a soft glare and a dark bezel round the screen. */
+body.crt #vignette { background: radial-gradient(ellipse at 30% 18%, rgba(255,255,255,0.07), rgba(255,255,255,0) 40%), radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.22) 100%); box-shadow: inset 0 0 0 6px #1d1814, inset 0 0 40px 10px rgba(0,0,0,0.55); border-radius: 22px; }
+body.crt .vignette { display: none; }
 .hud {
   position: fixed; inset: 0; pointer-events: none; z-index: 2;
   padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
@@ -357,7 +360,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
 <script src="town.js"></script>
 <script>
 (function () {
-  var BUILD = 'v146';
+  var BUILD = 'v147';
   var SHEET_KEY = 'fittertown:sheet';
   var SHEET_ID = '1ezfrNTfIvEWl_mphezu3zOHHLqCIJjRi4sE3gAHbHho';
   try { SHEET_ID = localStorage.getItem(SHEET_KEY) || SHEET_ID; } catch (e) {}
@@ -372,8 +375,8 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
   // Start the 3D view, falling back to a lighter renderer on a fresh canvas if the first try is refused.
   var LITE_KEY = 'fittertown:lite', PIXEL_KEY = 'fittertown:pixel';
   // The look: handmade (ink and watercolour on paper), pixel, or smooth. Handmade unless you've picked another.
-  var STYLE_KEY = 'fittertown:style', STYLES = ['hand', 'pixel', 'smooth'], STYLE_NAMES = { hand: 'Handmade', pixel: 'Pixel', smooth: 'Smooth' };
-  var artStyle = 'hand';
+  var STYLE_KEY = 'fittertown:style2', STYLES = ['crt', 'hand', 'pixel', 'smooth'], STYLE_NAMES = { crt: 'Old TV', hand: 'Handmade', pixel: 'Pixel', smooth: 'Smooth' };
+  var artStyle = 'crt';
   try { var st0 = localStorage.getItem(STYLE_KEY); if (STYLES.indexOf(st0) >= 0) artStyle = st0; } catch (e) {}
   var pixelOn = artStyle === 'pixel';
   var preferLite = false;
@@ -398,7 +401,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
     var tries = preferLite ? [{ lite: true }] : [{ lite: false }, { lite: true }];
     tries.push({ software: true }); // last resort: no WebGL at all
     for (var t = 0; t < tries.length && !town; t++) {
-      try { town = new Town(t ? freshCanvas() : $('scene'), { reducedMotion: reduced, lite: tries[t].lite, software: tries[t].software, pixel: pixelOn, handmade: artStyle === 'hand' }); }
+      try { town = new Town(t ? freshCanvas() : $('scene'), { reducedMotion: reduced, lite: tries[t].lite, software: tries[t].software, pixel: pixelOn, handmade: artStyle === 'hand' || artStyle === 'crt', crt: artStyle === 'crt' }); }
       catch (e) { if (!startErr || !tries[t].software) startErr = e; }
     }
   }
@@ -644,15 +647,17 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
     p.textContent = 'Part of the town stopped moving (' + part + '): ' + msg + ' \u00b7 build ' + BUILD;
     n.append(p); n.hidden = false;
   };
-  // The style button cycles through handmade, pixel and smooth.
+  // The style button cycles through the old TV (handmade, seen on a CRT), handmade, pixel and smooth.
   function syncPixelButton() { $('pixel').setAttribute('aria-pressed', String(artStyle !== 'smooth')); $('pixel').textContent = 'Style: ' + STYLE_NAMES[artStyle]; }
   syncPixelButton();
+  document.body.classList.toggle('crt', artStyle === 'crt');
   $('recenter').addEventListener('click', function () { town.recenter(); });
   $('pixel').addEventListener('click', function () {
     artStyle = STYLES[(STYLES.indexOf(artStyle) + 1) % STYLES.length];
     pixelOn = artStyle === 'pixel';
     try { localStorage.setItem(STYLE_KEY, artStyle); } catch (e) {}
     town.setStyle(artStyle);
+    document.body.classList.toggle('crt', artStyle === 'crt');
     syncPixelButton();
   });
   function syncMotionButton() { $('motion').setAttribute('aria-pressed', String(!reduced)); $('motion').textContent = reduced ? 'Motion: off' : 'Motion: on'; }
