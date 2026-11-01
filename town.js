@@ -325,8 +325,8 @@
   var RAIL_PATH = []; // (laid out beside the road once the roads are, below)
   function nearRail(x, z, d) { for (var i = 0; i < RAIL_PATH.length; i += 2) if (Math.hypot(RAIL_PATH[i].x - x, RAIL_PATH[i].z - z) < d) return true; return false; }
   var TOWN_PEAKS = [
-    [2, 23, -5, 8, 11, 1], [2, 26, 6, 9.5, 15, 1], [2, 23, 18, 7.5, 10, 1], [2, 30, 15, 7, 12, 1],
-    [2, -22, -6, 7.5, 11, 1], [2, -25, 5, 9, 14, 1], [2, -22, 17, 7, 10, 1],
+    [2, 24, -5, 8.5, 16, 0.6, 0.85], [2, 27, 6, 10, 21, 0.55, 0.8], [2, 24, 19, 8, 15, 0.6, 0.85], [2, 31, 15, 7.5, 17, 0.6, 0.85], [2, 22, 31, 9, 15, 0.6, 0.85], // Skagway: AB Mountain and the east wall
+    [2, -31, -7, 8, 15, 0.6, 0.85], [2, -34, 5, 10, 20, 0.55, 0.8], [2, -31, 18, 8, 16, 0.6, 0.85], [2, -27, 31, 8, 13, 0.6, 0.85], // and the west wall across the Skagway River
     [6, 23, 13, 10.5, 20, 0.36, 0.62], [6, 26, 0, 7, 9, 0.8], [6, 20, 26, 7, 8, 1], [6, 4, 31, 7, 6, 1],
     [6, -34, -10, 7, 16, 0.3, 0.56], [6, -41, -1, 7, 15, 0.3, 0.55],
     [1, 15, -33, 12, 19, 0.4, 0.66], [1, -5, -35, 9, 10, 1], [1, 34, -10, 10, 15, 0.42, 0.68], [1, 36, -27, 9, 13, 0.5], // Carcross: Montana Mountain over Bennett Lake
@@ -857,6 +857,31 @@
     var f = (R.len + 8 - z) / 2, i = Math.max(0, Math.min(DR_PROF.length - 2, Math.floor(f))), t = Math.max(0, Math.min(1, f - i));
     return DR_PROF[i] + (DR_PROF[i + 1] - DR_PROF[i]) * t;
   }
+  // Skagway: the Skagway River down the west side of the valley to the sea, and the airstrip flat
+  // between it and town (in Skagway's frame: +z up the valley toward the White Pass).
+  var SKR = { x: -20, half: 1.5, bank: 2.2, z0: -15, z1: 42 };
+  function skagRiverX(z) { return SKR.x + 1.4 * Math.sin(z * 0.11) - 0.06 * Math.max(0, z - 20); }
+  function skagLevel(z) { return SEA_Y + 0.08 + 0.016 * Math.max(0, z + 9); }
+  function nearSkagRiver(x, z, d) {
+    var q = townLocal(SKAGWAY, x, z);
+    if (q.d2 > 3600 || q.z < SKR.z0 - d || q.z > SKR.z1 + d) return false;
+    return Math.abs(q.x - skagRiverX(q.z)) < SKR.half + SKR.bank + d;
+  }
+  var SKAG_PAD = null;
+  function skagwayShape(h, x, z) {
+    var q = townLocal(SKAGWAY, x, z);
+    if (q.d2 > 3600) return h;
+    if (SKAG_PAD == null) { var c = CASTLE_SITES[SKAGWAY]; SKAG_PAD = Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift; }
+    // the airstrip, level with town
+    var fw = (1 - smooth(2.4, 5, Math.abs(q.x + 13.6))) * (1 - smooth(18, 22, q.z)) * smooth(-11, -7.5, q.z);
+    if (fw > 0) h += (SKAG_PAD - h) * fw;
+    // the river's channel
+    if (q.z > SKR.z0 - 2 && q.z < SKR.z1 + 4) {
+      var ox = Math.abs(q.x - skagRiverX(q.z)), ch = (1 - smooth(SKR.half, SKR.half + SKR.bank, ox)) * (1 - smooth(SKR.z1, SKR.z1 + 4, q.z));
+      if (ch > 0) h += (Math.min(h, skagLevel(q.z) - 0.75) - h) * ch;
+    }
+    return h;
+  }
   var DAWSON_PAD = null;
   function DAWSON_PAD_H() { if (DAWSON_PAD == null) { var c = CASTLE_SITES[DAWSON]; DAWSON_PAD = Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift; } return DAWSON_PAD; }
   function groundY(x, z) {
@@ -878,6 +903,7 @@
     h += townSlope(x, z);
     var ch = dawsonChannel(x, z);
     if (ch > 0) h += (Math.min(h, dawsonLevel(DR_Z) - 1.0) - h) * ch;
+    h = skagwayShape(h, x, z);
     if (LIB_GRADE && x > LIB_GRADE.box[0] && x < LIB_GRADE.box[1] && z > LIB_GRADE.box[2] && z < LIB_GRADE.box[3] && rd > RIVER_HALF + 0.6) {
       var G = LIB_GRADE, bd = 1e9, bi = 0;
       for (var gi = 0; gi < G.pts.length; gi++) { var gd = Math.hypot(G.pts[gi].x - x, G.pts[gi].z - z); if (gd < bd) { bd = gd; bi = gi; } }
@@ -2483,7 +2509,7 @@
     for (var gx = -WORLD_R; gx <= WORLD_R; gx += 4.6) for (var gz = -WORLD_R; gz <= WORLD_R; gz += 4.6) {
       var x = gx + (r() - 0.5) * 3.8, z = gz + (r() - 0.5) * 3.8, d = Math.hypot(x, z);
       if (d < 154 || d > WORLD_R - 3 || noise2(x * 0.55, z * 0.55) < 0.1 || r() < 0.35) continue;
-      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5)) continue;
+      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5) || nearSkagRiver(x, z, 2)) continue;
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 24; })) continue;
       spots.push({ x: x, z: z, y: groundY(x, z), s: 0.75 + r() * 0.6 });
     }
@@ -2669,7 +2695,7 @@
       this.buildBoreal();
       this.buildTufts();
       var self2 = this;
-      ['paintMaterials', 'buildClouds', 'buildMeadows', 'windifyScenery', 'buildNorthRiver'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
+      ['paintMaterials', 'buildClouds', 'buildMeadows', 'windifyScenery', 'buildNorthRiver', 'buildSkagScenery'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
     }
     this.buildLetterbox();
     return C;
@@ -3291,18 +3317,21 @@
         ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 7 }], ['lamps', null, {}, 'Lamps along the main street']
       ] },
     { key: 'skagway', name: 'Skagway', vibe: 'The gold-rush port at the head of the Lynn Canal: Broadway’s false fronts and boardwalks, the driftwood Arctic Brotherhood Hall, the White Pass depot and cruise ships at the dock.', street: 'dirt', walks: true,
-      homes: { house: { o: { ginger: true } } }, // Victorian gingerbread and bay windows
+      homes: { house: { o: { ginger: true }, vary: [8, 6, 10, 7, 4, 11, 3, 5, 15, 9, 1, 12] } }, // Victorian gingerbread and bay windows, every one its own size and colour
+      // (homesteads stay off the airstrip and the cemetery)
+      keep: [[-13.6, -5, 4], [-13.6, 2, 4], [-13.6, 9, 4], [-13.6, 16, 4], [9, 25, 5], [12.5, -9.5, 3]],
       plan: [
         ['front', A(1, 0), { c: 1, t: 0 }], ['front', A(-1, 0), { c: 5, t: 0 }], ['front', A(1, 1), { c: 15, t: 2, two: true }], ['front', A(-1, 1), { c: 4, t: 0 }],
         ['front', A(1, 2), { drift: true, two: true, c: 14 }, 'The Arctic Brotherhood Hall'], ['front', A(-1, 2), { c: 7, t: 0 }],
-        ['front', A(-1, 3), { c: 2, t: 4, two: true, balcony: true, redlamps: true }, 'The Red Onion Saloon'], ['house', B(1, 0), { c: 8 }], ['front', A(1, 3), { c: 3, t: 0 }],
-        ['depot', lot2('A', 1, 4), {}, 'The White Pass & Yukon Route depot'], ['front', A(-1, 4), { c: 15, t: 3, two: true, dome: true }, 'The Golden North Hotel'],
-        ['house', B(-1, 0), { c: 6 }], ['dock', null, {}, 'The cruise ship dock'], ['front', A(-1, 5), { c: 9, t: 0, sign: 4 }, 'The Mascot Saloon'],
-        ['front', A(1, 6), { c: 10, t: 0, two: true }], ['house', B(1, 1), { c: 10 }], ['house', B(-1, 1), { c: 7 }], ['front', A(-1, 6), { c: 0, t: 2 }],
-        ['cemetery', at(0, -11.8), {}, 'The Gold Rush Cemetery'], ['house', B(1, 2), { c: 4 }], ['house', B(-1, 2), { c: 11 }],
-        ['front', A(1, 7), { c: 13, t: 0 }], ['front', A(-1, 7), { c: 5, t: 0, two: true }], ['house', B(1, 6), { c: 8, porch: true, cabin: true }, 'The Moore House'],
-        ['ship', null, {}, 'A cruise ship in port'], ['fishco', null, {}, 'Skagway Fish Company, on the dock'], ['buses', null, {}, 'Tour buses at the docks'], ['house', B(1, 3), { c: 3 }], ['house', B(-1, 3), { c: 5 }], ['front', A(1, 8), { c: 11, t: 0 }], ['front', A(-1, 8), { c: 1, t: 0 }],
-        ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['house', B(1, 5), { c: 1 }], ['house', B(-1, 5), { c: 10 }], ['house', B(-1, 6), { c: 4 }],
+        ['front', A(-1, 3), { c: 2, t: 4, two: true, balcony: true, redlamps: true, signText: 'RED ONION SALOON' }, 'The Red Onion Saloon'], ['house', B(1, 0), { c: 8 }], ['front', A(1, 3), { c: 3, t: 0 }],
+        ['depot', lot2('A', 1, 4), {}, 'The White Pass & Yukon Route depot'], ['front', A(-1, 4), { c: 15, t: 3, two: true, dome: true, signText: 'GOLDEN NORTH HOTEL' }, 'The Golden North Hotel'],
+        ['house', B(-1, 0), { c: 6 }], ['dock', null, {}, 'The cruise ship dock'], ['front', A(-1, 5), { c: 9, t: 0, signText: 'MASCOT SALOON' }, 'The Mascot Saloon'],
+        ['skairport', null, {}, 'Skagway Airport'],
+        ['front', A(1, 6), { c: 10, t: 0, two: true, signText: 'SKAGWAY NEWS' }, 'The Skagway News'], ['house', B(1, 1), { c: 10 }], ['house', B(-1, 1), { c: 7 }], ['front', A(-1, 6), { c: 12, t: 2, two: true, w: 2.6, signText: 'DAYS OF ’98' }, 'The Eagles Hall: the Days of ’98 Show'],
+        ['cemetery', at(9, 25, 200), {}, 'The Gold Rush Cemetery, up by Reid Falls'], ['house', B(1, 2), { c: 4 }], ['house', B(-1, 2), { c: 11 }],
+        ['front', A(1, 7), { c: 13, t: 0, signText: 'SOAPY’S PARLOR', w: 1.6 }, 'Jefferson “Soapy” Smith’s Parlor'], ['front', A(-1, 7), { c: 5, t: 0, two: true }], ['house', B(1, 6), { c: 8, porch: true, cabin: true }, 'The Moore House'],
+        ['ship', null, {}, 'A cruise ship in port'], ['tourists', null, {}, 'Cruise passengers up and down Broadway'], ['fishco', null, {}, 'Skagway Fish Company, on the dock'], ['skpond', at(12.5, -9.5), {}, 'Pullen Creek pond'], ['buses', null, {}, 'Tour buses at the docks'], ['house', B(1, 3), { c: 3 }], ['house', B(-1, 3), { c: 5 }], ['front', A(1, 8), { c: 11, t: 0, two: true, signText: 'SKAGWAY BREWING CO' }, 'Skagway Brewing Company'], ['front', A(-1, 8), { c: 1, t: 0 }],
+        ['sktrees', null, {}, 'Birches and lilacs on the back streets'], ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['house', B(1, 5), { c: 1 }], ['skpark', B(-1, 5), {}, 'Mollie Walsh Park'], ['house', B(-1, 6), { c: 4 }],
         ['ships', null, {}, 'Cruise ship day: three ships in port'], ['rocks', null, {}, 'The painted rocks by the docks'], ['lamps', null, {}, 'Lamps along Broadway']
       ] },
     { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town climbing the hill above Atlin Lake, every house looking out over the water from Lake Road up: painted clapboard of every colour, St. Martin’s with its battlemented tower, Kershaw’s, the pyramid house, the M.V. Tarahne on the beach, float planes, and little spruce islands out in the lake.', street: 'dirt', slope: true,
@@ -3413,7 +3442,7 @@
     C.slots = [];
     for (var sr = 0; sr < 2 && C.slots.length < OUTSKIRTS.length; sr++) for (var th = 140 + sr * 8; th <= 330; th += 15) {
       var lr = 16.2 + sr * 1.8, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
-      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.2) || townHill(wx, wz) > 2.2 || nearRail(wx, wz, 3) || dawsonChannel(wx, wz) > 0.02) continue;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.2) || townHill(wx, wz) > 2.2 || nearRail(wx, wz, 3) || dawsonChannel(wx, wz) > 0.02 || nearSkagRiver(wx, wz, 1.5)) continue;
       if ((D.keep || []).some(function (k) { return Math.hypot(lx - k[0], lz - k[1]) < k[2]; })) continue;
       C.slots.push({ x: lx, z: lz, r: Math.atan2(-lx, -lz) / D2R, ground: true });
     }
@@ -4153,6 +4182,96 @@
         P(h, self.geo.box, wood, dw + 0.4, 0.08, 0.9, 0, 0.04, dd / 2 + 0.55);
         break;
       }
+      case 'skairport': {
+        // Skagway Airport: the strip along the river below the west wall, a little terminal with
+        // its sign, a hangar, tie-downs with a couple of Cessnas, the windsock, and the footbridge
+        // over the Skagway River to Yakutania Point.
+        var rx = -13.6, rz0 = -7.5, rz1 = 17.5, rlen = rz1 - rz0;
+        for (var rs = 0; rs < 6; rs++) {
+          var sz0 = rz0 + rs * rlen / 6, sz1 = sz0 + rlen / 6, ya = localGround(rx, sz0), yb = localGround(rx, sz1);
+          var seg = P(h, self.geo.box, M('stoneDark'), 1.9, 0.05, Math.hypot(rlen / 6, ya - yb) + 0.02, rx, (ya + yb) / 2 + 0.03, (sz0 + sz1) / 2); seg.rotation.x = Math.atan2(ya - yb, rlen / 6);
+          seg.userData.passable = true;
+        }
+        for (var dash = 0; dash < 10; dash++) { var dz = rz0 + 1.6 + dash * 2.4; P(h, self.geo.box, M('whitewood'), 0.08, 0.06, 1.0, rx, localGround(rx, dz) + 0.06, dz); }
+        [rz0 + 0.4, rz1 - 0.4].forEach(function (tz) { for (var tb = 0; tb < 4; tb++) P(h, self.geo.box, M('whitewood'), 0.1, 0.06, 0.5, rx - 0.6 + tb * 0.4, localGround(rx, tz) + 0.06, tz); });
+        // runway lights
+        for (var rl = 0; rl < 9; rl++) [-1.05, 1.05].forEach(function (sd) { var lz = rz0 + rl * rlen / 8; P(h, self.geo.box, M('lantern'), 0.06, 0.12, 0.06, rx + sd, localGround(rx + sd, lz) + 0.06, lz); });
+        // the apron and taxiway
+        P(h, self.geo.box, M('stone', 2), 3.4, 0.04, 6.0, -10.9, localGround(-10.9, 10) + 0.02, 10).userData.passable = true;
+        P(h, self.geo.box, M('stone', 2), 2.0, 0.04, 0.9, -12.0, localGround(-12, 13.6) + 0.02, 13.6).userData.passable = true;
+        // the terminal, with SKAGWAY in big letters and a glass cab on top
+        var tm = new T.Group(); tm.position.set(-10.3, localGround(-10.3, 14.4), 14.4); tm.rotation.y = -Math.PI / 2; h.add(tm);
+        P(tm, self.geo.box, M('tpaint', 12), 2.6, 0.95, 1.3, 0, 0.48, 0); gable(tm, M('troof', 2), 2.8, 1.5, 0.4, 0.95, true);
+        windows(tm, 4, 2.2, 0.55, 0.66, 0.3); door(tm, 0.9, 0, 0.66);
+        var tsn = new T.Mesh(new T.PlaneGeometry(1.9, 0.36), new T.MeshBasicMaterial({ map: signTex('SKAGWAY', '#f3efe6', '#28466b') })); tsn.position.set(0, 1.15, 0.67); tm.add(tsn); tsn.userData.pick = pick; self.picks.push(tsn);
+        P(tm, self.geo.box, M('whitewood'), 0.7, 0.5, 0.7, -0.7, 1.55, 0); P(tm, self.geo.box, win, 0.72, 0.28, 0.72, -0.7, 1.62, 0); P(tm, self.geo.box, M('troof', 2), 0.85, 0.06, 0.85, -0.7, 1.83, 0);
+        // a hangar, doors open, an orange-and-white Cessna peeking out
+        var hg = new T.Group(); hg.position.set(-10.6, localGround(-10.6, 4.4), 4.4); hg.rotation.y = -Math.PI / 2; h.add(hg);
+        P(hg, self.geo.box, M('stone', 1), 2.8, 1.3, 2.4, 0, 0.65, 0); gable(hg, M('troof', 0), 3.0, 2.6, 0.5, 1.3, true); P(hg, self.geo.box, dark, 2.0, 1.0, 0.04, 0, 0.5, 1.21);
+        var hc = self.cessna(1, false); hc.position.set(0, 0.24, 0.8); hg.add(hc);
+        // tie-downs: parked planes on the apron
+        [[-11.4, 8.4, 0], [-11.4, 10.6, 4], [-10.2, 7.2, 2]].forEach(function (pc) { var cs = self.cessna(pc[2], false); cs.position.set(pc[0], localGround(pc[0], pc[1]) + 0.24, pc[1]); cs.rotation.y = -Math.PI / 2; h.add(cs); });
+        // fuel truck and windsock
+        P(h, self.geo.box, M('tpaint', 2), 0.5, 0.4, 0.9, -9.4, localGround(-9.4, 12) + 0.3, 12); P(h, self.geo.cyl, M('silver'), 0.2, 0.55, 0.2, -9.4, localGround(-9.4, 12) + 0.42, 11.85).rotation.x = Math.PI / 2;
+        var wsk = new T.Group(); wsk.position.set(-11.8, localGround(-11.8, -4.5), -4.5); h.add(wsk);
+        P(wsk, self.geo.cyl6, dark, 0.03, 1.4, 0.03, 0, 0.7, 0); var sk2 = P(wsk, self.geo.cone, M('tpaint', 5), 0.1, 0.45, 0.1, 0.22, 1.32, 0); sk2.rotation.z = Math.PI / 2;
+        // the footbridge to Yakutania Point: two timber towers and a deck hung on cables
+        var bz = -2, bxa = skagRiverX(bz) + SKR.half + 0.9, bxb = skagRiverX(bz) - SKR.half - 0.9, by = Math.max(0, localGround(bxa, bz), localGround(bxb, bz)) + 0.15;
+        var bl = bxa - bxb, bmx = (bxa + bxb) / 2;
+        P(h, self.geo.box, wood, bl, 0.07, 0.6, bmx, by + 0.2, bz).userData.passable = true;
+        [bxa, bxb].forEach(function (tx) { [-0.32, 0.32].forEach(function (ozz) { P(h, self.geo.box, M('logwood', 0), 0.1, 1.4, 0.1, tx, by + 0.7, bz + ozz); }); P(h, self.geo.box, M('logwood', 0), 0.1, 0.1, 0.74, tx, by + 1.4, bz); });
+        [-0.32, 0.32].forEach(function (ozz) { for (var cs3 = 0; cs3 < 6; cs3++) { var cx0 = bxb + bl * cs3 / 6, cx1 = bxb + bl * (cs3 + 1) / 6, sag = function (xx) { var u = (xx - bxb) / bl; return by + 1.4 - 1.0 * 4 * u * (1 - u); }; var cab = P(h, self.geo.box, dark, Math.hypot(cx1 - cx0, sag(cx1) - sag(cx0)), 0.025, 0.025, (cx0 + cx1) / 2, (sag(cx0) + sag(cx1)) / 2, bz + ozz); cab.rotation.z = Math.atan2(sag(cx1) - sag(cx0), cx1 - cx0); } });
+        break;
+      }
+      case 'tourists': {
+        // Cruise passengers on the boardwalks: little knots of mice with cameras and sun hats,
+        // and hanging flower baskets on the porch posts.
+        var tr = rng(3131);
+        for (var tg = 0; tg < 14; tg++) {
+          var side3 = tg % 2 ? 1 : -1, tz3 = 9 - tg * 1.35 + tr() * 0.6, tx3 = side3 * (2.55 + tr() * 0.35);
+          var mm = self.makeMouse(tg + 3, tg % 4 === 0 ? 'hiker' : null, true); mm.g.parent && mm.g.parent.remove(mm.g);
+          mm.g.position.set(tx3, localGround(tx3, tz3) + 0.1, tz3); mm.g.rotation.y = side3 > 0 ? -Math.PI / 2 + (tr() - 0.5) * 1.6 : Math.PI / 2 + (tr() - 0.5) * 1.6; mm.g.scale.setScalar(1.15); h.add(mm.g);
+          if (tg % 3 === 0) P(mm.head, self.geo.cyl, M('tpaint', tg % 9), 0.09, 0.02, 0.09, 0, 0.06, 0); // a sun hat
+          if (tg % 3 === 1) P(mm.body, self.geo.box, dark, 0.05, 0.04, 0.03, 0.03, 0.15, 0.06); // a camera
+          (C.tourists = C.tourists || []).push(mm);
+        }
+        for (var hb = 0; hb < 10; hb++) { var hs3 = hb % 2 ? 1 : -1, hz3 = 9.5 - hb * 2.1; P(h, self.geo.blob, M('flag', hb % 5), 0.14, 0.11, 0.14, hs3 * 2.5, localGround(hs3 * 2.5, hz3) + 0.86, hz3); P(h, self.geo.blob, M('leaf', 1), 0.13, 0.07, 0.13, hs3 * 2.5, localGround(hs3 * 2.5, hz3) + 0.8, hz3); }
+        break;
+      }
+      case 'skpark': {
+        // Mollie Walsh Park: a green with a playground, a bench under the birches and Mollie's statue.
+        P(h, self.geo.box, M('grassDeep'), 2.8, 0.05, 2.4, 0, 0.03, 0);
+        P(h, self.geo.box, M('tpaint', 2), 0.12, 0.7, 0.12, -0.9, 0.35, -0.6); var sld = P(h, self.geo.box, M('tpaint', 5), 0.3, 0.04, 1.0, -0.9, 0.38, -0.1); sld.rotation.x = 0.6;
+        [-0.2, 0.6].forEach(function (x) { P(h, self.geo.box, M('stoneDark'), 0.04, 0.8, 0.04, x, 0.4, 0.8); });
+        P(h, self.geo.box, M('stoneDark'), 0.84, 0.04, 0.04, 0.2, 0.8, 0.8); [0.0, 0.4].forEach(function (x) { P(h, self.geo.box, M('stoneDark'), 0.01, 0.5, 0.01, x, 0.55, 0.8); P(h, self.geo.box, M('tpaint', 0), 0.16, 0.03, 0.1, x, 0.3, 0.8); });
+        P(h, self.geo.box, M('stone', 1), 0.3, 0.3, 0.3, 0.8, 0.15, -0.6); P(h, self.geo.cone, M('gold'), 0.1, 0.36, 0.1, 0.8, 0.48, -0.6); P(h, self.geo.ball, M('gold'), 0.06, 0.06, 0.06, 0.8, 0.7, -0.6);
+        P(h, self.geo.box, wood, 0.7, 0.05, 0.22, 0.6, 0.22, 0.1);
+        [[-1.2, 1.0], [1.2, 0.9], [1.1, -1.0]].forEach(function (bt) { P(h, self.geo.cyl6, M('birch'), 0.05, 0.9, 0.05, bt[0], 0.45, bt[1]); P(h, self.geo.blob, M('birchleaf'), 0.32, 0.45, 0.32, bt[0], 1.05, bt[1]); });
+        break;
+      }
+      case 'skpond': {
+        // Pullen Creek and its pond by the docks, with a little arched footbridge and cattails.
+        P(h, self.geo.blob, M('tstreet', 1), 2.0, 0.08, 1.4, 0, 0.0, 0);
+        P(h, self.geo.blob, M('water'), 1.8, 0.06, 1.2, 0, 0.04, 0);
+        var arch = P(h, self.geo.box, M('tpaint', 2), 0.5, 0.06, 1.6, 0.6, 0.28, 0); arch.rotation.x = 0.08;
+        [-0.24, 0.24].forEach(function (x) { P(h, self.geo.box, M('tpaint', 2), 0.04, 0.25, 1.6, 0.6 + x, 0.42, 0); });
+        for (var ct = 0; ct < 8; ct++) { var a2 = ct * 0.8; P(h, self.geo.cyl6, M('leaf', 0), 0.015, 0.4, 0.015, Math.cos(a2) * 1.7, 0.2, Math.sin(a2) * 1.1); P(h, self.geo.cyl6, M('trunk'), 0.03, 0.1, 0.03, Math.cos(a2) * 1.7, 0.42, Math.sin(a2) * 1.1); }
+        P(h, self.geo.box, wood, 0.7, 0.05, 0.22, -1.4, 0.22, 1.0);
+        break;
+      }
+      case 'sktrees': {
+        // Street trees and lilacs between the houses on the back streets, and flower boxes.
+        var st0 = TOWN_ROWS.B.z;
+        [-1, 1].forEach(function (sd) {
+          for (var ti = 0; ti < st0.length - 1; ti++) {
+            var tz = (st0[ti] + st0[ti + 1]) / 2, tx = sd * (8.6 + (ti % 2 ? 0.6 : -0.4)), ty = localGround(tx, tz);
+            if (ti % 3 === 1) { P(h, self.geo.blob, M('flag', 3), 0.3, 0.3, 0.3, tx, ty + 0.3, tz); P(h, self.geo.blob, M('leaf', 1), 0.32, 0.25, 0.32, tx, ty + 0.15, tz); } // a lilac
+            else { var g3 = new T.Group(); g3.position.set(tx, ty, tz); h.add(g3); P(g3, self.geo.cyl6, M('birch'), 0.05, 1.0, 0.05, 0, 0.5, 0); P(g3, self.geo.blob, M('birchleaf'), 0.34, 0.5, 0.34, 0, 1.15, 0); }
+            var bx2 = sd * 6.4, by2 = localGround(bx2, tz); P(h, self.geo.box, M('tstreet', 0), 0.2, 0.04, 1.6, bx2, by2 + 0.02, tz).userData.passable = true; // a path through to the back street
+          }
+        });
+        break;
+      }
       case 'cemetery': {
         // Up the hill past the end of Broadway: headstones and wooden markers in a picket fence.
         for (var fz2 = 0; fz2 < 4; fz2++) { var side2 = fz2 < 2 ? 1 : -1, along = fz2 % 2; P(h, self.geo.box, M('whitewood'), along ? 0.05 : 3.6, 0.4, along ? 2.4 : 0.05, along ? side2 * 1.8 : 0, 0.2, along ? 0 : side2 * 1.2); }
@@ -4161,7 +4280,9 @@
           if (hs % 3 === 0) { P(h, self.geo.box, M('wood'), 0.06, 0.4, 0.04, hx2, 0.2, hz2); P(h, self.geo.box, M('wood'), 0.22, 0.05, 0.04, hx2, 0.3, hz2); }
           else P(h, self.geo.box, M('stone'), 0.24, 0.32, 0.08, hx2, 0.16, hz2);
         }
-        spruce(h, -2.4, -0.5, 0.8); spruce(h, 2.4, 0.4, 0.7);
+        spruce(h, -2.4, -0.5, 0.8); spruce(h, 2.4, 0.4, 0.7); spruce(h, -1.6, 1.9, 0.9); spruce(h, 1.0, -2.0, 0.75);
+        // Soapy Smith's grave outside the fence (as it really is), and a sign
+        P(h, self.geo.box, M('stone', 2), 0.4, 0.4, 0.12, 2.6, 0.2, -1.6); P(h, self.geo.box, wood, 0.06, 0.7, 0.06, 0, 0.35, 1.9); P(h, self.geo.box, M('wood'), 0.8, 0.25, 0.04, 0, 0.75, 1.92);
         break;
       }
       case 'dock':
@@ -13996,7 +14117,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -16176,7 +16297,7 @@
     var D = C.town, n = 0;
     for (var th = 0; th < 360 && n < 9; th += 23 + r() * 10) {
       var lr = 19.8 + r() * 3, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
-      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.6) || townHill(wx, wz) > 1.6 || nearRail(wx, wz, 3) || nearDawsonRiver(wx, wz, 1.5)) continue;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.6) || townHill(wx, wz) > 1.6 || nearRail(wx, wz, 3) || nearDawsonRiver(wx, wz, 1.5) || nearSkagRiver(wx, wz, 1.5)) continue;
       if ((D.keep || []).some(function (k) { return Math.hypot(lx - k[0], lz - k[1]) < k[2]; })) continue;
       if ((C.slots || []).some(function (sl) { return Math.hypot(sl.x - lx, sl.z - lz) < 3.2; }) || placed.some(function (q) { return Math.hypot(q.x - wx, q.z - wz) < 4; })) continue;
       if (Math.abs(groundY(wx + 1, wz) - groundY(wx - 1, wz)) > 0.9 || Math.abs(groundY(wx, wz + 1) - groundY(wx, wz - 1)) > 0.9) continue;
@@ -16282,6 +16403,10 @@
     }
     for (var f = 0; f < 14; f++) { var fl = new T.Mesh(this.geo.box, M('snow') || M('whitewood')); fl.scale.set(1 + (f % 3) * 0.6, 0.12, 0.8 + (f % 4) * 0.4); fl.rotation.y = f; this.base.add(fl); this.northRiver.floes.push({ m: fl, z: R.len - f * 18, lx: R.x0 + 2 + (f * 37 % 9) }); }
   };
+  Town.prototype.stepFalls = function (dt) {
+    var self = this;
+    (this.skFalls || []).forEach(function (f) { if (Math.random() < dt * 1.2) self.puff(f.foot.x + (Math.random() - 0.5) * 0.6, f.foot.y + 0.2, f.foot.z + (Math.random() - 0.5) * 0.6, 1, 'mist', 0.15); });
+  };
   Town.prototype.stepNorthRiver = function (dt, now) {
     var N = this.northRiver;
     if (!N) return;
@@ -16302,6 +16427,112 @@
       if (!still) f.z -= dt * 1.6;
       if (f.z < DR_FAR + 4) f.z = R.len - 4;
       var w = siteAt(DAWSON, f.lx + dawsonOff(f.z), f.z); f.m.position.set(w.x, dawsonLevel(f.z) + 0.05, w.z); f.m.rotation.y += dt * 0.05;
+    });
+  };
+
+
+
+  // ---- a tiny Cessna, high wing and all, with a mouse at the controls ----
+  var CESSNA_COLS = [2, 5, 0, 13, 9, 11, 3, 15];
+  Town.prototype.cessna = function (ci, pilot) {
+    var g = new T.Group(), self = this, pick = 'cessna';
+    function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z, pick); }
+    var white = this.mat('whitewood'), trim = this.mat('tpaint', CESSNA_COLS[ci % CESSNA_COLS.length]), dark = this.mat('stoneDark'), win = this.mat('window');
+    P(g, this.geo.box, white, 0.26, 0.28, 1.0, 0, 0.18, 0.1);
+    P(g, this.geo.box, white, 0.16, 0.16, 0.6, 0, 0.22, -0.65); // the tail boom
+    P(g, this.geo.box, trim, 0.27, 0.05, 1.0, 0, 0.12, 0.1); // the stripe
+    P(g, this.geo.box, white, 1.9, 0.04, 0.3, 0, 0.34, 0.15); // the wing, on top
+    [-0.95, 0.95].forEach(function (x) { P(g, self.geo.box, trim, 0.2, 0.045, 0.31, x * 0.94, 0.34, 0.15); P(g, self.geo.box, dark, 0.02, 0.3, 0.02, x * 0.35, 0.22, 0.12).rotation.z = x > 0 ? -0.6 : 0.6; });
+    P(g, this.geo.box, white, 0.7, 0.03, 0.18, 0, 0.24, -0.92); P(g, this.geo.box, trim, 0.03, 0.26, 0.2, 0, 0.38, -0.92);
+    P(g, this.geo.box, win, 0.27, 0.12, 0.3, 0, 0.27, 0.32);
+    P(g, this.geo.cyl, dark, 0.06, 0.08, 0.06, 0, 0.18, 0.62).rotation.x = Math.PI / 2;
+    var prop = new T.Group(); prop.position.set(0, 0.18, 0.67); g.add(prop); P(prop, this.geo.box, dark, 0.03, 0.5, 0.02, 0, 0, 0);
+    [-0.14, 0.14].forEach(function (x) { P(g, self.geo.cyl, dark, 0.05, 0.03, 0.05, x, 0.02, 0.2).rotation.z = Math.PI / 2; P(g, self.geo.box, dark, 0.015, 0.12, 0.015, x, 0.07, 0.2); });
+    P(g, this.geo.cyl, dark, 0.035, 0.03, 0.035, 0, 0.02, -0.75).rotation.z = Math.PI / 2;
+    if (pilot) {
+      // the pilot, peering out of the window in a leather cap and goggles
+      var fur = this.mat('mouse', ci % 3);
+      P(g, this.geo.ball, fur, 0.065, 0.06, 0.065, 0, 0.32, 0.3); [-0.05, 0.05].forEach(function (x) { P(g, self.geo.ball, self.mat('mouse', 3), 0.03, 0.03, 0.012, x, 0.39, 0.29); });
+      P(g, this.geo.ball, this.mat('wood'), 0.068, 0.035, 0.068, 0, 0.36, 0.3); P(g, this.geo.box, this.mat('silver'), 0.1, 0.02, 0.02, 0, 0.33, 0.36);
+      var sc = P(g, this.geo.box, this.mat('flag', 0), 0.02, 0.02, 0.18, 0, 0.3, 0.16); g.userData.scarf = sc;
+    }
+    g.userData.prop = prop;
+    return g;
+  };
+  // Once a town's open, a little plane flies out from the Whitehorse airport, circles over it
+  // and comes home (Skagway's touches down on its own strip on the way).
+  Town.prototype.stepPlanes = function (dt, now) {
+    var S = this.st, self = this, PL = S.planes || (S.planes = {});
+    if (now > (PL.checkAt || 0)) {
+      PL.checkAt = now + 2500;
+      CASTLE_SITES.forEach(function (site, ci) {
+        var C = S.castles[ci];
+        if (!ci || PL[ci] || !C || !C.town || C.built < 4) return;
+        var home = { x: AIRPORT.x, z: AIRPORT.z }, s = site, dx = s.x - home.x, dz = s.z - home.z, L = Math.hypot(dx, dz), nx = -dz / L, nz = dx / L;
+        var pts = [new T.Vector3(home.x, 9, home.z), new T.Vector3(home.x + dx * 0.35 + nx * 10, 17, home.z + dz * 0.35 + nz * 10), new T.Vector3(home.x + dx * 0.7 + nx * 6, 16, home.z + dz * 0.7 + nz * 6)];
+        var air = ci === SKAGWAY && C.done && C.done['Skagway Airport'];
+        if (air) {
+          // down the valley, a touch-and-go on the strip, and back up over town
+          var ws = function (lx, lz, y) { var w = siteAt(SKAGWAY, lx, lz); return new T.Vector3(w.x, groundY(w.x, w.z) + y, w.z); };
+          pts.push(ws(-12, 40, 9), ws(-13.6, 24, 3), ws(-13.6, 14, 0.6), ws(-13.6, 2, 0.55), ws(-13.6, -10, 2.5), ws(-4, -24, 7), ws(14, -10, 11), ws(10, 20, 14));
+        } else for (var k = 0; k < 7; k++) { var a = k / 7 * Math.PI * 2 + Math.atan2(dx, dz); pts.push(new T.Vector3(s.x + Math.sin(a) * 15, groundY(s.x, s.z) + 12 + (k % 2) * 2, s.z + Math.cos(a) * 15)); }
+        pts.push(new T.Vector3(home.x + dx * 0.6 - nx * 8, 18, home.z + dz * 0.6 - nz * 8), new T.Vector3(home.x + dx * 0.25 - nx * 9, 15, home.z + dz * 0.25 - nz * 9));
+        var curve = new T.CatmullRomCurve3(pts, true, 'centripetal');
+        var g = self.cessna(ci, true); g.scale.setScalar(1.3); self.world.add(g);
+        PL[ci] = { g: g, curve: curve, len: curve.getLength(), u: Math.random(), roll: 0 };
+      });
+    }
+    var v = new T.Vector3(), t1 = new T.Vector3(), t2 = new T.Vector3();
+    Object.keys(PL).forEach(function (ci) {
+      var p = PL[ci]; if (!p || !p.g) return;
+      p.u = (p.u + dt * 4.2 / p.len) % 1;
+      p.curve.getPointAt(p.u, v); p.curve.getTangentAt(p.u, t1); p.curve.getTangentAt((p.u + 0.01) % 1, t2);
+      p.g.position.copy(v);
+      var yaw = Math.atan2(t1.x, t1.z), turn = Math.atan2(t1.x * t2.z - t1.z * t2.x, t1.x * t2.x + t1.z * t2.z);
+      p.roll += (Math.max(-0.6, Math.min(0.6, -turn * 14)) - p.roll) * Math.min(1, dt * 2);
+      p.g.rotation.set(0, 0, 0); p.g.rotateY(yaw); p.g.rotateX(-Math.asin(Math.max(-1, Math.min(1, t1.y))) ); p.g.rotateZ(p.roll);
+      p.g.userData.prop.rotation.z += dt * 40;
+      if (p.g.userData.scarf) p.g.userData.scarf.rotation.y = Math.sin(now / 90) * 0.3;
+    });
+  };
+
+  // ---- Skagway's valley: the Skagway River and the waterfalls down the walls ----
+  Town.prototype.buildSkagScenery = function () {
+    var self = this, pts = [], idx = [], rows = 0, z;
+    for (z = SKR.z1 + 2; z >= SKR.z0; z -= 1.5) {
+      var cx = skagRiverX(z), lv = skagLevel(z) + 0.03;
+      [cx - SKR.half - 0.5, cx + SKR.half + 0.5].forEach(function (lx) { var w = siteAt(SKAGWAY, lx, z); pts.push(w.x, lv, w.z); });
+      rows++;
+    }
+    for (var k = 0; k < rows - 1; k++) { var a = k * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    var geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    var water = new T.Mesh(geo, this.mat('water')); water.receiveShadow = true; water.userData.pick = 'skagriver'; this.base.add(water); this.picks.push(water);
+    // gravel bars and driftwood along it
+    var r = rng(4411);
+    for (var b = 0; b < 7; b++) {
+      var bz = -4 + b * 6.5 + r() * 2, side = b % 2 ? 1 : -1, bx = skagRiverX(bz) + side * (SKR.half + 0.4), w2 = siteAt(SKAGWAY, bx, bz);
+      var bar = new T.Mesh(this.geo.blob, this.mat('tstreet', 1)); bar.scale.set(1.0, 0.12, 2.2 + r()); bar.position.set(w2.x, skagLevel(bz) + 0.02, w2.z); bar.rotation.y = r(); bar.receiveShadow = true; this.base.add(bar);
+      var dw = new T.Mesh(this.geo.cyl6, this.mat('whitewood')); dw.scale.set(0.06, 1.2, 0.06); dw.rotation.set(Math.PI / 2, 0, r() * 3); dw.position.set(w2.x, skagLevel(bz) + 0.12, w2.z); this.base.add(dw);
+    }
+    // Waterfalls pouring down the valley walls (Reid Falls up past the cemetery).
+    var fallM = new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: '#f4fbff', emissive: '#9fc7d8', emissiveIntensity: 0.25, transparent: true, opacity: 0.9 });
+    this.skFalls = [];
+    [[-28.5, 1.5, -21.5, 1.5], [-27.5, 14, -21.8, 13.5], [21.5, -3, 15.5, -3], [21, 22.5, 14.5, 23.5]].forEach(function (f, fi) {
+      var g = new T.Group(); self.base.add(g);
+      var n = 14, prev = null;
+      for (var i = 0; i <= n; i++) {
+        var t = i / n, lx = f[0] + (f[2] - f[0]) * t, lz = f[1] + (f[3] - f[1]) * t, w = siteAt(SKAGWAY, lx, lz), y = groundY(w.x, w.z) + 0.08;
+        var cur = new T.Vector3(w.x, y, w.z);
+        if (prev) {
+          var seg = new T.Mesh(self.geo.box, fallM), mid = prev.clone().add(cur).multiplyScalar(0.5), len = prev.distanceTo(cur);
+          seg.position.copy(mid); seg.scale.set(0.75 + t * 0.45, 0.1, len + 0.05); seg.lookAt(cur); g.add(seg);
+          if (i % 2) { var sp = new T.Mesh(self.geo.box, fallM); sp.position.copy(mid).add(new T.Vector3(0, 0.03, 0)); sp.scale.set(0.3, 0.12, len * 0.6); sp.lookAt(cur); sp.translateX(0.45); g.add(sp); }
+        }
+        prev = cur;
+      }
+      // a pool and some spray at the foot
+      var foot = new T.Mesh(self.geo.blob, fallM); foot.scale.set(0.8, 0.25, 0.8); foot.position.copy(prev); g.add(foot);
+      self.skFalls.push({ g: g, foot: prev.clone(), ph: fi });
     });
   };
 
