@@ -272,7 +272,7 @@
   var JUNEAU = 8, JN_ISLE = polar(342.5, 288);
   // How far outside Juneau's island this is (negative on the island).
   function isleSd(x, z) { var dx = x - JN_ISLE.x, dz = z - JN_ISLE.z, a = Math.atan2(dz, dx); return Math.hypot(dx, dz) - (41 + 4 * Math.sin(a * 3 + 0.7) + 2.5 * Math.sin(a * 5 + 2.1)); }
-  var STREET_X = { 3: 7.9 }; // Atlin's main street is Lake Road, along the shore below the town
+  var STREET_X = { 3: 7.9, 4: 8, 6: 5 }; // Atlin's main street is Lake Road along the shore; Dawson's is Front Street on the river; Haines' is Main Street
   var CARCROSS = 1, SKAGWAY = 2, HAINES = 6, WORLD_R = 345; // the map reaches out past Watson Lake
   // The river comes down from the glacier, runs straight along the front of downtown, past the
   // Riverdale dam and through Miles Canyon, then out past the farmland to the sea.
@@ -336,7 +336,7 @@
     [1, 15, -33, 12, 19, 0.4, 0.66], [1, -5, -35, 9, 10, 1], [1, 34, -10, 10, 15, 0.42, 0.68], [1, 36, -27, 9, 13, 0.5], // Carcross: Montana Mountain over Bennett Lake
     [1, -33, -4, 11, 16, 0.45, 0.7], [1, -30, -24, 10, 12, 0.6], [1, -36, 12, 8, 10, 0.8], // and Nares Mountain on the other side of the valley
     [3, 33, -4, 9, 15, 0.35, 0.6], [3, 31, 14, 8, 11, 0.45, 0.75], [3, 36, -20, 7, 12, 0.4, 0.66], // Atlin: Atlin Mountain across the lake
-    [4, -2, -35, 15, 14, 0.85], [4, -16, -30, 8, 7, 1], // Dawson: the Midnight Dome, and its shoulder
+    [4, -26, -24, 15, 14, 0.85], [4, -10, -36, 9, 8, 1], [4, -34, 2, 9, 9, 1], // Dawson: the Midnight Dome behind town, and its shoulders
     [5, -13, -33, 10, 21, 0.3, 0.5], [5, 13, -35, 11, 23, 0.3, 0.48], [5, 0, -46, 9, 17, 0.35, 0.55], // Haines Junction: the St. Elias
     [8, -4, -27, 11, 21, 0.45, 0.7], [8, 19, -19, 9, 17, 0.45, 0.72], [8, -2, -46, 12, 18, 0.4, 0.62], [8, 12, -36, 8, 14, 0.5, 0.75] // Juneau: Mount Juneau, Mount Roberts and the icefield
   ].map(function (p, i) { var q = siteAt(p[0], p[1], p[2]); return { ci: p[0], x: q.x, z: q.z, R: p[3], H: p[4], rock: p[5], snow: p[6] || 2, ph: i * 1.7 }; });
@@ -907,6 +907,25 @@
     var w = (1 - smooth(13.6, 16, Math.abs(q.x))) * (1 - smooth(-12.5, -15.5, q.z));
     return w > 0 ? h + (JN_PAD + jnTerrace(q.z) - h) * w : h;
   }
+  // Rivers across the road at the edge of town (in the town's own frame, z across): the Klondike
+  // meeting the Yukon at Dawson, and the Dezadeash at Haines Junction.
+  var TOWN_CREEKS = [{ ci: 4, z: 19.5, x0: -46, x1: 15, half: 1.5, bank: 2.2, drop: 1.2 }, { ci: 5, z: 20.5, x0: -40, x1: 40, half: 1.3, bank: 2.0, drop: 0.9 }];
+  function creekZ(c, lx) { return c.z + 1.6 * Math.sin(lx * 0.11 + c.ci); }
+  function creekLevel(c) { if (c.lv == null) { var s0 = CASTLE_SITES[c.ci]; c.lv = Math.max(rawHeight(s0.x, s0.z), SEA_Y + 0.5) + s0.lift - c.drop; } return c.lv; }
+  function creekNear(x, z, d) {
+    for (var i = 0; i < TOWN_CREEKS.length; i++) {
+      var c = TOWN_CREEKS[i], q = townLocal(c.ci, x, z);
+      if (q.d2 > 4000 || q.x < c.x0 - d || q.x > c.x1 + d) continue;
+      var dz = Math.abs(q.z - creekZ(c, q.x));
+      if (dz < c.half + c.bank + d) return { c: c, dz: dz, lx: q.x };
+    }
+    return null;
+  }
+  function creekShape(h, x, z) {
+    var k = creekNear(x, z, 0); if (!k) return h;
+    var c = k.c, w = (1 - smooth(c.half, c.half + c.bank, k.dz)) * smooth(c.x0 - 2, c.x0 + 3, k.lx) * (1 - smooth(c.x1, c.x1 + 2, k.lx));
+    return h + (Math.min(h, creekLevel(c) - 0.7) - h) * w;
+  }
   var DAWSON_PAD = null;
   function DAWSON_PAD_H() { if (DAWSON_PAD == null) { var c = CASTLE_SITES[DAWSON]; DAWSON_PAD = Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift; } return DAWSON_PAD; }
   function groundY(x, z) {
@@ -930,6 +949,7 @@
     if (ch > 0) h += (Math.min(h, dawsonLevel(DR_Z) - 1.0) - h) * ch;
     h = skagwayShape(h, x, z);
     h = juneauShape(h, x, z);
+    h = creekShape(h, x, z);
     var sa = STRIPS && stripAt(x, z, 0);
     if (sa) h += (sa.S.h - h) * (1 - smooth(1.4, 3.2, Math.abs(sa.w))) * (1 - smooth(sa.S.len / 2, sa.S.len / 2 + 3, Math.abs(sa.u)));
     if (LIB_GRADE && x > LIB_GRADE.box[0] && x < LIB_GRADE.box[1] && z > LIB_GRADE.box[2] && z < LIB_GRADE.box[3] && rd > RIVER_HALF + 0.6) {
@@ -1188,7 +1208,7 @@
         var hs = [], ok = true;
         for (var u = -HL - 1; u <= HL + 1 && ok; u += 1.5) for (var w = -1.8; w <= 1.8 && ok; w += 1.8) {
           var x = cx + dx * u - dz * w, z = cz + dz * u + dx * w;
-          if (waterAt(x, z) != null || townHill(x, z) > 0.5 || nearPath(x, z, 1.4) || nearRail(x, z, 3) || coastSd(x, z) > -3 || nearDawsonRiver(x, z, 2) || nearSkagRiver(x, z, 2) || streamDist(x, z) < 2) ok = false;
+          if (waterAt(x, z) != null || townHill(x, z) > 0.5 || nearPath(x, z, 1.4) || nearRail(x, z, 3) || coastSd(x, z) > -3 || nearDawsonRiver(x, z, 2) || nearSkagRiver(x, z, 2) || streamDist(x, z) < 2 || creekNear(x, z, 3)) ok = false;
           else hs.push(landY(x, z));
         }
         if (!ok) continue;
@@ -2587,7 +2607,7 @@
     for (var gx = -WORLD_R; gx <= WORLD_R; gx += 4.6) for (var gz = -WORLD_R; gz <= WORLD_R; gz += 4.6) {
       var x = gx + (r() - 0.5) * 3.8, z = gz + (r() - 0.5) * 3.8, d = Math.hypot(x, z);
       if (d < 154 || d > WORLD_R - 3 || noise2(x * 0.55, z * 0.55) < 0.1 || r() < 0.35) continue;
-      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5) || nearSkagRiver(x, z, 2) || stripAt(x, z, 3) || jnClear(x, z)) continue;
+      if (coastSd(x, z) > -5 || roads[cell(x, z)] || streamDist(x, z) < 2.2 || townHill(x, z) > 0.2 || nearRail(x, z, 3) || nearDawsonRiver(x, z, 2.5) || nearSkagRiver(x, z, 2) || stripAt(x, z, 3) || jnClear(x, z) || creekNear(x, z, 2)) continue;
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 24; })) continue;
       spots.push({ x: x, z: z, y: groundY(x, z), s: 0.75 + r() * 0.6 });
     }
@@ -2773,7 +2793,7 @@
       this.buildBoreal();
       this.buildTufts();
       var self2 = this;
-      ['paintMaterials', 'buildClouds', 'buildMeadows', 'windifyScenery', 'buildNorthRiver', 'buildSkagScenery', 'buildNoir'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
+      ['paintMaterials', 'buildClouds', 'buildMeadows', 'windifyScenery', 'buildNorthRiver', 'buildSkagScenery', 'buildNoir', 'buildCreeks'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
     }
     this.buildLetterbox();
     return C;
@@ -3428,66 +3448,78 @@
         ['house', UP(2, 2), {}], ['house', LK(8), {}], ['house', UP(1, 7), {}], ['house', UP(2, 4), {}],
         ['cabin', Cr(-1, 0), { c: 1 }], ['cabin', Cr(-1, 2), {}], ['canoes', null, { dx: 2.4 }, 'Canoes on the beach'], ['lamps', null, {}, 'Lamps along Lake Road']
       ] },
-    { key: 'dawson', name: 'Dawson City', vibe: 'Klondike gold-rush boomtown on the Yukon River under the Midnight Dome: false fronts in every colour, boardwalks, dirt streets, the S.S. Keno on the bank, the George Black ferry crossing to West Dawson, and a gold dredge.', street: 'dirt', walks: true,
+    { key: 'dawson', name: 'Dawson City', vibe: 'The Klondike boomtown where the Klondike River meets the Yukon: a dirt-street gridiron of false fronts and boardwalks from Front Street on the river back to Eighth Avenue under the Midnight Dome, the Commissioner’s Residence and St. Paul’s at the end of Front Street, the Bank of Commerce, the S.S. Keno on the bank, Diamond Tooth Gertie’s, the Palace Grand, the old post office, the cabins of Robert Service and Jack London, the George Black ferry to West Dawson, and Dredge No. 4 up the creek.', street: 'dirt', walks: true,
       homes: { house: { o: { lean: true } } }, // heaving on the permafrost
+      keep: [[-30, 23, 9]],
       plan: [
-        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['yukon', null, {}, 'The Yukon River and the George Black ferry'], ['front', A(1, 1), { c: 0, t: 2 }], ['front', A(-1, 1), { c: 1, t: 0 }], ['house', B(1, 0), { c: 5 }],
-        ['cabin', B(-1, 0), { antlers: true, c: 2 }, 'Robert Service’s cabin'], ['front', A(1, 2), { c: 2, t: 0, two: true }], ['front', A(-1, 2), { c: 3, t: 0 }],
-        ['front', lot2('A', 1, 3), { c: 6, t: 2, two: true, w: 4.5, lights: true, sign: 4 }, 'Diamond Tooth Gerties'],
-        ['house', B(1, 1), { c: 4 }], ['house', B(-1, 1), { c: 10 }], ['front', A(-1, 3), { c: 7, t: 0 }], ['front', A(-1, 4), { c: 15, t: 2 }],
-        ['kissing', A(1, 5), {}, 'The kissing buildings'],
-        ['front', lot2('A', -1, 5), { c: 15, t: 3, two: true, w: 4.5, cols: true, sign: 2 }, 'The Palace Grand Theatre'],
-        ['front', A(1, 6), { c: 9, t: 0, two: true }], ['house', B(1, 2), { c: 1 }], ['house', B(-1, 2), { c: 0 }],
-        ['boat', at(10.7, -1.5), { wheel: true, c: 8, t: 3 }, 'The S.S. Keno'], ['domelookout', { x: -2, z: -35, r: 0, ground: true }, {}, 'The Midnight Dome lookout'],
-        ['church', at(0, -11.6), { c: 8, roof: 1 }, 'St. Paul’s Church'],
-        ['front', A(1, 7), { c: 12, t: 0, two: true, tin: true }, 'The Bank of Commerce'], ['front', A(-1, 7), { c: 5, t: 0 }],
-        ['front', A(1, 8), { c: 8, t: 1, two: true, cupola: true }, 'The old post office'], ['front', A(-1, 8), { c: 3, t: 0, two: true, w: 2.3, sign: 4 }, 'The Downtown Hotel'],
-        ['house', B(1, 3), { c: 7 }], ['house', B(-1, 3), { c: 11 }], ['house', B(1, 4), { c: 10 }], ['house', B(-1, 4), { c: 4 }], ['house', B(1, 5), { c: 15 }], ['house', B(-1, 5), { c: 2 }],
-        ['dredge', at(-13.6, 0, 270), {}, 'Dredge No. 4'],
-        ['house', B(1, 6), { c: 3 }], ['house', B(-1, 6), { c: 6 }], ['cabin', at(-11.6, 5.0, 90), { c: 1 }], ['cabin', at(-11.6, -5.0, 90), {}],
+        ['dgrid', null, {}, 'The dirt-street gridiron, Front Street to Fourth Avenue'], ['front', at(5.4, 9.4, 90), { c: 0, t: 2 }], ['front', at(0.4, 9.4, 90), { c: 1, t: 0 }],
+        ['yukon', null, {}, 'The Yukon River and the George Black ferry'], ['front', at(5.4, 7.2, 90), { c: 9, t: 0, two: true, signText: 'KLONDIKE VISITORS' }, 'The visitor centre'],
+        ['front', at(5.4, -1.25, 90), { c: 12, t: 0, two: true, tin: true, signText: 'BANK OF COMMERCE' }, 'The Canadian Bank of Commerce'],
+        ['boat', at(10.9, -3.2), { wheel: true, c: 8, t: 3 }, 'The S.S. Keno'], ['front', at(0.4, -1.25, 90), { c: 3, t: 0, two: true, w: 2.3, signText: 'DOWNTOWN HOTEL' }, 'The Downtown Hotel'],
+        ['front', at(-1.6, 7.2, -90), { c: 8, t: 1, two: true, cupola: true }, 'The old post office'],         ['front', at(-1.6, 2.8, -90), { c: 15, t: 3, two: true, w: 4.5, cols: true, signText: 'PALACE GRAND' }, 'The Palace Grand Theatre'],
+        ['church', at(5.0, -6.0, 90), { c: 8, roof: 1 }, 'St. Paul’s Anglican Church'], ['front', at(0.4, 4.35, 90), { c: 2, t: 0, two: true }],
+        ['front', at(-7.6, -2.8, -90), { c: 6, t: 2, two: true, w: 4.5, lights: true, signText: 'DIAMOND TOOTH GERTIE’S' }, 'Diamond Tooth Gertie’s'],
+        ['commres', at(4.7, -10.0, 90), {}, 'The Commissioner’s Residence'], ['front', at(0.4, 1.25, 90), { c: 13, t: 0, signText: 'WESTMINSTER' }, 'The Westminster Hotel (“the Pit”)'],
+        ['cabin', at(-14.8, 3.4, 90), { antlers: true, c: 2 }, 'Robert Service’s cabin, on Eighth Avenue'], ['front', at(-1.6, -1.25, -90), { c: 4, t: 0 }],
+        ['kissing', at(-5.6, 4.35, 90), {}, 'The kissing buildings'], ['danoja', at(5.4, 2.7, 90), {}, 'The Dänojà Zho Cultural Centre'],
+        ['cabin', at(-14.8, -4.0, 90), { c: 1 }, 'Jack London’s cabin'], ['front', at(-5.6, 1.25, 90), { c: 11, t: 0, two: true, signText: 'KLONDIKE KATE’S' }, 'Klondike Kate’s'],
+        ['domelookout', { x: -26, z: -24, r: 0, ground: true }, {}, 'The Midnight Dome and the Moosehide Slide'],
+        ['museum', at(-12.0, -2.8, 90), {}, 'The Dawson City Museum'], ['house', at(0.4, -4.35, 90), { c: 5 }], ['house', at(-1.6, -4.35, -90), { c: 10 }],
+        ['tailings', null, {}, 'Dredge No. 4 and the tailings up the Klondike'], ['house', at(-5.6, -4.35, 90), { c: 7 }], ['house', at(-7.6, 4.35, -90), { c: 4 }],
+        ['graveyard', null, {}, 'The sternwheeler graveyard at West Dawson'], ['house', at(0.4, -6.9, 90), { c: 11 }], ['house', at(-1.6, -6.9, -90), { c: 2 }],
+        ['house', at(-5.6, -6.9, 90), { c: 15 }], ['house', at(-7.6, 7.2, -90), { c: 1 }], ['house', at(-11.8, 4.35, 90), { c: 3 }], ['house', at(-11.8, 7.2, 90), { c: 6 }],
+        ['house', at(0.4, -9.6, 90), { c: 12 }], ['house', at(-1.6, -9.6, -90), { c: 0 }], ['house', at(-5.6, -9.6, 90), { c: 9 }], ['house', at(-7.6, -6.9, -90), { c: 13 }],
+        ['house', at(-11.8, -6.9, 90), { c: 5 }], ['house', at(-7.6, -9.6, -90), { c: 14 }], ['cabin', at(-14.8, 8.6, 90), {}], ['cabin', at(-14.8, -8.8, 90), { c: 1 }],
+        ['front', at(-5.6, 7.2, 90), { c: 14, t: 0 }], ['front', at(-1.6, 9.4, -90), { c: 7, t: 0 }],
         ['lamps', null, {}, 'Lamps along Front Street']
       ] },
-    { key: 'hj', name: 'Haines Junction', vibe: 'Where the Alaska Highway meets the Haines Road, under the St. Elias Mountains: log buildings, a Quonset-hut church, the bakery and bush planes for Kluane.', street: 'gravel',
+    { key: 'hj', name: 'Haines Junction', vibe: 'Where the Haines Road leaves the Alaska Highway, under the wall of the Auriol Range and the St. Elias: a village of log buildings in the spruce, the muffin on the village square, Our Lady of the Way in its Quonset hut, St. Christopher’s log church, the Village Bakery, the Da Kų Cultural Centre, the airstrip for flightseeing over Kluane, and the Dezadeash River at the edge of town.', street: 'gravel',
       homes: { house: { kind: 'loghome' } }, // log homes with green tin roofs
       plan: [
-        ['signpost', at(2.4, 12.2), {}, 'The junction signpost'], ['cabin', A(-1, 1), {}], ['log', A(1, 1), { deck: true }, 'The Village Bakery'], ['house', A(-1, 2), { c: 12, roof: 2 }],
-        ['muffin', at(-4.3, 10.2), {}, 'The Village Monument (“the muffin”)'], ['cabin', B(1, 1), { c: 1 }],
-        ['quonset', A(1, 3), {}, 'Our Lady of the Way'], ['gas', A(1, 0), {}], ['house', A(-1, 3), { c: 9, roof: 1 }],
-        ['kluane', at(0, -11.2), {}, 'The Kluane National Park visitor centre'], ['log', lot2('A', 1, 4), { w: 4.4, motel: true }, 'The log motel'], ['house', A(-1, 4), { c: 13, roof: 1 }],
-        ['house', B(-1, 1), { c: 11, roof: 0 }], ['strip', null, {}, 'The airstrip'], ['plane', at(10.2, -3.0, 180), {}, 'A flightseeing plane'],
-        ['house', A(-1, 5), { c: 7, roof: 2 }], ['rv', B(-1, 5), {}, 'The RV park'], ['daku', B(1, 2), {}, 'The Da Kų Cultural Centre'],
-        ['house', A(1, 6), { c: 4, roof: 2 }], ['house', A(-1, 6), { c: 2, roof: 1 }], ['cabin', B(1, 3), {}], ['house', B(-1, 2), { c: 14, roof: 0 }],
-        ['house', A(1, 7), { c: 9, roof: 1 }], ['house', A(-1, 7), { c: 12, roof: 2 }], ['cabin', B(1, 4), { c: 1 }], ['house', B(-1, 3), { c: 0, roof: 1 }],
-        ['house', A(1, 8), { c: 13, roof: 2 }], ['house', A(-1, 8), { c: 11, roof: 1 }], ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 7, roof: 2 }],
-        ['cabin', B(1, 0), { c: 1 }], ['house', B(-1, 0), { c: 4, roof: 1 }],
+        ['signpost', at(2.4, 12.2), {}, 'The junction signpost'], ['vsquare', at(-5.0, 9.6), {}, 'The village square'], ['muffin', at(-4.3, 10.0), {}, 'The Village Monument (“the muffin”)'],
+        ['log', A(1, 1), { deck: true }, 'The Village Bakery'], ['gas', A(1, 0), {}], ['cabin', A(-1, 2), {}],
+        ['quonset', A(1, 3), {}, 'Our Lady of the Way'], ['daku', lot2('A', -1, 3), {}, 'The Da Kų Cultural Centre'], ['house', A(1, 2), { c: 12, roof: 2 }],
+        ['stchris', at(-8.6, 2.4, 90), {}, 'St. Christopher’s Anglican Church'], ['convention', lot2('A', 1, 5), {}, 'The St. Elias Convention Centre'],
+        ['strip', null, {}, 'The airstrip'], ['plane', at(10.2, -3.0, 180), {}, 'A flightseeing plane'], ['log', lot2('A', -1, 5), { w: 4.0, motel: true }, 'The log motel'],
+        ['akhwy', null, {}, 'The Alaska Highway on to Kluane Lake'], ['rv', B(-1, 5), {}, 'The RV park'],
+        ['house', A(1, 7), { c: 4, roof: 2 }], ['house', A(-1, 7), { c: 2, roof: 1 }], ['cabin', B(1, 3), {}], ['house', B(-1, 2), { c: 14, roof: 0 }],
+        ['house', A(1, 8), { c: 9, roof: 1 }], ['house', A(-1, 8), { c: 12, roof: 2 }], ['cabin', B(1, 4), { c: 1 }], ['house', B(-1, 3), { c: 0, roof: 1 }],
+        ['house', B(-1, 0), { c: 4, roof: 1 }], ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 7, roof: 2 }], ['house', B(-1, 6), { c: 13, roof: 2 }],
+        ['cabin', B(1, 0), { c: 1 }], ['house', B(-1, 1), { c: 11, roof: 0 }],
         ['peaks', null, {}, 'The St. Elias Mountains'], ['lamps', null, {}, 'Lamps along the highway']
       ] },
-    { key: 'haines', name: 'Haines', vibe: 'A fishing town stepping down its hill to the water: the white officers’ houses of Fort Seward round their parade ground up top, totem poles, the Hammer Museum, the cannery, the small boat harbour full of fishing boats, and bald eagles in the cottonwoods.', street: 'gravel', slope: true,
+    { key: 'haines', name: 'Haines', vibe: 'A fishing town on Portage Cove under Mount Ripinsky, in two halves: Fort Seward up on the slope, its white officers’ houses round the big parade ground with Hotel Halsingland at the corner and the clan house of Totem Village on the green; and downtown down Main Street to the small boat harbour, with the Hammer Museum, the Sheldon Museum on the bluff, the cannery, and eagles in the cottonwoods.', street: 'gravel', slope: true,
       homes: { house: { o: { shingle: true }, unless: 'porch' } }, // cedar shingles and fishing buoys (not Fort Seward)
       plan: [
-        ['cabin', A(1, 0), {}], ['house', A(-1, 0), { c: 7 }], ['front', A(1, 1), { c: 9, t: 0 }], ['lawn', null, {}, 'The Fort Seward parade ground'],
-        ['house', at(-4.3, 5, 90 + 180), { c: 8, roof: 3, porch: true, two: true }], ['house', at(-4.3, 2.5, 270), { c: 8, roof: 3, porch: true, two: true }, 'The officers’ row'],
-        ['hammer', A(1, 2), {}, 'The Hammer Museum'], ['house', at(-4.3, 0, 270), { c: 8, roof: 3, porch: true, two: true }], ['totems', at(2.4, 1.25), {}, 'Totem poles'],
-        ['front', A(1, 4), { c: 4, t: 0 }], ['house', at(-4.3, -2.5, 270), { c: 8, roof: 3, porch: true, two: true }], ['house', at(-4.3, -5, 270), { c: 8, roof: 3, porch: true, two: true }],
-        ['hall', at(0, -11.4), {}, 'The Chilkat Center'], ['smallboats', null, {}, 'The small boat harbour'], ['eagles', null, {}, 'Bald eagles in the cottonwoods'], ['front', A(1, 5), { c: 13, t: 0, two: true }],
-        ['house', A(-1, 1), { c: 5 }], ['house', B(1, 0), { c: 10 }], ['house', at(-9.9, -6.7, 0), { c: 8, roof: 3, porch: true, two: true }],
-        ['house', at(-9.9, 6.7, 180), { c: 8, roof: 3, porch: true, two: true }, 'The commanding officer’s house'], ['front', A(1, 6), { c: 1, t: 0 }],
-        ['house', B(1, 1), { c: 15 }], ['cannery', at(8.8, -3.8, -90), {}, 'The cannery'], ['house', A(1, 7), { c: 11 }], ['house', A(-1, 7), { c: 4 }],
-        ['house', B(1, 2), { c: 7 }], ['boat', at(8.6, -8.6), { fish: true, c: 7, t: 0 }, 'A fishing boat on blocks'], ['house', A(1, 8), { c: 3 }], ['house', A(-1, 8), { c: 10 }],
-        ['house', B(1, 5), { c: 6 }], ['house', A(1, 3), { c: 5, small: true }], ['lamps', null, {}, 'Lamps along Main Street']
+        ['front', at(2.6, 7.5, 90), { c: 9, t: 0 }], ['front', at(7.4, 7.5, -90), { c: 4, t: 0, two: true, signText: 'EAGLE FOUNDATION' }, 'The American Bald Eagle Foundation'], ['parade', null, {}, 'The Fort Seward parade ground'],
+        ['house', at(-13.4, 7.2, 180), { c: 8, roof: 3, porch: true, two: true }], ['house', at(-10.6, 7.2, 180), { c: 8, roof: 3, porch: true, two: true }, 'Officers’ Row'],
+        ['hammer', at(7.4, 2.5, -90), {}, 'The Hammer Museum'], ['house', at(-7.8, 7.2, 180), { c: 8, roof: 3, porch: true, two: true }], ['smallboats', null, {}, 'The small boat harbour'],
+        ['halsingland', at(-17.0, 7.4, 180), {}, 'Hotel Halsingland'], ['front', at(2.6, 5.0, 90), { c: 13, t: 0, two: true, signText: 'HAINES BREWING' }, 'Haines Brewing'],
+        ['tribalhouse', at(-12.4, -3.0, 0), {}, 'Totem Village'], ['front', at(7.4, 5.0, -90), { c: 1, t: 0 }], ['eagles', null, {}, 'Bald eagles in the cottonwoods'],
+        ['hall', at(-11.0, -7.8, 0), {}, 'The Chilkat Center for the Arts'], ['barracks', at(-16.8, 0, 90), {}, 'The old barracks'], ['front', at(2.6, 2.5, 90), { c: 5, t: 0 }],
+        ['sheldon', at(7.4, -7.5, -90), {}, 'The Sheldon Museum'], ['aiarts', at(-5.6, -8.4, 0), {}, 'Alaska Indian Arts, in the old fort hospital'],
+        ['house', at(-4.3, 3.5, -90), { c: 8, roof: 3, porch: true, two: true }], ['front', at(7.4, 0, -90), { c: 11, t: 0, two: true, signText: 'FOGCUTTER BAR' }],
+        ['portdock', null, {}, 'Port Chilkoot dock and a small cruise ship'], ['cannery', at(12.6, -9.5, -90), {}, 'The cannery'], ['front', at(2.6, 0, 90), { c: 3, t: 0, signText: 'MOUNTAIN MARKET' }],
+        ['house', at(-4.3, -1.5, -90), { c: 8, roof: 3, porch: true, two: true }], ['front', at(7.4, -2.5, -90), { c: 7, t: 0 }], ['front', at(2.6, -2.5, 90), { c: 15, t: 0 }],
+        ['house', at(2.6, -5.0, 90), { c: 10 }], ['house', at(7.4, -5.0, -90), { c: 6 }], ['boat', at(10.4, -3.0), { fish: true, c: 7, t: 0 }, 'A fishing boat on blocks'],
+        ['house', at(2.6, -7.5, 90), { c: 5 }], ['house', at(2.6, 10.0, 90), { c: 12 }], ['house', at(7.4, 10.0, -90), { c: 2 }],
+        ['house', at(-2.0, 10.6, 180), { c: 10 }], ['house', at(-5.0, 10.8, 180), { c: 15 }], ['house', at(0.4, -9.8, 0), { c: 7 }],
+        ['lamps', null, {}, 'Lamps along Main Street']
       ] },
-    { key: 'watson', name: 'Watson Lake', vibe: 'Mile 635 of the Alaska Highway, a long way down the road: the Sign Post Forest with its thousands of signs from home, the Northern Lights Centre, float planes on Wye Lake and the gas station that never closes.', street: 'gravel',
-      keep: [[-9.5, 13.5, 5.5]], // the sign forest by the highway
+    { key: 'watson', name: 'Watson Lake', vibe: 'Mile 635 of the Alaska Highway, the first stop in the Yukon coming up from the south: the Sign Post Forest with its tens of thousands of signs from home at the junction with the Robert Campbell Highway, the Northern Lights Centre’s dome across the road, motels and gas stations strung along the highway, Wye Lake and its trail behind the main street, and out at the airport the 1941 wartime hangar and the log terminal.', street: 'gravel',
+      keep: [[-10, 12.5, 7]], // the sign forest by the highway
       homes: { house: { kind: 'trailer', every: 2 } }, // trailers and pickups along the highway
       plan: [
-        ['cabin', A(1, 0), {}], ['signforest', null, {}, 'The Sign Post Forest'], ['lake', null, {}, 'The Wye Lake shore'], ['front', A(-1, 1), { c: 9, t: 0 }],
-        ['log', lot2('A', 1, 1), { w: 4.4 }, 'The Alaska Highway visitor centre'], ['house', A(-1, 2), { c: 5 }], ['gas', A(1, 3), {}, 'The highway gas station'],
-        ['dome', at(-9.2, -1.6, 90), {}, 'The Northern Lights Centre'], ['plane', at(12.2, 1.2, 180), { floats: true }, 'A float plane on Wye Lake'],
-        ['church', A(-1, 3), { c: 8, roof: 1, small: true }, 'St. John’s Church'], ['rv', B(1, 0), {}, 'The RV park'],
-        ['front', A(-1, 4), { c: 13, t: 0, two: true }, 'The Watson Lake Hotel'], ['house', A(1, 4), { c: 11 }], ['house', A(1, 5), { c: 3 }], ['house', A(-1, 5), { c: 10 }],
-        ['house', A(1, 6), { c: 7 }], ['house', A(-1, 6), { c: 2 }], ['house', B(-1, 5), { c: 12 }], ['cabin', B(-1, 6), {}], ['canoes', null, {}, 'Canoes on Wye Lake'],
+        ['signforest', null, { big: true }, 'The Sign Post Forest'], ['campbell', null, {}, 'The Robert Campbell Highway junction'],
+        ['dome', at(4.8, 9.4, -90), {}, 'The Northern Lights Centre'], ['gas', A(1, 3), {}, 'The highway gas station'], ['wye', null, {}, 'Wye Lake and its trail'],
+        ['front', at(4.6, 5.6, -90), { c: 13, t: 0, two: true, w: 2.6, signText: 'WATSON LAKE HOTEL' }, 'The Watson Lake Hotel'],
+        ['log', at(-4.6, 1.8, 90), { w: 4.0, motel: true }, 'The Air Force Lodge (wartime barracks)'], ['wlairport', null, {}, 'The 1941 hangar and the log air terminal'],
+        ['plane', at(12.0, 1.2, 180), { floats: true }, 'A float plane on Wye Lake'], ['church', A(-1, 5), { c: 8, roof: 1, small: true }, 'St. John’s Anglican Church'],
+        ['rv', B(1, 0), {}, 'The RV park'], ['front', A(1, 4), { c: 9, t: 0, signText: 'BIG HORN MOTEL' }, 'The Big Horn Motel'],
+        ['gas', A(-1, 6), {}], ['house', A(1, 5), { c: 3 }], ['house', A(1, 6), { c: 7 }], ['house', B(-1, 5), { c: 12 }], ['cabin', B(-1, 6), {}], ['canoes', null, {}, 'Canoes on Wye Lake'],
         ['house', A(1, 7), { c: 4 }], ['house', A(-1, 7), { c: 14 }], ['house', A(1, 8), { c: 1 }], ['house', A(-1, 8), { c: 6 }], ['cabin', B(1, 5), {}], ['house', B(1, 6), { c: 9 }],
-        ['quonset', Cr(-1, 1), { plain: true }, 'The 1942 airport hangar'], ['lamps', null, {}, 'Lamps along the Alaska Highway']
+        ['house', B(-1, 3), { c: 11 }], ['house', B(-1, 4), { c: 5 }], ['cabin', B(1, 4), {}],
+        ['lamps', null, {}, 'Lamps along the Alaska Highway']
       ] },
     { key: 'juneau', name: 'Juneau', vibe: 'Alaska’s capital, out on its island where no road goes, squeezed between the water and the mountains: South Franklin Street along the cruise docks, the town climbing the hillside behind in terraces and stair-streets, the Capitol and St. Nicholas halfway up, the Governor’s Mansion on Chicken Ridge, the Baranof Hotel, the tram up Mount Roberts past the old A-J mine, float planes on the channel and the Mendenhall Glacier out by the airport.', street: 'gravel', walks: true, slope: true,
       homes: { house: { vary: [7, 12, 3, 10, 15, 6, 4, 9, 1, 11] } }, // painted wooden houses of every colour, stacked up the hill
@@ -3543,7 +3575,7 @@
     C.slots = [];
     for (var sr = 0; sr < 2 && C.slots.length < OUTSKIRTS.length; sr++) for (var th = 140 + sr * 8; th <= 330; th += 15) {
       var lr = 16.2 + sr * 1.8, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
-      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.2) || townHill(wx, wz) > 2.2 || nearRail(wx, wz, 3) || dawsonChannel(wx, wz) > 0.02 || nearSkagRiver(wx, wz, 1.5)) continue;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.2) || townHill(wx, wz) > 2.2 || nearRail(wx, wz, 3) || dawsonChannel(wx, wz) > 0.02 || nearSkagRiver(wx, wz, 1.5) || creekNear(wx, wz, 1.5)) continue;
       if ((D.keep || []).some(function (k) { return Math.hypot(lx - k[0], lz - k[1]) < k[2]; })) continue;
       C.slots.push({ x: lx, z: lz, r: Math.atan2(-lx, -lz) / D2R, ground: true });
     }
@@ -4325,6 +4357,183 @@
         [-0.32, 0.32].forEach(function (ozz) { for (var cs3 = 0; cs3 < 6; cs3++) { var cx0 = bxb + bl * cs3 / 6, cx1 = bxb + bl * (cs3 + 1) / 6, sag = function (xx) { var u = (xx - bxb) / bl; return by + 1.4 - 1.0 * 4 * u * (1 - u); }; var cab = P(h, self.geo.box, dark, Math.hypot(cx1 - cx0, sag(cx1) - sag(cx0)), 0.025, 0.025, (cx0 + cx1) / 2, (sag(cx0) + sag(cx1)) / 2, bz + ozz); cab.rotation.z = Math.atan2(sag(cx1) - sag(cx0), cx1 - cx0); } });
         break;
       }
+      case 'dgrid': {
+        // Dawson's gridiron: Second, Third and Fourth Avenues parallel to Front Street, the cross
+        // streets (King, Queen, Princess, Harper) running back from the river, all dirt, and the
+        // grassy dike along the riverbank.
+        var dirt = M('tstreet', 0);
+        [2.5, -3.6, -9.8].forEach(function (ax) { for (var sg = 0; sg < 6; sg++) { var z0 = 12.8 - sg * 4.2, z1 = z0 - 4.2, y0 = localGround(ax, (z0 + z1) / 2); P(h, self.geo.box, dirt, 2.0, 0.05, 4.25, ax, y0 + 0.03, (z0 + z1) / 2).userData.passable = true; } });
+        [11.2, 5.6, 0, -5.6, -11.2].forEach(function (cz) { var full = cz === 0, x0c = -11, x1c = full ? 10 : 3.5, y1 = localGround(-2, cz); P(h, self.geo.box, dirt, x1c - x0c, 0.05, 1.15, (x0c + x1c) / 2, y1 + 0.03, cz).userData.passable = true; });
+        for (var dk = 0; dk < 7; dk++) { var dz = 12 - dk * 4, dy = localGround(10.6, dz); P(h, self.geo.blob, M('grassDeep'), 0.9, 0.3, 2.3, 10.6, dy + 0.05, dz); }
+        break;
+      }
+      case 'commres': {
+        // The Commissioner's Residence: the grand white house of 1901 at the end of Front Street,
+        // wrapped in a two-storey verandah, with a lawn and a picket fence.
+        P(h, self.geo.box, M('grassDeep'), 4.6, 0.05, 3.6, 0, 0.03, 0.5);
+        P(h, self.geo.box, M('whitewood'), 3.6, 1.8, 2.2, 0, 0.9, -0.3); gable(h, roofM(1), 3.8, 2.4, 0.75, 1.8, true);
+        P(h, self.geo.box, M('whitewood'), 3.8, 0.08, 0.8, 0, 0.9, 1.2); P(h, self.geo.box, roofM(1), 3.9, 0.06, 0.9, 0, 1.82, 1.2);
+        for (var cr = 0; cr < 7; cr++) P(h, self.geo.cyl6, M('whitewood'), 0.04, 1.8, 0.04, -1.8 + cr * 0.6, 0.9, 1.55);
+        windows(h, 5, 3.2, 0.5, 0.82, 0.26); windows(h, 5, 3.2, 1.3, 0.82, 0.26); door(h, 0, 0, 0.82, M('tpaint', 12));
+        for (var pk = 0; pk < 15; pk++) P(h, self.geo.box, M('whitewood'), 0.04, 0.28, 0.03, -2.2 + pk * 0.31, 0.14, 2.25);
+        break;
+      }
+      case 'museum': {
+        // The old Territorial Administration Building, now the Dawson City Museum: big, white and
+        // classical, a pediment over four tall columns.
+        P(h, self.geo.box, M('plaster', 0), 4.2, 1.9, 2.4, 0, 0.95, -0.2);
+        P(h, self.geo.box, M('plaster', 0), 2.0, 0.12, 0.8, 0, 1.85, 1.2); P(h, self.geo.gable, M('plaster', 0), 2.0 / 1.7, 0.45 / 0.75, 0.82 / 1.5, 0, 1.92, 1.2);
+        for (var mc2 = 0; mc2 < 4; mc2++) P(h, self.geo.cyl, M('whitewood'), 0.09, 1.75, 0.09, -0.75 + mc2 * 0.5, 0.9, 1.45);
+        P(h, self.geo.box, M('stone', 1), 2.2, 0.12, 0.9, 0, 0.06, 1.3); windows(h, 6, 3.9, 0.55, 1.02, 0.26); windows(h, 6, 3.9, 1.35, 1.02, 0.26);
+        P(h, self.geo.box, roofM(2), 4.4, 0.1, 2.6, 0, 1.95, -0.2);
+        break;
+      }
+      case 'danoja': {
+        // The Dänojà Zho Cultural Centre of the Tr'ondëk Hwëch'in: cedar, tall glass and a roof that
+        // lifts like a wing over Front Street.
+        P(h, self.geo.box, M('logwood', 1), 3.6, 1.3, 1.8, 0, 0.65, 0); P(h, self.geo.box, win, 1.6, 1.0, 0.04, 0.6, 0.6, 0.92);
+        var dw = P(h, self.geo.box, M('troof', 1), 4.2, 0.08, 2.4, 0, 1.55, 0.1); dw.rotation.x = -0.22; dw.rotation.z = 0.08;
+        [-1.8, 1.8].forEach(function (x) { P(h, self.geo.box, M('logwood', 0), 0.14, 1.7, 0.14, x, 0.85, 1.1); });
+        break;
+      }
+      case 'graveyard': {
+        // The sternwheeler graveyard across the river at West Dawson: old riverboats left to rot on
+        // the bank, ribs showing, willows growing through them.
+        [[32.5, -9, 0.3], [34.0, -4.5, -0.2], [32.0, 7.5, 0.15]].forEach(function (b, i) {
+          var g2 = new T.Group(); g2.position.set(b[0], localGround(b[0], b[1]), b[1]); g2.rotation.set(0, b[2], 0.12 * (i % 2 ? 1 : -1)); h.add(g2);
+          P(g2, self.geo.box, M('woodLight'), 1.7, 0.35, 5.0, 0, 0.18, 0); P(g2, self.geo.box, M('whitewood'), 1.4, 0.5, 2.2, 0, 0.6, 0.6);
+          for (var rb = 0; rb < 6; rb++) P(g2, self.geo.box, M('trunk'), 1.8, 0.06, 0.06, 0, 0.5, -2.2 + rb * 0.8).rotation.z = 0.6;
+          for (var wl = 0; wl < 3; wl++) P(g2, self.geo.blob, M('leaf', wl % 3), 0.35, 0.4, 0.35, (wl - 1) * 0.6, 0.6, -1.6 + wl * 1.2);
+        });
+        break;
+      }
+      case 'tailings': {
+        // Up the Klondike valley: Dredge No. 4 and the long grey worm-piles of tailings it left behind.
+        for (var tl = 0; tl < 11; tl++) { var tx = -44 + tl * 2.4, tz = 25 + Math.sin(tl * 1.3) * 1.6, ty = localGround(tx, tz); P(h, self.geo.blob, M('tstreet', 1), 1.3, 0.45, 2.6, tx, ty + 0.15, tz).rotation.y = 0.4 + tl * 0.3; }
+        var dg = new T.Group(); dg.position.set(-30, localGround(-30, 22.5), 22.5); dg.rotation.y = 0.3; h.add(dg);
+        P(dg, self.geo.blob, M('water'), 2.6, 0.06, 3.6, 0, 0.04, 0);
+        P(dg, self.geo.box, M('tpaint', 12), 2.4, 1.6, 3.4, 0, 1.0, 0); gable(dg, M('tin', 1), 2.5, 3.5, 0.5, 1.8, false);
+        var ladder = P(dg, self.geo.box, M('stoneDark'), 0.5, 0.25, 3.6, 0, 1.0, 3.0); ladder.rotation.x = 0.35;
+        P(dg, self.geo.box, M('stoneDark'), 0.6, 0.25, 3.2, 0, 1.5, -3.0).rotation.x = -0.4;
+        break;
+      }
+      case 'stchris': {
+        // St. Christopher's Anglican: a little log church with a steep roof and a bell over the door.
+        P(h, self.geo.box, M('logwood', 0), 1.8, 0.9, 2.4, 0, 0.45, 0); gable(h, roofM(1), 2.0, 2.6, 0.8, 0.9, false);
+        P(h, self.geo.box, M('logwood', 0), 0.5, 0.5, 0.5, 0, 1.6, 1.0); P(h, self.geo.cone4, roofM(1), 0.45, 0.4, 0.45, 0, 2.05, 1.0).rotation.y = Math.PI / 4;
+        P(h, self.geo.box, M('gold'), 0.03, 0.3, 0.03, 0, 2.38, 1.0); P(h, self.geo.box, M('gold'), 0.16, 0.03, 0.03, 0, 2.42, 1.0); door(h, 0, 0, 1.21, M('wood'));
+        break;
+      }
+      case 'convention': {
+        // The St. Elias Convention Centre: a big hall of logs under a long green roof, a deck out front.
+        P(h, self.geo.box, M('logwood', 1), 4.2, 1.3, 2.2, 0, 0.65, 0); gable(h, M('troof', 1), 4.4, 2.5, 0.8, 1.3, true);
+        windows(h, 5, 3.6, 0.7, 1.12, 0.32); door(h, 0, 0, 1.12, M('wood'));
+        P(h, self.geo.box, wood, 4.4, 0.1, 0.9, 0, 0.12, 1.6);
+        break;
+      }
+      case 'vsquare': {
+        // The village square at the junction: paving, a picnic shelter and flower boxes round the muffin.
+        P(h, self.geo.box, M('cobble'), 5.0, 0.04, 4.0, 0, 0.02, 0).userData.passable = true;
+        var sh2 = new T.Group(); sh2.position.set(-1.6, 0, -1.1); h.add(sh2);
+        [[-0.8, -0.5], [0.8, -0.5], [-0.8, 0.5], [0.8, 0.5]].forEach(function (pp) { P(sh2, self.geo.box, M('logwood', 0), 0.1, 1.0, 0.1, pp[0], 0.5, pp[1]); });
+        P(sh2, self.geo.gable, M('troof', 1), 2.0 / 1.7, 0.5 / 0.75, 1.4 / 1.5, 0, 1.0, 0); P(sh2, self.geo.box, wood, 1.2, 0.05, 0.5, 0, 0.4, 0);
+        [[2.2, 1.6], [-2.2, 1.6], [2.2, -1.6]].forEach(function (fb) { P(h, self.geo.box, wood, 0.7, 0.2, 0.3, fb[0], 0.1, fb[1]); P(h, self.geo.blob, M('flag', 4), 0.3, 0.12, 0.12, fb[0], 0.25, fb[1]); });
+        break;
+      }
+      case 'akhwy': {
+        // The Alaska Highway carrying on out the far end of town toward Kluane Lake, with the
+        // junction sign: ALASKA one way, HAINES the other, WHITEHORSE back the way you came.
+        for (var hs = 0; hs < 6; hs++) { var hz = -12 - hs * 3, hx = -hs * hs * 0.25, hy = localGround(hx, hz); P(h, self.geo.box, M('tstreet', 1), 3.0, 0.05, 3.2, hx, hy + 0.03, hz).rotation.y = hs * 0.08; }
+        var sp = new T.Group(); sp.position.set(2.4, localGround(2.4, -11), -11); h.add(sp);
+        P(sp, self.geo.cyl6, M('trunk'), 0.06, 2.0, 0.06, 0, 1.0, 0);
+        [['ALASKA', 0.3], ['KLUANE LAKE', -0.4]].forEach(function (sg2, i) { var tex = signTex(sg2[0], '#f3efe6', '#2f5d3a'), m = new T.Mesh(new T.PlaneGeometry(1.2, 0.26), new T.MeshBasicMaterial({ map: tex, side: T.DoubleSide })); m.position.set(0.3, 1.75 - i * 0.32, 0); m.rotation.y = sg2[1]; sp.add(m); });
+        break;
+      }
+      case 'parade': {
+        // Fort Seward's parade ground: a big green square sloping down toward the water, the flag
+        // in the middle and a field gun at the bottom.
+        var pw = 8.4, pl = 9.4, cx0 = -10, ya2 = localGround(cx0, pl / 2), yb2 = localGround(cx0, -pl / 2), ym2 = localGround(cx0, 0);
+        var lwn = P(h, self.geo.box, M('grassDeep'), pw, 0.05, Math.hypot(pl, ya2 - yb2), cx0, (ya2 + yb2) / 2 + 0.04, 0); lwn.rotation.x = -Math.atan2(ya2 - yb2, pl); lwn.userData.passable = true;
+        [[-4.4, 0], [4.4, 0]].forEach(function (pth) { var py = (ya2 + yb2) / 2; var pt = P(h, self.geo.box, M('tstreet', 1), 0.5, 0.05, Math.hypot(pl, ya2 - yb2), cx0 + pth[0], py + 0.05, 0); pt.rotation.x = -Math.atan2(ya2 - yb2, pl); });
+        P(h, self.geo.cyl6, M('whitewood'), 0.05, 3.4, 0.05, cx0, ym2 + 1.7, 0); var fg = P(h, self.geo.flag, M('flag', 2), 1.1, 1.1, 1.1, cx0, ym2 + 3.3, 0); fg.rotation.y = Math.PI / 2;
+        var gun = new T.Group(); gun.position.set(cx0 + 2.4, localGround(cx0 + 2.4, -3.4), -3.4); h.add(gun);
+        P(gun, self.geo.cyl, M('stoneDark'), 0.07, 0.7, 0.07, 0, 0.32, -0.1).rotation.x = Math.PI / 2 - 0.2; [-0.18, 0.18].forEach(function (x) { P(gun, self.geo.cyl, M('wood'), 0.16, 0.04, 0.16, x, 0.16, 0.1).rotation.z = Math.PI / 2; });
+        break;
+      }
+      case 'halsingland': {
+        // Hotel Halsingland: the old commanding officer's quarters at the top corner of the parade
+        // ground, big and white with its red roof and wraparound porch.
+        P(h, self.geo.box, M('whitewood'), 3.4, 1.7, 2.2, 0, 0.85, 0); gable(h, M('troof', 2), 3.6, 2.4, 0.8, 1.7, true);
+        P(h, self.geo.box, M('whitewood'), 3.6, 0.08, 0.8, 0, 0.1, 1.45); P(h, self.geo.box, M('troof', 2), 3.7, 0.06, 0.9, 0, 0.92, 1.45).rotation.x = 0.18;
+        for (var hc = 0; hc < 6; hc++) P(h, self.geo.cyl6, M('whitewood'), 0.04, 0.85, 0.04, -1.7 + hc * 0.68, 0.5, 1.8);
+        windows(h, 4, 3.0, 0.5, 1.12, 0.3); windows(h, 4, 3.0, 1.25, 1.12, 0.3); door(h, 0, 0, 1.12, M('tpaint', 2));
+        P(h, self.geo.box, M('brick'), 0.25, 0.6, 0.25, 1.1, 2.1, -0.3); P(h, self.geo.box, M('brick'), 0.25, 0.6, 0.25, -1.1, 2.1, -0.3);
+        var hsn = new T.Mesh(new T.PlaneGeometry(1.4, 0.26), new T.MeshBasicMaterial({ map: signTex('HALSINGLAND', '#f3efe6', '#7a2e2e') })); hsn.position.set(0, 0.62, 1.86); h.add(hsn);
+        break;
+      }
+      case 'barracks': {
+        // The old barracks along the side of the parade ground: long, white, two storeys, a porch
+        // the length of it.
+        P(h, self.geo.box, M('whitewood'), 5.0, 1.5, 1.6, 0, 0.75, 0); gable(h, M('troof', 2), 5.2, 1.8, 0.6, 1.5, true);
+        P(h, self.geo.box, M('troof', 2), 5.2, 0.06, 0.8, 0, 0.8, 1.15).rotation.x = 0.18;
+        for (var bc = 0; bc < 8; bc++) P(h, self.geo.cyl6, M('whitewood'), 0.04, 0.8, 0.04, -2.45 + bc * 0.7, 0.4, 1.5);
+        windows(h, 8, 4.6, 0.45, 0.82, 0.24); windows(h, 8, 4.6, 1.1, 0.82, 0.24);
+        break;
+      }
+      case 'tribalhouse': {
+        // Totem Village: a Tlingit clan house of cedar planks with a painted front and totem poles.
+        P(h, self.geo.box, M('logwood', 1), 2.6, 1.0, 2.2, 0, 0.5, 0); gable(h, M('logwood', 0), 2.8, 2.4, 0.55, 1.0, true);
+        P(h, self.geo.box, M('swan', 2), 1.8, 0.7, 0.03, 0, 0.6, 1.11); P(h, self.geo.box, M('tpaint', 2), 1.0, 0.35, 0.035, 0, 0.62, 1.12); P(h, self.geo.box, M('whitewood'), 0.4, 0.15, 0.04, -0.5, 0.8, 1.13); P(h, self.geo.box, M('whitewood'), 0.4, 0.15, 0.04, 0.5, 0.8, 1.13);
+        P(h, self.geo.box, M('swan', 2), 0.4, 0.6, 0.04, 0, 0.3, 1.14);
+        [-1.7, 1.7].forEach(function (x, i) { for (var tf = 0; tf < 4; tf++) P(h, self.geo.box, M('tpaint', [2, 9, 13, 5][(tf + i) % 4]), 0.32, 0.4, 0.32, x, 0.2 + tf * 0.4, 0.8); P(h, self.geo.box, M('tpaint', 2), 0.9, 0.08, 0.16, x, 1.65, 0.8); });
+        break;
+      }
+      case 'aiarts': {
+        // Alaska Indian Arts, in the fort's old hospital: a long white building where carvers work.
+        P(h, self.geo.box, M('whitewood'), 3.8, 1.0, 1.6, 0, 0.5, 0); gable(h, M('troof', 2), 4.0, 1.8, 0.5, 1.0, true); windows(h, 6, 3.4, 0.55, 0.82, 0.26); door(h, 0, 0, 0.82, M('tpaint', 2));
+        P(h, self.geo.box, M('logwood', 0), 0.3, 0.3, 1.4, 2.4, 0.15, 0.5).rotation.y = 0.3; // a log waiting to be carved
+        break;
+      }
+      case 'sheldon': {
+        // The Sheldon Museum, on the bluff above the small boat harbour.
+        P(h, self.geo.box, M('plaster', 0), 2.6, 1.3, 1.8, 0, 0.65, 0); P(h, self.geo.box, roofM(1), 2.8, 0.1, 2.0, 0, 1.35, 0); windows(h, 4, 2.2, 0.75, 0.92, 0.3); door(h, 0, 0, 0.92, M('wood'));
+        var ssn = new T.Mesh(new T.PlaneGeometry(1.6, 0.24), new T.MeshBasicMaterial({ map: signTex('SHELDON MUSEUM', '#f3efe6', '#2f5d3a') })); ssn.position.set(0, 1.18, 0.92); h.add(ssn);
+        break;
+      }
+      case 'portdock': {
+        // Port Chilkoot dock, below the fort: a long pier, and a small cruise ship alongside.
+        var pY = SEA_Y - base, sea2 = new T.Group(); sea2.position.set(-9, pY, -18); h.add(sea2);
+        P(sea2, self.geo.box, wood, 1.4, 0.12, 7, 0, 1.0, -1.5); for (var pp2 = 0; pp2 < 6; pp2++) [-0.55, 0.55].forEach(function (x) { P(sea2, self.geo.cyl6, M('trunk'), 0.07, 1.6, 0.07, x, 0.3, 1.5 - pp2 * 1.2); });
+        self.cruiseShip(sea2, 3.2, -4.5, 9, 0.7, pick);
+        break;
+      }
+      case 'campbell': {
+        // The Robert Campbell Highway turning off north at the junction, by the Sign Post Forest.
+        for (var cs = 0; cs < 7; cs++) { var cx2 = -3 - cs * 3, cz2 = 6.5 - cs * cs * 0.12, cy2 = localGround(cx2, cz2); P(h, self.geo.box, M('tstreet', 1), 3.2, 0.05, 2.6, cx2, cy2 + 0.03, cz2).userData.passable = true; }
+        var jsg = new T.Group(); jsg.position.set(-2.6, localGround(-2.6, 8.2), 8.2); h.add(jsg); P(jsg, self.geo.cyl6, M('trunk'), 0.06, 2.0, 0.06, 0, 1.0, 0);
+        [['ROBERT CAMPBELL HWY', 0], ['MILE 635', 0]].forEach(function (sg3, i) { var m2 = new T.Mesh(new T.PlaneGeometry(1.5, 0.26), new T.MeshBasicMaterial({ map: signTex(sg3[0], '#f3efe6', '#2f5d3a'), side: T.DoubleSide })); m2.position.set(0, 1.75 - i * 0.34, 0.05); m2.rotation.y = Math.PI / 2; jsg.add(m2); });
+        break;
+      }
+      case 'wlairport': {
+        // Out at the airport: the 1941 BC-Yukon Air Service hangar and the log terminal of 1942,
+        // beside the strip the King Air lands on.
+        var S2 = STRIPS[C.ci]; if (!S2) break;
+        var sq = townLocal(C.ci, S2.x + S2.dz * 4.2, S2.z - S2.dx * 4.2), sy2 = localGround(sq.x, sq.z), syaw = Math.atan2(S2.dx, S2.dz) - rot;
+        var ag = new T.Group(); ag.position.set(sq.x, sy2, sq.z); ag.rotation.y = syaw; h.add(ag);
+        var vlt = P(ag, self.geo.cyl, M('stone', 1), 1.6, 3.6, 1.6, 0, 0, 1.2); vlt.rotation.x = Math.PI / 2; vlt.scale.set(1.6, 3.6, 1.3);
+        P(ag, self.geo.box, M('stoneDark'), 2.4, 1.2, 0.05, 0, 0.6, 3.0);
+        P(ag, self.geo.box, M('logwood', 0), 2.6, 0.9, 1.4, 0, 0.45, -2.6); gable(ag, M('troof', 1), 2.8, 1.6, 0.4, 0.9, true); windows(ag, 4, 2.2, 0.5, -1.88, 0.28);
+        P(ag, self.geo.box, M('whitewood'), 0.6, 0.5, 0.6, 1.0, 1.35, -2.6); P(ag, self.geo.box, win, 0.62, 0.26, 0.62, 1.0, 1.42, -2.6);
+        break;
+      }
+      case 'wye': {
+        // Wye Lake behind the main street: the lake, a boardwalk and a viewing platform on its
+        // loop trail, and a float plane tied up.
+        P(h, self.geo.cyl, M('sand'), 5.0, 0.05, 7.4, 15.0, 0.035, -1.5); P(h, self.geo.cyl, M('water'), 4.4, 0.06, 6.8, 15.4, 0.07, -1.5);
+        for (var bw = 0; bw < 10; bw++) { var ba = -1.2 + bw * 0.27, bx = 15.4 + Math.cos(ba) * 5.2, bz = -1.5 + Math.sin(ba) * 7.6; var bd = P(h, self.geo.box, wood, 0.5, 0.06, 1.0, bx, 0.12, bz); bd.rotation.y = -ba; }
+        P(h, self.geo.box, wood, 1.6, 0.08, 1.0, 11.6, 0.2, 4.6); [11.0, 12.2].forEach(function (x) { P(h, self.geo.box, wood, 0.04, 0.4, 0.04, x, 0.4, 5.05); });
+        break;
+      }
       case 'capitol': {
         // The Alaska State Capitol: four storeys of brick, the marble portico of four columns, a flag.
         P(h, self.geo.box, M('brick'), 4.2, 2.5, 2.0, 0, 1.25, 0);
@@ -4876,9 +5085,9 @@
       case 'signforest': {
         // The Sign Post Forest: a thicket of posts by the highway, every one plastered with signs
         // from home (licence plates, town limits, street signs), more added every summer.
-        var sr2 = rng(6350);
-        for (var sf = 0; sf < 26; sf++) {
-          var sx2 = -13 + (sf % 7) * 1.15 + (sr2() - 0.5) * 0.5, sz2 = 10.8 + Math.floor(sf / 7) * 1.4 + (sr2() - 0.5) * 0.5, sp2 = new T.Group(), ht = 1.5 + sr2() * 0.9;
+        var sr2 = rng(6350), nSf = o.big ? 70 : 26;
+        for (var sf = 0; sf < nSf; sf++) {
+          var sx2 = (o.big ? -16 : -13) + (sf % 10) * 1.15 + (sr2() - 0.5) * 0.5, sz2 = (o.big ? 8.2 : 10.8) + Math.floor(sf / 10) * 1.15 + (sr2() - 0.5) * 0.5, sp2 = new T.Group(), ht = 1.5 + sr2() * 0.9;
           sp2.position.set(sx2, localGround(sx2, sz2), sz2); h.add(sp2);
           P(sp2, self.geo.cyl6, M('trunk'), 0.05, ht, 0.05, 0, ht / 2, 0);
           for (var sg2 = 0; sg2 < 4; sg2++) {
@@ -16618,7 +16827,7 @@
     var D = C.town, n = 0;
     for (var th = 0; th < 360 && n < 9; th += 23 + r() * 10) {
       var lr = 19.8 + r() * 3, lx = Math.sin(th * D2R) * lr, lz = Math.cos(th * D2R) * lr, wx = site.x + lx * rc + lz * rs, wz = site.z - lx * rs + lz * rc;
-      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.6) || townHill(wx, wz) > 1.6 || nearRail(wx, wz, 3) || nearDawsonRiver(wx, wz, 1.5) || nearSkagRiver(wx, wz, 1.5) || stripAt(wx, wz, 2)) continue;
+      if (waterAt(wx, wz) != null || lakeDist(wx, wz) < 2.5 || riverDist(wx, wz) < 3 || coastSd(wx, wz) > -2.5 || Math.hypot(wx, wz) > WORLD_R - 4 || nearPath(wx, wz, 1.6) || townHill(wx, wz) > 1.6 || nearRail(wx, wz, 3) || nearDawsonRiver(wx, wz, 1.5) || nearSkagRiver(wx, wz, 1.5) || stripAt(wx, wz, 2) || creekNear(wx, wz, 1.5)) continue;
       if ((D.keep || []).some(function (k) { return Math.hypot(lx - k[0], lz - k[1]) < k[2]; })) continue;
       if ((C.slots || []).some(function (sl) { return Math.hypot(sl.x - lx, sl.z - lz) < 3.2; }) || placed.some(function (q) { return Math.hypot(q.x - wx, q.z - wz) < 4; })) continue;
       if (Math.abs(groundY(wx + 1, wz) - groundY(wx - 1, wz)) > 0.9 || Math.abs(groundY(wx, wz + 1) - groundY(wx, wz - 1)) > 0.9) continue;
@@ -17072,6 +17281,39 @@
       p.rotation.set(Math.sin(N.paperT * 4) * 1.2, N.paperT * 2, Math.cos(N.paperT * 3) * 0.8);
       if (N.paperT > 9) p.visible = false;
     }
+  };
+
+
+  // ---- the Klondike and the Dezadeash: water down their channels, and a bridge for each road ----
+  Town.prototype.buildCreeks = function () {
+    var self = this;
+    TOWN_CREEKS.forEach(function (c) {
+      var pts = [], idx = [], n = 0, lv = creekLevel(c) + 0.02;
+      for (var lx = c.x0; lx <= c.x1 + 0.01; lx += 1.5) {
+        var cz = creekZ(c, lx), dz = creekZ(c, lx + 0.5) - creekZ(c, lx - 0.5), l = Math.hypot(1, dz), nx = -dz / l, nz = 1 / l, w = c.half + 0.45;
+        var a = siteAt(c.ci, lx + nx * w, cz + nz * w), b = siteAt(c.ci, lx - nx * w, cz - nz * w); pts.push(a.x, lv, a.z, b.x, lv, b.z);
+        if (n) { var i0 = (n - 1) * 2; idx.push(i0, i0 + 2, i0 + 1, i0 + 1, i0 + 2, i0 + 3); } n++;
+      }
+      var g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); g.setIndex(idx); g.computeVertexNormals();
+      var m = new T.Mesh(g, self.mat('water')); m.receiveShadow = true; self.base.add(m);
+      // Bridges where the roads cross.
+      CASTLE_ROADS.forEach(function (rd) {
+        if (!rd) return;
+        for (var i = 1; i < rd.length; i++) {
+          var qa = townLocal(c.ci, rd[i - 1].x, rd[i - 1].z), qb = townLocal(c.ci, rd[i].x, rd[i].z);
+          if (qa.d2 > 4000 || qa.x < c.x0 || qa.x > c.x1) continue;
+          var za = qa.z - creekZ(c, qa.x), zb = qb.z - creekZ(c, qb.x);
+          if (za * zb > 0) continue;
+          var f = za / (za - zb), wx = rd[i - 1].x + (rd[i].x - rd[i - 1].x) * f, wz = rd[i - 1].z + (rd[i].z - rd[i - 1].z) * f;
+          var j0 = rd[Math.max(0, i - 3)], j1 = rd[Math.min(rd.length - 1, i + 2)], yaw = Math.atan2(j1.x - j0.x, j1.z - j0.z), span = (c.half + c.bank) * 2 + 1.5;
+          var bg = new T.Group(); bg.position.set(wx, Math.max(groundY(j0.x, j0.z), groundY(j1.x, j1.z), lv + 0.6) + 0.1, wz); bg.rotation.y = yaw; self.base.add(bg);
+          var P = function (geo, mat, sx, sy, sz, x, y, z) { return self.part(bg, geo, mat, sx, sy, sz, x, y, z, 'bridge'); };
+          P(self.geo.box, self.mat('wood'), 2.4, 0.16, span, 0, 0, 0);
+          [-1.15, 1.15].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.08, 0.35, span, x, 0.22, 0); for (var k = 0; k < 4; k++) P(self.geo.box, self.mat('woodLight'), 0.1, 0.5, 0.1, x, 0.2, -span / 2 + k * span / 3); });
+          [-span / 3, span / 3].forEach(function (z) { P(self.geo.box, self.mat('stone', 1), 2.2, 1.4, 0.4, 0, -0.75, z); });
+        }
+      });
+    });
   };
 
   // ---- small life: birds on the rooftops, dandelion fluff, a cat on a fence ----
