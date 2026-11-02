@@ -909,8 +909,8 @@
   }
   // Rivers across the road at the edge of town (in the town's own frame, z across): the Klondike
   // meeting the Yukon at Dawson, and the Dezadeash at Haines Junction.
-  var TOWN_CREEKS = [{ ci: 4, z: 19.5, x0: -46, x1: 15, half: 1.5, bank: 2.2, drop: 1.2 }, { ci: 5, z: 20.5, x0: -40, x1: 40, half: 1.3, bank: 2.0, drop: 0.9 }];
-  function creekZ(c, lx) { return c.z + 1.6 * Math.sin(lx * 0.11 + c.ci); }
+  var TOWN_CREEKS = [{ ci: 4, z: 19.5, x0: -46, x1: 15, half: 1.5, bank: 2.2, drop: 1.2 }, { ci: 5, z: 20.5, x0: -40, x1: 32, half: 1.3, bank: 2.0, drop: 0.9, bend: 0.75 }];
+  function creekZ(c, lx) { return c.z + 1.6 * Math.sin(lx * 0.11 + c.ci) - (c.bend ? Math.max(0, lx - 3) * c.bend : 0); } // (the Dezadeash swings round past the airstrip, clear of the Haines Road)
   function creekLevel(c) { if (c.lv == null) { var s0 = CASTLE_SITES[c.ci]; c.lv = Math.max(rawHeight(s0.x, s0.z), SEA_Y + 0.5) + s0.lift - c.drop; } return c.lv; }
   function creekNear(x, z, d) {
     for (var i = 0; i < TOWN_CREEKS.length; i++) {
@@ -2018,6 +2018,7 @@
     var self = this, sets = {}, prevY = null, prev = null;
     function add(key, x, y, z, rot, sx, sy, sz) { (sets[key] = sets[key] || []).push([x, y, z, rot, sx, sy, sz]); }
     tiles.forEach(function (t, i) {
+      if (BRIDGE_SPANS.length && onBridge(t.x, t.z)) { prev = null; prevY = null; return; }
       var rd = riverDist(t.x, t.z), y = surfaceY(t.x, t.z), gap = prev ? Math.hypot(t.x - prev.x, t.z - prev.z) : 1;
       if (gap > 1.2) prevY = null;
       if (rd < RIVER_HALF + 1.1) {
@@ -2454,20 +2455,20 @@
   var CITY_EVERY = 3;
   var CITY_STREETS = {
     full: { name: 'Main Street', plan: [
-      ['front', 'a0+', { c: 2, t: 0, prop: 'cup' }, 'Baked Café'], ['front', 'a0-', { c: 7, t: 1, prop: 'heart' }, 'The Chocolate Claim'], ['front', 'a1+', { c: 0, t: 0, two: true, sign: 4, prop: 'books' }, 'Mac’s Fireweed Books'],
-      ['front', 'a1-', { c: 13, t: 0, prop: 'skis' }, 'Coast Mountain Sports'], ['front', 'a2+', { c: 9, t: 0, two: true, balcony: true, prop: 'flags' }, 'The Edgewater Hotel'], ['front', 'a2-', { c: 4, t: 2, prop: 'chili' }, 'Sanchez Cantina'],
-      ['depot', 'E', {}, 'The old White Pass & Yukon Route depot'], ['front', 'b0+', { c: 11, t: 0, prop: 'pint' }, 'The Dirty Northern Public House'], ['front', 'b0-', { c: 15, t: 3, two: true, balcony: true, redlamps: true }, 'The Capital Hotel'],
-      ['log', 'b1+', { w: 2.0, prop: 'antlers' }, 'Klondike Rib & Salmon'], ['front', 'b1-', { c: 5, t: 0, two: true, prop: 'nugget' }, 'The Gold Rush Inn']] },
+      ['front', 'a0+', { c: 2, t: 0, prop: 'cup', signText: 'BAKED CAFÉ' }, 'Baked Café'], ['front', 'a0-', { c: 7, t: 1, prop: 'heart', signText: 'CHOCOLATE CLAIM' }, 'The Chocolate Claim'], ['front', 'a1+', { c: 0, t: 0, two: true, prop: 'books', signText: 'MAC’S BOOKS' }, 'Mac’s Fireweed Books'],
+      ['front', 'a1-', { c: 13, t: 0, prop: 'skis', signText: 'COAST MOUNTAIN' }, 'Coast Mountain Sports'], ['front', 'a2+', { c: 9, t: 0, two: true, balcony: true, prop: 'flags', signText: 'EDGEWATER' }, 'The Edgewater Hotel'], ['front', 'a2-', { c: 4, t: 2, prop: 'chili', signText: 'SANCHEZ' }, 'Sanchez Cantina'],
+      ['depot', 'E', {}, 'The old White Pass & Yukon Route depot'], ['front', 'b0+', { c: 11, t: 0, prop: 'pint', signText: 'DIRTY NORTHERN' }, 'The Dirty Northern Public House'], ['front', 'b0-', { c: 15, t: 3, two: true, balcony: true, redlamps: true, signText: 'CAPITAL HOTEL' }, 'The Capital Hotel'],
+      ['log', 'b1+', { w: 2.0, prop: 'antlers' }, 'Klondike Rib & Salmon'], ['front', 'b1-', { c: 5, t: 0, two: true, prop: 'nugget', signText: 'GOLD RUSH INN' }, 'The Gold Rush Inn']] },
     chest: { name: 'Lambert Street', plan: [
       ['cabin', 'a0+', { c: 1, prop: 'pan' }, 'Sam McGee’s cabin'], ['house', 'a0-', { c: 7, two: true, porch: true, prop: 'plaque' }, 'The Taylor House'], ['skyscraper', 'a1+', {}, 'The log skyscrapers'], ['cabin', 'a1-', { prop: 'easel' }, 'Yukon Artists at Work'],
       ['logchurch', 'a2+', {}, 'The Old Log Church'], ['cabin', 'a2-', { c: 1, prop: 'bell' }, 'The Old Log Church rectory'], ['modern', 'b0+', { c: 10, floors: 2, prop: 'openbook' }, 'The Whitehorse Public Library'],
       ['church', 'E', { c: 8 }, 'Sacred Heart Cathedral'], ['house', 'b0-', { c: 3, prop: 'bread' }, 'The Alpine Bakery'], ['cabin', 'b1+', { prop: 'axe' }, 'The Woodcutter’s Blanket'], ['modern', 'b1-', { c: 12, floors: 2, prop: 'scroll' }, 'The Yukon Archives']] },
     back: { name: 'Steele Street', plan: [
-      ['house', 'a0+', { c: 6, prop: 'frame' }, 'The North End Gallery'], ['log', 'a0-', { w: 2.0, sod: true, prop: 'wheel' }, 'The MacBride Museum'], ['front', 'a1+', { c: 0, t: 1, prop: 'hosetower' }, 'The Old Fire Hall'], ['trolley', 'E', {}, 'The waterfront trolley'],
-      ['house', 'a1-', { c: 9, prop: 'sled' }, 'The Yukon Quest office'], ['front', 'a2+', { c: 12, t: 0, prop: 'canoe' }, 'Up North Adventures'], ['front', 'a2-', { c: 14, t: 2, prop: 'neon' }, 'The 98 Hotel'], ['front', 'b0+', { c: 3, t: 2, two: true, prop: 'awning' }, 'The Westmark Whitehorse'],
+      ['house', 'a0+', { c: 6, prop: 'frame' }, 'The North End Gallery'], ['log', 'a0-', { w: 2.0, sod: true, prop: 'wheel' }, 'The MacBride Museum'], ['front', 'a1+', { c: 0, t: 1, prop: 'hosetower', signText: 'FIRE HALL' }, 'The Old Fire Hall'], ['trolley', 'E', {}, 'The waterfront trolley'],
+      ['house', 'a1-', { c: 9, prop: 'sled' }, 'The Yukon Quest office'], ['front', 'a2+', { c: 12, t: 0, prop: 'canoe', signText: 'UP NORTH' }, 'Up North Adventures'], ['front', 'a2-', { c: 14, t: 2, prop: 'neon', signText: '98 HOTEL' }, 'The 98 Hotel'], ['front', 'b0+', { c: 3, t: 2, two: true, prop: 'awning', signText: 'WESTMARK' }, 'The Westmark Whitehorse'],
       ['modern', 'b0-', { c: 5, floors: 2, prop: 'mast' }, 'CBC North'], ['service', 'b1+', {}, 'Robert Service’s cabin'], ['modern', 'b1-', { c: 1, floors: 2, prop: 'press' }, 'The Whitehorse Star']] },
     shoulders: { name: 'Wood Street', plan: [
-      ['front', 'a0+', { c: 10, t: 0, prop: 'post' }, 'The Canada Post office'], ['house', 'a0-', { c: 2, prop: 'info' }, 'The Visitor Information Centre'], ['legislature', 'E', {}, 'The Yukon Legislative Building'], ['cityhall', 'a1+', {}, 'City Hall'],
+      ['front', 'a0+', { c: 10, t: 0, prop: 'post', signText: 'CANADA POST' }, 'The Canada Post office'], ['house', 'a0-', { c: 2, prop: 'info' }, 'The Visitor Information Centre'], ['legislature', 'E', {}, 'The Yukon Legislative Building'], ['cityhall', 'a1+', {}, 'City Hall'],
       ['front', 'a1-', { c: 12, t: 1, two: true, prop: 'eagle' }, 'The Elijah Smith Building'], ['modern', 'a2+', { c: 4, floors: 4, prop: 'ytflag' }, 'The Yukon Government building'], ['house', 'a2-', { c: 11, prop: 'rcmp' }, 'The RCMP detachment'], ['church', 'b0+', { c: 8, roof: 1, small: true }, 'Christ Church Cathedral'],
       ['house', 'b0-', { c: 6, prop: 'sausage' }, 'Yukon Meat & Sausage'], ['house', 'b1+', { c: 9, prop: 'fish' }, 'The Wharf on Fourth'], ['house', 'b1-', { c: 13, prop: 'toast' }, 'Burnt Toast Café']] },
     legs: { name: 'Strickland Street', plan: [
@@ -2476,12 +2477,12 @@
       ['house', 'a2-', { c: 14, two: true, prop: 'school' }, 'Christ the King Elementary'], ['cabin', 'b0+', { c: 1, prop: 'salmon' }, 'The Whitehorse Fishway'], ['cabin', 'b0-', { prop: 'leaf' }, 'The Grey Mountain trailhead cabin'],
       ['house', 'b1+', { c: 9, two: true }, 'A Riverdale duplex'], ['house', 'b1-', { c: 12, porch: true, prop: 'bike' }, 'The Riverdale bike co-op']] },
     post: { name: 'Elliott Street', plan: [
-      ['house', 'a0+', { c: 4, prop: 'vase' }, 'Lumel Studios glassworks'], ['house', 'a0-', { c: 12, prop: 'curling' }, 'The Whitehorse Curling Club'], ['front', 'a1+', { c: 6, t: 0, prop: 'aurora' }, 'Boréale Explorers'], ['arena', 'E', {}, 'Takhini Arena'],
+      ['house', 'a0+', { c: 4, prop: 'vase' }, 'Lumel Studios glassworks'], ['house', 'a0-', { c: 12, prop: 'curling' }, 'The Whitehorse Curling Club'], ['front', 'a1+', { c: 6, t: 0, prop: 'aurora', signText: 'BORÉALE' }, 'Boréale Explorers'], ['arena', 'E', {}, 'Takhini Arena'],
       ['house', 'a1-', { c: 9, prop: 'rings' }, 'The Polarettes gymnastics club'], ['house', 'a2+', { c: 15, two: true, prop: 'star' }, 'The Yukon Inn'], ['yukonu', 'a2-', {}, 'The Canada Games Centre'], ['house', 'b0+', { c: 0, prop: 'note' }, 'Bluefeather Music'],
       ['house', 'b0-', { c: 11, prop: 'paw' }, 'The Mae Bachur Animal Shelter'], ['cabin', 'b1+', { prop: 'leaf' }, 'The Yukon Conservation Society'], ['house', 'b1-', { c: 6, two: true, prop: 'school' }, 'Takhini Elementary School']] },
     core: { name: 'Hanson Street', plan: [
-      ['front', 'a0+', { c: 1, t: 0, prop: 'oyster' }, 'The Wayfarer Oyster House'], ['log', 'a0-', { w: 2.0, prop: 'still' }, 'The Yukon Spirits distillery'], ['brewery', 'E', {}, 'Yukon Brewing'], ['quonset', 'a1+', { plain: true, prop: 'fireweed' }, 'The Fireweed Market hall'], ['cabin', 'a1-', { prop: 'sun' }, 'Midnight Sun Coffee Roasters'],
-      ['front', 'a2+', { c: 13, t: 0, prop: 'pick' }, 'The Miner’s Daughter'], ['house', 'a2-', { c: 8, prop: 'wine' }, 'Antoinette’s'], ['modern', 'b0+', { c: 1, floors: 4, prop: 'neon2' }, 'The Coast High Country Inn'], ['house', 'b0-', { c: 3, prop: 'pot' }, 'Yukon Clay pottery'],
+      ['front', 'a0+', { c: 1, t: 0, prop: 'oyster', signText: 'WAYFARER' }, 'The Wayfarer Oyster House'], ['log', 'a0-', { w: 2.0, prop: 'still' }, 'The Yukon Spirits distillery'], ['brewery', 'E', {}, 'Yukon Brewing'], ['quonset', 'a1+', { plain: true, prop: 'fireweed' }, 'The Fireweed Market hall'], ['cabin', 'a1-', { prop: 'sun' }, 'Midnight Sun Coffee Roasters'],
+      ['front', 'a2+', { c: 13, t: 0, prop: 'pick', signText: 'MINER’S DAUGHTER' }, 'The Miner’s Daughter'], ['house', 'a2-', { c: 8, prop: 'wine' }, 'Antoinette’s'], ['modern', 'b0+', { c: 1, floors: 4, prop: 'neon2' }, 'The Coast High Country Inn'], ['house', 'b0-', { c: 3, prop: 'pot' }, 'Yukon Clay pottery'],
       ['quonset', 'b1+', { plain: true, prop: 'raven' }, 'Raven Recycling'], ['house', 'b1-', { c: 5, prop: 'skates' }, 'The Shipyards skate shack']] }
   };
   // What to call a building that hasn't a name of its own, by what it is.
@@ -3402,11 +3403,13 @@
   // Each piece: [kind, where, options, landmark name (if it is one)].
   var TOWNS = [null,
     { key: 'carcross', name: 'Carcross', vibe: 'In the valley where Bennett Lake runs into Nares Lake, under Montana and Nares mountains: the old White Pass station, the Caribou Hotel, Matthew Watson’s store, the bright little shops of Carcross Commons round their totem, the light blue church, a long sandy beach and the desert of dunes.', street: 'dirt',
-      keep: [[-17, -11, 9.5]], // the dunes
+      keep: [[-17, -11, 9.5], [18, -1, 9.5], [16, 10, 5], [16, -11, 5], [-5, -13, 4], [1, -13, 3.5], [7, -13, 3.5], [12.5, -13, 3.5]], // the dunes, Bennett Lake and the narrows
       homes: { house: { kind: 'shop', every: 2 } }, // every other house a little shop, like the Commons
       plan: [
-        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, { big: true, parasols: true }, 'The beach on Bennett Lake'], ['front', A(1, 1), { c: 0, t: 2, two: true, sign: 2 }, 'Matthew Watson General Store'],
-        ['house', A(-1, 1), { c: 4 }], ['front', lot2('A', -1, 2), { c: 8, t: 2, two: true, w: 4.5, sign: 2, balcony: true }, 'The Caribou Hotel'],
+        ['cabin', A(1, 0), {}], ['cabin', A(-1, 0), { c: 1 }], ['lake', null, { big: true, parasols: true }, 'The beach on Bennett Lake'], ['front', A(1, 1), { c: 6, t: 2, two: true, signText: 'MATTHEW WATSON' }, 'The Matthew Watson General Store'],
+        ['cxnarrows', null, {}, 'The narrows, the footbridge and the swing bridge'], ['depot', at(8.4, 5.2, 90), { small: true, signText: 'CARCROSS' }, 'The 1910 White Pass station'],
+        ['house', A(-1, 1), { c: 4 }], ['front', lot2('A', -1, 2), { c: 8, t: 2, two: true, w: 4.5, balcony: true, signText: 'CARIBOU HOTEL' }, 'The Caribou Hotel'],
+        ['learning', at(-12.6, 1.4, 90), {}, 'Haa Shagóon Hídi, the learning centre'],
         ['commons', { x: -7.6, z: -3.6, r: 0, ground: true }, {}, 'Carcross Commons, its little shops round the totem'],
         ['boat', at(9.6, -1.2), { wheel: true, burnt: true }, 'What’s left of the S.S. Tutshi'], ['church', A(1, 3), { c: 7, roof: 1, small: true }, 'St. Saviour’s, the little blue church'],
         ['house', B(-1, 0), { c: 9 }], ['front', A(1, 4), { c: 10, t: 0 }], ['loco', at(2.5, -4.2), {}, 'The Duchess, the little engine'], ['dunes', null, {}, 'The Carcross Desert'],
@@ -3429,19 +3432,20 @@
         ['cemetery', at(9, 25, 200), {}, 'The Gold Rush Cemetery, up by Reid Falls'], ['house', B(1, 2), { c: 4 }], ['house', B(-1, 2), { c: 11 }],
         ['front', A(1, 7), { c: 13, t: 0, signText: 'SOAPY’S PARLOR', w: 1.6 }, 'Jefferson “Soapy” Smith’s Parlor'], ['front', A(-1, 7), { c: 5, t: 0, two: true }], ['house', B(1, 6), { c: 8, porch: true, cabin: true }, 'The Moore House'],
         ['ship', null, {}, 'A cruise ship in port'], ['tourists', null, {}, 'Cruise passengers up and down Broadway'], ['fishco', null, {}, 'Skagway Fish Company, on the dock'], ['skpond', at(12.5, -9.5), {}, 'Pullen Creek pond'], ['buses', null, {}, 'Tour buses at the docks'], ['house', B(1, 3), { c: 3 }], ['house', B(-1, 3), { c: 5 }], ['front', A(1, 8), { c: 11, t: 0, two: true, signText: 'SKAGWAY BREWING CO' }, 'Skagway Brewing Company'], ['front', A(-1, 8), { c: 1, t: 0 }],
-        ['sktrees', null, {}, 'Birches and lilacs on the back streets'], ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['house', B(1, 5), { c: 1 }], ['skpark', B(-1, 5), {}, 'Mollie Walsh Park'], ['house', B(-1, 6), { c: 4 }],
+        ['sktrees', null, {}, 'Birches and lilacs on the back streets'], ['house', B(1, 4), { c: 9 }], ['house', B(-1, 4), { c: 15 }], ['mccabe', B(1, 5), {}, 'McCabe College, now the Skagway Museum'], ['skpark', B(-1, 5), {}, 'Mollie Walsh Park'], ['rotary', at(6.6, -1.2, 0), {}, 'The rotary snowplow and an old engine'], ['house', B(-1, 6), { c: 4 }],
         ['ships', null, {}, 'Cruise ship day: three ships in port'], ['rocks', null, {}, 'The painted rocks by the docks'], ['lamps', null, {}, 'Lamps along Broadway']
       ] },
     { key: 'atlin', name: 'Atlin', vibe: 'A quiet heritage town climbing the hill above Atlin Lake, every house looking out over the water from Lake Road up: painted clapboard of every colour, St. Martin’s with its battlemented tower, Kershaw’s, the pyramid house, the M.V. Tarahne on the beach, float planes, and little spruce islands out in the lake.', street: 'dirt', slope: true,
       homes: { house: { vary: [7, 10, 4, 3, 15, 5, 1, 0, 12, 9] } }, // all sorts, in pastel clapboard
+      keep: [[21, -1, 9.5], [19, 11, 5], [19, -12, 5]], // Atlin Lake
       plan: [
-        ['front', LK(0), { c: 9, t: 0 }, 'The Atlin Trading Post'], ['cabin', UP(0, 0), { c: 1 }], ['lake', null, { big: true, islands: true, dx: 2.4 }, 'Atlin Lake and its little islands'],
+        ['front', LK(0), { c: 9, t: 0, signText: 'TRADING POST' }, 'The Atlin Trading Post'], ['cabin', UP(0, 0), { c: 1 }], ['lake', null, { big: true, islands: true, dx: 2.4 }, 'Atlin Lake and its little islands'],
         ['front', LK(1), { c: 11, t: 0, two: true, signText: 'KERSHAW’S' }, 'Kershaw’s'], ['house', UP(0, 1), {}], ['house', UP(1, 0), {}],
         ['church', UP(0, 3), { c: 8, roof: 3, small: true, crenel: true, fence: true }, 'St. Martin’s Church'],
-        ['boat', at(12.6, -1.5, 90), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'],
+        ['boat', at(12.6, -1.5, 90), { c: 8, t: 1, c2: 9 }, 'The M.V. Tarahne'], ['tarahnepark', at(11.2, -1.0), {}, 'Tarahne Park and the little Atlintoo'],
         ['house', LK2(2), { c: 8, w: 3.6, two: true, cupola: true, roof: 1 }, 'The courthouse'], ['house', UP(1, 1), {}],
-        ['plane', at(18.2, 2.6, 180), { floats: true }, 'A float plane at the dock'], ['front', LK(4), { c: 5, t: 0, two: true }], ['house', UP(1, 2), {}],
-        ['pyramid', UP(0, 5), {}, 'The pyramid house'], ['house', LK(5), {}], ['house', UP(2, 0), {}], ['sluice', Cr(-1, 1), {}, 'The Pine Creek sluice box'],
+        ['plane', at(18.2, 2.6, 180), { floats: true }, 'A float plane at the dock'], ['front', LK(4), { c: 5, t: 0, two: true, signText: 'ATLIN INN' }, 'The Atlin Inn'], ['house', UP(1, 2), {}],
+        ['pyramid', UP(0, 5), {}, 'The pyramid house'], ['schoolhouse', UP(2, 3), {}, 'The Atlin Historical Museum, in the 1902 schoolhouse'], ['house', LK(5), {}], ['house', UP(2, 0), {}], ['sluice', Cr(-1, 1), {}, 'The Pine Creek sluice box'],
         ['church', UP(1, 4), { c: 8, roof: 2, small: true }, 'Sacred Heart Church'],
         ['house', LK(6), {}], ['house', UP(0, 6), {}], ['cabin', UP(2, 1), {}],
         ['house', UP(1, 5), {}], ['house', LK(7), {}], ['house', UP(0, 7), {}], ['houseboats', null, { big: true, dx: 2.4 }, 'Houseboats on the lake'],
@@ -3499,7 +3503,7 @@
         ['hall', at(-11.0, -7.8, 0), {}, 'The Chilkat Center for the Arts'], ['barracks', at(-16.8, 0, 90), {}, 'The old barracks'], ['front', at(2.6, 2.5, 90), { c: 5, t: 0 }],
         ['sheldon', at(7.4, -7.5, -90), {}, 'The Sheldon Museum'], ['aiarts', at(-5.6, -8.4, 0), {}, 'Alaska Indian Arts, in the old fort hospital'],
         ['house', at(-4.3, 3.5, -90), { c: 8, roof: 3, porch: true, two: true }], ['front', at(7.4, 0, -90), { c: 11, t: 0, two: true, signText: 'FOGCUTTER BAR' }],
-        ['portdock', null, {}, 'Port Chilkoot dock and a small cruise ship'], ['cannery', at(12.6, -9.5, -90), {}, 'The cannery'], ['front', at(2.6, 0, 90), { c: 3, t: 0, signText: 'MOUNTAIN MARKET' }],
+        ['portdock', null, {}, 'The Port Chilkoot dock'], ['cannery', at(12.6, -9.5, -90), {}, 'The cannery'], ['front', at(2.6, 0, 90), { c: 3, t: 0, signText: 'MOUNTAIN MARKET' }],
         ['house', at(-4.3, -1.5, -90), { c: 8, roof: 3, porch: true, two: true }], ['front', at(7.4, -2.5, -90), { c: 7, t: 0 }], ['front', at(2.6, -2.5, 90), { c: 15, t: 0 }],
         ['house', at(2.6, -5.0, 90), { c: 10 }], ['house', at(7.4, -5.0, -90), { c: 6 }], ['boat', at(10.4, -3.0), { fish: true, c: 7, t: 0 }, 'A fishing boat on blocks'],
         ['house', at(2.6, -7.5, 90), { c: 5 }], ['house', at(2.6, 10.0, 90), { c: 12 }], ['house', at(7.4, 10.0, -90), { c: 2 }],
@@ -4305,7 +4309,7 @@
       }
       case 'depot': {
         // The White Pass & Yukon Route depot on Broadway, in the railway's cream, green and red.
-        var dw = 4.4, dd = 2.0, dh = 1.5;
+        var dw = o.small ? 3.2 : 4.4, dd = o.small ? 1.6 : 2.0, dh = o.small ? 1.1 : 1.5;
         P(h, self.geo.box, M('wpCream'), dw, dh, dd, 0, dh / 2, 0);
         gable(h, M('wpRed'), dw + 0.4, dd + 0.4, 0.8, dh, true);
         [-1, 0, 1].forEach(function (f) { P(h, self.geo.box, M('wpGreen'), 0.08, dh, 0.08, f * dw / 2, dh / 2, dd / 2); });
@@ -4313,6 +4317,7 @@
         P(h, self.geo.box, M('wpCream'), 1.0, 0.7, 0.04, 0, dh + 0.45, dd / 2 + 0.05);
         P(h, self.geo.box, M('wpYellow'), 2.2, 0.3, 0.05, 0, dh + 0.1, dd / 2 + 0.1);
         P(h, self.geo.box, M('wpBlack'), 1.8, 0.07, 0.03, 0, dh + 0.1, dd / 2 + 0.13);
+        var dsn = new T.Mesh(new T.PlaneGeometry(2.1, 0.26), new T.MeshBasicMaterial({ map: signTex(o.signText || 'WHITE PASS & YUKON ROUTE', '#f5d24a', '#1d1d1d') })); dsn.position.set(0, dh + 0.1, dd / 2 + 0.14); h.add(dsn); dsn.userData.pick = pick; self.picks.push(dsn);
         P(h, self.geo.box, wood, dw + 0.4, 0.08, 0.9, 0, 0.04, dd / 2 + 0.55);
         break;
       }
@@ -4502,9 +4507,8 @@
       }
       case 'portdock': {
         // Port Chilkoot dock, below the fort: a long pier, and a small cruise ship alongside.
-        var pY = SEA_Y - base, sea2 = new T.Group(); sea2.position.set(-9, pY, -18); h.add(sea2);
+        var pY = SEA_Y - base, sea2 = new T.Group(); sea2.position.set(-16, pY, -18); h.add(sea2);
         P(sea2, self.geo.box, wood, 1.4, 0.12, 7, 0, 1.0, -1.5); for (var pp2 = 0; pp2 < 6; pp2++) [-0.55, 0.55].forEach(function (x) { P(sea2, self.geo.cyl6, M('trunk'), 0.07, 1.6, 0.07, x, 0.3, 1.5 - pp2 * 1.2); });
-        self.cruiseShip(sea2, 3.2, -4.5, 9, 0.7, pick);
         break;
       }
       case 'campbell': {
@@ -4530,8 +4534,67 @@
         // Wye Lake behind the main street: the lake, a boardwalk and a viewing platform on its
         // loop trail, and a float plane tied up.
         P(h, self.geo.cyl, M('sand'), 5.0, 0.05, 7.4, 15.0, 0.035, -1.5); P(h, self.geo.cyl, M('water'), 4.4, 0.06, 6.8, 15.4, 0.07, -1.5);
-        for (var bw = 0; bw < 10; bw++) { var ba = -1.2 + bw * 0.27, bx = 15.4 + Math.cos(ba) * 5.2, bz = -1.5 + Math.sin(ba) * 7.6; var bd = P(h, self.geo.box, wood, 0.5, 0.06, 1.0, bx, 0.12, bz); bd.rotation.y = -ba; }
+        for (var bw = 0; bw < 26; bw++) { var ba = -1.3 + bw * 0.105, bx = 15.4 + Math.cos(ba) * 5.1, bz = -1.5 + Math.sin(ba) * 7.4, tx = -Math.sin(ba) * 5.1, tz = Math.cos(ba) * 7.4; var bd = P(h, self.geo.box, wood, 0.55, 0.06, 0.82, bx, 0.12, bz); bd.rotation.y = Math.atan2(tx, tz); }
         P(h, self.geo.box, wood, 1.6, 0.08, 1.0, 11.6, 0.2, 4.6); [11.0, 12.2].forEach(function (x) { P(h, self.geo.box, wood, 0.04, 0.4, 0.04, x, 0.4, 5.05); });
+        break;
+      }
+      case 'cxnarrows': {
+        // The narrows where Bennett Lake runs out into Nares Lake: the water across the end of town,
+        // the footbridge, and the White Pass tracks along the shore over the swing bridge.
+        var nz = -12.8;
+        P(h, self.geo.box, M('water'), 18, 0.06, 2.4, 5, 0.07, nz); P(h, self.geo.cyl, M('water'), 3.0, 0.06, 2.4, -4.6, 0.07, nz - 0.4);
+        [-1, 1].forEach(function (sd) { P(h, self.geo.box, M('sand'), 16, 0.04, 0.5, 4, 0.04, nz + sd * 1.4); });
+        // the footbridge at the end of the main street
+        P(h, self.geo.box, wood, 1.0, 0.08, 3.6, 0, 0.35, nz); [-0.45, 0.45].forEach(function (x) { P(h, self.geo.box, wood, 0.04, 0.3, 3.6, x, 0.52, nz); });
+        // the tracks along the lakeshore through town, on ties
+        for (var tt = 0; tt < 30; tt++) P(h, self.geo.box, M('trunk'), 0.9, 0.05, 0.16, 12.4, 0.05, 13 - tt * 1.0);
+        [-0.28, 0.28].forEach(function (x) { P(h, self.geo.box, M('stoneDark'), 0.05, 0.06, 30, 12.4 + x, 0.1, -1.5); });
+        // the swing bridge: a steel span on its pivot pier
+        P(h, self.geo.cyl, M('stone', 1), 0.6, 0.6, 0.6, 12.4, 0.0, nz); P(h, self.geo.box, M('tpaint', 13), 1.2, 0.12, 3.8, 12.4, 0.32, nz);
+        [-0.55, 0.55].forEach(function (x) { P(h, self.geo.box, M('tpaint', 13), 0.06, 0.6, 3.8, 12.4 + x, 0.62, nz); for (var dg = 0; dg < 4; dg++) P(h, self.geo.box, M('tpaint', 13), 0.05, 0.05, 1.1, 12.4 + x, 0.62, nz - 1.4 + dg * 0.95).rotation.x = dg % 2 ? 0.55 : -0.55; });
+        break;
+      }
+      case 'learning': {
+        // Haa Shagóon Hídi, the Carcross/Tagish learning centre: timber and glass with carved and
+        // painted house posts across the front.
+        P(h, self.geo.box, M('logwood', 1), 3.6, 1.2, 2.0, 0, 0.6, 0); var lr = P(h, self.geo.box, M('troof', 1), 4.0, 0.08, 2.4, 0, 1.4, 0); lr.rotation.x = -0.15;
+        P(h, self.geo.box, win, 1.6, 0.8, 0.04, 0.6, 0.6, 1.02);
+        [-1.6, -0.6, 0.6, 1.6].forEach(function (x, i) { for (var hp = 0; hp < 3; hp++) P(h, self.geo.box, M('tpaint', [2, 9, 13][(hp + i) % 3]), 0.24, 0.42, 0.24, x, 0.21 + hp * 0.42, 1.2); P(h, self.geo.box, M('swan', 2), 0.08, 0.06, 0.03, x - 0.05, 1.12, 1.33); P(h, self.geo.box, M('swan', 2), 0.08, 0.06, 0.03, x + 0.05, 1.12, 1.33); });
+        break;
+      }
+      case 'schoolhouse': {
+        // The Atlin Historical Museum, in the one-room schoolhouse of 1902, its bell up top.
+        P(h, self.geo.box, paint(7), 1.8, 0.9, 2.2, 0, 0.45, 0); gable(h, roofM(1), 2.0, 2.4, 0.7, 0.9, false);
+        P(h, self.geo.box, M('whitewood'), 0.4, 0.4, 0.4, 0, 1.55, 0.7); P(h, self.geo.cone4, roofM(1), 0.38, 0.3, 0.38, 0, 1.9, 0.7).rotation.y = Math.PI / 4; P(h, self.geo.ball, M('gold'), 0.07, 0.08, 0.07, 0, 1.55, 0.9);
+        windows(h, 2, 1.2, 0.5, 1.11, 0.3); door(h, 0, 0, 1.11, M('wood'));
+        var asn = new T.Mesh(new T.PlaneGeometry(1.3, 0.22), new T.MeshBasicMaterial({ map: signTex('ATLIN MUSEUM', '#f3efe6', '#2f5d3a') })); asn.position.set(0, 0.98, 1.12); h.add(asn);
+        break;
+      }
+      case 'tarahnepark': {
+        // Tarahne Park on the shore: picnic tables, and the little Atlintoo pulled up beside her big sister.
+        [[-1.2, 0], [1.0, 0.8]].forEach(function (t2) { P(h, self.geo.box, wood, 0.8, 0.05, 0.4, t2[0], 0.3, t2[1]); [-0.32, 0.32].forEach(function (z) { P(h, self.geo.box, wood, 0.8, 0.04, 0.12, t2[0], 0.18, t2[1] + z); }); });
+        var at2 = new T.Group(); at2.position.set(2.6, 0, -3.6); at2.rotation.y = 0.3; h.add(at2);
+        P(at2, self.geo.box, M('whitewood'), 0.9, 0.35, 2.6, 0, 0.2, 0); P(at2, self.geo.box, M('tpaint', 2), 0.92, 0.1, 2.62, 0, 0.05, 0); P(at2, self.geo.box, M('whitewood'), 0.7, 0.4, 0.9, 0, 0.55, -0.2); P(at2, self.geo.box, win, 0.72, 0.14, 0.6, 0, 0.62, -0.2);
+        P(at2, self.geo.cyl6, M('stoneDark'), 0.06, 0.5, 0.06, 0, 0.95, -0.3);
+        break;
+      }
+      case 'mccabe': {
+        // McCabe College: Alaska's first granite building (1899), now Skagway's City Hall and museum.
+        P(h, self.geo.box, M('stone', 1), 3.2, 1.8, 2.0, 0, 0.9, 0); P(h, self.geo.box, M('stone', 2), 3.3, 0.12, 2.1, 0, 1.86, 0);
+        P(h, self.geo.box, M('stone', 1), 1.0, 2.5, 0.9, 0, 1.25, 0.65); P(h, self.geo.cone4, roofM(2), 0.85, 0.6, 0.75, 0, 2.8, 0.65).rotation.y = Math.PI / 4;
+        windows(h, 4, 2.8, 0.55, 1.01, 0.28); windows(h, 4, 2.8, 1.3, 1.01, 0.28); door(h, 0, 0, 1.11, M('wood'));
+        var msn = new T.Mesh(new T.PlaneGeometry(1.4, 0.22), new T.MeshBasicMaterial({ map: signTex('SKAGWAY MUSEUM', '#f3efe6', '#2f5d3a') })); msn.position.set(0, 0.95, 1.12); h.add(msn);
+        break;
+      }
+      case 'rotary': {
+        // By the depot: the White Pass rotary snowplow and an old steam engine on a stretch of track.
+        P(h, self.geo.box, wood, 0.9, 0.06, 5.0, 0, 0.03, 0); [-0.22, 0.22].forEach(function (x) { P(h, self.geo.box, dark, 0.05, 0.05, 5.0, x, 0.09, 0); });
+        var rt = new T.Group(); rt.position.set(0, 0.12, 1.2); h.add(rt);
+        P(rt, self.geo.box, M('wpRed'), 0.7, 0.75, 1.5, 0, 0.5, 0); gable(rt, M('wpBlack'), 0.75, 1.55, 0.25, 0.88, false);
+        var rw = new T.Group(); rw.position.set(0, 0.5, 0.82); rt.add(rw); P(rw, self.geo.cyl, M('wpBlack'), 0.38, 0.1, 0.38, 0, 0, 0).rotation.x = Math.PI / 2; for (var rb = 0; rb < 6; rb++) P(rw, self.geo.box, M('wpYellow'), 0.06, 0.34, 0.03, 0, 0, 0.06).rotation.z = rb * Math.PI / 6;
+        var en = new T.Group(); en.position.set(0, 0.12, -1.0); h.add(en);
+        P(en, self.geo.cyl, M('wpBlack'), 0.26, 1.3, 0.26, 0, 0.45, 0.2).rotation.x = Math.PI / 2; P(en, self.geo.box, M('wpBlack'), 0.6, 0.62, 0.6, 0, 0.5, -0.6); P(en, self.geo.cyl, M('wpBlack'), 0.08, 0.3, 0.08, 0, 0.82, 0.6);
+        [-0.32, 0.32].forEach(function (x) { [-0.5, 0.1, 0.6].forEach(function (z) { P(en, self.geo.cyl, M('wpRed'), 0.15, 0.04, 0.15, x, 0.15, z).rotation.z = Math.PI / 2; }); });
         break;
       }
       case 'capitol': {
@@ -17285,6 +17348,8 @@
 
 
   // ---- the Klondike and the Dezadeash: water down their channels, and a bridge for each road ----
+  var BRIDGE_SPANS = [];
+  function onBridge(x, z) { for (var i = 0; i < BRIDGE_SPANS.length; i++) { var b = BRIDGE_SPANS[i], dx = x - b.x, dz = z - b.z, u = dx * b.ux + dz * b.uz, w = -dx * b.uz + dz * b.ux; if (Math.abs(u) < b.half && Math.abs(w) < 2.2) return b; } return null; }
   Town.prototype.buildCreeks = function () {
     var self = this;
     TOWN_CREEKS.forEach(function (c) {
@@ -17306,7 +17371,11 @@
           if (za * zb > 0) continue;
           var f = za / (za - zb), wx = rd[i - 1].x + (rd[i].x - rd[i - 1].x) * f, wz = rd[i - 1].z + (rd[i].z - rd[i - 1].z) * f;
           var j0 = rd[Math.max(0, i - 3)], j1 = rd[Math.min(rd.length - 1, i + 2)], yaw = Math.atan2(j1.x - j0.x, j1.z - j0.z), span = (c.half + c.bank) * 2 + 1.5;
-          var bg = new T.Group(); bg.position.set(wx, Math.max(groundY(j0.x, j0.z), groundY(j1.x, j1.z), lv + 0.6) + 0.1, wz); bg.rotation.y = yaw; self.base.add(bg);
+          // The deck sits level with the solid ground beyond each bank.
+          var ux = Math.sin(yaw), uz = Math.cos(yaw), e0 = groundY(wx - ux * (span / 2 + 0.6), wz - uz * (span / 2 + 0.6)), e1 = groundY(wx + ux * (span / 2 + 0.6), wz + uz * (span / 2 + 0.6));
+          var by = Math.max(e0, e1, lv + 0.6) + 0.1;
+          BRIDGE_SPANS.push({ x: wx, z: wz, ux: ux, uz: uz, half: span / 2 + 0.3, y: by });
+          var bg = new T.Group(); bg.position.set(wx, by, wz); bg.rotation.y = yaw; self.base.add(bg);
           var P = function (geo, mat, sx, sy, sz, x, y, z) { return self.part(bg, geo, mat, sx, sy, sz, x, y, z, 'bridge'); };
           P(self.geo.box, self.mat('wood'), 2.4, 0.16, span, 0, 0, 0);
           [-1.15, 1.15].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.08, 0.35, span, x, 0.22, 0); for (var k = 0; k < 4; k++) P(self.geo.box, self.mat('woodLight'), 0.1, 0.5, 0.1, x, 0.2, -span / 2 + k * span / 3); });
@@ -17451,7 +17520,7 @@
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
-  Town.layout = { AIRPORT_LOTS: AIRPORT_LOTS, HOTSPRINGS: HOTSPRINGS, BEAN_NORTH: BEAN_NORTH, inAirport: inAirport, dtw: dtw, dtOf: dtOf, nearExits: nearExits, pathHits: pathHits, PATH_AVOID: PATH_AVOID, CASTLE_SITES: CASTLE_SITES, BRIDGE: BRIDGE, LANE_BRIDGE: LANE_BRIDGE, LANES: LANES, laneAt: laneAt, PLAZA: PLAZA, UPTOWN: UPTOWN, E_SITES: E_SITES, streetGap: streetGap, townFar: townFar, DT_HALF: DT_HALF, WALK_N: WALK_N, STREETS: STREETS, LANE: LANE, CITY_R: CITY_R, PATHS: PATHS, RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS };
+  Town.layout = { AIRPORT_LOTS: AIRPORT_LOTS, HOTSPRINGS: HOTSPRINGS, BEAN_NORTH: BEAN_NORTH, inAirport: inAirport, dtw: dtw, dtOf: dtOf, nearExits: nearExits, pathHits: pathHits, PATH_AVOID: PATH_AVOID, CASTLE_SITES: CASTLE_SITES, BRIDGE: BRIDGE, LANE_BRIDGE: LANE_BRIDGE, LANES: LANES, laneAt: laneAt, PLAZA: PLAZA, UPTOWN: UPTOWN, E_SITES: E_SITES, streetGap: streetGap, townFar: townFar, DT_HALF: DT_HALF, WALK_N: WALK_N, STREETS: STREETS, LANE: LANE, CITY_R: CITY_R, PATHS: PATHS, RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS, creekNear: creekNear, nearDawsonRiver: nearDawsonRiver, nearSkagRiver: nearSkagRiver, STRIPS: STRIPS, RAIL_PATH: RAIL_PATH, HWY_BRIDGE: HWY_BRIDGE };
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
