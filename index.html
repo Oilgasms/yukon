@@ -100,6 +100,14 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .shelf h2 { font-family: var(--display); font-size: 22px; margin: 0 28px 2px 0; }
 .shelf .sub { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; }
 .shelf .books { display: grid; gap: 12px; }
+/* The latest logs: newest first, one row each, scrolling inside the card. */
+.recent { width: min(520px, calc(100vw - 32px)); }
+.rlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: min(62vh, 560px); overflow-y: auto; }
+.rlist li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: start; padding: 8px 10px; border: 2px solid var(--line); border-radius: 6px; background: var(--card-2); }
+.rlist .when { font-size: 12.5px; color: var(--muted); line-height: 1.3; }
+.rlist .what b { display: block; font-size: 14.5px; }
+.rlist .what span { font-size: 13px; color: var(--muted); }
+.rlist .src { display: inline-block; margin-top: 3px; font-size: 11px; padding: 1px 6px; border-radius: 9px; background: var(--line); color: var(--ink); }
 .shelf .book { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 10px; border: 2px solid var(--line); border-radius: 6px; background: var(--card-2); }
 .shelf .cover { width: 64px; height: 96px; border-radius: 3px; object-fit: cover; background: var(--edge); box-shadow: 0 2px 0 rgba(40, 20, 5, 0.35); }
 .shelf .spine { width: 64px; height: 96px; border-radius: 3px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px; box-sizing: border-box; color: #fff8e6; font: 700 11px/1.15 var(--body); box-shadow: 0 2px 0 rgba(40, 20, 5, 0.35); }
@@ -321,6 +329,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn" id="explore" type="button" aria-pressed="true">Map view</button>
       <button class="btn" id="recenter" type="button">Recenter</button>
       <button class="btn" id="postcard" type="button" title="Jump to a postcard view of each town in turn">Postcard</button>
+      <button class="btn" id="recentbtn" type="button" title="The last 25 things logged into the town">Latest</button>
       <button class="btn" id="pixel" type="button" aria-pressed="true">Style: Handmade</button>
       <button class="btn" id="motion" type="button" aria-pressed="true">Motion</button>
       <button class="btn" id="sound" type="button" aria-pressed="false">Sound: off</button>
@@ -343,6 +352,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   <div class="sub" id="shelf-sub"></div>
   <div class="books" id="shelf-books"></div>
 </section>
+<section class="card shelf recent" id="recent" role="dialog" aria-label="Latest logs" hidden>
+  <button class="close" type="button" id="recent-close" aria-label="Close the latest logs">&times;</button>
+  <h2>The latest logs</h2>
+  <div class="sub" id="recent-sub"></div>
+  <ol class="rlist" id="recent-list"></ol>
+</section>
 <div class="card toast" id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -363,7 +378,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v156';
+var BUILD = 'v158';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1085,6 +1100,30 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   }
   $('films-open').addEventListener('click', openCinema);
   $('shelf-close').addEventListener('click', function () { $('shelf').hidden = true; });
+  // ---- the latest logs: the last 25 real things that went into the town, newest first ----
+  var KIND_TITLE = { lift: 'Lifting', run: 'Run', bike: 'Ride', commute: 'Bike commute', walk: 'Walk', hike: 'Hike', swim: 'Swim', row: 'Paddle', mtb: 'Mountain bike', xcski: 'Cross-country ski', snowboard: 'Snowboarding', sport: 'Sport', mobility: 'Mobility', stairs: 'Stairs', drink: 'Drinks', weight: 'Weigh-in', social: 'With friends', bible: 'Bible reading', book: 'Book finished', movie: 'Film watched' };
+  function sourceOf(e) { return e.strava ? 'Strava' : e.kind === 'bible' ? 'Bible log' : e.kind === 'book' ? 'Book tracker' : e.kind === 'movie' ? 'Letterboxd' : 'Workout sheet'; }
+  function openRecent() {
+    var list = $('recent-list'); list.innerHTML = '';
+    var real = events.filter(function (e) { return e.date && !e.projected && !e.planned; });
+    var pick = real.map(function (e, i) { return { e: e, i: i }; }).sort(function (a, b) { return a.e.date < b.e.date ? 1 : a.e.date > b.e.date ? -1 : b.i - a.i; }).slice(0, 25);
+    $('recent-sub').textContent = pick.length ? 'Newest first: the last ' + pick.length + ' of ' + real.length + ' logs from your sheets, Strava and trackers.' : 'Nothing logged yet.';
+    pick.forEach(function (p) {
+      var e = p.e, li = document.createElement('li'), when = document.createElement('div'), what = document.createElement('div');
+      when.className = 'when'; when.textContent = new Date(e.date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+      what.className = 'what';
+      var b = document.createElement('b'); b.textContent = (KIND_TITLE[e.kind] || 'Logged') + (e.label && e.label !== KIND_TITLE[e.kind] ? ' · ' + e.label : '');
+      var sp = document.createElement('span'); var words = ''; try { words = KIND_WORDS[e.kind] ? KIND_WORDS[e.kind](e) : ''; } catch (x) {}
+      sp.textContent = words;
+      var src = document.createElement('span'); src.className = 'src'; src.textContent = sourceOf(e);
+      what.append(b, sp, document.createElement('br'), src);
+      li.append(when, what); list.append(li);
+    });
+    $('recent').hidden = false; list.scrollTop = 0;
+  }
+  $('recentbtn').addEventListener('click', function () { if ($('recent').hidden) openRecent(); else $('recent').hidden = true; });
+  $('recent-close').addEventListener('click', function () { $('recent').hidden = true; });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('recent').hidden) $('recent').hidden = true; });
   addEventListener('keydown', function (e) { if (e.key === 'Escape') $('shelf').hidden = true; });
 
   // Speak, friend, and enter.
