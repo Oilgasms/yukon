@@ -1213,6 +1213,20 @@
     }
     return bestTrail(start, to);
   });
+  // The Haines Road leaves Haines Junction back over the Dezadeash bridge on the Whitehorse road,
+  // and branches off once it's across: one bridge, not two side by side.
+  (function () {
+    var R5 = CASTLE_ROADS[5], c = TOWN_CREEKS.filter(function (q) { return q.ci === 5; })[0], k = -1;
+    if (!R5 || !c) return;
+    for (var i = R5.length - 1; i > 0; i--) {
+      var qa = townLocal(5, R5[i - 1].x, R5[i - 1].z), qb = townLocal(5, R5[i].x, R5[i].z);
+      if (qa.d2 > 4000 || qa.x < c.x0 || qa.x > c.x1) continue;
+      if ((qa.z - creekZ(c, qa.x)) * (qb.z - creekZ(c, qb.x)) <= 0) { k = i; break; }
+    }
+    if (k < 0) return;
+    var j = Math.max(0, k - 10), B = HWY_BRIDGE, hj = CASTLE_SITES[5], near = Math.hypot(B.a.x - hj.x, B.a.z - hj.z) < Math.hypot(B.b.x - hj.x, B.b.z - hj.z) ? B.a : B.b, far = near === B.a ? B.b : B.a;
+    CASTLE_ROADS[HAINES] = R5.slice(j).reverse().concat(bestTrail(R5[j], near).slice(1), curvePath(function (u) { return { x: near.x + (far.x - near.x) * u, z: near.z + (far.z - near.z) * u }; }, 24).slice(1, -1), bestTrail(far, townGate(HAINES)));
+  })();
   // The White Pass & Yukon Route runs beside the road from Carcross to Skagway, on whichever side
   // keeps it off the fields and the mountains, from just outside one town's gate to the other's.
   RAIL_PATH = (function () {
