@@ -1,7 +1,7 @@
 {
-  "ran": "2026-11-06T13:58:39.944Z",
+  "ran": "2026-11-06T19:56:38.883Z",
   "Google Sheets": "workouts.xlsx, bible.xlsx, books.xlsx",
-  "Strava": "37 activities",
+  "Strava": "38 activities",
   "Letterboxd": "53 films (0 new)",
   "Book lines": "1 new book(s) waiting - add the ANTHROPIC_API_KEY secret to write lines for them"
 }
