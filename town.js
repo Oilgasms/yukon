@@ -12980,7 +12980,7 @@
     function prBits(e) {
       var out = [];
       Object.keys(e.prLines || {}).forEach(function (g) { (e.prLines[g] || []).forEach(function (l) {
-        var nm = (l.split(':')[0] || '').trim().toLowerCase(), wt = l.match(/:\s*\d+\.\d+(?:\s*-\s*\d+)?\.(\d+(?:\.\d+)?)/);
+        var nm = (l.split(':')[0] || '').trim().toLowerCase().replace(/^\d+[a-z]?[.)]\s*/, ''), wt = l.match(/:\s*\d+\.\d+(?:\s*-\s*\d+)?\.(\d+(?:\.\d+)?)/);
         if (nm && nm.length < 30) out.push({ name: nm, w: wt ? +wt[1] : null });
       }); });
       return out;
@@ -13015,25 +13015,137 @@
     R.push(l); if (R.length > 12) R.shift();
     return l;
   };
+  // The mice keep up with your week: runs, rides, lifting, games, friends, Bible, books, films,
+  // weigh-ins. One fresh line at a time, never the same one twice in a fortnight.
+  var WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  Town.prototype.recapLine = function (m) {
+    var s = this.st, t = this.today;
+    if (!t || !s.byDay) return null;
+    var tt = Date.parse(t), L = [], self = this;
+    function dayKey(d) { return new Date(tt - d * 864e5).toISOString().slice(0, 10); }
+    function when(d) { return d === 0 ? 'today' : d === 1 ? 'yesterday' : 'on ' + WEEKDAY[new Date(tt - d * 864e5).getUTCDay()]; }
+    var wk = [], mo = [];
+    for (var d = 0; d < 31; d++) (s.byDay[dayKey(d)] || []).forEach(function (e) { if (e.projected || e.planned) return; var o = { e: e, ago: d }; mo.push(o); if (d < 7) wk.push(o); });
+    function of(list, kinds) { return list.filter(function (o) { return kinds.indexOf(o.e.kind) >= 0; }); }
+    function km1(x) { return Math.round(x * 10) / 10; }
+    // Running.
+    var runs = of(wk, ['run']), rkm = runs.reduce(function (a, o) { return a + (o.e.km || 0); }, 0);
+    if (runs.length >= 2) L.push(runs.length + ' runs this week' + (rkm ? ', ' + km1(rkm) + ' km all told' : '') + '! the deer can’t keep up', 'that’s ' + runs.length + ' runs in a week. are you training for something, dear?');
+    if (runs.length) {
+      var lr = runs.slice().sort(function (a, b) { return (b.e.km || 0) - (a.e.km || 0); })[0];
+      if (lr.e.km >= 3) L.push('that ' + km1(lr.e.km) + ' km run ' + when(lr.ago) + '… how were the legs after?', 'I heard about your ' + km1(lr.e.km) + ' km ' + when(lr.ago) + '. that’s about ' + Math.round(lr.e.km * 1000 / 0.08).toLocaleString() + ' mouse-lengths');
+      if (lr.e.km >= 15) L.push(km1(lr.e.km) + ' km in one go?! I need a lie down just thinking about it');
+      if (lr.ago > 0) L.push('how did the run go ' + when(lr.ago) + '? the deer said you looked quick');
+    }
+    // Riding.
+    var rides = of(wk, ['bike', 'mtb', 'commute']), bkm = rides.reduce(function (a, o) { return a + (o.e.km || 0); }, 0);
+    if (rides.length >= 2) L.push(rides.length + ' rides this week' + (bkm ? ', ' + km1(bkm) + ' km' : '') + '! the bike must be worn smooth', 'all those rides! the gophers have learned to look both ways');
+    else if (rides.length && rides[0].ago > 0) L.push('good ride ' + when(rides[0].ago) + '?' + (rides[0].e.km ? ' ' + km1(rides[0].e.km) + ' km, I heard' : ''));
+    // Other things you did this week.
+    of(wk, ['sport']).slice(0, 2).forEach(function (o) { var sp = o.e.sport || 'the game'; L.push('how did ' + sp + ' go ' + when(o.ago) + '?', 'did you win at ' + sp + ' ' + when(o.ago) + '? Mabel says you did', sp + ' ' + when(o.ago) + '! the whole pub heard about it'); });
+    of(wk, ['hike']).slice(0, 1).forEach(function (o) { L.push('that hike ' + when(o.ago) + ', see any bears?', 'how was the view on the hike ' + when(o.ago) + '?'); });
+    of(wk, ['swim']).slice(0, 1).forEach(function (o) { if (o.ago) L.push('how was the swim ' + when(o.ago) + '? cold, I bet'); });
+    of(wk, ['xcski', 'snowboard']).slice(0, 1).forEach(function (o) { L.push('fresh snow ' + when(o.ago) + '? I saw you come back all rosy'); });
+    var lifts = of(wk, ['lift']);
+    if (lifts.length) {
+      var gs = {}; lifts.forEach(function (o) { (o.e.groups || []).forEach(function (g) { gs[g] = 1; }); });
+      var gl = Object.keys(gs);
+      if (gl.length >= 3) L.push(gl.join(', ').replace(/, ([^,]*)$/, ' and $1') + ' this week. a proper all-rounder, dear');
+      var prs = lifts.reduce(function (a, o) { return a + (o.e.prCount || 0); }, 0);
+      if (prs >= 2) L.push(prs + ' PRs this week! the castle flag-maker is out of cloth');
+    }
+    var allWork = wk.filter(function (o) { return !NOT_WORKOUTS[o.e.kind]; });
+    var days = {}; allWork.forEach(function (o) { days[o.ago] = 1; });
+    var nd = Object.keys(days).length;
+    if (nd >= 5) L.push(nd + ' days out of 7 training! do you ever sit down?', 'you’ve trained ' + nd + ' days this week. I’ve trained none, but I did think about it');
+    else if (nd && nd <= 2 && !days[0]) L.push('a quiet week, training-wise. only ' + nd + ' day' + (nd === 1 ? '' : 's') + '. resting up for something?');
+    if (!days[0] && days[1]) L.push('a rest day after yesterday? very sensible, dear');
+    // Who you've been out with.
+    var fr = {}; wk.forEach(function (o) { (o.e.friends || []).forEach(function (f) { fr[f] = (fr[f] || 0) + 1; }); });
+    var top = Object.keys(fr).sort(function (a, b) { return fr[b] - fr[a]; })[0];
+    if (top) { L.push('you and ' + top + ' again this week! inseparable', 'how’s ' + top + '? give them my best'); if (fr[top] >= 2) L.push(fr[top] + ' outings with ' + top + ' this week. Mabel has theories'); }
+    // Bible.
+    var bib = of(wk, ['bible']).filter(function (o) { return o.e.book; });
+    if (bib.length) {
+      var rb = pickOne(bib.filter(function (o) { return o.ago <= 2; }));
+      if (rb && Math.random() < 0.6) { var bl = this.bibleLine(rb.e); if (bl) return bl; }
+      var chs = bib.reduce(function (a, o) { return a + ((o.e.chapters || []).length || o.e.count || 1); }, 0), bks = {};
+      bib.forEach(function (o) { bks[o.e.book] = 1; });
+      var bn = Object.keys(bks);
+      if (chs >= 3) L.push(chs + ' chapters this week! the vicar’s beaming', chs + ' chapters in seven days. the church mice are taking notes');
+      if (bn.length >= 2) L.push(bn.slice(0, 3).join(' and ') + ' this week? a lovely mix');
+      L.push('still in ' + bib[0].e.book + '? what’s stood out so far?', 'how are you finding ' + bib[0].e.book + ', dear?');
+    }
+    var BB = s.bible;
+    if (BB && BB.chapters) {
+      var pct = Math.round(BB.chapters / BIBLE_TOTAL * 100);
+      L.push(BB.chapters + ' chapters read all told. ' + pct + '% of the way through!', (BIBLE_TOTAL - BB.chapters) + ' chapters to go. the bell-ringer is counting');
+      var nxt = CHURCH_STAGES.filter(function (c) { return c[0] > BB.chapters; })[0];
+      if (nxt && nxt[0] - BB.chapters <= 30) L.push('only ' + (nxt[0] - BB.chapters) + ' more chapters till the church gets ' + nxt[1].charAt(0).toLowerCase() + nxt[1].slice(1) + '!');
+      if (BB.books && BB.books.length) L.push('you’ve read ' + (BB.books.length === 1 ? 'a whole book' : BB.books.length + ' whole books') + ' of the Bible cover to cover!');
+    }
+    // Books and films.
+    var lib = (s.library && s.library.books || []).filter(function (b) { return !b.projected && b.date; }), yr = t.slice(0, 4);
+    var thisYr = lib.filter(function (b) { return b.date.slice(0, 4) === yr; });
+    if (thisYr.length >= 2) {
+      L.push(thisYr.length + ' books so far this year! the library’s running out of shelf', 'that’s ' + thisYr.length + ' books in ' + yr + '. which was your favourite?');
+      var bestB = thisYr.filter(function (b) { return b.stars; }).sort(function (a, b) { return b.stars - a.stars; })[0];
+      if (bestB && bestB.stars >= 4) L.push('is ' + bestB.title + ' still your best of the year?', 'the librarian keeps recommending ' + bestB.title + '. says you loved it');
+      var pg = thisYr.reduce(function (a, b) { return a + (b.pages || 0); }, 0);
+      if (pg > 1000) L.push(pg.toLocaleString() + ' pages this year! your eyes must be tired, dear');
+    }
+    var bk = this.bookLine(); if (bk) L.push(bk);
+    var films = (s.cinema && s.cinema.films || []).filter(function (f) { return !f.projected && f.date && tt - Date.parse(f.date) <= 30 * 864e5 && tt >= Date.parse(f.date); });
+    if (films.length >= 2) {
+      L.push(films.length + ' films this month! the projectionist knows you by name', 'you and the picture house! ' + films.length + ' films in a month');
+      var bf = films.filter(function (f) { return f.stars != null; }).sort(function (a, b) { return b.stars - a.stars; });
+      if (bf.length >= 2) L.push('of all your films lately, ' + bf[0].title + ' came out on top? ' + bf[0].stars + ' stars!', bf[bf.length - 1].title + ' was the weak one this month, eh?');
+    }
+    var fm = this.filmLine(); if (fm) L.push(fm);
+    // The pub and the scales.
+    var dr = of(wk, ['drink']).reduce(function (a, o) { return a + (o.e.count || 1); }, 0);
+    if (dr >= 6) L.push(dr + ' drinks this week? Doris at the Slow Pour is putting your name on a stool');
+    else if (dr >= 1 && dr <= 3 && Math.random() < 0.5) L.push('just a couple at the pub this week. very civilised');
+    var ws = of(mo, ['weight']).filter(function (o) { return o.e.value; }).sort(function (a, b) { return a.ago - b.ago; });
+    if (ws.length >= 2) {
+      var dw = Math.round((ws[0].e.value - ws[ws.length - 1].e.value) * 10) / 10;
+      if (Math.abs(dw) >= 0.5) L.push((dw < 0 ? 'down ' : 'up ') + Math.abs(dw) + ' on the scales this month. ' + (dw < 0 ? 'the statue’s looking trim!' : 'all muscle, I’m sure, dear'));
+      else L.push('steady as a rock on the scales this month');
+    }
+    // What's going up next.
+    var LO = this.liftOutlook && this.liftOutlook();
+    if (LO && LO.next) L.push('word is… ' + LO.next);
+    var S = this.keep(), seen = S.theo || (S.theo = {});
+    // A recap can come round again after a few days (the numbers move on anyway).
+    var fresh = L.filter(function (x) { return x && (!seen[x] || tt - seen[x] > 3 * 864e5); });
+    if (!fresh.length) return null;
+    var l = pickOne(fresh); seen[l] = tt; this.saveStore();
+    return l;
+  };
   Town.prototype.mouseRemark = function (m) {
     var s = this.st, t = this.today, ms = m && m.style;
     // Now and then a mouse just talks about their own life.
     if (ms && ms.lines && Math.random() < 0.18) return pickOne(ms.lines);
     if (!t || !s.byDay) return null;
+    // Your week comes first: what you ran, read, watched, lifted.
+    var rc0 = Math.random() < 0.3 ? this.recapLine(m) : null;
+    if (rc0) return rc0;
     var fresh = (s.newsList || []).filter(function (n) { var age = (Date.parse(t) - Date.parse(n.date)) / 864e5; return age >= 0 && age <= 7; });
-    if (fresh.length && Math.random() < 0.25) return pickOne(pickOne(fresh).lines);
+    if (fresh.length && Math.random() < 0.15) return pickOne(pickOne(fresh).lines);
     var day = s.byDay[t] || [], work = day.filter(function (e) { return !NOT_WORKOUTS[e.kind]; }), callouts = [], main;
     // Read your Bible today? About an eighth of greetings are about the passage (a remark is
     // used for ~65% of greetings, so 0.19 of those), never repeating a line within a fortnight.
     var readT = day.filter(function (e) { return e.kind === 'bible' && e.book; });
-    var theo = readT.length && Math.random() < 0.35 ? this.bibleLine(pickOne(readT)) : null;
+    var theo = readT.length && Math.random() < 0.4 ? this.bibleLine(pickOne(readT)) : null;
     if (theo) return theo;
+    var rc = Math.random() < 0.4 ? this.recapLine(m) : null;
+    if (rc) return rc;
     var liftedToday = day.some(function (e) { return e.kind === 'lift'; });
     var lf = Math.random() < (liftedToday ? 0.55 : 0.3) ? this.liftLine(m) : null;
     if (lf) return lf;
-    var bk = Math.random() < 0.3 ? this.bookLine() : null;
+    var bk = Math.random() < 0.4 ? this.bookLine() : null;
     if (bk) return bk;
-    var fm = Math.random() < 0.3 ? this.filmLine() : null;
+    var fm = Math.random() < 0.4 ? this.filmLine() : null;
     if (fm) return fm;
     if (work.length) main = this.workoutLine(pickOne(work));
     else {
