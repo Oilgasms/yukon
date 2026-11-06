@@ -50,14 +50,32 @@
   // ---- layout (degrees; the camera looks from 315°, so 135° is the back) ----
   // Everything is spread out so each area has room for years of workouts.
   var TOWERS = [
-    { key: 'chest', name: 'Chest tower', angle: 90 },
-    { key: 'back', name: 'Back tower', angle: 150 },
-    { key: 'shoulders', name: 'Shoulders & arms tower', angle: 210 },
-    { key: 'legs', name: 'Leg tower', angle: 270 },
-    { key: 'post', name: 'Posterior chain tower', angle: 330 },
-    { key: 'core', name: 'Core tower', angle: 30 }
+    { key: 'chest', name: 'Chest', angle: 90 },
+    { key: 'back', name: 'Back', angle: 150 },
+    { key: 'shoulders', name: 'Shoulders & arms', angle: 210 },
+    { key: 'legs', name: 'Legs', angle: 270 },
+    { key: 'post', name: 'Posterior chain', angle: 330 },
+    { key: 'core', name: 'Core', angle: 30 }
   ];
   var COURSE_H = 0.3;
+  // How high the camera sits over its 48-unit reach: low (about 24°) for a sweeping, game-like view.
+  var CAM_RISE = 21;
+  // A touch of perspective on the map camera. It stays an orthographic camera to everything else
+  // (zoom, panning, fitting the view all work in its terms), but it draws through a gentle
+  // perspective lens, the eye pulled back so the ground at the target is framed just the same.
+  var CAM_FOV = 30;
+  function perspectivise(cam, controls) {
+    var Tr = new T.Matrix4(), tf = Math.tan(CAM_FOV * Math.PI / 360);
+    cam.persp = { near: 1, far: 1000 };
+    cam.updateProjectionMatrix = function () {
+      var hh = (this.top - this.bottom) / 2 / this.zoom, asp = (this.right - this.left) / ((this.top - this.bottom) || 1);
+      var D = hh / tf, d0 = this.position.distanceTo(controls.target), n = Math.max(0.3, D * 0.1), f = D + 700;
+      this.projectionMatrix.makePerspective(-n * tf * asp, n * tf * asp, n * tf, -n * tf, n, f);
+      this.projectionMatrix.multiply(Tr.makeTranslation(0, 0, d0 - D));
+      this.projectionMatrixInverse.copy(this.projectionMatrix).invert();
+      this.persp.near = n; this.persp.far = f; this.persp.dist = D;
+    };
+  }
   var TIER = 12;          // every 12 sessions a tower sprouts something new
   var TAPER = 24;         // and every 24 it steps in a little
   var GATE_ANGLE = 300;
@@ -131,13 +149,13 @@
   var PLAZA = { t: 2, n: 0, r: 6 }, UPTOWN = { t: -27, n: -6, r: 3.4 };
   // Across the river by the town bridge, Riverdale: the hospital, the schools, the Fishway, along the
   // bank where the river bends away east; the Whitehorse Rapids dam spans the river itself (E_SITES.legs).
-  var RIVERDALE = { t: 44, n: 34, r: 3.2 };
+  var RIVERDALE = { t: 41, n: 40, r: 3.2 }; // (set back from the bank, so nothing sits in the water)
   RIVERDALE.level = Math.max(0.2, rawHeight(DT_T.x * RIVERDALE.t + DT_N.x * RIVERDALE.n, DT_T.z * RIVERDALE.t + DT_N.z * RIVERDALE.n));
   var LANE_CTRL = {
     full: [[2, 0], [2.5, 6], [1, 10], [MAIN_T, 15.5]], full2: [[2, 0], [1, -6], [-1.5, -10], [0.5, -16]],
     chest: [[2, 0], [-7, 5.5], [-12, 4], [-19, 7.5]], back: [[2, 0], [-7, -5.5], [-12, -6], [-17, -13]],
     shoulders: [[2, 0], [11, 3.5], [15, 8.5], [22, 8]], core: [[2, 0], [9, -4.5], [15, -5], [21.5, -10.5]],
-    legs: [[44, 34], [50, 37], [56, 40], [62.5, 44.5]], post: [[-27, -6], [-22.5, -9], [-24.5, -15.5], [-21.5, -23.5]]
+    legs: [[41, 40], [47, 43], [53, 46], [59.5, 50.5]], post: [[-27, -6], [-22.5, -9], [-24.5, -15.5], [-21.5, -23.5]]
   };
   function laneHub(k) { return k === 'post' ? UPTOWN : k === 'legs' ? RIVERDALE : PLAZA; }
   // Each lane sampled along its length (d from the middle of its square), in (t, n) and on the ground.
@@ -1370,14 +1388,15 @@
     this.applyPixelRatio();
     this.scene = new T.Scene();
     this.camera = new T.OrthographicCamera(-1, 1, 1, -1, -300, 500);
-    this.camera.position.set(34, 30, 34);
+    this.camera.position.set(34, CAM_RISE, 34);
     this.camera.lookAt(0, 0, 0);
     this.controls = new T.OrbitControls(this.camera, canvas);
+    perspectivise(this.camera, this.controls);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.minZoom = 0.1; // far enough out to see the whole map, out to Watson Lake
     this.controls.maxZoom = 4;
-    this.controls.maxPolarAngle = 1.3;
+    this.controls.maxPolarAngle = 1.48;
     this.controls.minPolarAngle = 0.3;
     // Move like a map: drag to pan across the ground, right-drag to turn, scroll or pinch to zoom.
     this.controls.screenSpacePanning = false;
@@ -1479,10 +1498,10 @@
     var rt = new T.WebGLRenderTarget(sz.x, sz.y, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat });
     rt.depthTexture = new T.DepthTexture(sz.x, sz.y); rt.depthTexture.type = T.UnsignedIntType;
     var mat = new T.ShaderMaterial({
-      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 }, edgeK: { value: 1 }, grit: { value: 0.4 }, time: { value: 0 } },
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 }, edgeK: { value: 1 }, grit: { value: 0.4 }, time: { value: 0 }, persp: { value: new T.Vector4(0, 1, 1000, 50) } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: [
-        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px; uniform float edgeK; uniform float grit; uniform float time;',
+        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px; uniform float edgeK; uniform float grit; uniform float time; uniform vec4 persp;',
         'varying vec2 vUv;',
         'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
         'float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
@@ -1498,6 +1517,8 @@
         // ink where the depth jumps (second difference, so flat ground and slopes stay clean)
         '  float c = dep(uv), l = dep(uv - vec2(o.x, 0.0)), r = dep(uv + vec2(o.x, 0.0)), d = dep(uv - vec2(0.0, o.y)), u = dep(uv + vec2(0.0, o.y));',
         '  float e = max(abs(l + r - 2.0 * c), abs(d + u - 2.0 * c));',
+        // through the perspective lens the raw depth is flat across a plane; turn it into ground units
+        '  if (persp.x > 0.5) { float zc = persp.y * persp.z / (persp.z - c * (persp.z - persp.y)); e *= zc * zc * (persp.z - persp.y) / (persp.y * persp.z); e /= max(1.0, pow(zc / persp.w, 2.0)); }',
         '  float edge = smoothstep(0.13 * edgeK, 0.45 * edgeK, e);',
         // softer pencil lines where colours change sharply
         '  float ce = max(abs(lum(texture2D(tColor, uv + vec2(o.x, 0.0)).rgb) - lum(col)), abs(lum(texture2D(tColor, uv + vec2(0.0, o.y)).rgb) - lum(col)));',
@@ -1539,11 +1560,14 @@
     R.autoClear = ac; cam.layers.set(0); if (R.shadowMap) R.shadowMap.autoUpdate = sm;
   };
   Town.prototype.draw = function () {
+    this.camera.updateProjectionMatrix(); // (the lens follows the camera's distance to its target)
     if (this.handmade && !this.post) this.setupHandmade();
     if (!this.handmade || !this.post) { this.renderer.render(this.scene, this.camera); this.drawOverlay(); return; }
     var P = this.post, sz = this.renderer.getDrawingBufferSize(new T.Vector2());
     if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
-    P.mat.uniforms.depthRange.value = this.camera.far - this.camera.near;
+    var CP = this.camera.persp;
+    P.mat.uniforms.depthRange.value = CP ? 1 : this.camera.far - this.camera.near;
+    if (CP) P.mat.uniforms.persp.value.set(1, CP.near, CP.far, CP.dist);
     P.mat.uniforms.px.value = Math.max(1.2, this.renderer.getPixelRatio() * 1.05);
     // Zoomed far out, each pixel spans more ground and gentle hills would ink over: raise the bar.
     var cam = this.camera, wpp = (cam.right - cam.left) / cam.zoom / Math.max(1, sz.x) * P.mat.uniforms.px.value;
@@ -2521,7 +2545,7 @@
   var MAIL_NOTES = {
     run: ['Saw you running past the bakery! Faster than my kettle boils.', 'You ran by while I was hanging the washing. The sheets flapped like flags for you.', 'My grandson timed you along the river. He says you are a rocket.'],
     runWith: ['Saw you and {f} trotting along the river, chatting the whole way. Lovely to see.', 'You and {f} ran past my window today. You were laughing so much I laughed too.'],
-    lift: ['The whole street heard you lifting today. My teacups rattled, in the nicest way.', 'Strong as a moose, my husband says. He means it kindly.', 'Saw the tower grow another stone today. That was you, wasn\u2019t it?'],
+    lift: ['The whole street heard you lifting today. My teacups rattled, in the nicest way.', 'Strong as a moose, my husband says. He means it kindly.', 'Saw another building go up downtown today. That was you, wasn\u2019t it?'],
     bike: ['You whizzed past on your bike and I waved with a scone. Did you see?', 'Mind the potholes on the way to town, dear. And thank you for the wave.'],
     walk: ['Lovely evening for a stroll, wasn\u2019t it? The fireweed is out along the path.', 'Saw you out for a walk. It is the best way to see the town, I always say.'],
     swim: ['The otters gossip about your swimming. All good things, I promise.'],
@@ -12768,9 +12792,9 @@
       case 'lift':
         var rich = Math.random() < 0.6 ? this.liftLine(null, true) : null;
         if (rich) return rich;
-        if (ev.prCount) return pickOne(['heard you set a PR today! strong as an ox', ev.prCount + ' PR' + (ev.prCount > 1 ? 's' : '') + ' today?! goodness me', 'a new PR! the castle\u2019s growing, look']);
+        if (ev.prCount) return pickOne(['heard you set a PR today! strong as an ox', ev.prCount + ' PR' + (ev.prCount > 1 ? 's' : '') + ' today?! goodness me', 'a new PR! there\u2019s a flag going up downtown, look']);
         if (ev.tonnage) return pickOne(['moved ' + Math.round(ev.tonnage).toLocaleString() + ' lb today? my back hurts just hearing it', 'lifting again! you\u2019ll have arms like Mr. Pemberton']);
-        return pickOne(['good ' + ev.groups.join(' & ') + ' session today?', 'lifting again! you\u2019ll have arms like Mr. Pemberton', 'saw you at the castle today. strong stuff!']);
+        return pickOne(['good ' + ev.groups.join(' & ') + ' session today?', 'lifting again! you\u2019ll have arms like Mr. Pemberton', 'saw you at the gym today. strong stuff!']);
       case 'run': return pickOne([km ? km + ' today! my little knees could never' : 'out for a run today? good on you', 'you run past my window every morning, you know', 'the deer say you\u2019re getting quicker']);
       case 'bike': case 'mtb': return pickOne(['saw you whizz by on the bike' + (km ? ', ' + km + '!' : '!'), 'mind the potholes on that bike, dear', 'off up the trails again?']);
       case 'commute': return pickOne(['cycled to work again? good for you', 'bike to work today? the planet thanks you']);
@@ -12958,13 +12982,13 @@
   // The mice love to talk about your lifting: today's session, PRs (by lift), the week so far,
   // your best barbell numbers, how long since the last session, and their own two pennies.
   var LIFT_GROUP_LINES = {
-    chest: ['chest day? you’re puffed up like a robin', 'bench press again? the chest tower’s getting broad', 'all that pressing! you could push the castle gate open by yourself'],
+    chest: ['chest day? you’re puffed up like a robin', 'bench press again? Lambert Street’s filling out nicely', 'all that pressing! you could push the train back up the White Pass by yourself'],
     back: ['back day! stand up straight, dear, you’ve earned it', 'all those rows… you could paddle to Skagway', 'pull-ups? I can barely pull my socks up'],
     legs: ['leg day! I saw you on the stairs. the waddle gives it away', 'never skip leg day, my mum always said. well, she said eat your cheese', 'squats today? you’re walking like a cowboy, dear'],
     shoulders: ['shoulders today? you’ll need new sleeves', 'look at those arms! you could carry the whole village', 'curls for the girls, is it? ha!'],
     post: ['hamstrings today? hope you can still sit down', 'deadlifts! lift with your legs, dear… or is that the point?', 'a posterior chain day! I had to look that up'],
     core: ['abs day? I can see the cheese wheel from here', 'core work! steady as the lighthouse', 'planks! I lie flat all day too, but it doesn’t count'],
-    full: ['a full-body session? everything must be aching', 'the whole lot today? the castle masons are run off their feet']
+    full: ['a full-body session? everything must be aching', 'the whole lot today? the builders downtown are run off their feet']
   };
   var BIG_NAMES = { bench: 'bench', squat: 'squat', deadlift: 'deadlift', ohp: 'overhead press' };
   Town.prototype.liftLine = function (m, todayOnly) {
@@ -12987,27 +13011,27 @@
     }
     if (today.length) {
       var e = pickOne(today), prs = prBits(e);
-      if (prs.length) { var pr = pickOne(prs); L.push('a ' + pr.name + ' PR today' + (pr.w ? ', ' + pr.w + ' lb' : '') + '! the whole street heard the bar hit the floor', 'I heard about that ' + pr.name + ' PR! strong as an ox', (pr.w ? pr.w + ' lb on the ' + pr.name + '?! ' : 'new best on the ' + pr.name + '! ') + 'they’ll be hoisting a flag on the castle'); }
+      if (prs.length) { var pr = pickOne(prs); L.push('a ' + pr.name + ' PR today' + (pr.w ? ', ' + pr.w + ' lb' : '') + '! the whole street heard the bar hit the floor', 'I heard about that ' + pr.name + ' PR! strong as an ox', (pr.w ? pr.w + ' lb on the ' + pr.name + '?! ' : 'new best on the ' + pr.name + '! ') + 'they’ll be hoisting a flag over Main Street'); }
       if (e.prCount > 1) L.push(e.prCount + ' PRs in one session?! goodness me, save some for tomorrow');
       if (e.tonnage) L.push('moved ' + Math.round(e.tonnage).toLocaleString() + ' lb today? my back hurts just hearing it', Math.round(e.tonnage).toLocaleString() + ' lb today. that’s about ' + Math.round(e.tonnage / 0.05).toLocaleString() + ' mice, I worked it out');
       (e.groups || []).forEach(function (g) { if (LIFT_GROUP_LINES[g]) L = L.concat(LIFT_GROUP_LINES[g]); });
-      L.push('saw you at the castle today. strong stuff!', 'heard the clank of plates from the castle this morning. that was you, wasn’t it?');
+      L.push('saw you at the gym today. strong stuff!', 'heard the clank of plates from the gym this morning. that was you, wasn’t it?');
     } else if (todayOnly) return null;
     else {
       if (gapL === 1) L.push('lifted yesterday? you’re walking a bit stiff, dear', 'how are the muscles after yesterday’s lift? sore?');
-      if (gapL >= 2 && gapL < 5) L.push('no lifting since ' + (last.day || gapL + ' days ago') + '? the castle masons are on a tea break', gapL + ' days since you lifted. the towers are waiting, love');
-      else if (gapL >= 5 && gapL < 8) L.push(gapL + ' days without lifting! the castle’s getting drafty', 'the grizzly’s been asking where you’ve got to. ' + gapL + ' days!', 'the dumbbells are gathering dust, I hear');
-      else if (gapL >= 8) L.push('a whole ' + gapL + ' days without lifting?! the stonemasons have gone fishing', 'the castle hasn’t grown in ' + gapL + ' days. we’re all a bit worried');
+      if (gapL >= 2 && gapL < 5) L.push('no lifting since ' + (last.day || gapL + ' days ago') + '? the builders downtown are on a tea break', gapL + ' days since you lifted. the empty lots downtown are waiting, love');
+      else if (gapL >= 5 && gapL < 8) L.push(gapL + ' days without lifting! the scaffolding downtown is getting rusty', 'the grizzly’s been asking where you’ve got to. ' + gapL + ' days!', 'the dumbbells are gathering dust, I hear');
+      else if (gapL >= 8) L.push('a whole ' + gapL + ' days without lifting?! the stonemasons have gone fishing', 'not a new building downtown in ' + gapL + ' days. we’re all a bit worried');
       var recentPR = week.filter(function (w) { return w.ago > 0 && w.e.prCount; })[0];
       if (recentPR) { var rp = pickOne(prBits(recentPR.e).concat([{ name: '' }])); L.push('still talking about that ' + (rp.name ? rp.name + ' ' : '') + 'PR ' + (recentPR.ago === 1 ? 'yesterday' : 'the other day') + '!'); }
     }
     var wk = week.length, lb = week.reduce(function (a, w) { return a + (w.e.tonnage || 0); }, 0);
-    if (wk >= 3) L.push(wk + ' lifting sessions this week! the stonemasons can’t keep up', wk + ' times at the castle this week? you live there now, dear');
+    if (wk >= 3) L.push(wk + ' lifting sessions this week! the stonemasons can’t keep up', wk + ' times at the gym this week? you live there now, dear');
     if (lb > 2000) L.push(Math.round(lb).toLocaleString() + ' lb lifted this week! that’s a lot of cheese wheels');
     var B = s.best || {}, bk = Object.keys(BIG_NAMES).filter(function (k) { return B[k]; });
     if (bk.length) { var b1 = pickOne(bk); L.push('how’s the ' + BIG_NAMES[b1] + '? last I heard your best was ' + B[b1] + ' lb', 'a ' + B[b1] + ' lb ' + BIG_NAMES[b1] + '! that’s about ' + Math.round(B[b1] / 0.05).toLocaleString() + ' of me'); }
     if (s.tonnage > 10000) L.push(Math.round(s.tonnage).toLocaleString() + ' lb lifted all told. the mine keeps getting deeper');
-    if (s.prs >= 10) L.push(s.prs + ' PRs since you started! the castle’s got flags to spare');
+    if (s.prs >= 10) L.push(s.prs + ' PRs since you started! downtown’s got flags to spare');
     if (who && who.lift) L = L.concat(who.lift, who.lift);
     // Don't say the same thing twice in a row.
     var R = this.liftSaid || (this.liftSaid = []), fresh = L.filter(function (x) { return R.indexOf(x) < 0; });
@@ -13052,7 +13076,7 @@
       var gl = Object.keys(gs);
       if (gl.length >= 3) L.push(gl.join(', ').replace(/, ([^,]*)$/, ' and $1') + ' this week. a proper all-rounder, dear');
       var prs = lifts.reduce(function (a, o) { return a + (o.e.prCount || 0); }, 0);
-      if (prs >= 2) L.push(prs + ' PRs this week! the castle flag-maker is out of cloth');
+      if (prs >= 2) L.push(prs + ' PRs this week! the flag-maker on Main Street is out of cloth');
     }
     var allWork = wk.filter(function (o) { return !NOT_WORKOUTS[o.e.kind]; });
     var days = {}; allWork.forEach(function (o) { days[o.ago] = 1; });
@@ -13219,13 +13243,13 @@
     'Clementine': { lady: true, fur: 2, cloth: 5, kit: ['toque', 'basket'], lines: ['fresh rolls out of the oven! well, they were an hour ago', 'the secret to good bread is patience. and butter', 'I’ve saved you a cinnamon bun. don’t tell the others', 'flour everywhere! occupational hazard'],
       lift: ['all that lifting, you’ll need carbs! have a roll', 'you knead the dough like you lift. firm and steady', 'protein muffin? I’ve been experimenting. they’re… dense'] },
     'Bartholomew': { fur: 7, cloth: 13, legs: 13, kit: ['smith', 'headband', 'hammer'], lines: ['hot iron waits for no mouse', 'I made the hinges on the church door, you know', 'clang clang clang. sorry, what?', 'a good horseshoe is a work of art. a bad one is a paperweight'],
-      lift: ['heavy is heavy, whether it’s iron or a barbell. you get it', 'swinging a hammer all day is a fine workout, but you’d out-lift me', 'I’ll forge you some plates if the castle runs short', 'grip strength! that’s what the anvil teaches'] },
+      lift: ['heavy is heavy, whether it’s iron or a barbell. you get it', 'swinging a hammer all day is a fine workout, but you’d out-lift me', 'I’ll forge you some plates if the gym runs short', 'grip strength! that’s what the anvil teaches'] },
     'Primrose': { lady: true, fur: 3, cloth: 15, kit: ['flowers', 'can'], lines: ['the sweet peas are out! smell that', 'every flower in my garden has a name. that one’s Gerald', 'did you know dandelions are edible? I eat them in a sandwich', 'sunshine makes everything better'],
       lift: ['you’re growing like a sunflower! all that lifting', 'muscles are like roses: water, sun and patience', 'I lift my watering can twenty times a day. we’re practically gym buddies'] },
     'Wilfred': { fur: 0, cloth: 3, legs: 9, kit: ['souwester', 'rod'], lines: ['caught a grayling this long! well, this long', 'the fish are biting at the river mouth, if you’re asking', 'patience, that’s fishing. and sandwiches', 'there’s a pike in that lake older than me'],
       lift: ['with arms like that you could reel in the big pike', 'strong enough to row to Carcross, I reckon', 'heavy lifting? try landing a lake trout in a gale'] },
     'Hazel': { fur: 1, cloth: 6, legs: 6, kit: ['headband', 'ponytail', 'trainers'], lines: ['five laps round the square before breakfast. you?', 'hydrate! hydrate!', 'race you to the fountain! …tomorrow', 'stretching is not optional, dear'],
-      lift: ['I saw your session at the castle. that’s a solid set', 'don’t forget your warm-up sets. I’m watching', 'strength AND cardio? you’re my kind of raccoon', 'deload weeks are part of the plan too, you know', 'squat depth looked great today. below parallel, I bet'] },
+      lift: ['I saw your session at the gym. that’s a solid set', 'don’t forget your warm-up sets. I’m watching', 'strength AND cardio? you’re my kind of raccoon', 'deload weeks are part of the plan too, you know', 'squat depth looked great today. below parallel, I bet'] },
     'Rupert': { fur: 2, cloth: 9, legs: 8, kit: ['prospector', 'neckerchief', 'pan'], lines: ['there’s gold in them thar hills! somewhere. probably', 'struck it rich in ’98. spent it by ’99', 'the Klondike’s just up the road, you know', 'a nugget the size of a pea! well, a small pea'],
       lift: ['you lift like you’re hauling a ton of goods up the Chilkoot', 'with arms like yours, you’d have made a fortune in ’98', 'every plate you lift is worth its weight in gold, partner'] }
   };
@@ -14421,13 +14445,13 @@
       case 'prflag': {
         var pc = +(p[2] || 0), ptw = pc ? s.castles[pc] && s.castles[pc].towers[p[1]] : s.towers[p[1]], pe = ptw && ptw.prEv;
         if (!pe) return null;
-        return { title: 'PR! ' + (pc ? s.castles[pc].name + ': ' + ptw.def.name.replace(/ tower$/i, '').toLowerCase() : ptw.def.name), lines: [pe.day + ' \u00b7 ' + pe.label, plural(pe.n, 'new personal record') + ' that session:'].concat(pe.lines.slice(0, 5).map(function (l) { return '\u2605 ' + l; }), [
-          pe.lines.length > 5 ? '+ ' + (pe.lines.length - 5) + ' more' : '', (pc ? plural(ptw.prs, 'PR') + ' on this pennant in ' + s.castles[pc].name + '. It flies until your next session here without a PR.' : plural(ptw.prs, 'PR') + ' on this tower all-time. The flag flies until your next session here without a PR.')]) };
+        return { title: 'PR! ' + (pc ? s.castles[pc].name + ': ' + ptw.def.name.toLowerCase() : ((CITY_STREETS[p[1]] || {}).name || ptw.def.name)), lines: [pe.day + ' \u00b7 ' + pe.label, plural(pe.n, 'new personal record') + ' that session:'].concat(pe.lines.slice(0, 5).map(function (l) { return '\u2605 ' + l; }), [
+          pe.lines.length > 5 ? '+ ' + (pe.lines.length - 5) + ' more' : '', (pc ? plural(ptw.prs, 'PR') + ' on this pennant in ' + s.castles[pc].name + '. It flies until your next session here without a PR.' : plural(ptw.prs, 'PR') + ' on ' + ((CITY_STREETS[p[1]] || {}).name || 'this street') + ' all-time. The flag flies until your next session here without a PR.')]) };
       }
       case 'tower':
         var ci = +(p[2] || 0), C = ci ? s.castles[ci] : null, tw = C ? C.towers[p[1]] : s.towers[p[1]], next = (Math.floor(tw.n / TIER) + 1) * TIER;
         if (C) return { title: C.name + ': ' + tw.def.name.toLowerCase(), lines: [plural(tw.n, 'layer') + (tw.bailey ? ' · ' + plural(tw.bailey.done, 'bailey piece') : ''), C.style.vibe,
-          'Lifting sessions build here once the castles before it are complete. Its towers rise evenly, with halls and turrets when they get ahead, plus upgrades of its own (tap the walls or gate).', s.last[key] ? 'Last: ' + s.last[key].day + ' · ' + s.last[key].label : ''] };
+          'Lifting sessions build here once the towns before it are complete.', s.last[key] ? 'Last: ' + s.last[key].day + ' · ' + s.last[key].label : ''] };
         if (tw.city) {
           var CS = CITY_STREETS[p[1]], nb = Math.floor(tw.n / CITY_EVERY), nxt = CS.plan[nb], landmarks = CS.plan.slice(0, nb).filter(function (q) { return q[3]; }).map(function (q) { return q[3]; });
           return { title: CS.name + ' (' + (p[1] === 'full' ? 'full body' : TOWERS.filter(function (t) { return t.key === p[1]; })[0].name.replace(/ tower$/, '').toLowerCase()) + ')', lines: [plural(tw.n, 'session') + ' · ' + plural(tw.prs, 'PR') + ' all-time · ' + plural(Math.min(nb, CS.plan.length), 'building') + ' of ' + CS.plan.length,
@@ -14488,7 +14512,7 @@
         var lrv = latestReview(LB.books);
         return { title: 'The library', lines: (lrv ? [reviewLine(lrv)] : []).concat(['Click for your bookshelf: covers, ratings and reviews.', plural(LB.books.length, 'book') + ' · ' + fmtN(LB.pages) + ' pages' + (real.length < LB.books.length ? ' (' + (LB.books.length - real.length) + ' projected)' : ''),
           nextL ? 'Next: ' + nextL[1].toLowerCase() + ' at ' + fmtN(nextL[0]) + ' pages.' : 'The library is complete.']) };
-      case 'raccoon': return { title: 'The raccoon', lines: ['That\u2019s you. You follow whichever castle is being built.'] };
+      case 'raccoon': return { title: 'The raccoon', lines: ['That\u2019s you. You follow wherever your lifting is building next.'] };
       case 'mine': {
         var Mi = this.st.mine, mn = Mi ? Mi.n : 0, nxM = MINE_STEPS[mn];
         return { title: 'The mine', lines: ['Every pound you lift digs it deeper: ' + fmtN(Math.round(this.st.tonnage)) + ' lb so far, level ' + mn + ' of ' + MINE_STEPS.length + '.', nxM ? 'Next: ' + nxM[1].toLowerCase() + ' at ' + fmtN(nxM[0]) + ' lb.' : 'The mine is as deep as it goes.', 'Walk up and press E to go digging: the deeper it is, the better the finds.' + (this.mineFinds ? ' Found so far: ' + this.mineFinds + '.' : '')] };
@@ -14582,7 +14606,7 @@
         var built = CASTLE_MILESTONES.filter(function (m) { return s.lifts >= m[0]; }).map(function (m) { return m[2].toLowerCase(); });
         return { title: 'Whitehorse', lines: [plural(s.lifts, 'lifting session') + ' in all.' + (s.baileyPieces ? ' ' + plural(s.baileyPieces, 'bailey piece') + ' built around it.' : '') + (s.castles.filter(Boolean).length ? ' Towns up the line: ' + s.castles.filter(Boolean).map(function (C) { return C.name; }).join(', ') + '.' : ''),
           built.length ? 'Built: ' + built.join(', ') + '.' : 'Each street grows with its muscle group.',
-          nextM ? 'Next: ' + nextM[2].toLowerCase() + ' at ' + nextM[0] + ' sessions.' : 'Every castle upgrade is built.'] };
+          nextM ? 'Next: ' + nextM[2].toLowerCase() + ' at ' + nextM[0] + ' sessions.' : 'Every Whitehorse upgrade is built.'] };
       case 'run':
         var f = s.forest, mix = Object.keys(f.kinds).map(function (k) { return f.kinds[k] + ' ' + TREE_NAMES[k]; }).join(', ');
         var gl = Object.keys(GROVES).filter(function (k) { return f.groves && f.groves[k] && f.groves[k].length; }).map(function (k) { return f.groves[k].length + ' in ' + GROVES[k].name; });
@@ -14686,7 +14710,10 @@
   Town.prototype.pick = function (clientX, clientY) {
     var rect = this.canvas.getBoundingClientRect();
     var v = new T.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
-    this.raycaster.setFromCamera(v, this.camera);
+    if (this.camera.persp) {
+      var ro = new T.Vector3(v.x, v.y, -1).unproject(this.camera), rd = new T.Vector3(v.x, v.y, 1).unproject(this.camera).sub(ro).normalize();
+      this.raycaster.set(ro, rd);
+    } else this.raycaster.setFromCamera(v, this.camera);
     var hits = this.raycaster.intersectObjects(this.snowMtn ? this.picks.concat([this.snowMtn]) : this.picks, false);
     for (var i = 0; i < hits.length; i++) {
       var o = hits[i].object, vis = true;
@@ -14840,7 +14867,7 @@
       c.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.DOLLY, RIGHT: T.MOUSE.ROTATE };
       c.touches = { ONE: T.TOUCH.ROTATE, TWO: T.TOUCH.DOLLY_ROTATE };
       c.maxZoom = 7;
-      var off = new T.Vector3(1, 1.05, 1).normalize().multiplyScalar(40);
+      var off = new T.Vector3(1, 0.62, 1).normalize().multiplyScalar(40);
       c.target.set(P.x, P.y + 0.6, P.z);
       this.camera.position.copy(c.target).add(off);
       this.camera.zoom = 3.4; this.camera.updateProjectionMatrix();
@@ -16604,7 +16631,7 @@
     if (this.explore) { this.setExplore(true); return; }
     var c = this.controls, cam = this.camera;
     c.target.set(0, this.fit.y, 0);
-    cam.position.set(34, 30 + this.fit.y, 34);
+    cam.position.set(34, CAM_RISE + this.fit.y, 34);
     this.fit.auto = true;
     this.fitDirty = true;
     this.needsRender = true;
@@ -17619,7 +17646,7 @@
     if (!ci) { this.recenter(); return 'Whitehorse'; }
     var s = CASTLE_SITES[ci], v = POSTCARD_VIEW[ci] || [-18, 12, 20], y = groundY(s.x, s.z), from = siteAt(ci, v[0], v[2]), dir = new T.Vector3(from.x - s.x, 0, from.z - s.z).normalize();
     c.target.set(s.x, y + 1, s.z);
-    cam.position.set(s.x + dir.x * 40, y + 1 + v[1] * 2.2, s.z + dir.z * 40);
+    cam.position.set(s.x + dir.x * 40, y + 1 + v[1] * 1.35, s.z + dir.z * 40);
     cam.zoom = 2.3; cam.updateProjectionMatrix(); c.update();
     this.needsRender = true;
     return TOWNS[ci].name;

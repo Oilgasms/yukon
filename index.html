@@ -252,6 +252,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .timeline.min { width: auto; padding-right: 34px; }
 .timeline.min .caption, .timeline.min .phases, .timeline.min #scrub, .timeline.min #future5, .timeline.min #recenter, .timeline.min #pixel { display: none; }
 .timeline .tl-top { padding-right: 22px; }
+/* The timeline itself is retired: just a tidy bar of buttons that wraps rather than overflows. */
+.timeline { width: auto; max-width: calc(100vw - 32px); padding: 8px 10px; }
+.timeline #play, .timeline #scrub, .timeline #future5, .timeline .caption, .timeline .phases { display: none !important; }
+.timeline .tl-top { flex-wrap: wrap; justify-content: center; gap: 6px; padding-right: 26px; }
+.timeline .tl-top .btn { padding: 6px 10px; font-size: 13px; white-space: nowrap; }
+
 .secrets { margin: 0 16px 12px; padding-top: 10px; border-top: 2px dashed var(--line); font-size: 12.5px; line-height: 1.45; }
 .secrets h3 { font-family: var(--display); font-size: 14px; margin: 0 0 6px; }
 .secrets ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
@@ -384,7 +390,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v160';
+var BUILD = 'v161';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -828,7 +834,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       ['Workouts', fmt(s.sessions)],
       ['Stones laid', fmt(stones)],
       ['PRs logged', fmt(s.prs)],
-      ['Towers flying a flag', fmt(flying) + ' of ' + towers],
+      ['Streets flying a PR flag', fmt(flying) + ' of ' + towers],
       ['Forest (runs)', fmt(s.forest.trees.length) + ' trees · ' + fmt(s.forest.km) + ' km'],
       ['Mountain range (hikes)', peaks.length ? fmt(peaks.length) + (peaks.length === 1 ? ' peak' : ' peaks') + ' · tallest ' + tall.toFixed(1) : 'not started'],
       ['Farmland (rides + MTB)', fmt(s.bike.crops.length) + ' crops · ' + fmt(s.bike.km) + ' km'],
@@ -872,7 +878,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
 
   // ---- timeline ----
   var KIND_WORDS = {
-    lift: function (e) { return e.groups.map(function (g) { return { chest: 'Chest', back: 'Back', legs: 'Leg', shoulders: 'Shoulders & arms', post: 'Posterior chain', core: 'Core', full: 'Keep' }[g]; }).join(' + ') + ' tower' + (e.prCount ? ', PR flag raised' : ''); },
+    lift: function (e) { return e.groups.map(function (g) { return { chest: 'Chest', back: 'Back', legs: 'Leg', shoulders: 'Shoulders & arms', post: 'Posterior chain', core: 'Core', full: 'Full-body' }[g]; }).join(' + ') + ' lifting builds Whitehorse' + (e.prCount ? ', PR flag raised' : ''); },
     commute: function () { return 'a cobble on the commuter lane'; },
     social: function () { return 'time with friends'; },
     run: function (e) { var extra = Math.min(12, Math.floor((e.km || 0) / 5)); return KIND_WORDS.runTree(e) + (extra ? ' and ' + extra + ' more tree' + (extra > 1 ? 's' : '') : ''); },
@@ -1035,7 +1041,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   var SPINES = ['#7a3b2e', '#2f5e4e', '#3f4f7a', '#8a5a2e', '#5e3f6e', '#2e5a6e'];
   function starsText(n) { if (n == null) return ''; var full = Math.floor(n), half = n - full >= 0.5; return '\u2605'.repeat(full) + (half ? '\u00bd' : '') + ' ' + n + '/5'; }
   // How tall your books would stand stacked up: about 0.075 mm a page plus 4 mm of cover each.
-  var HEIGHTS = [[9, 'a coffee mug'], [30, 'a ruler'], [55, 'Minto'], [76, 'a kitchen table'], [122, 'a hockey net'], [180, 'you, roughly'], [210, 'a moose at the shoulder'], [305, 'a basketball hoop'], [550, 'a giraffe'], [1000, 'a three-storey house'], [2000, 'the castle keep'], [4600, 'the Statue of Liberty']];
+  var HEIGHTS = [[9, 'a coffee mug'], [30, 'a ruler'], [55, 'Minto'], [76, 'a kitchen table'], [122, 'a hockey net'], [180, 'you, roughly'], [210, 'a moose at the shoulder'], [305, 'a basketball hoop'], [550, 'a giraffe'], [1000, 'a three-storey house'], [2000, 'a canoe stood on end'], [4600, 'the Statue of Liberty']];
   function stackHeight(books) {
     var mm = 0; books.forEach(function (b) { mm += (b.pages || 250) * 0.075 + 4; });
     var cm = mm / 10, under = HEIGHTS.filter(function (h) { return h[0] <= cm; }).pop(), over = HEIGHTS.filter(function (h) { return h[0] > cm; })[0];
