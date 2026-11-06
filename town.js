@@ -292,10 +292,18 @@
   function isleSd(x, z) { var dx = x - JN_ISLE.x, dz = z - JN_ISLE.z, a = Math.atan2(dz, dx); return Math.hypot(dx, dz) - (41 + 4 * Math.sin(a * 3 + 0.7) + 2.5 * Math.sin(a * 5 + 2.1)); }
   var STREET_X = { 3: 7.9, 4: 8, 6: 5 }; // Atlin's main street is Lake Road along the shore; Dawson's is Front Street on the river; Haines' is Main Street
   var CARCROSS = 1, SKAGWAY = 2, HAINES = 6, WORLD_R = 345; // the map reaches out past Watson Lake
-  // The river comes down from the glacier, runs straight along the front of downtown, past the
+  // The river comes down from Dawson, runs straight along the front of downtown, past the
   // Riverdale dam and through Miles Canyon, then out past the farmland to the sea.
   var RIVER_HALF = 1.7;
-  var RIVER = bezierPath(polar(70, 132), polar(66, 80), dtw(-36, RIVER_N), dtw(-24, RIVER_N), 170)
+  // One Yukon, end to end: it comes down from the north past Dawson (DAWSON_RIVER, off the top of
+  // the map), out of the head of Dawson's channel, and sweeps down to Whitehorse (Dawson is town 4).
+  // (It swings east round the north side of the ski hill, then joins its old course above town.)
+  var RIVER = (function () {
+    var old = bezierPath(polar(70, 132), polar(66, 80), dtw(-36, RIVER_N), dtw(-24, RIVER_N), 170), J = 120, a = old[J], b = old[J + 1];
+    var tl = Math.hypot(b.x - a.x, b.z - a.z) || 1, head = siteAt(4, 19, 58), up = siteAt(4, 19, 66), ux = up.x - head.x, uz = up.z - head.z, ul = Math.hypot(ux, uz) || 1;
+    var lead = bezierPath(head, { x: head.x + ux / ul * 7 + 11, z: head.z + uz / ul * 7 }, { x: a.x - (b.x - a.x) / tl * 13, z: a.z - (b.z - a.z) / tl * 13 }, a, J + 1);
+    return lead.concat(old.slice(J + 1));
+  })()
     .concat(curvePath(function (u) { return dtw(-24 + u * 58, RIVER_N); }, 110)) // following the bend of the town
     .concat(bezierPath(dtw(34, RIVER_N), dtw(48, RIVER_N), { x: 85, z: 48 }, siteAt(HAINES, -22, 34), 130).slice(1)) // past the dam and down Miles Canyon
     .concat((function () { var a = siteAt(HAINES, -22, 34), b = siteAt(HAINES, -23, 10), c = siteAt(HAINES, -22, -26), dx = a.x - 85, dz = a.z - 48, l = Math.hypot(dx, dz);
@@ -331,7 +339,7 @@
   function riverLevel(i) {
     if (!RIVER_LEVELS) {
       RIVER_LEVELS = [];
-      var lv = 1e9;
+      var lv = dawsonLevel(DAWSON_RIVER.len + 8); // level with the head of Dawson's channel, where it comes in
       RIVER.forEach(function (p) { lv = Math.min(lv, landY(p.x, p.z) - 0.9 - canyonDepth(p.x, p.z)); RIVER_LEVELS.push(Math.max(SEA_Y - 0.02, lv)); });
     }
     return RIVER_LEVELS[i];
@@ -390,9 +398,9 @@
   var PASTURE = polar(282, 74), PASTURE_R = 6.3;
   // The church, built chapter by chapter as the Bible is read, on top of Church Hill past the end
   // of the south street, with a path winding up to it.
-  // The glacier the river comes out of: a snow-capped mountain just past the river's head.
+  // The glacier: a snow-capped mountain with its ice tongue running down to a meltwater pool.
   var GLACIER = (function () {
-    var S = RIVER[0], q = RIVER[8], l = Math.hypot(S.x - q.x, S.z - q.z), u = { x: (S.x - q.x) / l, z: (S.z - q.z) / l };
+    var S = polar(70, 128), q = polar(67, 112), l = Math.hypot(S.x - q.x, S.z - q.z), u = { x: (S.x - q.x) / l, z: (S.z - q.z) / l };
     return { S: S, u: u, x: S.x + u.x * 7, z: S.z + u.z * 7, R: 8, H: 15 };
   })();
   var CHURCH_AT = [256, 60], CHURCH = polar(CHURCH_AT[0], CHURCH_AT[1]), CHURCH_HILL = { r: 22, h: 3.4 };
@@ -692,6 +700,8 @@
     tarn({ x: e.x + (e.x - e1.x) / el * 3.6, z: e.z + (e.z - e1.z) / el * 3.6 }, 4.2, 'reeds');
     var f = FALL_STREAM[FALL_STREAM.length - 1];
     tarn({ x: f.x + FALL.ux * 2.4, z: f.z + FALL.uz * 2.4 }, 2.6, 'spring');
+    // and the meltwater pool at the foot of the glacier
+    tarn({ x: GLACIER.S.x - GLACIER.u.x * 1.5, z: GLACIER.S.z - GLACIER.u.z * 1.5 }, 3.4, 'spring'); GLACIER.pool = TARNS[TARNS.length - 1];
   })();
   function streamDist(x, z) {
     var best = 1e9, cx = Math.floor(x / 6), cz = Math.floor(z / 6);
@@ -805,6 +815,8 @@
   // Where roads and paths sit: on the ground, or on a bridge deck over the river.
   // Roads crossing the river ride up onto a deck just above the water, ramping down to the banks.
   function surfaceY(x, z) {
+    var sb = BRIDGE_SPANS && BRIDGE_SPANS.length ? onBridge(x, z) : null;
+    if (sb) return spanY(sb, x, z);
     var rd = riverDist(x, z), g = groundY(x, z);
     if (rd > RIVER_HALF + 3) return g;
     // Over the river (a bridge or a ford) you're at bank height: ramp up to it from the banks, so
@@ -848,9 +860,12 @@
     var q = townLocal(DAWSON, x, z), R = DAWSON_RIVER;
     if (q.d2 > 47000 || q.z < DR_FAR || q.z > R.len + 8) return 0;
     var ox = q.x - dawsonOff(q.z), bw = 2.5 + 5 * smooth(-45, -70, q.z); // gentler banks out in the country
-    if (ox < R.x0 - bw - 0.5 || ox > R.x1 + bw + 0.5) return 0;
+    // Past the south end of town it narrows into the river coming down from Whitehorse's way.
+    var k = smooth(R.len - 14, R.len + 1, q.z), cx = (R.x0 + R.x1) / 2, x0 = R.x0 + (cx - RIVER_HALF - R.x0) * k, x1 = R.x1 + (cx + RIVER_HALF - R.x1) * k;
+    bw += (1.6 - bw) * k;
+    if (ox < x0 - bw - 0.5 || ox > x1 + bw + 0.5) return 0;
     DR_Z = q.z;
-    return smooth(R.x0 - bw, R.x0, ox) * (1 - smooth(R.x1, R.x1 + bw, ox)) * (1 - smooth(R.len, R.len + 8, q.z));
+    return smooth(x0 - bw, x0, ox) * (1 - smooth(x1, x1 + bw, ox)) * (1 - smooth(R.len + 1, R.len + 8, q.z));
   }
   // Within d of the river past Dawson (for keeping trees and cabins off its banks).
   function nearDawsonRiver(x, z, d) {
@@ -930,6 +945,14 @@
   var TOWN_CREEKS = [{ ci: 4, z: 19.5, x0: -46, x1: 15, half: 1.5, bank: 2.2, drop: 1.2 }, { ci: 5, z: 20.5, x0: -40, x1: 32, half: 1.3, bank: 2.0, drop: 0.9, bend: 0.75 }];
   function creekZ(c, lx) { return c.z + 1.6 * Math.sin(lx * 0.11 + c.ci) - (c.bend ? Math.max(0, lx - 3) * c.bend : 0); } // (the Dezadeash swings round past the airstrip, clear of the Haines Road)
   function creekLevel(c) { if (c.lv == null) { var s0 = CASTLE_SITES[c.ci]; c.lv = Math.max(rawHeight(s0.x, s0.z), SEA_Y + 0.5) + s0.lift - c.drop; } return c.lv; }
+  // Where they rise and where they go: each creek comes out of a spring pool among rocks, and the
+  // Dezadeash runs on out into a reedy lake (the Klondike flows into the Yukon).
+  TOWN_CREEKS.forEach(function (c) {
+    var lv = creekLevel(c) + 0.02;
+    function pool(lx, R, kind) { var w = siteAt(c.ci, lx, creekZ(c, lx)); TARNS.push({ x: w.x, z: w.z, R: R, kind: kind, y: lv }); }
+    pool(c.x0 - 1.2, c.half + 1.7, 'spring');
+    if (c.ci === 5) pool(c.x1 + 3.2, 4.6, 'reeds');
+  });
   function creekNear(x, z, d) {
     for (var i = 0; i < TOWN_CREEKS.length; i++) {
       var c = TOWN_CREEKS[i], q = townLocal(c.ci, x, z);
@@ -1589,7 +1612,7 @@
       else if (name === 'rock' || name === 'snow' || name === 'hill') m = new T.MeshStandardMaterial({ roughness: 0.95, metalness: 0, flatShading: true });
       else m = new T.MeshToonMaterial({ gradientMap: this.toonSteps });
       if (name === 'fields') { m.vertexColors = true; }
-      if (name === 'water') { m.transparent = true; m.opacity = 0.92; }
+      if (name === 'water') { m.transparent = true; m.opacity = 0.92; m.depthWrite = false; this.waterShader(m); } // (no depth from water: where sheets of it overlap, no inked seam) }
       // Water, paths and paving lie almost level with the ground: always draw them on top of it.
       if (name === 'water' || name === 'path' || name === 'cobble') { m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -4; }
       // See-through panes for the glasshouse, with a faint warm glow at night.
@@ -1617,7 +1640,7 @@
     if (name === 'hare' && this.season === 'winter') m.color.set(['#f4f6f8', '#d8dde2', '#ffffff'][m.userData.idx || 0]);
     if (name === 'glasshouse') m.emissive.set(this.dark ? '#33240a' : '#000000');
     if (name === 'lantern') { m.color.set(p.flag[1]); m.emissive.set(p.windowGlow); }
-    if (name === 'water') m.opacity = this.season === 'winter' ? 1 : 0.92;
+    if (name === 'water') { m.opacity = this.season === 'winter' ? 1 : 0.92; if (this.waterU) this.waterU.uIce.value = this.season === 'winter' ? 1 : 0; }
     // Snow covers the field patchwork.
     if (name === 'fields' && m.vertexColors !== (this.season !== 'winter')) { m.vertexColors = this.season !== 'winter'; m.needsUpdate = true; }
   };
@@ -1829,6 +1852,7 @@
       if (coastSd(x, z) > -8 || lakeDist(x, z) < 3 || streamDist(x, z) < 2.2 || Math.hypot(x - PASTURE.x, z - PASTURE.z) < PASTURE_R + 2.5 || Math.hypot(x - CHURCH.x, z - CHURCH.z) < 10 || Math.hypot(x - LIBRARY.x, z - LIBRARY.z) < 13 || inTownSquare(x, z, 3)) return false;
       if (CASTLE_SITES.some(function (c, ci) { return ci && Math.hypot(c.x - x, c.z - z) < 20.5; })) return false;
       if (nearPath(x, z, 1.6)) return false;
+      if (creekNear(x, z, 1.2) || nearDawsonRiver(x, z, 1.2) || TARNS.some(function (t) { return Math.hypot(t.x - x, t.z - z) < t.R + 1.5; })) return false; // (no hedges growing in the water)
       if (HOUSE_SLOTS.some(function (h) { return Math.hypot(h.x - x, h.z - z) < 3.2; })) return false;
       if (Math.hypot(x - HOCKEY.x, z - HOCKEY.z) < 6 || Math.hypot(x - OFFICE.x, z - OFFICE.z) < 7 || Math.hypot(x - POND.x, z - POND.z) < 8.5) return false;
       for (var k = 0; k < LANE.length; k += 4) if (Math.hypot(x - LANE[k].x, z - LANE[k].z) < 1.4) return false;
@@ -2047,7 +2071,7 @@
       if (gap > 1.2) prevY = null;
       if (rd < RIVER_HALF + 1.1) {
         add('stone2', t.x, y - 0.12, t.z, t.rot, 0.62, 0.26, w + 0.5);
-        if (i % 2 === 0) [-1, 1].forEach(function (sd) {
+        if (i % 2 === 0 && Math.hypot(t.x - BRIDGE.c.x, t.z - BRIDGE.c.z) > 5 && Math.hypot(t.x - LANE_BRIDGE.c.x, t.z - LANE_BRIDGE.c.z) > 5) [-1, 1].forEach(function (sd) {
           add('stoneDark', t.x + Math.sin(t.rot) * sd * (w / 2 + 0.2), y + 0.22, t.z + Math.cos(t.rot) * sd * (w / 2 + 0.2), t.rot, 0.62, 0.42, 0.12);
         });
       } else if (prevY != null && Math.abs(y - prevY) / Math.max(0.3, gap) > 0.3) {
@@ -3632,9 +3656,9 @@
   // The Haines Road's bridge below Miles Canyon: a timber deck on steel trusses from bank to bank,
   // with a pier either side of the water.
   Town.prototype.highwayBridge = function (delay) {
-    var B = HWY_BRIDGE, self = this, pick = 'hwybridge', g = new T.Group();
-    var y = Math.max(groundY(B.a.x, B.a.z), groundY(B.b.x, B.b.z)) + 0.25, len = B.half * 2 + 1.2;
-    g.position.set(B.c.x, y, B.c.z); g.rotation.y = B.rot; this.world.add(g);
+    var B = HWY_BRIDGE, self = this, pick = 'hwybridge', g = new T.Group(), S = B.span;
+    var y = (S.y0 + S.y1) / 2 - 0.07, len = S.deck * 2;
+    g.position.set(B.c.x, y, B.c.z); g.rotation.order = 'YXZ'; g.rotation.y = B.rot; g.rotation.x = -Math.atan2(S.y1 - S.y0, len); this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, yy, z) { return self.part(g, geo, mat, sx, sy, sz, x, yy, z, pick); }
     P(this.geo.box, this.mat('wood'), 2.0, 0.14, len, 0, 0, 0);
     [-1, 1].forEach(function (sd) {
@@ -6269,7 +6293,7 @@
     var G = GLACIER, gy = groundY(G.x, G.z), capGeo = this.geo.mtnCap || (this.geo.mtnCap = mountainGeometry(0.55, 1));
     var mtn = new T.Mesh(this.geo.mountain, this.mat('rock')); mtn.scale.set(G.R, G.H, G.R); mtn.position.set(G.x, gy - 0.5, G.z); base.add(mtn);
     var cap = new T.Mesh(capGeo, this.mat('snow')); cap.scale.set(G.R * 1.02, G.H * 1.01, G.R * 1.02); cap.position.set(G.x, gy - 0.5, G.z); base.add(cap);
-    var wy = riverLevel(0), rot = Math.atan2(G.u.x, G.u.z);
+    var wy = G.pool ? G.pool.y : riverLevel(0), rot = Math.atan2(G.u.x, G.u.z);
     for (var gi = 0; gi < 6; gi++) {
       var t = gi / 5, gx = G.S.x + (G.x - G.S.x) * t * 0.85, gz = G.S.z + (G.z - G.S.z) * t * 0.85;
       var tongue = P(base, this.geo.blob, this.mat('glacier', gi % 2), 2.6 - t * 0.6, 0.9 + t * 0.6, 2.4, gx, wy + 0.2 + t * 6.5, gz);
@@ -9987,6 +10011,8 @@
     if (d > 126 || d < 10 || inDowntown(p.x, p.z, rad + 2) || townHill(p.x, p.z) > 0.3) return false;
     var rdd = riverDist(p.x, p.z);
     if (rdd < rad + 2.5 || nearPath(p.x, p.z, rad + 0.9)) return false;
+    // ...and out of every other river, creek and pool (the Yukon past Dawson too).
+    if (nearDawsonRiver(p.x, p.z, rad + 2) || creekNear(p.x, p.z, rad + 2) || nearSkagRiver(p.x, p.z, rad + 2) || waterAt(p.x, p.z) != null || groundY(p.x, p.z) < SEA_Y + 0.1) return false;
     // Keep well back from the canyon's rims and rocks.
     for (var ci2 = 0; ci2 < RIVER.length; ci2 += 2) { var rq = RIVER[ci2]; if (canyonDepth(rq.x, rq.z) > 0.5 && Math.hypot(rq.x - p.x, rq.z - p.z) < rad + 12) return false; }
     if (coastSd(p.x, p.z) > -(rad + 9) || lakeDist(p.x, p.z) < rad + 6 || streamDist(p.x, p.z) < rad + 2) return false;
@@ -14167,15 +14193,17 @@
   };
   // A flat ribbon that follows a list of points (used for ski runs).
   Town.prototype.ribbon = function (pts, width, mat) {
-    var pos = [], idx = [];
+    var pos = [], idx = [], flow = [];
     pts.forEach(function (p, i) {
       var q = pts[Math.min(i + 1, pts.length - 1)], o = pts[Math.max(i - 1, 0)];
       var dx = q.x - o.x, dz = q.z - o.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l * width / 2, nz = dx / l * width / 2;
       pos.push(p.x + nx, p.y, p.z + nz, p.x - nx, p.y, p.z - nz);
+      flow.push(dx / l, dz / l, dx / l, dz / l);
       if (i) { var b = (i - 1) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
     });
     var g = new T.BufferGeometry();
     g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    g.setAttribute('aFlow', new T.Float32BufferAttribute(flow, 2)); // which way it runs (rivers flow along it)
     g.setIndex(idx);
     g.computeVertexNormals();
     var m = new T.Mesh(g, mat);
@@ -15004,6 +15032,108 @@
     }
     return best;
   }
+
+  // ---- water that feels alive: clear and glassy, with rolling swells catching the sun, a sheen of
+  // sky where you look across it, light dancing on it, and rivers that visibly run downstream ----
+  // (WAVES is shared with the swimming, so the raccoon bobs on the very swells you see.)
+  var WAVES = [[0.9, 0.3, 1.0, 1.3, 0.10], [-0.4, 0.8, 1.6, 1.7, 0.07], [0.2, -1.0, 2.7, 2.3, 0.05], [-0.8, -0.5, 4.3, 2.9, 0.03]];
+  function waveH(x, z, t) {
+    var h = 0;
+    for (var i = 0; i < WAVES.length; i++) { var w = WAVES[i]; h += Math.sin((x * w[0] + z * w[1]) * w[2] + t * w[3]) * w[4] / w[2]; }
+    return h * 0.9;
+  }
+  function waveSlope(x, z, t) {
+    var gx = 0, gz = 0;
+    for (var i = 0; i < WAVES.length; i++) { var w = WAVES[i], c = Math.cos((x * w[0] + z * w[1]) * w[2] + t * w[3]) * w[4]; gx += w[0] * c; gz += w[1] * c; }
+    return { x: gx * 0.9, z: gz * 0.9 };
+  }
+  Town.prototype.waterShader = function (m) {
+    var U = this.waterU || (this.waterU = { uTime: { value: 0 }, uIce: { value: 0 } });
+    var waves = WAVES.map(function (w) { return 'g += vec2(' + w[0].toFixed(2) + ', ' + w[1].toFixed(2) + ') * cos(dot(p, vec2(' + w[0].toFixed(2) + ', ' + w[1].toFixed(2) + ')) * ' + w[2].toFixed(2) + ' + t * ' + w[3].toFixed(2) + ') * ' + w[4].toFixed(3) + ';'; }).join('\n');
+    m.onBeforeCompile = function (sh) {
+      sh.uniforms.uTime = U.uTime; sh.uniforms.uIce = U.uIce;
+      sh.vertexShader = 'attribute vec2 aFlow; varying vec3 vWPos; varying vec2 vFlow;\n' + sh.vertexShader.replace('#include <project_vertex>',
+        '#include <project_vertex>\n vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vFlow = aFlow;');
+      sh.fragmentShader = 'uniform float uTime; uniform float uIce; varying vec3 vWPos; varying vec2 vFlow;\n' + sh.fragmentShader.replace('#include <output_fragment>', [
+        '{',
+        '  float t = uTime; vec2 p = vWPos.xz; vec2 g = vec2(0.0);',
+        waves,
+        '  vec3 n = normalize(vec3(-g.x * 0.9, 1.0, -g.y * 0.9));',
+        '  vec3 V = normalize(cameraPosition - vWPos);',
+        '  float lit = clamp(dot(outgoingLight, vec3(0.333)) * 1.8, 0.0, 1.0);',
+        '  float fres = pow(1.0 - max(dot(n, V), 0.0), 3.0);',
+        '  vec3 H = normalize(normalize(vec3(0.45, 0.8, 0.35)) + V);',
+        '  float glint = smoothstep(0.6, 0.95, pow(max(dot(n, H), 0.0), 90.0));',
+        // running water: streaks carried downstream along the river
+        '  float fl = length(vFlow); vec2 q = p - vFlow * t * 1.1;',
+        '  vec2 side = vec2(-vFlow.y, vFlow.x);',
+        '  float streak = fl > 0.1 ? smoothstep(0.72, 0.98, sin(dot(q, vFlow) * 2.2 + sin(dot(q, side) * 3.1) * 1.4) * sin(dot(q, side) * 5.3 + 0.7)) : 0.0;',
+        // light dancing on still water
+        '  float c1 = sin(p.x * 2.1 + sin(p.y * 1.7 + t * 0.9) * 1.3 + t * 0.6) * sin(p.y * 2.3 + sin(p.x * 1.3 - t * 0.7) * 1.2 - t * 0.5);',
+        '  float caus = smoothstep(0.6, 0.97, abs(c1)) * (1.0 - fl * 0.6);',
+        '  vec3 col = outgoingLight * mix(vec3(1.0), vec3(0.82, 0.95, 1.02), 0.5 + 0.5 * sin(p.x * 0.07 + p.y * 0.05 + t * 0.1));',
+        '  col += vec3(0.8, 0.95, 1.0) * (caus * 0.09 + streak * 0.16) * lit;',
+        '  col = mix(col, mix(col, vec3(0.88, 0.96, 1.0) * max(lit, 0.25), 0.5), fres);',
+        '  col += vec3(1.0, 0.97, 0.88) * glint * 0.85 * lit;',
+        '  outgoingLight = mix(col, outgoingLight, uIce);',
+        '}',
+        '#include <output_fragment>'].join('\n'));
+    };
+    m.customProgramCacheKey = function () { return 'flow-water'; };
+  };
+  // Is there drawn water here deep enough to swim in? Asks the water itself (every river, creek,
+  // lake and inlet in every town), not just the rules it was laid out by. Cached in small cells.
+  Town.prototype.collectWater = function () {
+    var wm = this.mats.water, list = [], box = new T.Box3();
+    this.waterSurf = list; this.waterCache = {}; this.waterSurfAt = performance.now();
+    if (!wm) return;
+    this.scene.updateMatrixWorld(true);
+    (function walk(o) {
+      if (o.visible === false) return;
+      if (o.isMesh && o.material === wm) {
+        box.setFromObject(o);
+        var sx = box.max.x - box.min.x, sz = box.max.z - box.min.z;
+        if (Math.min(sx, sz) >= 1.4) list.push({ m: o, b: box.clone() });
+      }
+      for (var i = 0; i < o.children.length; i++) walk(o.children[i]);
+    })(this.scene);
+  };
+  Town.prototype.meshWater = function (x, z) {
+    if (!this.waterSurf || performance.now() - this.waterSurfAt > 5000) this.collectWater();
+    var key = Math.round(x * 5) + ',' + Math.round(z * 5), C = this.waterCache;
+    if (key in C) return C[key];
+    var best = null, g = groundY(x, z), rc = this.waterRay || (this.waterRay = new T.Raycaster());
+    rc.ray.origin.set(x, 300, z); rc.ray.direction.set(0, -1, 0); rc.near = 0; rc.far = 600;
+    for (var i = 0; i < this.waterSurf.length; i++) {
+      var S = this.waterSurf[i];
+      if (x < S.b.min.x || x > S.b.max.x || z < S.b.min.z || z > S.b.max.z) continue;
+      var hits = rc.intersectObject(S.m, false);
+      for (var j = 0; j < hits.length; j++) {
+        var h = hits[j];
+        if (h.point.y < g + 0.2 || (best && h.point.y <= best.y)) continue;
+        var F = S.m.geometry.attributes.aFlow, fx = 0, fz = 0;
+        if (F && h.face) { fx = F.getX(h.face.a); fz = F.getY(h.face.a); }
+        best = { y: h.point.y, fx: fx, fz: fz };
+      }
+    }
+    C[key] = best;
+    return best;
+  };
+  // Where the raccoon can swim: the laid-out water, or any drawn water deep enough.
+  Town.prototype.swimAt = function (x, z) {
+    var w = waterAt(x, z);
+    if (w != null) return w;
+    var m = this.meshWater(x, z);
+    return m ? m.y : null;
+  };
+  // Swimming has weight to it: you glide, ease to a stop, and rivers carry you downstream.
+  Town.prototype.swimVel = function (pl, wx, wz, dt, P) {
+    var v = pl.sv || (pl.sv = { x: wx, z: wz }), m = this.meshWater(P.x, P.z), cx = 0, cz = 0;
+    if (m && (m.fx || m.fz)) { cx = m.fx * 0.75; cz = m.fz * 0.75; }
+    var k = 1 - Math.exp(-dt * (wx || wz ? 2.4 : 1.2));
+    v.x += (wx + cx - v.x) * k; v.z += (wz + cz - v.z) * k;
+    return v;
+  };
   var SWIM_SINK = 0.24;
   // Docks and jetties: planks you can walk out on over the water.
   Town.prototype.deckAt = function (x, z) {
@@ -15103,7 +15233,7 @@
       else return this.sitStep(pl, dt, now);
     }
     var floor = this.floorAt(P.x, P.z, P.y + STEP_UP), air = P.y - floor > STEP_UP || pl.vy > 0;
-    var wHere = this.deckAt(P.x, P.z) || this.onIce(P.x, P.z) ? null : waterAt(P.x, P.z);
+    var wHere = this.deckAt(P.x, P.z) || this.onIce(P.x, P.z) || onBridge(P.x, P.z) ? null : this.swimAt(P.x, P.z);
     pl.swim = wHere != null && P.y < wHere + 0.05 && !air;
     var aloft = P.y > surfaceY(P.x, P.z) + 0.3, stuck = !this.walkable(P.x, P.z, P.y + 0.3, aloft);
     if (!air && this.onIce(P.x, P.z)) this.iceStep(pl, mx, mz, dt, now);
@@ -15118,6 +15248,7 @@
       if (wired && !pl.swim && Math.random() < dt * 14) this.puff(P.x, P.y + 0.02, P.z, 1, 'dust');
       var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
       if (pl.tipsy && now < pl.tipsy) { var wob = Math.sin(now / 380) * 0.55, cw = Math.cos(wob), sw = Math.sin(wob), ox = dx; dx = ox * cw - dz * sw; dz = ox * sw + dz * cw; }
+      if (pl.swim) { var sv = this.swimVel(pl, dx / dt, dz / dt, dt, P); dx = sv.x * dt; dz = sv.z * dt; }
       var tryMove = function (ddx, ddz) {
         var nx = P.x + ddx, nz = P.z + ddz;
         if (!stuck && !self.walkable(nx, nz, P.y + 0.3, aloft)) return false;
@@ -15149,14 +15280,21 @@
       if (!aloft) this.brushPast(P.x, P.z, dx / dt, dz / dt, now);
       if (this.season === 'winter' && !air && !aloft) this.pawprint(pl, P, g.rotation.y);
       this.bumpCans(P, dx / dt, dz / dt, now);
+    } else if (pl.swim) {
+      // Floating: drift to a stop, carried along by the river, with rings spreading out round you.
+      var sv0 = this.swimVel(pl, 0, 0, dt, P), ddx = sv0.x * dt, ddz = sv0.z * dt;
+      if (this.walkable(P.x + ddx, P.z + ddz, P.y + 0.3, aloft) && !this.blockedAt(P.x + ddx, P.z + ddz, P.y) && this.swimAt(P.x + ddx, P.z + ddz) != null) { P.x += ddx; P.z += ddz; }
+      else { pl.sv.x *= 0.3; pl.sv.z *= 0.3; }
+      if (now > (pl.wakeAt || 0)) { pl.wakeAt = now + 1100 + Math.random() * 500; this.puff(P.x, wHere + 0.02, P.z, 1, 'ripple'); }
     }
+    if (!pl.swim) pl.sv = null;
     // Falling, jumping and landing on whatever's underneath: ground, a roof, a wall, a bench.
     floor = this.floorAt(P.x, P.z, P.y + STEP_UP);
     if (pl.vy > 0 || P.y - floor > STEP_UP) {
       pl.vy -= GRAVITY * (pl.floaty && now < pl.floaty ? 0.3 : 1) * dt; P.y += pl.vy * dt;
       pl.fallFrom = Math.max(pl.fallFrom || P.y, P.y);
       if (P.y <= floor) {
-        var wl = this.onIce(P.x, P.z) ? null : waterAt(P.x, P.z);
+        var wl = this.onIce(P.x, P.z) ? null : this.swimAt(P.x, P.z);
         if (wl != null && !this.deckAt(P.x, P.z) && (pl.fallFrom || 0) - floor > 0.3) { this.puff(P.x, wl + 0.05, P.z, 10, 'splash'); this.sfx('splash'); if ((pl.fallFrom || 0) - floor > 1.5) this.say('SPLOOSH', pl.g, 0.9, 1.0); }
         else if ((pl.fallFrom || 0) - floor > 0.3) { pl.squash = 0.18; this.puff(P.x, floor, P.z, 5, 'dust'); if ((pl.fallFrom || 0) - floor > 1.2) this.sfx('wood'); }
         P.y = floor; pl.vy = 0; pl.fallFrom = null;
@@ -15233,7 +15371,7 @@
   Town.prototype.standY = function (x, z) { return Math.max(groundY(x, z), this.squareTop(x, z)); };
   Town.prototype.onIce = function (x, z) { return this.season === 'winter' && lakeDist(x, z) < -0.4; };
   Town.prototype.floorAt = function (x, z, fromY) {
-    var deck = this.deckAt(x, z), ice = !deck && this.onIce(x, z), w = deck || ice ? null : waterAt(x, z);
+    var deck = this.deckAt(x, z), ice = !deck && this.onIce(x, z), w = deck || ice || onBridge(x, z) ? null : this.swimAt(x, z);
     var base = ice ? LAKE.y + 0.14 : deck ? deck.y : w != null ? Math.max(w - SWIM_SINK, groundY(x, z)) : Math.max(surfaceY(x, z), this.squareTop(x, z)), C = this.climbGrid;
     if (!C || fromY <= base) return base;
     var cell = C[Math.floor(x / 4) + ',' + Math.floor(z / 4)];
@@ -15554,10 +15692,10 @@
   // Open water a step or so ahead, and you're standing (in the shallows is fine), not swimming.
   Town.prototype.paddleAhead = function (pl) {
     if (this.onIce(pl.g.position.x + Math.sin(pl.g.rotation.y), pl.g.position.z + Math.cos(pl.g.rotation.y))) return null;
-    var P = pl.g.position, a = pl.g.rotation.y, wh = this.deckAt(P.x, P.z) ? null : waterAt(P.x, P.z);
+    var P = pl.g.position, a = pl.g.rotation.y, wh = this.deckAt(P.x, P.z) ? null : this.swimAt(P.x, P.z);
     if (wh != null && P.y < wh - SWIM_SINK + 0.04) return null;
     for (var d = 0.7; d <= 1.6; d += 0.3) {
-      var x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d, w = waterAt(x, z);
+      var x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d, w = this.swimAt(x, z);
       if (w != null && !this.deckAt(x, z) && w - groundY(x, z) > 0.15 && P.y - w < 1.5 && Math.hypot(x, z) < 147 && this.openWater(x, z, w) && this.clearAhead(x, z, a)) return { x: x, z: z };
     }
     return null;
@@ -15569,7 +15707,7 @@
   // Room to paddle away from where you get on: open, deep enough water a little way on.
   Town.prototype.clearAhead = function (x, z, a) {
     for (var d = 0.5; d <= 1.6; d += 0.55) {
-      var qx = x + Math.sin(a) * d, qz = z + Math.cos(a) * d, w = waterAt(qx, qz);
+      var qx = x + Math.sin(a) * d, qz = z + Math.cos(a) * d, w = this.swimAt(qx, qz);
       if (w == null || this.deckAt(qx, qz) || w - groundY(qx, qz) < 0.08 || !this.openWater(qx, qz, w)) return false;
     }
     return true;
@@ -15588,7 +15726,7 @@
     this.part(paddle, this.geo.box, this.mat('wood'), 0.07, 0.018, 0.018, 0, 0.31, 0);
     var blade = this.part(paddle, this.geo.box, this.mat('flag', 2), 0.08, 0.18, 0.016, 0, -0.4, 0);
     pl.paddle = { board: board, paddle: paddle, blade: blade, ph: 0, side: 1, u: 0 };
-    P.x = x; P.z = z; P.y = waterAt(x, z) + 0.09; pl.seat = null; pl.dig = null; pl.vy = 0;
+    P.x = x; P.z = z; P.y = this.swimAt(x, z) + 0.09; pl.seat = null; pl.dig = null; pl.vy = 0;
     this.say(['paddle time', 'ahoy!', 'smooth sailing'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.3);
     this.puff(x, P.y, z, 6, 'splash', 0.3);
   };
@@ -15607,16 +15745,18 @@
       if (len > 1) { mx /= len; mz /= len; }
       var c = this.controls, cam = this.camera, fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
       var right = new T.Vector3(-fwd.z, 0, fwd.x), dx = (right.x * mx + fwd.x * mz) * 2.4 * dt, dz = (right.z * mx + fwd.z * mz) * 2.4 * dt;
-      // Only on the water: the shore stops you (E to step off).
-      var nw = waterAt(P.x + dx, P.z + dz);
-      if (nw != null && !this.deckAt(P.x + dx, P.z + dz) && Math.hypot(P.x + dx, P.z + dz) < 147 && nw - groundY(P.x + dx, P.z + dz) > 0.08 && this.openWater(P.x + dx, P.z + dz, nw)) { P.x += dx; P.z += dz; }
       var face = Math.atan2(dx, dz), d = face - g.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 4);
       if (now > (Pd.wakeAt || 0)) { Pd.wakeAt = now + 300; this.puff(P.x - Math.sin(g.rotation.y) * 0.5, P.y - 0.02, P.z - Math.cos(g.rotation.y) * 0.5, 2, 'ripple'); }
       pl.idle = 0;
     } else pl.idle = (pl.idle || 0) + dt;
-    var w = waterAt(P.x, P.z);
-    P.y = (w != null ? w : P.y) + 0.09 + Math.sin(now / 600) * 0.012;
+    // The board glides on after each stroke and the river carries it; the shore stops you (E to step off).
+    var pv = this.swimVel(pl, moving ? dx / dt : 0, moving ? dz / dt : 0, dt * 0.8, P), px = pv.x * dt, pz = pv.z * dt;
+    var nw = this.swimAt(P.x + px, P.z + pz);
+    if (nw != null && !this.deckAt(P.x + px, P.z + pz) && Math.hypot(P.x + px, P.z + pz) < 147 && nw - groundY(P.x + px, P.z + pz) > 0.08 && this.openWater(P.x + px, P.z + pz, nw)) { P.x += px; P.z += pz; }
+    else { pl.sv.x *= -0.2; pl.sv.z *= -0.2; } // a gentle bump off the bank
+    var w = this.swimAt(P.x, P.z), wt = this.waterU ? this.waterU.uTime.value : now / 1000;
+    P.y = (w != null ? w : P.y) + 0.09 + waveH(P.x, P.z, wt);
     pl.vy = 0; pl.air = 0;
     // Strokes: dig in up front, sweep back past the hip, lift and swing across to the other side.
     // Let go of the stick mid-stroke and it finishes the stroke, then rests the paddle across its lap.
@@ -15660,7 +15800,7 @@
     var F = this.fx || (this.fx = { bits: [], group: null });
     if (!F.group) { F.group = new T.Group(); this.scene.add(F.group); }
     var P = pl.g.position, a = pl.g.rotation.y;
-    if (!spot) { var x = P.x + Math.sin(a) * 1.4, z = P.z + Math.cos(a) * 1.4, w = waterAt(x, z); if (w == null) return; spot = { x: x, z: z, y: w }; }
+    if (!spot) { var x = P.x + Math.sin(a) * 1.4, z = P.z + Math.cos(a) * 1.4, w = this.swimAt(x, z); if (w == null) return; spot = { x: x, z: z, y: w }; }
     // The rod, held out in both front paws: cork grip, reel, a long whippy blank.
     var rod = new T.Group(); rod.position.set(0.02, 0.34, 0.26); rod.rotation.x = 0.9; pl.g.add(rod);
     this.part(rod, this.geo.cyl6, this.mat('trunk'), 0.01, 0.72, 0.01, 0, 0.26, 0);
@@ -15930,8 +16070,8 @@
     if (pl.vy !== 0) pose = { pitch: pl.vy > 0 ? -0.35 : 0.2, legs: [0.9, 0.9, -0.9, -0.9] };
     else if (pl.swim) {
       // Swimming: nose up, paws paddling under the surface, tail floating out behind.
-      var pd = moving ? 14 : 5;
-      pose = { pitch: -0.15, by: 0.3, hx: -0.25, tailX: 0.05, tailY: Math.sin(t * 3) * 0.3, legs: [Math.sin(t * pd) * 0.8, Math.sin(t * pd + Math.PI) * 0.8, Math.sin(t * pd + Math.PI) * 0.6, Math.sin(t * pd) * 0.6] };
+      var pd = moving ? 14 : 5, wt = this.waterU ? this.waterU.uTime.value : t, sl = waveSlope(P.x, P.z, wt), fa = pl.g.rotation.y;
+      pose = { pitch: -0.15 - (sl.x * Math.sin(fa) + sl.z * Math.cos(fa)) * 0.6, by: 0.3 + waveH(P.x, P.z, wt) * 1.2, hx: -0.25, tailX: 0.05, tailY: Math.sin(t * 3) * 0.3, legs: [Math.sin(t * pd) * 0.8, Math.sin(t * pd + Math.PI) * 0.8, Math.sin(t * pd + Math.PI) * 0.6, Math.sin(t * pd) * 0.6] };
     } else if (pl.dig) {
       // Head first in the can, front paws going like mad, tail up and wagging.
       pose = { pitch: 0.55, by: 0.27, hx: 0.45, tailX: -0.2, tailY: Math.sin(t * 9) * 0.6,
@@ -16674,6 +16814,7 @@
     var t = now / 1000;
     this.stepMeadow();
     U.uTime.value = this.reduced ? 0 : t;
+    if (this.waterU) this.waterU.uTime.value = U.uTime.value;
     if (U.uDetail) U.uDetail.value = smooth(0.35, 1.1, this.camera.zoom);
     // Calm spells and blustery ones; winter's windier.
     var g = 0.75 + 0.35 * Math.sin(t * 0.05) + 0.2 * Math.sin(t * 0.13 + 1.7);
@@ -17093,8 +17234,9 @@
     var pts = [], idx = [];
     for (z = R.len + 3; z >= DR_FAR; z -= 2) {
       var off = dawsonOff(z), lv = dawsonLevel(z) + 0.02;
-      var wide = 0.9 + 2.6 * smooth(-45, -70, z);
-      [R.x0 - wide, R.x1 + wide].forEach(function (lx) { var w = siteAt(DAWSON, lx + off, z); pts.push(w.x, lv, w.z); });
+      var wide = 0.9 + 2.6 * smooth(-45, -70, z), tk = smooth(R.len - 14, R.len + 1, z), cx = (R.x0 + R.x1) / 2;
+      var e0 = R.x0 - wide + (cx - RIVER_HALF * 1.05 - (R.x0 - wide)) * tk, e1 = R.x1 + wide + (cx + RIVER_HALF * 1.05 - (R.x1 + wide)) * tk;
+      [e0, e1].forEach(function (lx) { var w = siteAt(DAWSON, lx + off, z); pts.push(w.x, lv, w.z); });
       rows.push(z);
     }
     for (k = 0; k < rows.length - 1; k++) { var a = k * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
@@ -17488,7 +17630,21 @@
 
   // ---- the Klondike and the Dezadeash: water down their channels, and a bridge for each road ----
   var BRIDGE_SPANS = [];
-  function onBridge(x, z) { for (var i = 0; i < BRIDGE_SPANS.length; i++) { var b = BRIDGE_SPANS[i], dx = x - b.x, dz = z - b.z, u = dx * b.ux + dz * b.uz, w = -dx * b.uz + dz * b.ux; if (Math.abs(u) < b.half && Math.abs(w) < 2.2) return b; } return null; }
+  // The top of a bridge deck at x, z: it runs straight from one bank to the other, meeting the
+  // ground at each end, so roads and feet go up onto it and down off it without a step.
+  function spanY(b, x, z) {
+    var u = (x - b.x) * b.ux + (z - b.z) * b.uz, f = Math.max(0, Math.min(1, (u + b.deck) / (2 * b.deck)));
+    return b.y0 + (b.y1 - b.y0) * f;
+  }
+  // The Haines Road bridge over the river (its deck tilts to meet the road at both banks).
+  (function () {
+    var B = HWY_BRIDGE, ux = Math.sin(B.rot), uz = Math.cos(B.rot), L = B.half + 0.6;
+    var lv = (riverDist(B.c.x, B.c.z), riverLevel(RIVER_NEAR.i));
+    var y1 = Math.max(groundY(B.c.x + ux * (L + 0.4), B.c.z + uz * (L + 0.4)), lv + 0.5) + 0.05, y0 = Math.max(groundY(B.c.x - ux * (L + 0.4), B.c.z - uz * (L + 0.4)), lv + 0.5) + 0.05;
+    B.span = { x: B.c.x, z: B.c.z, ux: ux, uz: uz, half: L + 0.3, deck: L, y0: y0, y1: y1 };
+    BRIDGE_SPANS.push(B.span);
+  })();
+  function onBridge(x, z) { for (var i = 0; i < BRIDGE_SPANS.length; i++) { var b = BRIDGE_SPANS[i], dx = x - b.x, dz = z - b.z, u = dx * b.ux + dz * b.uz, w = -dx * b.uz + dz * b.ux; if (Math.abs(u) < b.half && Math.abs(w) < (b.hw || 1.1) + 1.1) return b; } return null; }
   Town.prototype.buildCreeks = function () {
     var self = this;
     TOWN_CREEKS.forEach(function (c) {
@@ -17500,7 +17656,8 @@
       }
       var g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); g.setIndex(idx); g.computeVertexNormals();
       var m = new T.Mesh(g, self.mat('water')); m.receiveShadow = true; self.base.add(m);
-      // Bridges where the roads cross.
+      // Bridges where the roads cross. Two roads crossing close together share one wider bridge.
+      var xs = [];
       CASTLE_ROADS.forEach(function (rd) {
         if (!rd) return;
         for (var i = 1; i < rd.length; i++) {
@@ -17509,17 +17666,28 @@
           var za = qa.z - creekZ(c, qa.x), zb = qb.z - creekZ(c, qb.x);
           if (za * zb > 0) continue;
           var f = za / (za - zb), wx = rd[i - 1].x + (rd[i].x - rd[i - 1].x) * f, wz = rd[i - 1].z + (rd[i].z - rd[i - 1].z) * f;
-          var j0 = rd[Math.max(0, i - 3)], j1 = rd[Math.min(rd.length - 1, i + 2)], yaw = Math.atan2(j1.x - j0.x, j1.z - j0.z), span = (c.half + c.bank) * 2 + 1.5;
-          // The deck sits level with the solid ground beyond each bank.
-          var ux = Math.sin(yaw), uz = Math.cos(yaw), e0 = groundY(wx - ux * (span / 2 + 0.6), wz - uz * (span / 2 + 0.6)), e1 = groundY(wx + ux * (span / 2 + 0.6), wz + uz * (span / 2 + 0.6));
-          var by = Math.max(e0, e1, lv + 0.6) + 0.1;
-          BRIDGE_SPANS.push({ x: wx, z: wz, ux: ux, uz: uz, half: span / 2 + 0.3, y: by });
-          var bg = new T.Group(); bg.position.set(wx, by, wz); bg.rotation.y = yaw; self.base.add(bg);
-          var P = function (geo, mat, sx, sy, sz, x, y, z) { return self.part(bg, geo, mat, sx, sy, sz, x, y, z, 'bridge'); };
-          P(self.geo.box, self.mat('wood'), 2.4, 0.16, span, 0, 0, 0);
-          [-1.15, 1.15].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.08, 0.35, span, x, 0.22, 0); for (var k = 0; k < 4; k++) P(self.geo.box, self.mat('woodLight'), 0.1, 0.5, 0.1, x, 0.2, -span / 2 + k * span / 3); });
-          [-span / 3, span / 3].forEach(function (z) { P(self.geo.box, self.mat('stone', 1), 2.2, 1.4, 0.4, 0, -0.75, z); });
+          var j0 = rd[Math.max(0, i - 3)], j1 = rd[Math.min(rd.length - 1, i + 2)], dx = j1.x - j0.x, dz = j1.z - j0.z, dl = Math.hypot(dx, dz) || 1;
+          var hit = xs.filter(function (q) { return Math.hypot(q.x - wx, q.z - wz) < 6; })[0];
+          if (hit) { if (dx * hit.dx + dz * hit.dz < 0) { dx = -dx; dz = -dz; } hit.list.push({ x: wx, z: wz, dx: dx / dl, dz: dz / dl }); }
+          else xs.push({ x: wx, z: wz, dx: dx / dl, dz: dz / dl, list: [{ x: wx, z: wz, dx: dx / dl, dz: dz / dl }] });
         }
+      });
+      xs.forEach(function (X) {
+        var n = X.list.length, wx = 0, wz = 0, ux = 0, uz = 0;
+        X.list.forEach(function (q) { wx += q.x / n; wz += q.z / n; ux += q.dx; uz += q.dz; });
+        var ul = Math.hypot(ux, uz) || 1; ux /= ul; uz /= ul;
+        var yaw = Math.atan2(ux, uz), span = (c.half + c.bank) * 2 + 1.5, hw = 1.2;
+        // wide enough for every road on it, out to both ends
+        X.list.forEach(function (q) { [-1, 1].forEach(function (e) { var px = q.x + q.dx * e * span / 2 - wx, pz = q.z + q.dz * e * span / 2 - wz; hw = Math.max(hw, Math.abs(-px * uz + pz * ux) + 1.2); }); });
+        // The deck runs from bank to bank, meeting the ground at each end (and clear of the water).
+        var e0 = groundY(wx - ux * (span / 2 + 0.4), wz - uz * (span / 2 + 0.4)), e1 = groundY(wx + ux * (span / 2 + 0.4), wz + uz * (span / 2 + 0.4));
+        var y0 = Math.max(e0, lv + 0.5) + 0.08, y1 = Math.max(e1, lv + 0.5) + 0.08;
+        BRIDGE_SPANS.push({ x: wx, z: wz, ux: ux, uz: uz, half: span / 2 + 0.3, deck: span / 2, hw: hw, y0: y0, y1: y1 });
+        var bg = new T.Group(); bg.position.set(wx, (y0 + y1) / 2 - 0.08, wz); bg.rotation.order = 'YXZ'; bg.rotation.y = yaw; bg.rotation.x = -Math.atan2(y1 - y0, span); self.base.add(bg);
+        var P = function (geo, mat, sx, sy, sz, x, y, z) { return self.part(bg, geo, mat, sx, sy, sz, x, y, z, 'bridge'); };
+        P(self.geo.box, self.mat('wood'), hw * 2, 0.16, span, 0, 0, 0);
+        [-hw + 0.05, hw - 0.05].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.08, 0.35, span, x, 0.22, 0); for (var k = 0; k < 4; k++) P(self.geo.box, self.mat('woodLight'), 0.1, 0.5, 0.1, x, 0.2, -span / 2 + k * span / 3); });
+        [-span / 3, span / 3].forEach(function (z) { P(self.geo.box, self.mat('stone', 1), hw * 2 - 0.2, 1.4, 0.4, 0, -0.75, z); });
       });
     });
   };
@@ -17659,7 +17827,7 @@
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
-  Town.layout = { AIRPORT_LOTS: AIRPORT_LOTS, HOTSPRINGS: HOTSPRINGS, BEAN_NORTH: BEAN_NORTH, inAirport: inAirport, dtw: dtw, dtOf: dtOf, nearExits: nearExits, pathHits: pathHits, PATH_AVOID: PATH_AVOID, CASTLE_SITES: CASTLE_SITES, BRIDGE: BRIDGE, LANE_BRIDGE: LANE_BRIDGE, LANES: LANES, laneAt: laneAt, PLAZA: PLAZA, UPTOWN: UPTOWN, E_SITES: E_SITES, streetGap: streetGap, townFar: townFar, DT_HALF: DT_HALF, WALK_N: WALK_N, STREETS: STREETS, LANE: LANE, CITY_R: CITY_R, PATHS: PATHS, RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS, creekNear: creekNear, nearDawsonRiver: nearDawsonRiver, nearSkagRiver: nearSkagRiver, STRIPS: STRIPS, RAIL_PATH: RAIL_PATH, HWY_BRIDGE: HWY_BRIDGE };
+  Town.layout = { AIRPORT_LOTS: AIRPORT_LOTS, HOTSPRINGS: HOTSPRINGS, BEAN_NORTH: BEAN_NORTH, inAirport: inAirport, dtw: dtw, dtOf: dtOf, nearExits: nearExits, pathHits: pathHits, PATH_AVOID: PATH_AVOID, CASTLE_SITES: CASTLE_SITES, BRIDGE: BRIDGE, LANE_BRIDGE: LANE_BRIDGE, LANES: LANES, laneAt: laneAt, PLAZA: PLAZA, UPTOWN: UPTOWN, E_SITES: E_SITES, streetGap: streetGap, townFar: townFar, DT_HALF: DT_HALF, WALK_N: WALK_N, STREETS: STREETS, LANE: LANE, CITY_R: CITY_R, PATHS: PATHS, RIVER: RIVER, nearPath: nearPath, waterAt: waterAt, TOWN_PEAKS: TOWN_PEAKS, townHill: townHill, groundClear: groundClear, groundY: groundY, landY: landY, riverDist: riverDist, coastSd: coastSd, rawHeight: rawHeight, HEAD: HEAD, polar: polar, FOREST: FOREST, WILD: WILD, PEAKS: PEAKS, FIELDS: FIELDS, HOUSE_SLOTS: HOUSE_SLOTS, CASTLE_SITES: CASTLE_SITES, CASTLE_ROADS: CASTLE_ROADS, creekNear: creekNear, nearDawsonRiver: nearDawsonRiver, nearSkagRiver: nearSkagRiver, STRIPS: STRIPS, RAIL_PATH: RAIL_PATH, HWY_BRIDGE: HWY_BRIDGE, BRIDGE_SPANS: BRIDGE_SPANS, onBridge: onBridge, surfaceY: surfaceY, TOWN_CREEKS: TOWN_CREEKS, rail: function () { return RAIL_LINE; }, riverLevel: riverLevel, dawsonLevel: dawsonLevel, siteAt: siteAt, DAWSON_RIVER: DAWSON_RIVER, dawsonOff: dawsonOff, SEA_Y: SEA_Y, LAKE: LAKE, TARNS: TARNS, WORLD_R: WORLD_R };
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
