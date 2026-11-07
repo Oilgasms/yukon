@@ -2298,7 +2298,8 @@
     snow: { colors: ['#ffffff', '#eef4fb'], size: 4, count: 420, fall: 2.6, sway: 0.6, label: 'snowing' },
     leaves: { colors: ['#e07a2a', '#c8442a', '#e9b33a', '#9a5a22'], size: 6, count: 180, fall: 1.5, sway: 1.9, label: 'leaves falling' },
     petals: { colors: ['#f6bcd0', '#ffffff', '#f3a0bd'], size: 5, count: 150, fall: 1.3, sway: 1.4, label: 'blossom in the air' },
-    rain: { colors: ['#9ab8d8', '#c4d8ec'], size: 3, count: 420, fall: 15, sway: 0.05, label: 'raining' }
+    rain: { colors: ['#9ab8d8', '#c4d8ec'], size: 3, count: 420, fall: 15, sway: 0.05, label: 'raining' },
+    storm: { colors: ['#8aa6c4', '#b4c8de'], size: 3, count: 420, fall: 21, sway: 0.25, label: 'thunderstorm' }
   };
   // The page can pin the weather (to what Whitehorse has right now); null clears the sky,
   // undefined goes back to the seasonal mix.
@@ -2309,8 +2310,8 @@
     else this.weatherClock = 0;
   };
   var WEATHER_ODDS = {
-    winter: [['snow', 0.7]], fall: [['leaves', 0.58], ['snow', 0.14]],
-    spring: [['petals', 0.4]], summer: [['leaves', 0.06]]
+    winter: [['snow', 0.7]], fall: [['leaves', 0.58], ['snow', 0.14], ['rain', 0.08], ['storm', 0.03]],
+    spring: [['petals', 0.4], ['rain', 0.12]], summer: [['leaves', 0.06], ['rain', 0.1], ['storm', 0.08]]
   };
   Town.prototype.buildWeather = function () {
     var n = 420, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), r = rng(3);
@@ -14838,6 +14839,7 @@
         var hq = this.questState().hearts[p[1]] || 0, hs = hq ? '\u2665'.repeat(hq) + '\u2661'.repeat(10 - hq) + ' (' + hq + ' of 10)' : 'Do them a favour to make friends (look for a gold "!").';
         return mo ? { title: mo.name, lines: [mo.char ? CHAR_NOTE[mo.char] : 'Lives at the ' + mo.homeName + ' house.', doing, hs] } : null;
       }
+      case 'riverboat': return { title: 'The sternwheeler', lines: ['Up and down the Yukon between Whitehorse and Dawson City, stopping at each end.', this.explore ? 'Press E to climb aboard (E again to step off).' : 'Walk the raccoon up to it to ride.'] };
       case 'fox': return { title: 'Jo the fox', lines: ['Jo, mostly round her house, sometimes off exploring.'] };
       case 'green': return { title: 'The village green', lines: ['Main Street splits round it on its way from the river: a well at the top, the gazebo in the middle, the old oak and the market cross at the bottom.'] };
       case 'bridge': return { title: 'The bridge', lines: ['The one bridge over the river, like Whitehorse\u2019s Robert Campbell Bridge: everything on the far bank is reached from here.'] };
@@ -15156,7 +15158,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -15445,6 +15447,9 @@
   Town.prototype.swimVel = function (pl, wx, wz, dt, P) {
     var v = pl.sv || (pl.sv = { x: wx, z: wz }), m = this.meshWater(P.x, P.z), cx = 0, cz = 0;
     if (m && (m.fx || m.fz)) { cx = m.fx * 0.75; cz = m.fz * 0.75; }
+    // and the wind: gusts push you along, the board (a sail, near enough) most of all
+    var wg = (this.gustNow || 1) * (this.weatherNow === 'storm' ? 2 : 1) * (pl.paddle ? 0.3 : 0.12);
+    cx += WIND_DIR[0] * wg; cz += WIND_DIR[1] * wg;
     var k = 1 - Math.exp(-dt * (wx || wz ? 2.4 : 1.2));
     v.x += (wx + cx - v.x) * k; v.z += (wz + cz - v.z) * k;
     return v;
@@ -15506,6 +15511,7 @@
     // Snowboarding and paddleboarding have their own controls.
     if (pl.snow) { this.snowStep(pl, mx, mz, dt, now); this.followCam(P, dt); return true; }
     if (pl.paddle) { this.paddleStep(pl, mx, mz, dt, now); this.followCam(P, dt); return true; }
+    if (pl.boat) { this.boatRide(pl, dt); this.followCam(P, dt); return true; }
     if (pl.spell && now > pl.spell.until) { pl.spell = null; pl.size = 1; pl.floaty = 0; pl.sparkle = 0; this.puff(P.x, P.y + 0.3, P.z, 10, 'snow', 0.3); this.say('...it wore off', pl.g, 1.0, 1.2); }
     if (pl.sparkle && now < pl.sparkle && Math.random() < dt * 14) this.puff(P.x + (Math.random() - 0.5) * 0.4, P.y + 0.2 + Math.random() * 0.4, P.z + (Math.random() - 0.5) * 0.4, 1, 'snow', 0.05);
     if (pl.push && now < pl.push.until) {
@@ -15696,6 +15702,7 @@
       if (em && em.g.visible && Math.hypot(em.g.position.x - P.x, em.g.position.z - P.z) < 1.8) best = 'errand';
       if (this.lunchNear(P)) best = 'lunch';
       if (this.kingAirNear(P)) best = 'charter';
+      if (this.boatNear(P) && !this.player.boat) best = 'riverboat';
       if (this.noir && Math.hypot(this.noir.g.position.x - P.x, this.noir.g.position.z - P.z) < 2.2) best = 'detective';
       if (this.noir) this.noir.drifters.forEach(function (d) { if (d.g.visible && Math.hypot(d.g.position.x - P.x, d.g.position.z - P.z) < 1.6) { best = 'drifter'; self.nearDrifter = d; } });
       if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
@@ -15749,6 +15756,8 @@
       else this.say(pickOne(DRIFTER_LINES), dr.m.g, 0.7, 2.6);
       return;
     }
+    if (pl && pl.boat) { this.leaveBoat(pl); return; }
+    if (pl && this.near === 'riverboat') { this.boardBoat(pl); return; }
     if (pl && this.near === 'charter') {
       var A0 = this.st.airport, here = A0.charter ? A0.charter.at : 0, self0 = this;
       var opts = [0].concat(this.charterTowns()).filter(function (ci) { return ci !== here; }).map(function (ci) { return { ci: ci, name: ci ? TOWNS[ci].name : 'Whitehorse' }; });
@@ -15823,6 +15832,7 @@
     if (pl && pl.ride) { this.dismount(pl); return; }
     if (pl && pl.snow) { if (!pl.snow.vy && pl.snow.onGround) { pl.snow.vy = 4.2; this.say(['ollie!', 'kickflip!', 'woo!'][Math.floor(Math.random() * 3)], pl.g, 1.0, 0.8); } return; }
     if (pl && pl.paddle) { this.leavePaddle(pl, true); return; }
+    if (pl && pl.boat) { this.leaveBoat(pl); return; }
     if (!pl || pl.climb || pl.air > 0.05 || pl.vy > 0) return;
     if (pl.idle > 25) { pl.idle = 0; this.say('!', pl.g, 1.0, 0.8); } // woken up
     if (pl.seat) this.leaveSeat(pl);
@@ -16403,6 +16413,12 @@
       case 'owl': [0, 0.45].forEach(function (d) { tone('sine', 410, 360, 0.12, 0.08, 0.32, t + d); }); break;
       case 'splash': noise('bandpass', 900, 0.6, 0.25, 0.35, t); noise('highpass', 3000, 0.5, 0.1, 0.2, t + 0.05); break;
       case 'boing': tone('sine', 300, 600, 0.06, 0.01, 0.15, t); break;
+      case 'thunder': noise('lowpass', 160, 0.7, 0.5 * v, 2.6, t); noise('lowpass', 90, 0.9, 0.45 * v, 3.4, t + 0.25); noise('bandpass', 420, 0.6, 0.12 * v, 0.6, t + 0.05); break;
+      case 'gull': [0, 0.28, 0.5].forEach(function (d, i) { tone('sawtooth', 1500 - i * 120, 1100 - i * 100, 0.035, 0.02, 0.16, t + d, 2600); }); break;
+      case 'honk': [0, 0.35].forEach(function (d) { tone('sawtooth', 330, 280, 0.05, 0.02, 0.18, t + d, 1100); }); break;
+      case 'laugh': for (var lh = 0; lh < 4; lh++) tone('triangle', 620 + Math.random() * 160, 540, 0.025, 0.01, 0.08, t + lh * 0.11, 2200); break;
+      case 'chug': noise('lowpass', 240, 1.2, 0.09, 0.14, t); tone('sine', 70, 55, 0.08, 0.01, 0.12, t); break;
+      case 'riverhorn': tone('sawtooth', 220, null, 0.07, 0.15, 1.4, t, 800); tone('sawtooth', 277, null, 0.05, 0.15, 1.4, t, 800); break;
       case 'clang': [[620, 0.12], [1550, 0.07], [2470, 0.05]].forEach(function (h) { tone('triangle', h[0], h[0] * 0.97, h[1], 0.003, 0.5, t); }); noise('bandpass', 3000, 0.8, 0.18, 0.25, t); tone('triangle', 540, 520, 0.08, 0.003, 0.3, t + 0.18); break;
       case 'rustle': noise('bandpass', 1800 + Math.random() * 1500, 0.9, 0.07, 0.07, t); break;
       case 'paddle': noise('lowpass', 700, 0.6, 0.06, 0.12, t); break;
@@ -18225,7 +18241,7 @@
         var g = ctx.createGain(); g.gain.value = 0; src.connect(f); f.connect(g); g.connect(A.out); src.start();
         return { src: src, f: f, g: g };
       };
-      this.amb = { wind: loop('lowpass', 420, 0.6), water: loop('bandpass', 900, 0.5), loonAt: now + 20000, bellAt: now + 30000, whistleAt: now + 45000 };
+      this.amb = { wind: loop('lowpass', 420, 0.6), water: loop('bandpass', 900, 0.5), rapids: loop('highpass', 1400, 0.4), crowd: loop('bandpass', 520, 1.6), rain: loop('highpass', 2600, 0.3), loonAt: now + 20000, bellAt: now + 30000, whistleAt: now + 45000, gullAt: now + 6000, laughAt: now + 8000 };
       // a little echo for things far off
       var d = ctx.createDelay(1.5), fb = ctx.createGain(), wet = ctx.createGain(); d.delayTime.value = 0.42; fb.gain.value = 0.35; wet.gain.value = 0.5;
       d.connect(fb); fb.connect(d); d.connect(wet); wet.connect(A.out); this.amb.echo = d;
@@ -18237,6 +18253,18 @@
     // Water: louder near the river, the sea, the lakes or the Yukon past Dawson.
     var wd = Math.min(riverDist(L.x, L.z) - RIVER_HALF, Math.max(0, -coastSd(L.x, L.z)), Math.max(0, lakeDist(L.x, L.z)) + 6, nearDawsonRiver(L.x, L.z, 0) ? 0 : 99);
     B.water.g.gain.setTargetAtTime(inDen ? 0 : 0.07 * (1 - smooth(1, 22, wd)), t, 0.6);
+    // Rapids roaring in Miles Canyon and below the dam; wind howling higher up; the pub's murmur;
+    // gulls by the sea; rain hissing.
+    var cy = 0; for (var ci = 0; ci < RIVER.length; ci += 6) { var cq = RIVER[ci]; if (canyonDepth(cq.x, cq.z) > 0.5) { var cdd = Math.hypot(cq.x - L.x, cq.z - L.z); if (cdd < 30) cy = Math.max(cy, 1 - cdd / 30); } }
+    if (E_SITES.legs) { var dmd = Math.hypot(E_SITES.legs.x - L.x, E_SITES.legs.z - L.z); if (dmd < 20) cy = Math.max(cy, 1 - dmd / 20); }
+    B.rapids.g.gain.setTargetAtTime(inDen ? 0 : 0.05 * cy, t, 0.8);
+    var high = Math.max(0, Math.min(1, ((L.y || 0) - 4) / 10));
+    B.wind.g.gain.setTargetAtTime(inDen ? 0 : (0.018 + 0.03 * Math.min(1.6, g)) * (1 + high * 2.5), t, 0.8);
+    var pubD = Math.hypot(PUB.x - L.x, PUB.z - L.z), busy = this.pubNight() || (!this.dark && !this.mouseNight());
+    B.crowd.g.gain.setTargetAtTime(inDen ? 0 : (busy ? (this.pubNight() ? 0.03 : 0.012) : 0) * (1 - smooth(4, 18, pubD)), t, 1.0);
+    B.rain.g.gain.setTargetAtTime(inDen ? 0 : this.weatherNow === 'rain' ? 0.03 : this.weatherNow === 'storm' ? 0.06 : 0, t, 1.5);
+    if (now > B.gullAt) { B.gullAt = now + 7000 + Math.random() * 14000; if (coastSd(L.x, L.z) > -28 && !this.dark) this.sfx('gull'); }
+    if (now > B.laughAt) { B.laughAt = now + 5000 + Math.random() * 9000; if (pubD < 14 && this.pubNight()) this.sfx('laugh'); }
     var now2 = now;
     // Loons on the lakes, mostly at dawn and dusk (and on summer nights).
     if (now2 > B.loonAt) {
@@ -18249,6 +18277,240 @@
     if (now2 > B.whistleAt) { B.whistleAt = now2 + 80000 + Math.random() * 70000; if (this.st.rail) this.sfx('whistle'); }
   };
 
+
+  // ===== migrations: caribou in the fall, salmon running in summer, geese in spring and fall =====
+  Town.prototype.caribou = function () {
+    var g = new T.Group(), self = this, m = this.mat('trunk'), light = this.mat('swan', 0), dark = this.mat('stoneDark');
+    function P(geo, mat, sx, sy, sz, x, y, z, par) { var p = self.part(par || g, geo, mat, sx, sy, sz, x, y, z); p.castShadow = false; return p; }
+    var body = new T.Group(); body.position.y = 0.5; g.add(body);
+    P(this.geo.box, m, 0.24, 0.24, 0.62, 0, 0, 0, body); P(this.geo.box, light, 0.2, 0.16, 0.2, 0, -0.04, 0.26, body); // the pale ruff
+    var head = new T.Group(); head.position.set(0, 0.14, 0.36); body.add(head);
+    P(this.geo.box, m, 0.12, 0.12, 0.22, 0, 0.02, 0.08, head); P(this.geo.box, dark, 0.08, 0.06, 0.06, 0, -0.02, 0.2, head);
+    [-1, 1].forEach(function (sd) { var a = P(self.geo.cyl6, self.mat('woodLight'), 0.012, 0.32, 0.012, sd * 0.06, 0.2, 0.02, head); a.rotation.z = -sd * 0.5; a.rotation.x = -0.3;
+      var b = P(self.geo.cyl6, self.mat('woodLight'), 0.01, 0.16, 0.01, sd * 0.13, 0.3, 0.1, head); b.rotation.x = 0.8; });
+    var legs = [];
+    [[-0.08, 0.22], [0.08, 0.22], [-0.08, -0.22], [0.08, -0.22]].forEach(function (lp) { var l = new T.Group(); l.position.set(lp[0], -0.1, lp[1]); body.add(l); P(self.geo.box, m, 0.05, 0.42, 0.05, 0, -0.2, 0, l); legs.push(l); });
+    var tail = new T.Group(); tail.position.set(0, 0.06, -0.31); body.add(tail); P(this.geo.box, light, 0.05, 0.05, 0.08, 0, 0, -0.03, tail);
+    g.scale.setScalar(1.15);
+    return { g: g, body: body, head: head, legs: legs, tail: tail, phase: Math.random() * 6 };
+  };
+  Town.prototype.stepMigrations = function (dt, now) {
+    var M = this.mig || (this.mig = { herd: null, fish: [], geese: null, gAt: now + 8000, fAt: 0 }), season = this.season, self = this;
+    // Caribou: a herd crossing the hills east of town all autumn, wading the river as they go.
+    if (season === 'fall') {
+      if (!M.herd) {
+        var path = []; for (var a = 18; a <= 150; a += 2) { var r = 112 + 10 * Math.sin(a * 0.07); path.push(polar(a, r)); }
+        M.herd = { path: path, u: 0, list: [] };
+        for (var i = 0; i < 14; i++) { var c = this.caribou(); this.scene.add(c.g); c.off = { s: -(i % 5) * 1.6 - Math.random(), l: ((i * 7) % 5 - 2) * 0.9 }; M.herd.list.push(c); }
+      }
+      var H = M.herd; H.u += dt * 0.9; // units along the path a second
+      var segL = 0, total = 0; for (var k = 1; k < H.path.length; k++) total += Math.hypot(H.path[k].x - H.path[k - 1].x, H.path[k].z - H.path[k - 1].z);
+      if (H.u > total + 20) H.u = 0;
+      H.list.forEach(function (c) {
+        var d = Math.max(0, Math.min(total, H.u + c.off.s)), j = 1, acc = 0;
+        while (j < H.path.length - 1 && acc + Math.hypot(H.path[j].x - H.path[j - 1].x, H.path[j].z - H.path[j - 1].z) < d) { acc += Math.hypot(H.path[j].x - H.path[j - 1].x, H.path[j].z - H.path[j - 1].z); j++; }
+        var A = H.path[j - 1], B = H.path[j], L = Math.hypot(B.x - A.x, B.z - A.z) || 1, f = Math.min(1, (d - acc) / L), ux = (B.x - A.x) / L, uz = (B.z - A.z) / L;
+        var x = A.x + (B.x - A.x) * f - uz * c.off.l, z = A.z + (B.z - A.z) * f + ux * c.off.l, y0 = c.g.position.y;
+        var w = self.swimAt(x, z), gy = groundY(x, z), y = w != null && w > gy + 0.25 ? w - 0.35 : gy;
+        var moved = Math.hypot(x - c.g.position.x, z - c.g.position.z);
+        c.g.position.set(x, y, z); c.g.rotation.y = Math.atan2(ux, uz); c.g.visible = d > 0 && d < total;
+        c.phase += dt * 7;
+        self.quadGait(c, c.phase, y - y0, Math.max(moved, 1e-3), dt, now, 0.55);
+        c.head.rotation.x = Math.sin(now / 900 + c.off.s) * 0.15 + (w != null ? -0.3 : 0);
+      });
+    } else if (M.herd) { M.herd.list.forEach(function (c) { self.scene.remove(c.g); }); M.herd = null; }
+    // Salmon: in summer they leap up the river, heading upstream.
+    if (season === 'summer' && now > M.fAt) {
+      M.fAt = now + 900 + Math.random() * 1600;
+      var L0 = this.explore && this.player ? this.player.g.position : this.controls.target, near = [];
+      for (var ri = 0; ri < RIVER.length; ri += 4) if (Math.hypot(RIVER[ri].x - L0.x, RIVER[ri].z - L0.z) < 45) near.push(ri);
+      if (near.length) {
+        var fi = pickOne(near), q = RIVER[fi], q2 = RIVER[Math.max(0, fi - 3)], fx = q2.x - q.x, fz = q2.z - q.z, fl = Math.hypot(fx, fz) || 1;
+        var fg = new T.Group(); this.part(fg, this.geo.ball, this.mat('flag', 0), 0.08, 0.06, 0.2, 0, 0, 0); this.part(fg, this.geo.cone4, this.mat('flag', 0), 0.05, 0.08, 0.02, 0, 0, -0.12).rotation.x = -Math.PI / 2;
+        fg.position.set(q.x, riverLevel(fi), q.z); this.scene.add(fg);
+        M.fish.push({ g: fg, x: q.x, z: q.z, ux: fx / fl, uz: fz / fl, y: riverLevel(fi), t: 0 });
+        this.puff(q.x, riverLevel(fi) + 0.02, q.z, 3, 'splash', 0.1);
+      }
+    }
+    M.fish = M.fish.filter(function (F) {
+      F.t += dt; var u = F.t / 0.7;
+      if (u >= 1) { self.scene.remove(F.g); self.puff(F.x + F.ux * 0.9, F.y + 0.02, F.z + F.uz * 0.9, 3, 'splash', 0.1); return false; }
+      F.g.position.set(F.x + F.ux * 0.9 * u, F.y + Math.sin(u * Math.PI) * 0.55, F.z + F.uz * 0.9 * u);
+      F.g.rotation.y = Math.atan2(F.ux, F.uz); F.g.rotation.x = -Math.cos(u * Math.PI) * 0.9;
+      return true;
+    });
+    // Geese: a V of them high overhead, north in spring, south in the fall, honking.
+    if ((season === 'spring' || season === 'fall') && !M.geese && now > M.gAt) {
+      var c0 = this.controls.target, dir = season === 'spring' ? 1 : -1, ang = Math.random() * 0.6 - 0.3, gx = Math.sin(ang), gz = -Math.cos(ang) * dir;
+      var GG = { list: [], x: c0.x - gx * 140, z: c0.z - gz * 140, ux: gx, uz: gz, y: 28 + Math.random() * 8, t: 0, honked: false };
+      for (var gi = 0; gi < 11; gi++) {
+        var b = new T.Group(), body = this.part(b, this.geo.ball, this.mat('stoneDark'), 0.18, 0.12, 0.34, 0, 0, 0); this.part(b, this.geo.ball, this.mat('swan', 0), 0.1, 0.08, 0.14, 0, -0.02, 0.06);
+        var wl = new T.Group(), wr = new T.Group(); b.add(wl); b.add(wr);
+        this.part(wl, this.geo.box, this.mat('trunk'), 0.5, 0.02, 0.16, -0.25, 0, 0); this.part(wr, this.geo.box, this.mat('trunk'), 0.5, 0.02, 0.16, 0.25, 0, 0);
+        b.rotation.y = Math.atan2(gx, gz); this.scene.add(b);
+        var rank = Math.ceil(gi / 2), side = gi % 2 ? 1 : -1;
+        GG.list.push({ g: b, wl: wl, wr: wr, back: rank * 1.4, side: gi ? side * rank * 1.2 : 0, ph: gi * 0.7 });
+      }
+      M.geese = GG;
+    }
+    if (M.geese) {
+      var G2 = M.geese; G2.t += dt;
+      var cx = G2.x + G2.ux * G2.t * 7, cz = G2.z + G2.uz * G2.t * 7;
+      G2.list.forEach(function (b) {
+        b.g.position.set(cx - G2.ux * b.back + G2.uz * b.side, G2.y + Math.sin(now / 700 + b.ph) * 0.3, cz - G2.uz * b.back - G2.ux * b.side);
+        var fl2 = Math.sin(now / 140 + b.ph) * 0.6; b.wl.rotation.z = fl2; b.wr.rotation.z = -fl2;
+      });
+      var tg = this.controls.target;
+      if (!G2.honked && Math.hypot(cx - tg.x, cz - tg.z) < 60) { G2.honked = true; this.sfx('honk'); setTimeout(function () { self.sfx('honk'); }, 900); }
+      if (G2.t > 42) { G2.list.forEach(function (b) { self.scene.remove(b.g); }); M.geese = null; M.gAt = now + 50000 + Math.random() * 60000; }
+    }
+  };
+
+  // ===== weather you can feel: thunder and lightning, and fog lying on the rivers at dawn =====
+  Town.prototype.stepStorm = function (dt, now) {
+    var S = this.storm || (this.storm = { at: now + 5000, flash: 0 });
+    if (this.weatherNow === 'storm' && !(this.player && this.player.inDen)) {
+      if (now > S.at) {
+        S.at = now + 5000 + Math.random() * 12000; S.flash = 1; S.flicker = Math.random() < 0.5;
+        var self = this, far = Math.random(); setTimeout(function () { self.sfx('thunder'); }, 500 + far * 2500);
+      }
+    }
+    if (S.flash > 0 || S.boosted) {
+      S.flash = Math.max(0, S.flash - dt * 5);
+      var k = S.flash > 0.6 || (S.flicker && S.flash > 0.25 && S.flash < 0.4) ? 1 : 0;
+      if (!S.base) S.base = this.hemi.intensity;
+      this.hemi.intensity = S.base + k * 2.2;
+      S.boosted = S.flash > 0;
+      if (!S.boosted) { this.hemi.intensity = S.base; S.base = null; }
+      this.needsRender = true;
+    }
+    // Dawn (and a misty morning now and then): fog lying low on the rivers and lakes.
+    var misty = this.phase === 'dawn' || (this.weatherNow === 'rain' && !this.dark);
+    if (misty && now > (S.mistAt || 0)) {
+      S.mistAt = now + 260;
+      var L = this.explore && this.player ? this.player.g.position : this.controls.target, cand = [];
+      for (var i = 0; i < RIVER.length; i += 6) if (Math.hypot(RIVER[i].x - L.x, RIVER[i].z - L.z) < 40) cand.push(i);
+      if (cand.length) { var ci = pickOne(cand), q = RIVER[ci]; this.puff(q.x + (Math.random() - 0.5) * 2, riverLevel(ci) + 0.15, q.z + (Math.random() - 0.5) * 2, 2, 'mist', 1.2); }
+    }
+  };
+
+  // ===== the sternwheeler: up and down the Yukon between Whitehorse and Dawson =====
+  Town.prototype.stepBoat = function (dt, now) {
+    var B = this.boat, self = this;
+    if (!B) {
+      // its route: Dawson's Front Street landing, down the channel, and along the river to the
+      // riverfront above the commuter's footbridge (it can't fit under the bridges)
+      var pts = [];
+      for (var z = 6; z <= 58; z += 2) pts.push(siteAt(4, 21, z));
+      var stop = 0, bd = 1e9; RIVER.forEach(function (p, i) { var d = Math.hypot(p.x - LANE_BRIDGE.c.x, p.z - LANE_BRIDGE.c.z); if (d < bd) { bd = d; stop = i; } });
+      for (var i = 0; i < stop - 10; i += 2) pts.push(RIVER[i]);
+      var cum = [0]; for (var k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].z - pts[k - 1].z));
+      var g = new T.Group(); this.scene.add(g);
+      function P(geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || g, geo, mat, sx, sy, sz, x, y, z, 'riverboat'); }
+      var W = this.mat('whitewood'), R = this.mat('flag', 0), D = this.mat('stoneDark');
+      P(this.geo.box, W, 0.95, 0.3, 2.5, 0, 0.12, 0); P(this.geo.box, this.mat('flag', 0), 0.97, 0.06, 2.52, 0, 0.0, 0);
+      P(this.geo.box, W, 0.8, 0.32, 1.7, 0, 0.43, -0.1); P(this.geo.box, this.mat('window'), 0.82, 0.08, 1.5, 0, 0.47, -0.1);
+      P(this.geo.box, W, 0.62, 0.26, 1.1, 0, 0.72, -0.15); P(this.geo.box, this.mat('window'), 0.64, 0.07, 0.95, 0, 0.75, -0.15);
+      P(this.geo.box, W, 0.36, 0.22, 0.32, 0, 0.96, 0.3); P(this.geo.box, this.mat('roof', 1), 0.42, 0.04, 0.38, 0, 1.08, 0.3);
+      [-0.13, 0.13].forEach(function (x) { P(self.geo.cyl6, D, 0.06, 0.55, 0.06, x, 1.12, 0.05); });
+      var wheel = new T.Group(); wheel.position.set(0, 0.3, -1.42); g.add(wheel);
+      for (var sp = 0; sp < 8; sp++) { var paddle = P(this.geo.box, R, 0.86, 0.06, 0.06, 0, 0, 0, wheel); paddle.rotation.x = sp * Math.PI / 8; P(this.geo.box, R, 0.84, 0.03, 0.18, 0, Math.cos(sp * Math.PI / 4) * 0.3, Math.sin(sp * Math.PI / 4) * 0.3, wheel).rotation.x = sp * Math.PI / 4; }
+      B = this.boat = { g: g, wheel: wheel, pts: pts, cum: cum, L: cum[cum.length - 1], s: 0, dir: 1, wait: 8, chugAt: 0 };
+    }
+    if (B.wait > 0) {
+      B.wait -= dt;
+      if (B.wait <= 0) { B.dir = B.s > B.L / 2 ? -1 : 1; this.boatSay('all aboard!'); this.sfx('riverhorn'); }
+    } else {
+      B.s += B.dir * dt * 2.4;
+      if (B.s <= 0 || B.s >= B.L) { B.s = Math.max(0, Math.min(B.L, B.s)); B.wait = 14; this.sfx('riverhorn'); this.boatSay(B.s < 1 ? 'Dawson City!' : 'Whitehorse!'); }
+      B.wheel.rotation.x -= dt * 3 * B.dir;
+      if (now > B.chugAt) { B.chugAt = now + 600; var tg = this.controls.target; if (Math.hypot(B.g.position.x - tg.x, B.g.position.z - tg.z) < 25) this.sfx('chug'); }
+    }
+    var j = 1; while (j < B.cum.length - 1 && B.cum[j] < B.s) j++;
+    var A = B.pts[j - 1], C = B.pts[j], f = (B.s - B.cum[j - 1]) / ((B.cum[j] - B.cum[j - 1]) || 1), x = A.x + (C.x - A.x) * f, z = A.z + (C.z - A.z) * f;
+    var w = this.swimAt(x, z); var y = (w != null ? w : groundY(x, z)) - 0.05 + Math.sin(now / 900) * 0.02;
+    B.g.position.set(x, y, z);
+    var want = Math.atan2((C.x - A.x) * B.dir, (C.z - A.z) * B.dir), dr = want - B.g.rotation.y; while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI;
+    B.g.rotation.y += dr * Math.min(1, dt * (B.wait > 0 ? 0.5 : 2));
+    if (!B.wait && now > (B.wakeAt || 0)) { B.wakeAt = now + 500; this.puff(x - Math.sin(B.g.rotation.y) * 1.4, y + 0.05, z - Math.cos(B.g.rotation.y) * 1.4, 2, 'ripple'); }
+    this.needsRender = true;
+  };
+  Town.prototype.boatSay = function (t) { if (this.boat) this.say(t, this.boat.g, 1.4, 2.0); };
+  Town.prototype.boatNear = function (P) { var B = this.boat; return B && Math.hypot(B.g.position.x - P.x, B.g.position.z - P.z) < 2.4 ? B : null; };
+  Town.prototype.boardBoat = function (pl) {
+    var B = this.boat; if (!B) return;
+    if (pl.paddle) this.leavePaddle(pl, false);
+    pl.boat = { x: 0.15, z: 0.4 }; pl.seat = null; pl.vy = 0; pl.swim = false;
+    this.say(pickOne(['all aboard!', 'a ticket to Dawson, please', 'riverboat!']), pl.g, 1.0, 1.4); this.sfx('riverhorn');
+  };
+  Town.prototype.leaveBoat = function (pl) {
+    var B = this.boat, P = pl.g.position; pl.boat = null;
+    // step off onto the nearest bank
+    var a = B.g.rotation.y + Math.PI / 2;
+    for (var d = 1.2; d < 8; d += 0.4) for (var sd = -1; sd <= 1; sd += 2) {
+      var x = B.g.position.x + Math.sin(a) * d * sd, z = B.g.position.z + Math.cos(a) * d * sd;
+      if (this.swimAt(x, z) == null && this.walkable(x, z, groundY(x, z) + 0.3, false)) { P.set(x, groundY(x, z), z); this.say('thanks, captain!', pl.g, 1.0, 1.2); return; }
+    }
+  };
+  Town.prototype.boatRide = function (pl, dt) {
+    var B = this.boat, P = pl.g.position;
+    if (!B) { pl.boat = null; return; }
+    var c = Math.cos(B.g.rotation.y), s2 = Math.sin(B.g.rotation.y);
+    P.set(B.g.position.x + pl.boat.x * c + pl.boat.z * s2, B.g.position.y + 0.58, B.g.position.z - pl.boat.x * s2 + pl.boat.z * c);
+    pl.g.rotation.y = B.g.rotation.y + Math.PI / 2;
+    pl.idle = (pl.idle || 0) + dt; pl.air = 0; pl.vy = 0;
+    this.posePlayer(pl, dt, performance.now(), false);
+  };
+
+  // ===== the night sky: stars, the moon in its real phase, lamplight pooling on the ground =====
+  Town.prototype.moonPhase = function () { var days = (Date.now() - Date.UTC(2000, 0, 6, 18, 14)) / 864e5; return ((days % 29.530588) + 29.530588) % 29.530588 / 29.530588; };
+  Town.prototype.stepSky = function (dt, now) {
+    if (this.soft) return;
+    var K = this.sky, night = this.dark || this.phase === 'night' || this.phase === 'dusk';
+    if (!K) {
+      var n = 1400, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), r = rng(77);
+      for (var i = 0; i < n; i++) {
+        var u = r(), v = r() * 0.95 + 0.05, th = u * Math.PI * 2, el = Math.asin(v), R = 1;
+        pos[i * 3] = Math.cos(th) * Math.cos(el) * R; pos[i * 3 + 1] = Math.sin(el) * R; pos[i * 3 + 2] = Math.sin(th) * Math.cos(el) * R;
+        var b = 0.5 + r() * 0.5, warm = r(); col[i * 3] = b * (warm > 0.8 ? 1 : 0.85); col[i * 3 + 1] = b * 0.9; col[i * 3 + 2] = b * (warm < 0.3 ? 1 : 0.95);
+      }
+      var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('color', new T.BufferAttribute(col, 3));
+      var stars = new T.Points(g, new T.PointsMaterial({ size: 2.2, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+      stars.frustumCulled = false; stars.renderOrder = -2; this.scene.add(stars);
+      // the moon, drawn in tonight's phase
+      var cv = document.createElement('canvas'); cv.width = cv.height = 128; var x = cv.getContext('2d'), ph = this.moonPhase();
+      x.fillStyle = '#fff6dc'; x.beginPath(); x.arc(64, 64, 54, 0, Math.PI * 2); x.fill();
+      x.fillStyle = 'rgba(210,200,170,0.5)'; [[44, 50, 9], [78, 78, 12], [70, 40, 6], [50, 86, 5]].forEach(function (c) { x.beginPath(); x.arc(c[0], c[1], c[2], 0, Math.PI * 2); x.fill(); });
+      // the unlit part: a terminator ellipse
+      x.globalCompositeOperation = 'destination-out';
+      var lit = Math.cos(ph * Math.PI * 2), right = ph < 0.5; x.beginPath();
+      x.arc(64, 64, 55, -Math.PI / 2, Math.PI / 2, !right); x.ellipse(64, 64, Math.abs(lit) * 55, 55, 0, Math.PI / 2, -Math.PI / 2, lit > 0 ? right : !right); x.fill();
+      var tex = new T.CanvasTexture(cv), moon = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+      moon.frustumCulled = false; this.scene.add(moon);
+      K = this.sky = { stars: stars, moon: moon, a: 0, pools: null };
+    }
+    K.a += ((night ? 1 : 0) - K.a) * Math.min(1, dt * 0.8);
+    var tgt = this.controls.target, R2 = Math.min(500, (this.camera.persp ? this.camera.persp.far * 0.7 : 400));
+    K.stars.position.copy(tgt); K.stars.scale.setScalar(R2); K.stars.material.opacity = K.a * (this.phase === 'dusk' ? 0.5 : 0.95); K.stars.visible = K.a > 0.02;
+    K.stars.rotation.y = now / 600000; // the sky turns, slowly
+    var md = new T.Vector3(-0.62, 0.2, -0.76).normalize(); // low over the hills, where you'll see it
+    K.moon.position.copy(tgt).addScaledVector(md, R2 * 0.9); K.moon.scale.setScalar(R2 * 0.06); K.moon.material.opacity = K.a; K.moon.visible = K.a > 0.02;
+    // lamplight: a warm pool on the ground under every lit lamp and lantern
+    if (night && !K.pools && now > (K.poolTry || 0)) {
+      K.poolTry = now + 5000;
+      var lm = this.mats.lantern, spots = [], v = new T.Vector3();
+      if (lm) this.scene.traverse(function (o) { if (o.isMesh && o.material === lm && spots.length < 400) { o.getWorldPosition(v); var gy = groundY(v.x, v.z); if (v.y - gy < 4 && v.y - gy > 0.4) spots.push([v.x, gy, v.z, v.y - gy]); } });
+      if (spots.length > 10) {
+        var cv2 = document.createElement('canvas'); cv2.width = cv2.height = 64; var x2 = cv2.getContext('2d'), gr = x2.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gr.addColorStop(0, 'rgba(255,200,120,0.85)'); gr.addColorStop(0.5, 'rgba(255,170,90,0.3)'); gr.addColorStop(1, 'rgba(255,160,80,0)'); x2.fillStyle = gr; x2.fillRect(0, 0, 64, 64);
+        var pm = new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv2), transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false });
+        var im = new T.InstancedMesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), pm, spots.length), m4 = new T.Matrix4();
+        spots.forEach(function (sp, i) { var sz = 1.6 + sp[3] * 0.9; m4.makeScale(sz, 1, sz); m4.setPosition(sp[0], sp[1] + 0.04, sp[2]); im.setMatrixAt(i, m4); });
+        im.frustumCulled = false; this.scene.add(im); K.pools = im;
+      }
+    }
+    if (K.pools) { K.pools.visible = K.a > 0.05; K.pools.material.opacity = K.a; }
+  };
   // ---- a postcard view of each town ----
   var POSTCARD_VIEW = { 1: [-16, 9, 22], 2: [-20, 12, 18], 3: [24, 11, 16], 4: [-18, 14, 20], 5: [18, 10, 20], 6: [-18, 11, 22], 7: [20, 9, 20] };
   Town.prototype.postcard = function () {

@@ -413,7 +413,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v166';
+var BUILD = 'v167';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1186,7 +1186,10 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   window.maybeCrier = function () {
     var C = town.crier && town.crier(), seen = null;
     try { seen = localStorage.getItem('fittertown:crier'); } catch (e) {}
-    if (C && String(C.issue) !== seen) setTimeout(function () { if ($('recent').hidden && $('crier').hidden) { openCrier(); toast('The Town Crier has arrived!'); } }, 2500);
+    if (!C || String(C.issue) === seen) return;
+    // (wait until any other card, like a secret just unlocked, has been closed)
+    var tries = 0;
+    (function land() { if (++tries > 120) return; if (!$('recent').hidden || !$('crier').hidden || ($('secret') && !$('secret').hidden)) { setTimeout(land, 1500); return; } openCrier(); toast('The Town Crier has arrived!'); })();
   };
   addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('recent').hidden) $('recent').hidden = true; });
   addEventListener('keydown', function (e) { if (e.key === 'Escape') $('shelf').hidden = true; });
