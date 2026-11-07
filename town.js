@@ -1458,7 +1458,7 @@
       var k = e.key.toLowerCase();
       if (keyOwner.explore && k === ' ') { if (!e.repeat) keyOwner.jump(); e.preventDefault(); return; }
       if (keyOwner.explore && (k === 'e' || k === 'enter')) { if (!e.repeat) keyOwner.interact(); e.preventDefault(); return; }
-      if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].indexOf(k) >= 0) {
+      if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'control'].indexOf(k) >= 0) {
         keyOwner.keys[k] = true; keyOwner.controls.autoRotate = false; keyOwner.fit.auto = false; if (k !== 'shift') e.preventDefault();
       }
     });
@@ -7111,6 +7111,26 @@
     this.world.add(g);
     return { g: g, body: body, head: head, legs: legs, tail: tail, kind: kind, cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: fox ? 3 : 7, speed: fox ? 1.1 : 0.75 };
   };
+  // Four legs that follow the ground: the body tips along the slope (nose up climbing, down going
+  // down), strides lengthen and dig in uphill, shorten and brake downhill, a step up (a kerb, a
+  // stair) gets a little bound off the back legs, and the head and tail balance it all.
+  Town.prototype.quadGait = function (c, phase, dy, dist, dt, now, amp) {
+    amp = amp || 0.6;
+    var sl = dist > 1e-4 ? Math.max(-1.2, Math.min(1.2, dy / dist)) : 0;
+    c.slope = (c.slope || 0) + (sl - (c.slope || 0)) * Math.min(1, dt * 5);
+    if (Math.abs(dy) > 0.07) { c.stairs = now + 450; c.stairDir = dy > 0 ? 1 : -1; }
+    var s = c.slope, stair = now < (c.stairs || 0), up = Math.max(0, Math.min(1, (s - 0.12) / 0.5)), dn = Math.max(0, Math.min(1, (-s - 0.12) / 0.5));
+    var a = amp * (stair ? 1.3 : 1 + up * 0.35 - dn * 0.3), fb = stair ? (c.stairDir > 0 ? -0.35 : 0.35) : -0.3 * up + 0.35 * dn, bb = stair ? (c.stairDir > 0 ? 0.25 : -0.15) : 0.3 * up - 0.15 * dn;
+    c.legs.forEach(function (l, i) {
+      var front = i < 2, ph = phase + (stair ? (front ? 0 : Math.PI * 0.8) + (i % 2) * 0.25 : (i === 0 || i === 3 ? 0 : Math.PI));
+      l.rotation.x = (front ? fb : bb) + Math.sin(ph) * a;
+    });
+    var pitch = -Math.atan(Math.max(-1, Math.min(1, s))) * 0.8 + (stair ? -c.stairDir * 0.25 : 0);
+    if (c.body) { c.body.rotation.x += (pitch - c.body.rotation.x) * Math.min(1, dt * 8); c.body.position.y += ((c.by0 || (c.by0 = c.body.position.y)) + (stair ? Math.abs(Math.sin(phase)) * 0.06 : 0) - c.body.position.y) * Math.min(1, dt * 10); }
+    if (c.head) c.head.rotation.x += ((up * 0.25 - dn * 0.25) - c.head.rotation.x) * Math.min(1, dt * 6);
+    if (c.tail) c.tail.rotation.x += ((0.3 + dn * 0.6 - up * 0.1) - c.tail.rotation.x) * Math.min(1, dt * 6);
+    return 1 - up * 0.3 + dn * 0.12; // how fast to go: slower up, a touch quicker down
+  };
   // Jo the fox: slim and long-legged, a fine pointed snout, tall ears, lashes, a daisy tucked
   // behind one ear and a big plume of a tail.
   Town.prototype.foxCritter = function (g, P, m, dark, light) {
@@ -7180,12 +7200,11 @@
           c.wait = 0; c.away = true;
           var fdx = c.tx - g.position.x, fdz = c.tz - g.position.z, fd = Math.hypot(fdx, fdz);
           if (fd > 0.12) {
-            var fs = Math.min(fd, dt * Math.min(10, 1.5 + fd * 3.5));
-            c.body.rotation.x *= 0.8;
+            var fs = Math.min(fd, dt * Math.min(10, 1.5 + fd * 3.5) * (c.gsp || 1)), fy0 = g.position.y;
             g.position.x += fdx / fd * fs; g.position.z += fdz / fd * fs;
             g.rotation.y = Math.atan2(fdx, fdz);
             c.phase += dt * Math.min(22, 6 + fd * 9);
-            c.legs.forEach(function (l, i) { l.rotation.x = Math.sin(c.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.6; });
+            c.gsp = this.quadGait(c, c.phase, this.floorAt(g.position.x, g.position.z, Math.max(g.position.y, pp.y) + 0.6) - fy0, fs, dt, now, 0.6);
           } else {
             // Sit down beside you while you're sitting or standing about.
             var sitting = this.player.seat || this.player.cook || (this.player.idle || 0) > 1.5;
@@ -7219,12 +7238,12 @@
         c.tx = c.cx + Math.cos(a) * rr; c.tz = c.cz + Math.sin(a) * rr; c.wait = c.away ? 0.5 + r() * 2 : 0.8 + r() * 4;
         continue;
       }
-      var step = Math.min(d, dt * c.speed * (c.away || Math.hypot(g.position.x - c.cx, g.position.z - c.cz) > c.rOut + 1 ? 1.7 : 1));
+      var step = Math.min(d, dt * c.speed * (c.away || Math.hypot(g.position.x - c.cx, g.position.z - c.cz) > c.rOut + 1 ? 1.7 : 1) * (c.gsp || 1)), wy0 = g.position.y;
       g.position.x += dx / d * step; g.position.z += dz / d * step;
       g.position.y = groundY(g.position.x, g.position.z);
       g.rotation.y = Math.atan2(dx, dz);
       c.phase += dt * c.speed * 9;
-      c.legs.forEach(function (l, i) { l.rotation.x = Math.sin(c.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.6; });
+      c.gsp = this.quadGait(c, c.phase, g.position.y - wy0, step, dt, now, 0.6);
       c.tail.rotation.y = Math.sin(c.phase * 0.5) * 0.25;
     }
   };
@@ -7890,7 +7909,7 @@
     var pl = this.player, pp = pl && pl.g.position, L = G.dogs[0];
     if (G.fleeing) {
       // Legging it, tails between their legs, then gone.
-      G.dogs.forEach(function (c) { var g = c.g; g.position.x += c.vx * dt; g.position.z += c.vz * dt; g.position.y = groundY(g.position.x, g.position.z); c.ph += dt * 26; c.legs.forEach(function (l, i) { l.rotation.x = Math.sin(c.ph + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.9; }); });
+      G.dogs.forEach(function (c) { var g = c.g, y0 = g.position.y; g.position.x += c.vx * dt; g.position.z += c.vz * dt; g.position.y = groundY(g.position.x, g.position.z); c.ph += dt * 26; self.quadGait(c, c.ph, g.position.y - y0, Math.hypot(c.vx, c.vz) * dt, dt, now, 0.9); });
       if (now > G.fleeing) { this.dropGang(); this.gangBack = now + 240000; }
       return;
     }
@@ -7920,7 +7939,7 @@
         g.position.x += (hx + -hz * wob * 0.6) * sp; g.position.z += (hz + hx * wob * 0.6) * sp;
         g.rotation.y = Math.atan2(hx, hz) + wob * 0.3;
         c.ph += dt * 10;
-        c.legs.forEach(function (l, j) { l.rotation.x = Math.sin(c.ph + (j === 0 || j === 3 ? 0 : Math.PI)) * 0.6; });
+        var cgy = groundY(g.position.x, g.position.z); self.quadGait(c, c.ph, cgy - (c.lastY != null ? c.lastY : cgy), sp, dt, now, 0.6); c.lastY = cgy;
       } else c.legs.forEach(function (l) { l.rotation.x *= 0.85; });
       // Stumbles and shoves.
       if (now > c.stumbleAt) { c.stumbleAt = now + 4000 + Math.random() * 7000; c.stumble = 0.7; if (Math.random() < 0.5) self.say(['whoa there', 'dang', 'quit shovin\u2019, Clem', 'meant to do that'][Math.floor(Math.random() * 4)], g, 1.0, 1.0); }
@@ -13453,6 +13472,26 @@
       out.push({ name: 'Bean North', via: vs, pts: [{ x: (ve.x + BEAN_NORTH.x) / 2, z: (ve.z + BEAN_NORTH.z) / 2 }, { x: BEAN_NORTH.x + 1.3, z: BEAN_NORTH.z + 1.3 }], inside: true });
       out.push({ name: 'the hot springs', via: vs, pts: [{ x: (ve.x + HOTSPRINGS.x) / 2, z: (ve.z + HOTSPRINGS.z) / 2 }, { x: HOTSPRINGS.x + 3.5, z: HOTSPRINGS.z + 3.5 }], inside: true, soak: true });
     }
+    // Up a hill for the view (the new hill gaits get a workout): Church Hill, and the highest
+    // knoll near the village. They stop at the top a while, looking out over town.
+    var HW = this.hillWalks || (this.hillWalks = (function () {
+      function nearestNode(p) { var best = null, bd = 1e9; STREETS.forEach(function (st, si) { st.forEach(function (q, ti) { var d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = { si: si, ti: ti }; } }); }); return best; }
+      function climb(name, top, stand) {
+        var via = nearestNode(top), v = STREETS[via.si][via.ti], pts = [];
+        for (var k = 1; k <= 5; k++) { var u = k / 5, wig = Math.sin(u * Math.PI) * 2.5, dx = top.x - v.x, dz = top.z - v.z, l = Math.hypot(dx, dz) || 1;
+          pts.push({ x: v.x + dx * u * stand - dz / l * wig, z: v.z + dz * u * stand + dx / l * wig }); }
+        return { name: name, via: via, pts: pts, linger: true, face: { x: 0, z: 0 } };
+      }
+      var out = [climb('Church Hill', CHURCH, 0.82)], best = null;
+      for (var a = 0; a < 360; a += 10) for (var r = 34; r <= 70; r += 4) {
+        var p = polar(a, r), y = groundY(p.x, p.z);
+        if (waterAt(p.x, p.z) != null || riverDist(p.x, p.z) < 8 || nearPath(p.x, p.z, 1.5) || Math.hypot(p.x - CHURCH.x, p.z - CHURCH.z) < 25 || Math.hypot(p.x - SNOW.c.x, p.z - SNOW.c.z) < SNOW.R + 4) continue;
+        if (!best || y > best.y) best = { x: p.x, z: p.z, y: y };
+      }
+      if (best && best.y > 2) out.push(climb('the lookout', best, 1));
+      return out;
+    })());
+    HW.forEach(function (h) { out.push(h); });
     if (c.apt_museum) {
       // (up the airport road from the end of Elliott Street, not the cliff)
       var le = laneEnd('post'), lp = { k: 'post', d: LANES.post.len }, mx = AIRPORT.x + AIRPORT.dz * -5.6 + AIRPORT.dx * -2.3, mz = AIRPORT.z - AIRPORT.dx * -5.6 + AIRPORT.dz * -2.3, ar = AIRPORT_ROAD, bi = 0, bd = 1e9;
@@ -13464,7 +13503,7 @@
   };
   // The end of the village street that reaches furthest west, towards the hot springs.
   var OUT_WEST = (function () { var best = null, bd = 1e9; STREETS.forEach(function (st, si) { var ti = st.length - 1, q = st[ti], d = Math.hypot(q.x - HOTSPRINGS.x, q.z - HOTSPRINGS.z); if (d < bd) { bd = d; best = { si: si, ti: ti }; } }); return best; })();
-  var OUTING_LINES = { 'the riverfront': ['off for a stroll by the river', 'a walk along the riverfront, I think'], 'Bean North': ['I fancy a coffee from Bean North', 'off to Bean North for a cup'], 'the hot springs': ['off for a soak at Takhini!', 'hot springs day!'], 'the museums': ['going to see the DC-3', 'off to the museums by the airport'] };
+  var OUTING_LINES = { 'Church Hill': ['up Church Hill for the view', 'off up the hill. my knees!', 'a puff up to the church'], 'the lookout': ['up to the lookout, I think', 'a climb for the view', 'the hill’s calling me today'], 'the riverfront': ['off for a stroll by the river', 'a walk along the riverfront, I think'], 'Bean North': ['I fancy a coffee from Bean North', 'off to Bean North for a cup'], 'the hot springs': ['off for a soak at Takhini!', 'hot springs day!'], 'the museums': ['going to see the DC-3', 'off to the museums by the airport'] };
   var SHOP_LINES = ['just popping into ', 'off to ', 'need a few things from ', 'meeting a friend at ', 'quick stop at ', 'treating myself at '];
   var PLAZA_LINES = ['lovely day on the plaza', 'listen to that fountain', 'ooh, market day!', 'I could sit here all afternoon', 'people-watching. well, mouse-watching'];
   var MOUSE_JOBS = { postie: 'Percy the postie', barkeep: 'Doris behind the bar', hiker: 'A hiking mouse' };
@@ -15316,6 +15355,9 @@
     var floor = this.floorAt(P.x, P.z, P.y + STEP_UP), air = P.y - floor > STEP_UP || pl.vy > 0;
     var wHere = this.deckAt(P.x, P.z) || this.onIce(P.x, P.z) || onBridge(P.x, P.z) ? null : this.swimAt(P.x, P.z);
     pl.swim = wHere != null && P.y < wHere + 0.05 && !air;
+    // Shallow at the edge: splash through it rather than swim.
+    pl.wade = false;
+    if (pl.swim && groundY(P.x, P.z) > wHere - 0.3) { pl.swim = false; pl.wade = true; }
     var aloft = P.y > surfaceY(P.x, P.z) + 0.3, stuck = !this.walkable(P.x, P.z, P.y + 0.3, aloft);
     if (!air && this.onIce(P.x, P.z)) this.iceStep(pl, mx, mz, dt, now);
     else if (moving) {
@@ -15326,6 +15368,15 @@
       var run = K.shift || (this.stick && Math.hypot(this.stick.x, this.stick.y) > 0.92);
       var wired = pl.caffeine && now < pl.caffeine;
       pl.running = run;
+      // How you're going: creeping (C / Ctrl, or the stick nudged gently), wading, in deep snow,
+      // up on a ridge, buzzing on coffee, or puffed out after a long sprint.
+      pl.sneak = !run && (K.c || K.control || (this.stick && Math.hypot(this.stick.x, this.stick.y) < 0.45));
+      pl.wired = wired;
+      pl.aloftNow = aloft;
+      pl.snowy = this.season === 'winter' && !aloft && !nearPath(P.x, P.z, 0.9) && !this.onIce(P.x, P.z);
+      pl.runT = Math.max(0, (pl.runT || 0) + (run ? dt : -dt * 0.6));
+      if (pl.runT > 7 && !pl.tired) { pl.tired = true; this.say(pickOne(['*pant pant*', 'phew…', 'need… a… sec']), pl.g, 1.0, 1.4); }
+      if (pl.tired && pl.runT < 2) pl.tired = false;
       var G0 = this.gaitOf(pl, now), sp = (run ? 6.4 : 3.3) * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1) * (wired ? 1.75 : 1) * (pl.swim ? 1 : G0.speed);
       if (wired && !pl.swim && Math.random() < dt * 14) this.puff(P.x, P.y + 0.02, P.z, 1, 'dust');
       var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
@@ -15402,7 +15453,10 @@
     air = pl.vy !== 0 || pl.air > STEP_UP;
     if (moving || air) pl.idle = 0; else pl.idle = (pl.idle || 0) + dt;
     // Footsteps, when the sound is on: one per paw that lands.
-    if (moving && !air) { var stepN = Math.floor(pl.phase / Math.PI); if (stepN !== pl.stepN) { pl.stepN = stepN; this.footstep(P.x, P.z, aloft); } }
+    if (moving && !air) { var stepN = Math.floor(pl.phase / Math.PI); if (stepN !== pl.stepN) { pl.stepN = stepN;
+      if (pl.wade) { this.puff(P.x + Math.sin(g.rotation.y) * 0.15, wHere + 0.02, P.z + Math.cos(g.rotation.y) * 0.15, 3, 'splash', 0.1); this.puff(P.x, wHere + 0.01, P.z, 1, 'ripple'); if (stepN % 2) this.sfx('paddle'); }
+      else if (pl.snowy) this.puff(P.x + Math.sin(g.rotation.y) * 0.15, P.y + 0.05, P.z + Math.cos(g.rotation.y) * 0.15, 2, 'dust', 0.1);
+      else this.footstep(P.x, P.z, aloft); } }
     // Rummaging in a knocked-over can.
     this.digStep(pl, dt, now, moving || air);
     // Left alone next to a bench, a chair or the end of a dock: hop up and sit.
@@ -15550,7 +15604,7 @@
     if (pl && pl.paddle) {
       // Land ahead: step off. Otherwise: cast a line (or reel it in).
       var fa = pl.g.rotation.y, lx = pl.g.position.x + Math.sin(fa) * 0.9, lz = pl.g.position.z + Math.cos(fa) * 0.9;
-      if (waterAt(lx, lz) == null) this.leavePaddle(pl, false); else if (pl.fishing) this.stopFishing(pl); else this.startFishing(pl);
+      if (this.swimAt(lx, lz) == null) this.leavePaddle(pl, false); else if (pl.fishing) this.stopFishing(pl); else this.startFishing(pl);
       return;
     }
     if (pl && this.onSkiHill(pl.g.position)) { this.startSnow(pl); return; }
@@ -15586,7 +15640,15 @@
       if (h > 0.6 && h < 4.6 && this.floorAt(px, pz, top + 0.8) <= top + 0.05) {
         var lx = px + fx * 0.12, lz = pz + fz * 0.12, land = this.floorAt(lx, lz, top + 0.3);
         if (Math.abs(land - top) > 0.4) { lx = px; lz = pz; land = top; }
-        pl.climb = { x0: P.x, z0: P.z, y0: P.y, x1: lx, z1: lz, y1: land, t: 0, dur: 0.35 + h * 0.16, fx: fx, fz: fz };
+        pl.climb = { x0: P.x, z0: P.z, y0: P.y, x1: lx, z1: lz, y1: land, t: 0, dur: 0.35 + h * 0.16, fx: fx, fz: fz, h: h };
+        this.puff(P.x + fx * 0.2, P.y + 0.1, P.z + fz * 0.2, 4, 'dust');
+        if (h > 2.2) this.say(pickOne(['up we go!', 'hup!', 'climb time', 'hnnngh']), pl.g, 1.0, 0.9);
+        return;
+      }
+      // A wall far too tall: have a go anyway, get partway, and slide back down.
+      var tall = this.floorAt(px, pz, P.y + 12);
+      if (tall - P.y >= 4.6 && d < 0.7) {
+        pl.climb = { x0: P.x, z0: P.z, y0: P.y, x1: P.x, z1: P.z, y1: P.y + 1.6, t: 0, dur: 1.5, fx: fx, fz: fz, fail: true };
         this.puff(P.x + fx * 0.2, P.y + 0.1, P.z + fz * 0.2, 4, 'dust');
         return;
       }
@@ -15595,24 +15657,57 @@
   };
   // Up the wall in a scrabble of paws, then over the top.
   Town.prototype.climbStep = function (pl, dt, now) {
-    var C = pl.climb, P = pl.g.position, t;
+    var C = pl.climb, P = pl.g.position, t, self = this;
     C.t += dt; t = Math.min(1, C.t / C.dur);
-    var wallX = C.x0 + C.fx * 0.12, wallZ = C.z0 + C.fz * 0.12;
+    var wallX = C.x0 + C.fx * 0.12, wallZ = C.z0 + C.fz * 0.12, k = Math.min(1, dt * 14);
+    if (C.fail) {
+      // Up a little way, scrabbling, a wobble at the top, then a slow slide back down.
+      var up2 = t < 0.45 ? t / 0.45 : t < 0.58 ? 1 : 1 - (t - 0.58) / 0.42;
+      P.x = C.x0 + (wallX - C.x0) * Math.min(1, t * 6); P.z = C.z0 + (wallZ - C.z0) * Math.min(1, t * 6);
+      P.y = C.y0 + (C.y1 - C.y0) * (t < 0.58 ? Math.sin(up2 * Math.PI / 2) : up2 * up2);
+      pl.body.rotation.x += (-1.3 - pl.body.rotation.x) * k;
+      pl.body.rotation.z = t > 0.45 && t < 0.62 ? Math.sin(now / 50) * 0.15 : 0;
+      pl.legs.forEach(function (l, i) { l.rotation.x = t < 0.58 ? -1.3 + Math.sin(now / 40 + i * 1.7) * 0.8 : -1.5 + Math.sin(now / 25 + i) * 0.25; });
+      pl.tail.rotation.y = Math.sin(now / 80) * 0.8;
+      if (!C.said && t > 0.5) { C.said = true; this.say(pickOne(['too tall!', 'nope. nope.', 'not today', 'whoa whoa whoa', 'I\u2019ll get you next time, wall']), pl.g, 1.0, 1.3); }
+      if (Math.floor(C.t * 14) !== C.tick) { C.tick = Math.floor(C.t * 14); this.sfx('scrabble'); }
+      pl.g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
+      if (t >= 1) { P.set(C.x0, this.floorAt(C.x0, C.z0, C.y0 + 0.4), C.z0); pl.climb = null; pl.vy = 0; pl.squash = 0.18; pl.idle = 0; this.puff(P.x, P.y, P.z, 5, 'dust'); }
+      return;
+    }
     if (t < 0.72) {
-      var u = t / 0.72;
+      // Hand over hand: front paws reach up in turn, back paws push, the body sways with each pull.
+      var u = t / 0.72, reach = Math.sin(C.t * 15);
       P.x = C.x0 + (wallX - C.x0) * Math.min(1, u * 4); P.z = C.z0 + (wallZ - C.z0) * Math.min(1, u * 4);
-      P.y = C.y0 + (C.y1 + 0.1 - C.y0) * u;
-      pl.body.rotation.x += (-1.25 - pl.body.rotation.x) * Math.min(1, dt * 14);
-      pl.legs.forEach(function (l, i) { l.rotation.x = -1.2 + Math.sin(now / 45 + i * 1.7) * 0.7; });
-      if (Math.floor(C.t * 12) !== C.tick) { C.tick = Math.floor(C.t * 12); this.sfx('scrabble'); }
+      P.y = C.y0 + (C.y1 + 0.1 - C.y0) * (u - Math.sin(u * Math.PI * 2 * Math.max(1, Math.round((C.h || 1) * 1.5))) * 0.03); // a pull, a pause, a pull
+      pl.body.rotation.x += (-1.25 - pl.body.rotation.x) * k;
+      pl.body.rotation.z = reach * 0.1;
+      pl.legs.forEach(function (l, i) { l.rotation.x = i < 2 ? -1.6 + (i ? reach : -reach) * 0.7 : -0.7 + (i === 2 ? -reach : reach) * 0.5; });
+      pl.tail.rotation.y = -reach * 0.6; pl.tail.rotation.x = 0.1;
+      if (Math.floor(C.t * 12) !== C.tick) { C.tick = Math.floor(C.t * 12); this.sfx('scrabble'); if (C.tick % 3 === 0) this.puff(P.x, P.y, P.z, 1, 'dust'); }
     } else {
+      // Over the top: front paws hook the edge, a kick of the back legs, and up.
       var v = (t - 0.72) / 0.28;
       P.x = wallX + (C.x1 - wallX) * v; P.z = wallZ + (C.z1 - wallZ) * v;
       P.y = C.y1 + 0.1 + Math.sin(v * Math.PI) * 0.25 - 0.1 * v;
-      pl.body.rotation.x += (0 - pl.body.rotation.x) * Math.min(1, dt * 14);
+      pl.body.rotation.x += (-0.6 * (1 - v) - pl.body.rotation.x) * k; pl.body.rotation.z = 0;
+      pl.legs.forEach(function (l, i) { l.rotation.x = i < 2 ? 0.6 * (1 - v) : 1.2 * Math.sin(v * Math.PI); });
     }
     pl.g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
-    if (t >= 1) { P.set(C.x1, this.floorAt(C.x1, C.z1, C.y1 + 0.4), C.z1); pl.climb = null; pl.vy = 0; pl.squash = 0.12; pl.idle = 0; }
+    if (t >= 1) {
+      P.set(C.x1, this.floorAt(C.x1, C.z1, C.y1 + 0.4), C.z1); pl.climb = null; pl.vy = 0; pl.squash = 0.12; pl.idle = 0;
+      // A new summit (somewhere high you've not stood before): stand up proud and say so.
+      var hi = P.y - groundY(P.x, P.z);
+      if (hi > 1.2) {
+        var KS = this.keep(), SM = KS.summits || (KS.summits = {}), key = Math.round(P.x / 2) + ',' + Math.round(P.z / 2);
+        if (!SM[key]) {
+          SM[key] = 1; var n = Object.keys(SM).length; this.saveStore();
+          pl.proud = now + 1800; this.sfx('found');
+          this.puff(P.x, P.y + 0.6, P.z, 18, 'confetti');
+          this.say(n === 1 ? 'top of the world!' : pickOne(['summit #' + n + '!', 'king of the castle!', 'I can see my den from here', 'rooftop #' + n + '!', 'look at me!', n + ' summits and counting']), pl.g, 1.0, 1.8);
+        } else if (Math.random() < 0.3) this.say(pickOne(['made it', 'ta-da', 'easy']), pl.g, 1.0, 0.9);
+      }
+    }
   };
   Town.prototype.seatNear = function (x, z) {
     var list = (this.seats || []).concat(this.st.seats || []), objs = this.st.partyObjs || {}, best = null, bd = 1.15;
@@ -15789,7 +15884,12 @@
     if (wh != null && P.y < wh - SWIM_SINK + 0.04) return null;
     for (var d = 0.7; d <= 1.6; d += 0.3) {
       var x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d, w = this.swimAt(x, z);
-      if (w != null && !this.deckAt(x, z) && w - groundY(x, z) > 0.15 && P.y - w < 1.5 && Math.hypot(x, z) < 147 && this.openWater(x, z, w) && this.clearAhead(x, z, a)) return { x: x, z: z };
+      if (w == null || this.deckAt(x, z) || w - groundY(x, z) <= 0.15 || P.y - w >= 1.5 || Math.hypot(x, z) > WORLD_R - 4 || !this.openWater(x, z, w)) continue;
+      if (this.clearAhead(x, z, a)) return { x: x, z: z, a: a };
+      // A river's too narrow to paddle straight across: set off along it instead (downstream first).
+      var mw = this.meshWater(x, z), fa = mw && (mw.fx || mw.fz) ? Math.atan2(mw.fx, mw.fz) : a + Math.PI / 2;
+      var tries = [fa, fa + Math.PI, a + Math.PI / 2, a - Math.PI / 2];
+      for (var ti = 0; ti < tries.length; ti++) if (this.clearAhead(x, z, tries[ti])) return { x: x, z: z, a: tries[ti] };
     }
     return null;
   };
@@ -15819,6 +15919,7 @@
     this.part(paddle, this.geo.box, this.mat('wood'), 0.07, 0.018, 0.018, 0, 0.31, 0);
     var blade = this.part(paddle, this.geo.box, this.mat('flag', 2), 0.08, 0.18, 0.016, 0, -0.4, 0);
     pl.paddle = { board: board, paddle: paddle, blade: blade, ph: 0, side: 1, u: 0 };
+    if (spot.a != null) pl.g.rotation.y = spot.a;
     P.x = x; P.z = z; P.y = this.swimAt(x, z) + 0.09; pl.seat = null; pl.dig = null; pl.vy = 0;
     this.say(['paddle time', 'ahoy!', 'smooth sailing'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.3);
     this.puff(x, P.y, z, 6, 'splash', 0.3);
@@ -15844,9 +15945,9 @@
       pl.idle = 0;
     } else pl.idle = (pl.idle || 0) + dt;
     // The board glides on after each stroke and the river carries it; the shore stops you (E to step off).
-    var pv = this.swimVel(pl, moving ? dx / dt : 0, moving ? dz / dt : 0, dt * 0.8, P), px = pv.x * dt, pz = pv.z * dt;
+    var pv = this.swimVel(pl, moving ? dx / dt : 0, moving ? dz / dt : 0, dt * 1.6, P), px = pv.x * dt, pz = pv.z * dt;
     var nw = this.swimAt(P.x + px, P.z + pz);
-    if (nw != null && !this.deckAt(P.x + px, P.z + pz) && Math.hypot(P.x + px, P.z + pz) < 147 && nw - groundY(P.x + px, P.z + pz) > 0.08 && this.openWater(P.x + px, P.z + pz, nw)) { P.x += px; P.z += pz; }
+    if (nw != null && !this.deckAt(P.x + px, P.z + pz) && Math.hypot(P.x + px, P.z + pz) < WORLD_R - 4 && nw - groundY(P.x + px, P.z + pz) > 0.08 && this.openWater(P.x + px, P.z + pz, nw)) { P.x += px; P.z += pz; }
     else { pl.sv.x *= -0.2; pl.sv.z *= -0.2; } // a gentle bump off the bank
     var w = this.swimAt(P.x, P.z), wt = this.waterU ? this.waterU.uTime.value : now / 1000;
     P.y = (w != null ? w : P.y) + 0.09 + waveH(P.x, P.z, wt);
@@ -16160,7 +16261,18 @@
   Town.prototype.posePlayer = function (pl, dt, now, moving) {
     var body = pl.body, head = pl.head, t = now / 1000, idle = pl.idle || 0, P = pl.g.position;
     var pose = null;
-    if (pl.vy !== 0) pose = { pitch: pl.vy > 0 ? -0.35 : 0.2, legs: [0.9, 0.9, -0.9, -0.9] };
+    if (pl.vy === 0) pl.wheee = false;
+    if (pl.vy < 0 && (pl.fallFrom || 0) - P.y > 1.1) {
+      // A long drop: spread out like a flying squirrel, tail streaming.
+      if (!pl.wheee) { pl.wheee = true; if ((pl.fallFrom || 0) - this.floorAt(P.x, P.z, P.y) > 2) this.say(pickOne(['wheee!', 'geronimo!', 'yahoo!', 'cannonball!']), pl.g, 1.0, 1.0); }
+      pose = { pitch: 0.15, by: 0.3, hx: -0.4, tailX: -0.3, tailY: Math.sin(t * 14) * 0.3, legs: [-1.4, -1.4, 1.4, 1.4] };
+    }
+    else if (pl.vy !== 0) pose = { pitch: pl.vy > 0 ? -0.35 : 0.2, legs: [0.9, 0.9, -0.9, -0.9] };
+    else if (now < (pl.proud || 0) && !moving) {
+      // Up on its hind legs at the top, chest out, looking all round.
+      pl.wheee = false;
+      pose = this.sitPose(t, 'sit'); pose.hy = Math.sin(t * 3) * 0.8; pose.hx = 0.9; pose.legs = [-1.1 + Math.sin(t * 8) * 0.3, -1.1 - Math.sin(t * 8) * 0.3, 1.45, 1.45];
+    }
     else if (pl.swim) {
       // Swimming: nose up, paws paddling under the surface, tail floating out behind.
       var pd = moving ? 14 : 5, wt = this.waterU ? this.waterU.uTime.value : t, sl = waveSlope(P.x, P.z, wt), fa = pl.g.rotation.y;
@@ -16196,8 +16308,14 @@
     if (now < (pl.stairs || 0)) return pl.stairDir > 0
       ? { amp: 0.95, rate: 0.75, fb: -0.35, bb: 0.25, fa: 1.1, speed: 0.8, bound: true, kind: 'stairsUp' }   // hopping up, one step at a time
       : { amp: 0.6, rate: 0.95, fb: 0.4, bb: -0.15, fa: 0.9, speed: 0.85, bound: true, kind: 'stairsDown' }; // front paws reaching down for the next step
+    if (pl.wade) return { amp: 0.95, rate: 0.7, fb: -0.45, bb: 0.1, fa: 1.2, speed: 0.6, kind: 'wade' };            // high steps, splashing
+    if (pl.sneak) return { amp: 0.45, rate: 0.55, fb: 0.1, bb: 0.1, fa: 0.9, speed: 0.42, kind: 'sneak' };         // low and slow, paw by paw
+    if (pl.snowy) return { amp: 1.0, rate: 0.75, fb: -0.5, bb: 0.15, fa: 1.15, speed: 0.72, kind: 'snow', u: Math.max(-1, Math.min(1, s)) }; // high-stepping through drifts
+    if (pl.aloftNow && Math.abs(s) < 0.3) return { amp: 0.4, rate: 0.7, fb: 0.05, bb: 0.05, fa: 1, speed: 0.6, kind: 'balance' }; // careful steps along a ridge or wall top
     if (s > 0.15) { var u = Math.min(1, (s - 0.15) / 0.6); return { amp: 0.7 + 0.25 * u, rate: 1 - 0.2 * u, fb: -0.3 * u, bb: 0.3 * u, fa: 1.1, speed: 1 - 0.32 * u, kind: 'up', u: u }; }
     if (s < -0.15) { var dn = Math.min(1, (-s - 0.15) / 0.6); return { amp: 0.7 - 0.22 * dn, rate: 1 + 0.18 * dn, fb: 0.38 * dn, bb: -0.18 * dn, fa: 0.85, speed: 1 + (run ? 0.05 : 0.12) * dn, kind: 'down', u: dn }; }
+    if (pl.tired) return { amp: run ? 0.65 : 0.55, rate: run ? 0.8 : 0.85, fb: 0, bb: 0, fa: 1, speed: run ? 0.72 : 0.9, kind: 'tired' }; // puffed out
+    if (pl.wired && !run) return { amp: 0.8, rate: 1.25, fb: -0.1, bb: 0.1, fa: 1, speed: 1, bound: true, kind: 'skip' }; // a caffeinated skip
     return { amp: run ? 0.85 : 0.7, rate: 1, fb: 0, bb: 0, fa: 1, speed: 1, kind: 'flat', u: 0 };
   };
   Town.prototype.gaitPose = function (pl, now) {
@@ -16205,6 +16323,12 @@
     var follow = -Math.atan(s) * 0.85; // the body lies along the ground
     if (G.kind === 'stairsUp') return { pitch: -0.42 + Math.sin(ph) * 0.12, by: 0.3 + Math.abs(Math.sin(ph)) * 0.09, hx: 0.25, tailX: 0.15 + Math.abs(Math.sin(ph)) * 0.5, tailY: Math.sin(ph * 0.5) * 0.3 };
     if (G.kind === 'stairsDown') return { pitch: 0.38 + Math.sin(ph) * 0.08, by: 0.27 + Math.abs(Math.sin(ph)) * 0.05, hx: -0.3, tailX: 1.0, tailY: Math.sin(ph * 0.5) * 0.25 };
+    if (G.kind === 'wade') return { pitch: follow - 0.12, by: 0.34 + Math.abs(Math.sin(ph)) * 0.04, hx: 0.15, tailX: 1.0, tailY: Math.sin(ph * 0.5) * 0.2 }; // tail held up out of the wet
+    if (G.kind === 'sneak') return { pitch: follow + 0.05, by: 0.2, bz: -0.03, hx: 0.12 + Math.sin(t * 1.3) * 0.05, hy: Math.sin(t * 0.7) * 0.35, tailX: -0.05, tailY: Math.sin(t * 2) * 0.12 }; // belly low, peering about
+    if (G.kind === 'snow') return { pitch: follow - 0.1 + Math.sin(ph) * 0.08, by: 0.33 + Math.abs(Math.sin(ph)) * 0.07, hx: 0.1, tailX: 0.7, tailY: Math.sin(ph * 0.5) * 0.3 };
+    if (G.kind === 'balance') return { pitch: 0, by: 0.3, hx: -0.1, tailX: 0.5, tailY: Math.sin(t * 2.6) * 0.9, sway: Math.sin(t * 2.6 + 1.2) * 0.12 }; // tail swinging for balance, a wobble
+    if (G.kind === 'tired') return { pitch: follow + 0.12, by: 0.27, hx: 0.4 + Math.sin(t * 9) * 0.05, tailX: -0.1, tailY: Math.sin(ph * 0.5) * 0.1 }; // head hanging, panting
+    if (G.kind === 'skip') return { pitch: Math.sin(ph) * 0.2, by: 0.32 + Math.abs(Math.sin(ph)) * 0.12, hx: -0.15, tailX: 0.9, tailY: Math.sin(t * 6) * 0.5 }; // boing boing
     if (G.kind === 'up') return { pitch: follow - 0.12 * G.u, by: 0.29, hx: 0.3 * G.u + Math.sin(ph * 2) * 0.05, tailX: 0.25, tailY: Math.sin(ph * 0.5) * 0.25 }; // leaning in, head down, digging
     if (G.kind === 'down') return { pitch: follow + 0.06 * G.u, by: 0.3 - 0.05 * G.u, bz: -0.04 * G.u, hx: -0.28 * G.u, tailX: 0.4 + 0.75 * G.u, tailY: Math.sin(t * 3) * 0.3 * G.u }; // braking, tail up for balance, looking ahead
     if (run) return { pitch: 0.1 + Math.sin(ph * 2) * 0.05, by: 0.3 + Math.abs(Math.sin(ph)) * 0.04, hx: -0.12, tailX: 0.05, tailY: Math.sin(ph * 0.5) * 0.15 }; // stretched out, tail streaming
@@ -16615,6 +16739,17 @@
         rm.position.set(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3); F.group.add(rm);
         F.bits.push({ m: rm, kind: 'ripple', life: 0.9, t: 0, vx: 0, vy: 0, vz: 0, ph: 0, fixedY: y });
       }
+      return;
+    }
+    if (kind === 'confetti') {
+      // A little burst of colour for reaching the top of something.
+      for (var ci2 = 0; ci2 < n && F.bits.length < 120; ci2++) {
+        var cm = new T.Mesh(this.geo.box, this.mat('flag', ci2 % 5)); cm.scale.set(0.05, 0.012, 0.035);
+        cm.position.set(x, y, z); F.group.add(cm);
+        var ca = Math.random() * Math.PI * 2, cs = 0.8 + Math.random() * 1.4;
+        F.bits.push({ m: cm, kind: 'trash', life: 1.3 + Math.random() * 0.6, t: 0, vx: Math.cos(ca) * cs, vy: 2.6 + Math.random() * 1.6, vz: Math.sin(ca) * cs, ph: 0 });
+      }
+      this.needsRender = true;
       return;
     }
     if (kind === 'mist') {
