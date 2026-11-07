@@ -963,9 +963,12 @@
     return null;
   }
   function creekShape(h, x, z) {
-    var k = creekNear(x, z, 0); if (!k) return h;
+    var k = creekNear(x, z, 2.5); if (!k) return h;
     var c = k.c, w = (1 - smooth(c.half, c.half + c.bank, k.dz)) * smooth(c.x0 - 2, c.x0 + 3, k.lx) * (1 - smooth(c.x1, c.x1 + 2, k.lx));
-    return h + (Math.min(h, creekLevel(c) - 0.7) - h) * w;
+    // banks above the water first (where the land dips below it), then the bed carved out
+    var lv = creekLevel(c), ends = smooth(c.x0 - 2, c.x0 + 1, k.lx) * (1 - smooth(c.x1, c.x1 + 2, k.lx));
+    if (h < lv + 0.25) h += (lv + 0.25 - h) * (1 - smooth(c.half + c.bank, c.half + c.bank + 2, k.dz)) * ends;
+    return h + (Math.min(h, lv - 0.7) - h) * w;
   }
   var DAWSON_PAD = null;
   function DAWSON_PAD_H() { if (DAWSON_PAD == null) { var c = CASTLE_SITES[DAWSON]; DAWSON_PAD = Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift; } return DAWSON_PAD; }
@@ -974,9 +977,18 @@
     if (rd < RIVER_HALF + 30) {
       // Carve the bed below the water, with valley sides that widen the higher the land is.
       var lv = riverLevel(RIVER_NEAR.i), bed = lv - 0.55;
+      // The river always runs between banks: where the land round it lies lower than the water
+      // (the flats down by the coast), it's built up into a gentle bank, eased into the land
+      // around, so the water sits in its channel and never floats over the ground. Not at the
+      // mouth, where it runs out into the sea.
+      if (rd < RIVER_HALF + 9 && h < lv + 0.3) {
+        var mouth = coastSd(x, z), keep = mouth > -14 ? 1 - smooth(-14, -5, mouth) : 1;
+        h += (lv + 0.3 - h) * (1 - smooth(RIVER_HALF + 2.5, RIVER_HALF + 9, rd)) * keep;
+      }
       if (h > bed) {
-        var W = RIVER_HALF + 1.6 + Math.max(0, h - lv - 0.6) * 1.6;
-        if (rd < W) h = bed + (h - bed) * smooth(RIVER_HALF - 0.4, W, rd);
+        // (the bank meets the water right at the water's edge; higher land opens out into a valley)
+        var W = RIVER_HALF + 1.0 + Math.max(0, h - lv - 0.6) * 1.6;
+        if (rd < W) h = bed + (h - bed) * smooth(RIVER_HALF - 0.8, W, rd);
       }
       var cd = rd < RIVER_HALF + 11 ? canyonDepth(x, z) : 0;
       if (cd > 0) h += cd * 0.7 * smooth(RIVER_HALF + 3.5, RIVER_HALF + 5.5, rd) * (1 - smooth(RIVER_HALF + 7.5, RIVER_HALF + 11, rd));
@@ -1535,10 +1547,10 @@
     var rt = new T.WebGLRenderTarget(sz.x, sz.y, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat });
     rt.depthTexture = new T.DepthTexture(sz.x, sz.y); rt.depthTexture.type = T.UnsignedIntType;
     var mat = new T.ShaderMaterial({
-      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 }, edgeK: { value: 1 }, grit: { value: 0.4 }, time: { value: 0 }, persp: { value: new T.Vector4(0, 1, 1000, 50) } },
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new T.Vector2(sz.x, sz.y) }, depthRange: { value: 800 }, ink: { value: new T.Color('#3b2a1f') }, px: { value: 1.4 }, edgeK: { value: 1 }, grit: { value: 0.4 }, time: { value: 0 }, persp: { value: new T.Vector4(0, 1, 1000, 50) }, gShadow: { value: new T.Vector3(0.93, 0.98, 1.06) }, gLight: { value: new T.Vector3(1.04, 1.01, 0.95) }, bloomT: { value: 0.78 }, bloomK: { value: 0.55 }, aoK: { value: 0.5 }, sunUv: { value: new T.Vector2(2, 2) }, sunCol: { value: new T.Color('#ffd9a0') }, sunK: { value: 0 }, aspect: { value: 1.4 } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: [
-        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px; uniform float edgeK; uniform float grit; uniform float time; uniform vec4 persp;',
+        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float depthRange; uniform vec3 ink; uniform float px; uniform float edgeK; uniform float grit; uniform float time; uniform vec4 persp; uniform vec3 gShadow; uniform vec3 gLight; uniform float bloomT; uniform float bloomK; uniform float aoK; uniform vec2 sunUv; uniform vec3 sunCol; uniform float sunK; uniform float aspect;',
         'varying vec2 vUv;',
         'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
         'float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
@@ -1557,6 +1569,16 @@
         // through the perspective lens the raw depth is flat across a plane; turn it into ground units
         '  if (persp.x > 0.5) { float zc = persp.y * persp.z / (persp.z - c * (persp.z - persp.y)); e *= zc * zc * (persp.z - persp.y) / (persp.y * persp.z); e /= max(1.0, pow(zc / persp.w, 2.0)); }',
         '  float edge = smoothstep(0.13 * edgeK, 0.45 * edgeK, e);',
+        // soft shadow in the creases: where a wall meets the ground, under eaves, between things
+        // (the raw depth is flat across any plane, so open ground and slopes stay clear)
+        '  float kz = 1.0; if (persp.x > 0.5) { float zq = persp.y * persp.z / (persp.z - c * (persp.z - persp.y)); kz = zq * zq * (persp.z - persp.y) / (persp.y * persp.z) / max(1.0, zq / persp.w); }',
+        '  float ao = 0.0, rot = noise(p * 0.37) * 3.14;',
+        '  for (int k = 0; k < 6; k++) {',
+        '    float an = float(k) * 1.047 + rot; vec2 dv = vec2(cos(an), sin(an)) * (float(k < 3 ? 3 : 7) * px) / res;',
+        '    float cr = (c - 0.5 * (dep(uv + dv) + dep(uv - dv))) * kz;',
+        '    ao += smoothstep(0.01, 0.1, cr) * (1.0 - smoothstep(0.22, 0.5, cr)); // (only true creases, not the ground behind a tree)',
+        '  }',
+        '  col *= 1.0 - min(1.0, ao / 4.0) * aoK * a;',
         // softer pencil lines where colours change sharply
         '  float ce = max(abs(lum(texture2D(tColor, uv + vec2(o.x, 0.0)).rgb) - lum(col)), abs(lum(texture2D(tColor, uv + vec2(0.0, o.y)).rgb) - lum(col)));',
         '  float pencil = smoothstep(0.10, 0.28, ce) * 0.35;',
@@ -1573,6 +1595,16 @@
         '  col = mix(col, ink * a, clamp(edge * 0.9 + pencil, 0.0, 1.0));',
         // a little grit, like the cover of an old paperback: colour a shade muted, cool shadows and
         // warm highlights, a touch more contrast, and film grain that crawls
+        // light that glows: sun glints, snow, and at night the windows and lanterns
+        '  vec3 glow = vec3(0.0);',
+        '  for (int k = 0; k < 12; k++) { float an = float(k) * 0.5236 + 0.26; float rr = (k < 6 ? 4.0 : 11.0) * px; glow += max(texture2D(tColor, uv + vec2(cos(an), sin(an)) * rr / res).rgb - bloomT, 0.0); }',
+        '  col += glow / 12.0 * bloomK;',
+        // the time of day in the colour: cool shadows, warm light (golden at golden hour, blue by moonlight)
+        '  float lg = lum(col);',
+        '  col *= mix(gShadow, gLight, smoothstep(0.1, 0.85, lg));',
+        // and the low sun washing in from its side of the sky
+        '  vec2 sd = (vUv - sunUv) * vec2(aspect, 1.0);',
+        '  col += sunCol * sunK * (1.0 - smoothstep(0.0, 1.5, length(sd))) * a;',
         '  float lu = lum(col);',
         '  col = mix(col, vec3(lu), 0.17 * grit);',
         '  col *= mix(vec3(1.0), mix(vec3(0.9, 0.97, 1.05), vec3(1.07, 1.0, 0.87), smoothstep(0.15, 0.8, lu)), grit);',
@@ -1602,7 +1634,14 @@
     if (!this.handmade || !this.post) { this.renderer.render(this.scene, this.camera); this.drawOverlay(); return; }
     var P = this.post, sz = this.renderer.getDrawingBufferSize(new T.Vector2());
     if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
-    var CP = this.camera.persp;
+    var CP = this.camera.persp, LG = this.lightGrade, U2 = P.mat.uniforms;
+    if (LG) {
+      U2.gShadow.value.copy(LG.sh); U2.gLight.value.copy(LG.li); U2.bloomT.value = LG.bt; U2.bloomK.value = LG.bk; U2.aoK.value = LG.ao; U2.sunCol.value.copy(LG.sc);
+      // where the sun is on screen (off it, the glow still washes in from that side)
+      var sv = this.sun.position.clone().sub(this.sun.target.position).normalize().multiplyScalar(400).add(this.controls.target).project(this.camera);
+      var sb = Math.max(0, sv.z < 1 ? 1 : 0);
+      U2.sunUv.value.set(Math.max(-0.6, Math.min(1.6, sv.x * 0.5 + 0.5)), Math.max(-0.6, Math.min(1.6, sv.y * 0.5 + 0.5))); U2.sunK.value = LG.sk * sb; U2.aspect.value = this.aspect || 1.4;
+    }
     P.mat.uniforms.depthRange.value = CP ? 1 : this.camera.far - this.camera.near;
     if (CP) P.mat.uniforms.persp.value.set(1, CP.near, CP.far, CP.dist);
     P.mat.uniforms.px.value = Math.max(1.2, this.renderer.getPixelRatio() * 1.05);
@@ -1628,7 +1667,8 @@
       if (name === 'fields') { m.vertexColors = true; }
       if (name === 'water') { m.transparent = true; m.opacity = 0.92; m.depthWrite = false; this.waterShader(m); } // (no depth from water: where sheets of it overlap, no inked seam) }
       // Water, paths and paving lie almost level with the ground: always draw them on top of it.
-      if (name === 'water' || name === 'path' || name === 'cobble') { m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -4; }
+      // (gently: through the low perspective lens a big offset pulls them through the hills in front)
+      if (name === 'path' || name === 'cobble') { m.polygonOffset = true; m.polygonOffsetFactor = -0.6; m.polygonOffsetUnits = -2; }
       // See-through panes for the glasshouse, with a faint warm glow at night.
       if (name === 'glasshouse') { m.transparent = true; m.opacity = 0.45; m.depthWrite = false; }
       if (name === 'flag' || name === 'banner') m.side = T.DoubleSide;
@@ -1679,6 +1719,20 @@
     else if (ph === 'dawn') { this.sun.color.set('#ffb3a0'); this.sun.position.set(-58, 20, 30); haze = '#c99aa8'; }
     else if (ph === 'night') { this.sun.color.set('#9fb4ff'); this.sun.intensity = p.sunI * 0.4; this.hemi.intensity = p.hemiI * 0.62; this.hemi.color.set('#5a6aa8'); haze = '#1c2440'; }
     if (this.scene && this.scene.fog) this.scene.fog.color.set(haze);
+    // The fill light opposite the sun, and how the picture is graded for this time of day.
+    var V3 = function (a, b, c) { return new T.Vector3(a, b, c); };
+    var GR = {
+      day: { fill: '#b3c8ff', fi: 0.3, sh: V3(0.94, 0.98, 1.06), li: V3(1.04, 1.01, 0.96), bt: 0.92, bk: 0.4, ao: 0.32, sc: '#fff1d6', sk: 0.03 },
+      golden: { fill: '#a48cff', fi: 0.36, sh: V3(0.9, 0.9, 1.08), li: V3(1.13, 1.01, 0.82), bt: 0.8, bk: 0.6, ao: 0.35, sc: '#ffc27a', sk: 0.2 },
+      dawn: { fill: '#b7a8ff', fi: 0.32, sh: V3(0.92, 0.92, 1.07), li: V3(1.1, 0.99, 0.94), bt: 0.8, bk: 0.6, ao: 0.32, sc: '#ffb7a6', sk: 0.16 },
+      dusk: { fill: '#8a8ae0', fi: 0.3, sh: V3(0.92, 0.95, 1.14), li: V3(1.12, 0.98, 0.9), bt: 0.5, bk: 1.8, ao: 0.3, sc: '#ff9f7a', sk: 0.1 },
+      night: { fill: '#7385d6', fi: 0.36, sh: V3(0.98, 1.04, 1.24), li: V3(1.1, 1.0, 0.88), bt: 0.4, bk: 2.4, ao: 0.28, sc: '#9fb4ff', sk: 0.05 }
+    }[ph] || null;
+    if (GR && this.fill) {
+      this.fill.color.set(GR.fill); this.fill.intensity = GR.fi * (this.season === 'winter' ? 1.15 : 1); this.hemi.intensity *= 0.9;
+      this.fill.position.set(-this.sun.position.x, Math.max(18, this.sun.position.y * 0.7), -this.sun.position.z);
+      this.lightGrade = { sh: GR.sh, li: GR.li, bt: GR.bt, bk: GR.bk, ao: GR.ao, sc: new T.Color(GR.sc), sk: GR.sk };
+    }
     if (this.flowers) this.flowers.visible = this.season !== 'winter';
     this.sunBase = this.sun.position.clone();
     this.winState = null;
@@ -1760,6 +1814,10 @@
     this.sun.shadow.bias = -0.0008;
     this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.sun);
+    // A soft fill from the other side of the sky, so the shaded sides of things keep their shape
+    // and colour (cool by day, violet at golden hour).
+    this.fill = new T.DirectionalLight('#a9c4ff', 0.3);
+    this.scene.add(this.fill);
   };
 
   Town.prototype.mesh = function (geo, mat, parent) {
@@ -1918,7 +1976,7 @@
       (this.oaks = this.oaks || []).push(tree);
     }
     // The river: water sitting in its carved channel.
-    var water = this.ribbon(RIVER.map(function (p) { return { x: p.x, z: p.z, y: riverLevel(p.i) }; }), RIVER_HALF * 2.1, this.mat('water'));
+    var water = this.ribbon(RIVER.map(function (p) { return { x: p.x, z: p.z, y: riverLevel(p.i) }; }), RIVER_HALF * 2.3, this.mat('water'));
     water.receiveShadow = true; water.userData.pick = 'river';
     base.add(water);
     this.riverMesh = water;
@@ -13673,15 +13731,24 @@
         if (!tgt) { arrive(m); return; }
         var dx = tgt.x - g.position.x, dz = tgt.z - g.position.z, d = Math.hypot(dx, dz);
         if (d < 0.08) { m.ri++; return; }
-        var sp = Math.min(d, dt * (m.jogging ? 2.1 : 0.95));
+        // Slower up a hill, a touch quicker down one; a little hop up each stair.
+        var ms = m.slope || 0, sp = Math.min(d, dt * (m.jogging ? 2.1 : 0.95) * (ms > 0 ? 1 - Math.min(0.35, ms * 0.4) : 1 + Math.min(0.15, -ms * 0.2)));
+        var y0m = g.position.y;
         g.position.x += dx / d * sp; g.position.z += dz / d * sp; g.position.y = self.standY(g.position.x, g.position.z);
+        var dym = g.position.y - y0m; if (Math.abs(dym) > 0.06) { m.stairs = now + 450; m.stairDir = dym > 0 ? 1 : -1; }
+        var msl = sp > 1e-4 ? Math.max(-1.2, Math.min(1.2, dym / sp)) : 0; m.slope = ms + (msl - ms) * Math.min(1, dt * 5);
         if (m.jogging && now > (m.puffAt || 0)) { m.puffAt = now + 4000 + Math.random() * 3000; self.say(pickOne(JOG_LINES), g, 0.65, 1.8); }
         if (m.pal && now > (m.palChat || 0)) { var pm = m.pal; m.palChat = now + 7000 + Math.random() * 5000; self.say(pickOne(PAL_CHAT), g, 0.65, 3); setTimeout(function () { if (pm.state === 'pal') self.say(pickOne(PAL_CHAT), pm.g, 0.65, 3); }, 2200); }
         var want = Math.atan2(dx, dz), dr = want - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 7);
-        m.phase += dt * (m.jogging ? 22 : 11);
-        m.legs.forEach(function (l, i) { l.rotation.x = Math.sin(m.phase + i * Math.PI) * (m.jogging ? 0.9 : 0.6); });
-        m.arms.forEach(function (a, i) { a.rotation.x = Math.sin(m.phase + (1 - i) * Math.PI) * (m.jogging ? 0.8 : 0.4); });
-        m.body.position.y = 0.13 + Math.abs(Math.sin(m.phase)) * (m.jogging ? 0.04 : 0.015);
+        // Walking with the ground: leaning into a climb with big arm swings, leaning back and
+        // stepping short going down with the arms out for balance, knees up on stairs.
+        var stair = now < (m.stairs || 0), up = Math.max(0, Math.min(1, ((m.slope || 0) - 0.12) / 0.5)), dn = Math.max(0, Math.min(1, (-(m.slope || 0) - 0.12) / 0.5));
+        m.phase += dt * (m.jogging ? 22 : 11) * (stair ? 0.85 : 1 - up * 0.15 + dn * 0.2);
+        var la = (m.jogging ? 0.9 : 0.6) * (stair ? 1.5 : 1 + up * 0.35 - dn * 0.35), aa = (m.jogging ? 0.8 : 0.4) * (1 + up * 0.6 - dn * 0.4);
+        m.legs.forEach(function (l, i) { var sw = Math.sin(m.phase + i * Math.PI); l.rotation.x = (stair && m.stairDir > 0 ? Math.min(0, sw) * 0.6 : 0) + sw * la - up * 0.15; });
+        m.arms.forEach(function (a, i) { a.rotation.x = Math.sin(m.phase + (1 - i) * Math.PI) * aa; a.rotation.z = (i ? -1 : 1) * dn * 0.6; });
+        m.body.position.y = 0.13 + Math.abs(Math.sin(m.phase)) * (m.jogging ? 0.04 : 0.015) * (stair ? 2.5 : 1);
+        m.body.rotation.x += ((up * 0.28 - dn * 0.2 + (stair ? m.stairDir * 0.12 : 0) + (m.jogging ? 0.08 : 0)) - m.body.rotation.x) * Math.min(1, dt * 6);
         m.tail.rotation.y = Math.sin(m.phase * 0.5) * 0.3;
         // Passing a neighbour in the street: a word or two.
         folk.forEach(function (o) {
@@ -13696,7 +13763,7 @@
     });
     function arrive(m) {
       var D = m.dest;
-      m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; });
+      m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; a.rotation.z = 0; }); m.body.rotation.x = 0; m.slope = 0; m.stairs = 0;
       if (D.kind === 'snowman') { m.state = 'build'; return; }
       if (D.kind === 'stroll') { if (m.jogging) self.stopJog(m); m.state = 'idle'; return; }
       if (D.kind === 'outing') {
@@ -15258,7 +15325,8 @@
       var right = new T.Vector3(-fwd.z, 0, fwd.x);
       var run = K.shift || (this.stick && Math.hypot(this.stick.x, this.stick.y) > 0.92);
       var wired = pl.caffeine && now < pl.caffeine;
-      var sp = (run ? 6.4 : 3.3) * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1) * (wired ? 1.75 : 1);
+      pl.running = run;
+      var G0 = this.gaitOf(pl, now), sp = (run ? 6.4 : 3.3) * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1) * (wired ? 1.75 : 1) * (pl.swim ? 1 : G0.speed);
       if (wired && !pl.swim && Math.random() < dt * 14) this.puff(P.x, P.y + 0.02, P.z, 1, 'dust');
       var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
       if (pl.tipsy && now < pl.tipsy) { var wob = Math.sin(now / 380) * 0.55, cw = Math.cos(wob), sw = Math.sin(wob), ox = dx; dx = ox * cw - dz * sw; dz = ox * sw + dz * cw; }
@@ -15286,8 +15354,16 @@
       var face = Math.atan2(dx, dz), d = face - g.rotation.y;
       while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 14);
-      pl.phase += dt * (run ? 21 : 14) * (wired ? 1.6 : 1);
-      if (!air && !pl.swim) pl.legs.forEach(function (l, li) { l.rotation.x = Math.sin(pl.phase + (li === 0 || li === 3 ? 0 : Math.PI)) * 0.7; });
+      // Which way the ground runs under you: uphill, downhill (sampled just ahead and behind).
+      var hfx = Math.sin(g.rotation.y), hfz = Math.cos(g.rotation.y);
+      var fAh = this.floorAt(P.x + hfx * 0.4, P.z + hfz * 0.4, P.y + STEP_UP), fBh = this.floorAt(P.x - hfx * 0.4, P.z - hfz * 0.4, P.y + STEP_UP);
+      pl.slope = (pl.slope || 0) + (Math.max(-1.2, Math.min(1.2, (fAh - fBh) / 0.8)) - (pl.slope || 0)) * Math.min(1, dt * 6);
+      var G = this.gaitOf(pl, now);
+      pl.phase += dt * (run ? 21 : 14) * (wired ? 1.6 : 1) * G.rate;
+      if (!air && !pl.swim) pl.legs.forEach(function (l, li) {
+        var front = li < 2, ph = pl.phase + (G.bound ? (front ? 0 : Math.PI * 0.8) + (li % 2) * 0.25 : (li === 0 || li === 3 ? 0 : Math.PI));
+        l.rotation.x = (front ? G.fb : G.bb) + Math.sin(ph) * G.amp * (front ? G.fa : 1);
+      });
       // A little wake behind, paddling along.
       if (pl.swim && now > (pl.wakeAt || 0)) { pl.wakeAt = now + 260; this.puff(P.x - Math.sin(g.rotation.y) * 0.3, wHere + 0.02, P.z - Math.cos(g.rotation.y) * 0.3, 2, 'ripple'); if (Math.random() < 0.5) this.sfx('paddle'); }
       pl.tail.rotation.y = Math.sin(pl.phase * 0.5) * 0.3;
@@ -15304,6 +15380,9 @@
     if (!pl.swim) pl.sv = null;
     // Falling, jumping and landing on whatever's underneath: ground, a roof, a wall, a bench.
     floor = this.floorAt(P.x, P.z, P.y + STEP_UP);
+    // Footing that changes in steps rather than smoothly: stairs (or a kerb), up or down.
+    if (pl.lastFloor != null && moving && !pl.swim) { var dfl = floor - pl.lastFloor; if (Math.abs(dfl) > 0.07 && Math.abs(dfl) < STEP_UP + 0.1) { pl.stairs = now + 520; pl.stairDir = dfl > 0 ? 1 : -1; } }
+    pl.lastFloor = floor;
     if (pl.vy > 0 || P.y - floor > STEP_UP) {
       pl.vy -= GRAVITY * (pl.floaty && now < pl.floaty ? 0.3 : 1) * dt; P.y += pl.vy * dt;
       pl.fallFrom = Math.max(pl.fallFrom || P.y, P.y);
@@ -16086,6 +16165,8 @@
       // Swimming: nose up, paws paddling under the surface, tail floating out behind.
       var pd = moving ? 14 : 5, wt = this.waterU ? this.waterU.uTime.value : t, sl = waveSlope(P.x, P.z, wt), fa = pl.g.rotation.y;
       pose = { pitch: -0.15 - (sl.x * Math.sin(fa) + sl.z * Math.cos(fa)) * 0.6, by: 0.3 + waveH(P.x, P.z, wt) * 1.2, hx: -0.25, tailX: 0.05, tailY: Math.sin(t * 3) * 0.3, legs: [Math.sin(t * pd) * 0.8, Math.sin(t * pd + Math.PI) * 0.8, Math.sin(t * pd + Math.PI) * 0.6, Math.sin(t * pd) * 0.6] };
+    } else if (moving && !pl.dig && !pl.seat) {
+      pose = this.gaitPose(pl, now);
     } else if (pl.dig) {
       // Head first in the can, front paws going like mad, tail up and wagging.
       pose = { pitch: 0.55, by: 0.27, hx: 0.45, tailX: -0.2, tailY: Math.sin(t * 9) * 0.6,
@@ -16107,6 +16188,27 @@
     if (pl.squash > 0) { pl.squash -= dt; sq = 1 - Math.sin(Math.max(0, pl.squash) / 0.18 * Math.PI) * 0.22; }
     else if (pl.vy !== 0) sq = 1.08;
     var PS = PLAYER_SCALE * (pl.size || 1); pl.g.scale.set(PS / Math.sqrt(sq), PS * sq, PS / Math.sqrt(sq));
+  };
+  // How the raccoon walks, by the ground under it: stride (amp), cadence (rate), how far each pair
+  // of legs reaches (front/back bias), speed, and whether it bounds (pairs together, for stairs).
+  Town.prototype.gaitOf = function (pl, now) {
+    var s = pl.slope || 0, run = pl.running;
+    if (now < (pl.stairs || 0)) return pl.stairDir > 0
+      ? { amp: 0.95, rate: 0.75, fb: -0.35, bb: 0.25, fa: 1.1, speed: 0.8, bound: true, kind: 'stairsUp' }   // hopping up, one step at a time
+      : { amp: 0.6, rate: 0.95, fb: 0.4, bb: -0.15, fa: 0.9, speed: 0.85, bound: true, kind: 'stairsDown' }; // front paws reaching down for the next step
+    if (s > 0.15) { var u = Math.min(1, (s - 0.15) / 0.6); return { amp: 0.7 + 0.25 * u, rate: 1 - 0.2 * u, fb: -0.3 * u, bb: 0.3 * u, fa: 1.1, speed: 1 - 0.32 * u, kind: 'up', u: u }; }
+    if (s < -0.15) { var dn = Math.min(1, (-s - 0.15) / 0.6); return { amp: 0.7 - 0.22 * dn, rate: 1 + 0.18 * dn, fb: 0.38 * dn, bb: -0.18 * dn, fa: 0.85, speed: 1 + (run ? 0.05 : 0.12) * dn, kind: 'down', u: dn }; }
+    return { amp: run ? 0.85 : 0.7, rate: 1, fb: 0, bb: 0, fa: 1, speed: 1, kind: 'flat', u: 0 };
+  };
+  Town.prototype.gaitPose = function (pl, now) {
+    var G = this.gaitOf(pl, now), s = Math.max(-1, Math.min(1, pl.slope || 0)), t = now / 1000, ph = pl.phase || 0, run = pl.running;
+    var follow = -Math.atan(s) * 0.85; // the body lies along the ground
+    if (G.kind === 'stairsUp') return { pitch: -0.42 + Math.sin(ph) * 0.12, by: 0.3 + Math.abs(Math.sin(ph)) * 0.09, hx: 0.25, tailX: 0.15 + Math.abs(Math.sin(ph)) * 0.5, tailY: Math.sin(ph * 0.5) * 0.3 };
+    if (G.kind === 'stairsDown') return { pitch: 0.38 + Math.sin(ph) * 0.08, by: 0.27 + Math.abs(Math.sin(ph)) * 0.05, hx: -0.3, tailX: 1.0, tailY: Math.sin(ph * 0.5) * 0.25 };
+    if (G.kind === 'up') return { pitch: follow - 0.12 * G.u, by: 0.29, hx: 0.3 * G.u + Math.sin(ph * 2) * 0.05, tailX: 0.25, tailY: Math.sin(ph * 0.5) * 0.25 }; // leaning in, head down, digging
+    if (G.kind === 'down') return { pitch: follow + 0.06 * G.u, by: 0.3 - 0.05 * G.u, bz: -0.04 * G.u, hx: -0.28 * G.u, tailX: 0.4 + 0.75 * G.u, tailY: Math.sin(t * 3) * 0.3 * G.u }; // braking, tail up for balance, looking ahead
+    if (run) return { pitch: 0.1 + Math.sin(ph * 2) * 0.05, by: 0.3 + Math.abs(Math.sin(ph)) * 0.04, hx: -0.12, tailX: 0.05, tailY: Math.sin(ph * 0.5) * 0.15 }; // stretched out, tail streaming
+    return { pitch: Math.sin(ph * 2) * 0.03, by: 0.3 + Math.abs(Math.sin(ph)) * 0.025, hx: Math.sin(ph) * 0.04 };
   };
   // Sitting bolt upright on its haunches, front paws up by its chest, looking about.
   Town.prototype.sitPose = function (t, kind) {
