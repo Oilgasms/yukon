@@ -114,6 +114,23 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .rlist .src { font-size: 10.5px; padding: 1px 6px; border-radius: 9px; background: var(--line); color: var(--ink); white-space: nowrap; }
 @media (max-height: 520px) { .recent { bottom: 120px; } }
 .recent[hidden] { display: none; }
+/* The Town Crier: a little broadsheet, scrolling inside the card. */
+.crier .paper { overflow-y: auto; flex: 1; min-height: 0; padding: 4px 4px 2px; font-family: Georgia, 'Times New Roman', serif; color: var(--ink); }
+.crier .mast { text-align: center; border-bottom: 3px double var(--ink); padding-bottom: 6px; margin-bottom: 8px; }
+.crier .mast b { display: block; font-size: 25px; letter-spacing: 0.5px; font-family: Georgia, serif; }
+.crier .mast span { font-size: 11.5px; color: var(--muted); }
+.crier .lead h3 { font-size: 21px; line-height: 1.1; margin: 4px 0 6px; text-transform: uppercase; }
+.crier .lead p { font-size: 14px; line-height: 1.45; margin: 0 0 10px; }
+.crier .cols { columns: 2 210px; column-gap: 16px; column-rule: 1px solid var(--line); }
+.crier .story { break-inside: avoid; margin: 0 0 10px; }
+.crier .story h4 { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.6px; margin: 0 0 2px; border-bottom: 1px solid var(--line); }
+.crier .story p { font-size: 13px; line-height: 1.4; margin: 0; }
+.crier .story i { color: var(--muted); }
+.quests { margin: 6px 0 4px; padding: 6px 8px; border-radius: 6px; background: var(--card-2); font-size: 12.5px; }
+.quests b { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+.quests ul { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 2px; }
+.quests li span { color: var(--muted); }
+.quests li.done { text-decoration: line-through; opacity: 0.55; }
 .shelf .book { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 10px; border: 2px solid var(--line); border-radius: 6px; background: var(--card-2); }
 .shelf .cover { width: 64px; height: 96px; border-radius: 3px; object-fit: cover; background: var(--edge); box-shadow: 0 2px 0 rgba(40, 20, 5, 0.35); }
 .shelf .spine { width: 64px; height: 96px; border-radius: 3px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px; box-sizing: border-box; color: #fff8e6; font: 700 11px/1.15 var(--body); box-shadow: 0 2px 0 rgba(40, 20, 5, 0.35); }
@@ -274,6 +291,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     <button class="min-btn" type="button" id="title-min" aria-expanded="true" aria-label="Minimize this panel">&ndash;</button>
     <div class="eyebrow">Fit(ter) by 30</div>
     <h1>Yukon</h1>
+    <div class="quests" id="quests" hidden><b>Today’s favours</b><ul id="quest-list"></ul></div>
     <div class="nextup" id="nextup" hidden><b>Next up</b><span id="nextup-what"></span><span id="nextup-all"></span></div>
     <div class="season" id="season" hidden><b id="season-name">Fall</b><span id="season-why"></span><span id="weather-now"></span></div>
     <div><button class="clock" id="clock" type="button" title="Tap to preview dawn, day, golden hour, dusk and night">&#9728; Day</button> <button class="clock" id="refresh-all" type="button" title="Reload your workouts, Strava, Bible log, reading log and films">&#10227; Refresh everything</button></div>
@@ -342,6 +360,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn" id="recenter" type="button">Recenter</button>
       <button class="btn" id="postcard" type="button" title="Jump to a postcard view of each town in turn">Postcard</button>
       <button class="btn" id="recentbtn" type="button" title="The last 25 things logged into the town">Latest</button>
+      <button class="btn" id="crierbtn" type="button" title="This week's Town Crier">Paper</button>
       <button class="btn" id="pixel" type="button" aria-pressed="true">Style: Handmade</button>
       <button class="btn" id="motion" type="button" aria-pressed="true">Motion</button>
       <button class="btn" id="sound" type="button" aria-pressed="false">Sound: off</button>
@@ -370,6 +389,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   <div class="sub" id="recent-sub"></div>
   <ol class="rlist" id="recent-list"></ol>
 </section>
+<section class="card shelf recent crier" id="crier" role="dialog" aria-label="The Town Crier" hidden>
+  <button class="close" type="button" id="crier-close" aria-label="Close the paper">&times;</button>
+  <div class="paper" id="crier-paper"></div>
+</section>
 <div class="card toast" id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -390,7 +413,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v165';
+var BUILD = 'v166';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -590,6 +613,12 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     if (!coarse) { var kb = document.createElement('kbd'); kb.textContent = 'E'; n.append(kb); }
     n.append(document.createTextNode((coarse ? 'Tap to look at ' : '') + name));
     n.hidden = false;
+  };
+  // Today's favours for the mice, in the corner card.
+  town.onQuests = function (list) {
+    var ul = $('quest-list'); ul.innerHTML = '';
+    list.forEach(function (q) { var li = document.createElement('li'); if (q.done) li.className = 'done'; li.innerHTML = (q.done ? '\u2713 ' : '\u2022 ') + esc(q.text) + (q.done ? '' : ' <span>(' + esc(q.step) + ')</span>'); ul.append(li); });
+    $('quests').hidden = !list.length;
   };
   town.onInteract = function (key) {
     if (key === 'library' && town.st.library.books.length) return openShelf();
@@ -1135,6 +1164,30 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   }
   $('recentbtn').addEventListener('click', function () { if ($('recent').hidden) openRecent(); else $('recent').hidden = true; });
   $('recent-close').addEventListener('click', function () { $('recent').hidden = true; });
+  // The Town Crier: the week written up by the mice. It lands once a week (Mondays, or your first
+  // visit of the week), and the Paper button brings it back any time.
+  function esc(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function openCrier() {
+    var C = town.crier && town.crier();
+    if (!C) { toast('The paper hasn\u2019t come yet'); return; }
+    $('recent').hidden = true;
+    var h = '<div class="mast"><b>The Whitehorse Town Crier</b><span>No. ' + C.issue + ' \u00b7 ' + esc(C.date) + ' \u00b7 ' + esc(C.weather) + '</span></div>';
+    h += '<div class="lead"><h3>' + esc(C.lead.h) + '</h3><p>' + esc(C.lead.b) + '</p></div><div class="cols">';
+    C.stories.forEach(function (st) { h += '<div class="story"><h4>' + esc(st.h) + '</h4><p>' + esc(st.b) + '</p></div>'; });
+    if (C.gossip) h += '<div class="story"><h4>Overheard</h4><p><i>\u201c' + esc(C.gossip.line) + '\u201d</i> \u2014 ' + esc(C.gossip.who) + '</p></div>';
+    if (C.friend) h += '<div class="story"><h4>Best of friends</h4><p>' + esc(C.friend) + '</p></div>';
+    h += '</div>';
+    $('crier-paper').innerHTML = h; $('crier').hidden = false; $('crier-paper').scrollTop = 0;
+    try { localStorage.setItem('fittertown:crier', String(C.issue)); } catch (e) {}
+  }
+  $('crierbtn').addEventListener('click', function () { if ($('crier').hidden) openCrier(); else $('crier').hidden = true; });
+  $('crier-close').addEventListener('click', function () { $('crier').hidden = true; });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('crier').hidden) $('crier').hidden = true; });
+  window.maybeCrier = function () {
+    var C = town.crier && town.crier(), seen = null;
+    try { seen = localStorage.getItem('fittertown:crier'); } catch (e) {}
+    if (C && String(C.issue) !== seen) setTimeout(function () { if ($('recent').hidden && $('crier').hidden) { openCrier(); toast('The Town Crier has arrived!'); } }, 2500);
+  };
   addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('recent').hidden) $('recent').hidden = true; });
   addEventListener('keydown', function (e) { if (e.key === 'Escape') $('shelf').hidden = true; });
 
@@ -1193,6 +1246,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       showUpTo(next.length);
     }
     writeSeen(next.length);
+    if (!future && window.maybeCrier) window.maybeCrier();
   }
 
   // ---- years ahead ----

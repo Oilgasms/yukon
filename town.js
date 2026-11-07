@@ -13263,6 +13263,57 @@
     var l = pickOne(fresh); seen[l] = tt; this.saveStore();
     return l;
   };
+  // ---- The Town Crier: the week in Whitehorse, as the mice would write it up ----
+  Town.prototype.crier = function () {
+    var s = this.st, t = this.today;
+    if (!t || !s.byDay) return null;
+    var tt = Date.parse(t), wk = [];
+    for (var d = 0; d < 7; d++) { var key = new Date(tt - d * 864e5).toISOString().slice(0, 10); (s.byDay[key] || []).forEach(function (e) { if (!e.projected && !e.planned) wk.push({ e: e, ago: d, day: WEEKDAY[new Date(tt - d * 864e5).getUTCDay()] }); }); }
+    function of(k) { return wk.filter(function (o) { return k.indexOf(o.e.kind) >= 0; }); }
+    function km1(x) { return Math.round(x * 10) / 10; }
+    var stories = [], lead = null;
+    var runs = of(['run']), rides = of(['bike', 'mtb', 'commute']), lifts = of(['lift']), books = of(['book']), films = of(['movie']), bible = of(['bible']), sport = of(['sport']), hikes = of(['hike']), swims = of(['swim']);
+    var rkm = runs.reduce(function (a, o) { return a + (o.e.km || 0); }, 0), bkm = rides.reduce(function (a, o) { return a + (o.e.km || 0); }, 0);
+    var prs = lifts.reduce(function (a, o) { return a + (o.e.prCount || 0); }, 0), lb = lifts.reduce(function (a, o) { return a + (o.e.tonnage || 0); }, 0);
+    var longest = runs.slice().sort(function (a, b) { return (b.e.km || 0) - (a.e.km || 0); })[0];
+    // the lead: the biggest thing that happened
+    if (prs >= 2) lead = { h: prs + ' PERSONAL RECORDS AT THE GYM', b: 'Flags flew over Main Street this week as our raccoon set ' + prs + ' new bests. "The plates were rattling all morning," said Mr. Pemberton, who claims to have "taught them everything."' };
+    else if (prs === 1) lead = { h: 'NEW PERSONAL RECORD AT THE GYM', b: 'A flag went up over Main Street this week. The stonemasons say they heard the bar from across town.' };
+    else if (longest && longest.e.km >= 10) lead = { h: km1(longest.e.km) + ' KM RUN STUNS LOCAL DEER', b: 'Witnesses on ' + longest.day + ' report a blur along the river. "Never seen anything like it," said one deer, who asked not to be named. The forest has planted a tree in honour of every stride.' };
+    else if (books.length) lead = { h: 'ANOTHER BOOK FINISHED', b: '“' + books[0].e.title + '”' + (books[0].e.author ? ' by ' + books[0].e.author : '') + ' joins the library shelves. The librarian has already shelved it twice, out of excitement.' };
+    else if (bible.length >= 4) lead = { h: 'CHURCH BELLS RING ALL WEEK', b: bible.length + ' Bible readings this week, and the vicar has stopped looking worried. The church mice report the pews have never been so dusted.' };
+    else if (sport.length) lead = { h: (sport[0].e.sport || 'THE BIG GAME').toUpperCase() + ' ON ' + sport[0].day.toUpperCase(), b: 'The whole pub heard about it. Mabel claims she saw the winning shot from her window, which faces the other way.' };
+    else if (wk.filter(function (o) { return !NOT_WORKOUTS[o.e.kind]; }).length >= 5) lead = { h: 'BUSY WEEK FOR THE TOWN', b: 'Five days of training or more, and the builders can hardly keep up.' };
+    else lead = { h: 'A QUIET WEEK IN WHITEHORSE', b: 'The town rested. The mice say this is perfectly fine, and that the kettle was on.' };
+    // sport
+    var sp = [];
+    if (runs.length) sp.push(runs.length + ' run' + (runs.length > 1 ? 's' : '') + (rkm ? ', ' + km1(rkm) + ' km in all' : '') + (longest && longest.e.km ? ' (longest ' + km1(longest.e.km) + ' km on ' + longest.day + ')' : ''));
+    if (rides.length) sp.push(rides.length + ' ride' + (rides.length > 1 ? 's' : '') + (bkm ? ', ' + km1(bkm) + ' km' : ''));
+    if (lifts.length) sp.push(lifts.length + ' lifting session' + (lifts.length > 1 ? 's' : '') + (lb ? ', ' + Math.round(lb).toLocaleString() + ' lb moved' : '') + (prs ? ', ' + prs + ' PR' + (prs > 1 ? 's' : '') : ''));
+    if (hikes.length) sp.push(hikes.length + ' hike' + (hikes.length > 1 ? 's' : ''));
+    if (swims.length) sp.push(swims.length + ' swim' + (swims.length > 1 ? 's' : ''));
+    sport.forEach(function (o) { sp.push((o.e.sport || 'a game') + ' on ' + o.day); });
+    if (sp.length) stories.push({ h: 'Sport', b: sp.join('; ') + '.' });
+    if (books.length) stories.push({ h: 'From the bookshelf', b: books.map(function (o) { return '“' + o.e.title + '”' + (o.e.stars ? ', ' + o.e.stars + '★' : ''); }).join('; ') + '. ' + (this.bookLine() || '') });
+    if (films.length) stories.push({ h: 'At the picture house', b: films.map(function (o) { return o.e.title + (o.e.stars != null ? ' (' + o.e.stars + '★)' : ''); }).join(', ') + '. ' + (films.length > 1 ? 'The projectionist is on first-name terms with you.' : '') });
+    if (bible.length) { var ch = bible.reduce(function (a, o) { return a + ((o.e.chapters || []).length || o.e.count || 1); }, 0), bks = {}; bible.forEach(function (o) { if (o.e.book) bks[o.e.book] = 1; });
+      stories.push({ h: 'Church notes', b: ch + ' chapter' + (ch > 1 ? 's' : '') + ' read' + (Object.keys(bks).length ? ' (' + Object.keys(bks).join(', ') + ')' : '') + '. ' + (s.bible && s.bible.chapters ? s.bible.chapters + ' of 1,189 all told.' : '') }); }
+    var news = (s.newsList || []).filter(function (n) { var age = (tt - Date.parse(n.date)) / 864e5; return age >= 0 && age <= 7; });
+    if (news.length) stories.push({ h: 'Around town', b: news.slice(-3).map(function (n) { var l = n.lines[0].replace(/[.!?…]+$/, ''); return l.charAt(0).toUpperCase() + l.slice(1); }).join('. ') + '.' });
+    var drinks = of(['drink']).reduce(function (a, o) { return a + (o.e.count || 1); }, 0);
+    if (drinks) stories.push({ h: 'Slow Pour report', b: drinks + ' drink' + (drinks > 1 ? 's' : '') + ' poured. Doris says you tip well.' });
+    var LO = this.liftOutlook && this.liftOutlook();
+    if (LO && LO.next) stories.push({ h: 'Coming soon', b: LO.next + '.' });
+    var folk = s.folk || [], gm = folk.filter(function (m) { return m.style && m.style.lines; });
+    var gossip = gm.length ? pickOne(gm) : null;
+    var Q = this.keep().quests || {}, hearts = Q.hearts || {}, fav = Object.keys(hearts).sort(function (a, b) { return hearts[b] - hearts[a]; })[0];
+    return {
+      issue: Math.floor((tt - Date.UTC(2024, 0, 1)) / (7 * 864e5)), date: new Date(tt).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }),
+      lead: lead, stories: stories, weather: this.weatherNow ? WEATHER[this.weatherNow].label : 'clear skies',
+      gossip: gossip ? { who: gossip.name, line: pickOne(gossip.style.lines) } : null,
+      friend: fav ? fav + ' (' + hearts[fav] + ' ♥)' : null
+    };
+  };
   Town.prototype.mouseRemark = function (m) {
     var s = this.st, t = this.today, ms = m && m.style;
     // Now and then a mouse just talks about their own life.
@@ -13614,6 +13665,7 @@
     this.dressMice(folk, spooky, rain);
     this.stepJobMice(dt, now, spooky, rain);
     this.stepErrands(dt, now);
+    this.safe('quests', function () { self.stepQuests(dt, now); });
     if (winter) this.stepSnowmen(dt, now); else if (s.snowmen) s.snowmen.forEach(function (sm) { sm.g.visible = false; });
     folk.forEach(function (m) {
       var g = m.g;
@@ -14077,6 +14129,148 @@
     } else if (S.errands % 5 === 0) setTimeout(function () { self.say(S.errands + ' errands run!' + (S.errands < 10 ? ' the mice are up to something…' : ''), pl.g, 1.1, 2.0); }, 1500);
   };
 
+
+  // ---- quests: three favours a day from the mice, and friendships that grow --------------
+  // Deliver a parcel from one mouse to another, find something a mouse has lost, or fetch them a
+  // fish, a coffee, a pint or something shiny. Each one done is a heart with that mouse; at 2, 4,
+  // 6, 8 and 10 hearts they give you something and say something new.
+  var LOST = {
+    'Mrs. Whiskers': ['her ball of yarn', 'flag', 1], 'Old Tom': ['his pipe', 'trunk', 0], 'Mabel': ['her pearl necklace', 'swan', 0], 'Bramble': ['his prize turnip', 'flag', 4],
+    'Fennimore': ['his best paintbrush', 'flag', 2], 'Clementine': ['her rolling pin', 'woodLight', 0], 'Bartholomew': ['his lucky hammer', 'stoneDark', 0], 'Mr. Pemberton': ['his tiny dumbbell', 'stoneDark', 0]
+  };
+  var PARCELS = ['a jar of cloudberry jam', 'a knitted tea cosy', 'a letter with a wax seal', 'a tin of shortbread', 'a borrowed book', 'a pot of honey', 'a bundle of kindling', 'a pressed flower'];
+  var HEART_LINES = {
+    2: ['you’re a good neighbour, you know', 'I’ve been telling everyone about you'], 4: ['come round for tea any time, dear', 'you’re one of us now'],
+    6: ['I saved you the best seat by the fire', 'I don’t know what we did before you came'], 8: ['you’re family, love. you know that?', 'I made you something. don’t laugh'],
+    10: ['my very best friend in all of Yukon', 'I’d walk to Dawson for you. well, halfway']
+  };
+  Town.prototype.questState = function () {
+    var K = this.keep(), Q = K.quests || (K.quests = { day: null, list: [], hearts: {}, done: 0 });
+    Q.hearts = Q.hearts || {}; Q.list = Q.list || [];
+    return Q;
+  };
+  Town.prototype.named = function () { return (this.st.folk || []).filter(function (m) { return m.style && !m.job && m.g; }); };
+  Town.prototype.newQuests = function () {
+    var Q = this.questState(), folk = this.named(), list = [], used = {};
+    if (folk.length < 2) return;
+    function pick() { var free = folk.filter(function (m) { return !used[m.name]; }); if (!free.length) return null; var m = pickOne(free); used[m.name] = 1; return m; }
+    for (var i = 0; i < 3; i++) {
+      var g = pick(); if (!g) break;
+      var roll = Math.random(), q;
+      var parcels = PARCELS.filter(function (pc) { return !list.some(function (x) { return x.item === pc; }); });
+      if (roll < 0.36) { var to = pickOne(folk.filter(function (m) { return m !== g; })); q = { type: 'deliver', giver: g.name, to: to.name, item: pickOne(parcels), stage: 0 }; q.text = 'Take ' + q.item + ' from ' + g.name + ' to ' + to.name; }
+      else if (roll < 0.72 && LOST[g.name]) { q = { type: 'find', giver: g.name, item: LOST[g.name][0], stage: 0 }; q.text = 'Find ' + g.name + '’s ' + q.item.replace(/^(his|her) /, ''); }
+      else { var E = pickOne(ERRANDS); q = { type: 'fetch', giver: g.name, want: E[0], ask: E[1], thanks: E[2], stage: 0 }; q.text = 'Bring ' + g.name + ' ' + { fish: 'a fish', coffee: 'a coffee', beer: 'a pint', shiny: 'something shiny' }[E[0]]; }
+      list.push(q);
+    }
+    Q.list = list; Q.day = this.today; this.saveStore();
+    this.questsChanged();
+  };
+  Town.prototype.questsChanged = function () {
+    var Q = this.questState();
+    if (this.onQuests) this.onQuests(Q.list.map(function (q) {
+      var step = q.done ? 'done' : q.type === 'deliver' ? (q.stage ? 'now to ' + q.to : 'pick it up from ' + q.giver) : q.type === 'find' ? (q.stage === 0 ? 'ask ' + q.giver : q.stage === 1 ? 'look for the sparkle' : 'back to ' + q.giver) : 'carry it to ' + q.giver;
+      return { text: q.text, step: step, done: !!q.done, hearts: Q.hearts[q.giver] || 0 };
+    }));
+  };
+  Town.prototype.mouseByName = function (n) { return (this.st.folk || []).filter(function (m) { return m.name === n; })[0] || null; };
+  Town.prototype.questCarry = function (pl, label, mat) {
+    if (pl.carry) { pl.mouth.remove(pl.carry.m); pl.carry = null; }
+    var g = new T.Group(); pl.mouth.add(g); g.position.set(0, -0.02, 0.06);
+    this.part(g, this.geo.box, mat || this.mat('woodLight'), 0.12, 0.09, 0.1, 0, 0, 0);
+    if (!mat) this.part(g, this.geo.box, this.mat('flag', 0), 0.125, 0.015, 0.105, 0, 0.0, 0);
+    pl.carry = { m: g, eat: 0, kind: 'quest', keep: true, label: label };
+  };
+  Town.prototype.lostSpot = function (near) {
+    for (var k = 0; k < 40; k++) {
+      var a = Math.random() * Math.PI * 2, r = 12 + Math.random() * 26, x = near.x + Math.cos(a) * r, z = near.z + Math.sin(a) * r;
+      if (Math.hypot(x, z) > 120 || waterAt(x, z) != null || riverDist(x, z) < 4 || nearDawsonRiver(x, z, 2)) continue;
+      var y = groundY(x, z);
+      if (this.walkable(x, z, y + 0.3, false) && Math.abs(this.floorAt(x, z, y + 1.5) - y) < 0.2) return { x: x, z: z, y: y };
+    }
+    return { x: near.x + 6, z: near.z + 6, y: groundY(near.x + 6, near.z + 6) };
+  };
+  Town.prototype.reward = function (pl, q) {
+    var Q = this.questState(), K = this.keep(), m = this.mouseByName(q.giver), h = (Q.hearts[q.giver] || 0);
+    q.done = true; Q.done = (Q.done || 0) + 1; K.coins += 2;
+    if (h < 10) Q.hearts[q.giver] = h + 1;
+    var nh = Q.hearts[q.giver];
+    this.saveStore(); this.sfx('found');
+    var spk = m && m.g.visible ? m : this.questVoice ? { g: this.questVoice } : m;
+    m = spk;
+    if (m) { this.hearts(m.g.position, 0.6); this.say((q.thanks || pickOne(['oh, you’re a treasure!', 'thank you, dear!', 'wonderful! you’re a star'])) + ' (+2 coins, ♥ ' + nh + ')', m.g, 0.65, 2.6); }
+    var self = this;
+    if (HEART_LINES[nh] && h < nh) setTimeout(function () {
+      var bonus = nh * 2; K.coins += bonus; self.saveStore();
+      if (m) { self.say(pickOne(HEART_LINES[nh]) + ' (a gift: ' + bonus + ' coins)', m.g, 0.65, 3.4); self.hearts(m.g.position, 1.0); }
+      if (self.onSecret && nh === 10) self.onSecret({ id: 'bff:' + q.giver, title: 'Best friends with ' + q.giver, text: 'Ten hearts! ' + q.giver + ' says you’re their very best friend in all of Yukon.' });
+    }, 2800);
+    if (Q.list.every(function (x) { return x.done; })) setTimeout(function () { self.say('all of today’s favours done! the mice are delighted', pl.g, 1.1, 2.6); }, 5200);
+    this.questsChanged();
+  };
+  Town.prototype.stepQuests = function (dt, now) {
+    var pl = this.player;
+    if (!pl || !this.explore || !this.today) return;
+    var Q = this.questState();
+    if (Q.day !== this.today) this.newQuests();
+    if (!this.questsShown) { this.questsShown = true; this.questsChanged(); }
+    var P = pl.g.position, self = this, QO = this.qObj || (this.qObj = {});
+    // who's waiting on you: a gold "!" over them
+    var want = {};
+    Q.list.forEach(function (q) { if (q.done) return; var who = q.type === 'deliver' && q.stage === 1 ? q.to : q.giver; want[who] = q; });
+    var DM = this.doorMarks || (this.doorMarks = {});
+    this.named().forEach(function (m) {
+      var q = want[m.name], inside = !m.g.visible && m.home && m.home.door;
+      if (q) { self.bang(m); m.bang.position.y = 0.62 + Math.sin(now / 220) * 0.03; m.bang.rotation.y = now / 500; }
+      else if (m.bang && !m.errand) m.bang.visible = false;
+      // Indoors? Then the "!" hangs over their front door, and they'll answer it.
+      var dm = DM[m.name];
+      if (q && inside) {
+        if (!dm) { dm = DM[m.name] = new T.Group(); self.part(dm, self.geo.box, self.mat('gold'), 0.08, 0.22, 0.08, 0, 0.1, 0); self.part(dm, self.geo.box, self.mat('gold'), 0.08, 0.08, 0.08, 0, -0.12, 0); self.scene.add(dm); }
+        dm.visible = true; dm.position.set(m.home.door.x, groundY(m.home.door.x, m.home.door.z) + 1.5 + Math.sin(now / 220) * 0.05, m.home.door.z); dm.rotation.y = now / 500;
+      } else if (dm) dm.visible = false;
+    });
+    if (pl.inDen) return;
+    Q.list.forEach(function (q) {
+      if (q.done) return;
+      // the lost thing, sparkling where it was dropped
+      if (q.type === 'find' && q.stage === 1) {
+        if (!QO[q.item]) {
+          var L = LOST[q.giver], g = new T.Group(); g.position.set(q.at.x, q.at.y + 0.12, q.at.z); self.scene.add(g);
+          self.part(g, self.geo.ball, self.mat(L[1], L[2]), 0.14, 0.12, 0.14, 0, 0, 0); QO[q.item] = g;
+        }
+        QO[q.item].rotation.y = now / 400; QO[q.item].position.y = q.at.y + 0.12 + Math.sin(now / 300) * 0.04;
+        if (now > (q.sparkAt || 0)) { q.sparkAt = now + 500; self.puff(q.at.x, q.at.y + 0.3, q.at.z, 2, 'confetti'); }
+        if (Math.hypot(P.x - q.at.x, P.z - q.at.z) < 1.1) {
+          self.scene.remove(QO[q.item]); delete QO[q.item]; q.stage = 2; self.questCarry(pl, q.item, self.mat(LOST[q.giver][1], LOST[q.giver][2]));
+          self.say('found ' + q.item.replace(/^(his|her) /, 'the ') + '!', pl.g, 1.1, 1.6); self.sfx('found'); self.saveStore(); self.questsChanged();
+        }
+        return;
+      }
+      var who = q.type === 'deliver' && q.stage === 1 ? q.to : q.giver, m = self.mouseByName(who);
+      if (!m) return;
+      var atDoor = !m.g.visible && m.home && m.home.door && Math.hypot(P.x - m.home.door.x, P.z - m.home.door.z) < 1.6;
+      if (!atDoor && (!m.g.visible || Math.hypot(P.x - m.g.position.x, P.z - m.g.position.z) > 1.8)) return;
+      if (atDoor) {
+        var V = self.doorVoice || (self.doorVoice = new T.Object3D()); if (!V.parent) self.scene.add(V);
+        V.position.set(m.home.door.x, groundY(m.home.door.x, m.home.door.z) + 0.55, m.home.door.z); self.questVoice = V;
+        m = { g: V, name: m.name };
+      } else self.questVoice = null;
+      if (atDoor) { if (!q.knocked) { q.knocked = true; self.sfx('wood'); self.say('*knock knock*', pl.g, 1.1, 0.9); } }
+      m.helloAt = now + 25000;
+      if (q.type === 'deliver') {
+        if (q.stage === 0) { self.questCarry(pl, q.item); q.stage = 1; self.say('could you take ' + q.item + ' to ' + q.to + '? thank you, dear!', m.g, 0.65, 2.8); self.saveStore(); self.questsChanged(); }
+        else if (pl.carry && pl.carry.kind === 'quest' && pl.carry.label === q.item) { pl.mouth.remove(pl.carry.m); pl.carry = null; q.thanks = 'from ' + q.giver + '? how lovely!'; self.reward(pl, q); }
+      } else if (q.type === 'find') {
+        if (q.stage === 0) { q.at = self.lostSpot(m.g.position); q.stage = 1; self.say('I’ve lost ' + q.item + '! somewhere out ' + (q.at.x > m.g.position.x ? 'east' : 'west') + ' of here, I think. look for a sparkle?', m.g, 0.65, 3.2); self.saveStore(); self.questsChanged(); }
+        else if (q.stage === 2 && pl.carry && pl.carry.kind === 'quest') { pl.mouth.remove(pl.carry.m); pl.carry = null; q.thanks = 'my ' + q.item.replace(/^(his|her) /, '') + '! oh, bless you'; self.reward(pl, q); }
+      } else {
+        var c = pl.carry, ok = c && (q.want === 'shiny' ? !c.kind : c.kind === q.want);
+        if (ok) { pl.mouth.remove(c.m); pl.carry = null; self.reward(pl, q); }
+        else if (now > (q.askAt || 0)) { q.askAt = now + 15000; self.say(q.ask, m.g, 0.65, 2.8); }
+      }
+    });
+  };
   // Halloween week (the 24th to the 31st of October): costumes on.
   Town.prototype.halloweenWeek = function () {
     if (!this.today) return false;
@@ -14641,7 +14835,8 @@
         var mo = (this.st.folk || []).filter(function (q) { return q.name === p[1]; })[0];
         var CHAR_NOTE = { prof: 'A retired professor of almost everything. Lodges at the ' + (mo && mo.homeName) + ' house.', captain: 'An old sea captain with a great many stories, some of them true.', zelda: 'Fortune teller. Out late, reading the stars.', mayor: 'Mayor of Yukon, unopposed, for life.' };
         var doing = !mo ? '' : mo.state === 'sit' ? (mo.hasLunch ? 'Having lunch on the bench.' : 'Reading the paper.') : mo.state === 'picnic' ? 'Having a picnic lunch.' : mo.state === 'pal' ? 'Out for a walk with ' + (mo.lead ? mo.lead.name : 'a friend') + '.' : mo.jogging ? 'Out for a jog!' : mo.state === 'chase' ? 'Chasing a sandwich thief!' : mo.state === 'pub' ? 'Down the Slow Pour.' : mo.state === 'inside' ? 'Popped indoors.' : 'Out and about.';
-        return mo ? { title: mo.name, lines: [mo.char ? CHAR_NOTE[mo.char] : 'Lives at the ' + mo.homeName + ' house.', doing] } : null;
+        var hq = this.questState().hearts[p[1]] || 0, hs = hq ? '\u2665'.repeat(hq) + '\u2661'.repeat(10 - hq) + ' (' + hq + ' of 10)' : 'Do them a favour to make friends (look for a gold "!").';
+        return mo ? { title: mo.name, lines: [mo.char ? CHAR_NOTE[mo.char] : 'Lives at the ' + mo.homeName + ' house.', doing, hs] } : null;
       }
       case 'fox': return { title: 'Jo the fox', lines: ['Jo, mostly round her house, sometimes off exploring.'] };
       case 'green': return { title: 'The village green', lines: ['Main Street splits round it on its way from the river: a well at the top, the gazebo in the middle, the old oak and the market cross at the bottom.'] };
@@ -16551,6 +16746,7 @@
       }
       return;
     }
+    if (c.keep) return; // quest things aren't for eating
     if (moving || pl.swim || pl.dig || (pl.idle || 0) < 3.5) { c.eat = Math.max(0, c.eat - dt); return; }
     c.eat += dt;
     pl.head.rotation.x += Math.sin(now / 90) * 0.04;
