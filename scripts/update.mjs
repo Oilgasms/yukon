@@ -256,19 +256,28 @@ async function cronometer() {
     const ex = appJs.search(/[Ee]xport|AuthorizationToken|authToken/); if (ex >= 0) console.log('Cronometer diag: export strings', JSON.stringify((appJs.match(/'[^']*(?:[Ee]xport|[Aa]uthoriz|[Tt]oken)[^']{0,60}'|"[^"]*(?:[Ee]xport|[Aa]uthoriz|[Tt]oken)[^"]{0,60}"/g) || []).slice(0, 40))); }
   if (near >= 0) console.log('Cronometer diag: token method strings', JSON.stringify((appJs.slice(Math.max(0, near - 400), near + 700).match(/'[^']{2,90}'|"[^"]{2,90}"/g) || []).slice(0, 30)));
   let tokTxt = '', token = null, tokRes = null;
-  for (const ord of [2, 0, 1, 3, 4]) {
+  for (const ord of [2, 0, 1, 3]) {
     tokRes = await gwt(v, `7|0|8|${CM}/cronometer/|${v.header}|com.cronometer.shared.rpc.CronometerService|generateAuthorizationToken|java.lang.String/2004016611|I|${scopeSig}|${jar.get('sesnonce') || nonce}|1|2|3|4|4|5|6|6|7|8|${userId}|3600|7|${ord}|`);
     tokTxt = await tokRes.text();
     if (tokTxt.startsWith('//OK')) { token = (tokTxt.match(/"(.*)"/) || [])[1]; break; }
   }
-  const mask = (t) => String(t).replace(token || '\u0000', '<token>').replace(/[A-Za-z0-9_-]{32,}/g, '<long>').slice(0, 400);
-  console.log('Cronometer diag: gwt', v.permutation.slice(0, 6), v.header.slice(0, 6), '| token reply', tokRes.status, mask(tokTxt));
-  if (!token || !tokTxt.startsWith('//OK')) throw new Error('no export token (' + mask(tokTxt).slice(0, 80) + ')');
+  const mask = (t) => String(t).replace(token || '\u0000', '<token>').replace(/[A-Za-z0-9_-]{32,}/g, '<long>').slice(0, 300);
+  if (!token) console.log('Cronometer diag: no token (' + mask(tokTxt).slice(0, 120) + '), trying the session itself');
   // 3. the last 90 days of daily totals (Cronometer allows 10 exports a day; this runs twice)
   const end = new Date(), start = new Date(end.getTime() - 90 * 864e5), day = (d) => d.toISOString().slice(0, 10);
-  const csvRes = await go(`${CM}/export?` + new URLSearchParams({ nonce: token, generate: 'dailySummary', start: day(start), end: day(end) }), { headers: { 'sec-fetch-dest': 'document', 'sec-fetch-mode': 'navigate', 'sec-fetch-site': 'same-origin' } });
-  if (!csvRes.ok) { const bt = await csvRes.text().catch(() => ''); console.log('Cronometer diag: export', csvRes.status, mask(bt.replace(/\s+/g, ' '))); throw new Error('export failed (' + csvRes.status + ')'); }
-  const days = parseNutrition(await csvRes.text());
+  const range = { generate: 'dailySummary', start: day(start), end: day(end) }, hdr = { headers: { 'sec-fetch-dest': 'document', 'sec-fetch-mode': 'navigate', 'sec-fetch-site': 'same-origin', referer: `${CM}/` } };
+  const ses = jar.get('sesnonce') || nonce, variants = [];
+  if (token) variants.push(['token', Object.assign({ nonce: token }, range)]);
+  variants.push(['sesnonce', Object.assign({ nonce: ses }, range)], ['cookies', range], ['sesnonce+user', Object.assign({ nonce: ses, user: userId }, range)]);
+  let csvRes = null, body = '';
+  for (const [name, q] of variants) {
+    csvRes = await go(`${CM}/export?` + new URLSearchParams(q), hdr);
+    body = await csvRes.text().catch(() => '');
+    console.log('Cronometer diag: export via', name, csvRes.status, mask(body.slice(0, 120).replace(/\s+/g, ' ')));
+    if (csvRes.ok && /^\s*"?Date/i.test(body)) break;
+  }
+  if (!csvRes.ok || !/^\s*"?Date/i.test(body)) throw new Error('export failed (' + csvRes.status + ')');
+  const days = parseNutrition(body);
   if (!days.length) throw new Error('export came back empty');
   await writeFile(new URL('nutrition.json', DATA), JSON.stringify(days));
   return `${days.length} days (to ${days[days.length - 1].date})`;
