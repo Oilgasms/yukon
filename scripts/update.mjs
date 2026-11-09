@@ -237,12 +237,14 @@ async function cronometer() {
   }
   if (!v) throw new Error('the web app has changed (GWT codes not accepted) - see the CRONOMETER_GWT_* secrets');
   const tokRes = await gwt(v, `7|0|8|${CM}/cronometer/|${v.header}|com.cronometer.shared.rpc.CronometerService|generateAuthorizationToken|java.lang.String/2004016611|I|com.cronometer.shared.user.AuthScope/2065601159|${jar.get('sesnonce') || nonce}|1|2|3|4|4|5|6|6|7|8|${userId}|3600|7|2|`);
-  const token = ((await tokRes.text()).match(/"(.*)"/) || [])[1];
-  if (!token) throw new Error('no export token');
+  const tokTxt = await tokRes.text(), token = (tokTxt.match(/"(.*)"/) || [])[1];
+  const mask = (t) => String(t).replace(token || '\u0000', '<token>').replace(/[A-Za-z0-9_-]{24,}/g, '<long>').slice(0, 300);
+  console.log('Cronometer diag: gwt', v.permutation.slice(0, 6), v.header.slice(0, 6), '| token reply', tokRes.status, mask(tokTxt));
+  if (!token || !tokTxt.startsWith('//OK')) throw new Error('no export token (' + mask(tokTxt).slice(0, 80) + ')');
   // 3. the last 90 days of daily totals (Cronometer allows 10 exports a day; this runs twice)
   const end = new Date(), start = new Date(end.getTime() - 90 * 864e5), day = (d) => d.toISOString().slice(0, 10);
   const csvRes = await go(`${CM}/export?` + new URLSearchParams({ nonce: token, generate: 'dailySummary', start: day(start), end: day(end) }), { headers: { 'sec-fetch-dest': 'document', 'sec-fetch-mode': 'navigate', 'sec-fetch-site': 'same-origin' } });
-  if (!csvRes.ok) throw new Error('export failed (' + csvRes.status + ')');
+  if (!csvRes.ok) { const bt = await csvRes.text().catch(() => ''); console.log('Cronometer diag: export', csvRes.status, mask(bt.replace(/\s+/g, ' '))); throw new Error('export failed (' + csvRes.status + ')'); }
   const days = parseNutrition(await csvRes.text());
   if (!days.length) throw new Error('export came back empty');
   await writeFile(new URL('nutrition.json', DATA), JSON.stringify(days));
