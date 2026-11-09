@@ -251,7 +251,8 @@ async function cronometer() {
   console.log('Cronometer diag: app js', appJs.length, 'chars | scope', scopeSig, '| method at', near, '| AuthScope mentions', JSON.stringify((appJs.match(/[\w.$]*AuthScope[\w.$\/]*/g) || []).slice(0, 8)));
   { const as = appJs.indexOf('AuthScope/');
     console.log('Cronometer diag: services', JSON.stringify([...new Set(appJs.match(/com\.cronometer\.shared\.rpc\.\w+/g) || [])].slice(0, 20)));
-    if (as >= 0) console.log('Cronometer diag: around AuthScope', JSON.stringify((appJs.slice(Math.max(0, as - 1500), as + 800).match(/'[^']{2,90}'|"[^"]{2,90}"/g) || []).slice(0, 60)));
+    if (as >= 0) console.log('Cronometer diag: around AuthScope', JSON.stringify([...appJs.slice(Math.max(0, as - 6000), as + 3000).matchAll(/='([^']{3,90})'/g)].map((m) => m[1]).filter((x) => /[a-z]/i.test(x)).slice(0, 120)));
+    console.log('Cronometer diag: token-ish', JSON.stringify([...new Set([...appJs.matchAll(/='([^']*(?:[Tt]oken|[Ee]xport|[Nn]once)[^']{0,50})'/g)].map((m) => m[1]))].slice(0, 40)));
     const ex = appJs.search(/[Ee]xport|AuthorizationToken|authToken/); if (ex >= 0) console.log('Cronometer diag: export strings', JSON.stringify((appJs.match(/'[^']*(?:[Ee]xport|[Aa]uthoriz|[Tt]oken)[^']{0,60}'|"[^"]*(?:[Ee]xport|[Aa]uthoriz|[Tt]oken)[^"]{0,60}"/g) || []).slice(0, 40))); }
   if (near >= 0) console.log('Cronometer diag: token method strings', JSON.stringify((appJs.slice(Math.max(0, near - 400), near + 700).match(/'[^']{2,90}'|"[^"]{2,90}"/g) || []).slice(0, 30)));
   let tokTxt = '', token = null, tokRes = null;
