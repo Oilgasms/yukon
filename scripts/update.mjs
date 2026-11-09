@@ -230,12 +230,13 @@ async function cronometer() {
   } catch (e) { /* fall through to the defaults */ }
   tries.push(GWT_DEFAULT);
   const gwt = (v, body) => go(`${CM}/cronometer/app`, { method: 'POST', headers: { 'content-type': 'text/x-gwt-rpc; charset=UTF-8', 'x-gwt-module-base': `${CM}/cronometer/`, 'x-gwt-permutation': v.permutation }, body });
-  let v = null, userId = null;
-  for (const t of tries.slice(0, 16)) {
+  let v = null, userId = null; const okCodes = [];
+  for (const t of tries.slice(0, 24)) {
     const res = await gwt(t, `7|0|5|${CM}/cronometer/|${t.header}|com.cronometer.shared.rpc.CronometerService|authenticate|java.lang.Integer/3438268394|1|2|3|4|1|5|5|-300|`);
     const txt = await res.text(), m = txt.match(/OK\[(\d+),/);
-    if (txt.startsWith('//OK') && m) { v = t; userId = m[1]; break; }
+    if (txt.startsWith('//OK') && m) { if (!v) { v = t; userId = m[1]; } okCodes.push(t); }
   }
+  console.log('Cronometer diag: codes accepted', okCodes.length, 'of', Math.min(24, tries.length));
   if (!v) throw new Error('the web app has changed (GWT codes not accepted) - see the CRONOMETER_GWT_* secrets');
   // The token call: its AuthScope type signature comes from the live app too (it changes with it).
   // The app is split into fragments (deferredjs/<permutation>/N.cache.js): look through them all.
@@ -256,10 +257,11 @@ async function cronometer() {
     const ex = appJs.search(/[Ee]xport|AuthorizationToken|authToken/); if (ex >= 0) console.log('Cronometer diag: export strings', JSON.stringify((appJs.match(/'[^']*(?:[Ee]xport|[Aa]uthoriz|[Tt]oken)[^']{0,60}'|"[^"]*(?:[Ee]xport|[Aa]uthoriz|[Tt]oken)[^"]{0,60}"/g) || []).slice(0, 40))); }
   if (near >= 0) console.log('Cronometer diag: token method strings', JSON.stringify((appJs.slice(Math.max(0, near - 400), near + 700).match(/'[^']{2,90}'|"[^"]{2,90}"/g) || []).slice(0, 30)));
   let tokTxt = '', token = null, tokRes = null;
-  for (const ord of [2, 0, 1, 3]) {
-    tokRes = await gwt(v, `7|0|8|${CM}/cronometer/|${v.header}|com.cronometer.shared.rpc.CronometerService|generateAuthorizationToken|java.lang.String/2004016611|I|${scopeSig}|${jar.get('sesnonce') || nonce}|1|2|3|4|4|5|6|6|7|8|${userId}|3600|7|${ord}|`);
+  find: for (const code of okCodes) for (const ord of [2, 0, 1]) {
+    tokRes = await gwt(code, `7|0|8|${CM}/cronometer/|${code.header}|com.cronometer.shared.rpc.CronometerService|generateAuthorizationToken|java.lang.String/2004016611|I|${scopeSig}|${jar.get('sesnonce') || nonce}|1|2|3|4|4|5|6|6|7|8|${userId}|3600|7|${ord}|`);
     tokTxt = await tokRes.text();
-    if (tokTxt.startsWith('//OK')) { token = (tokTxt.match(/"(.*)"/) || [])[1]; break; }
+    if (tokTxt.startsWith('//OK')) { token = (tokTxt.match(/"(.*)"/) || [])[1]; v = code; console.log('Cronometer diag: token from code', code.header.slice(0, 6), 'scope', ord); break find; }
+    if (/not included in the set of types/.test(tokTxt)) break; // this code can't do it at all: next code
   }
   const mask = (t) => String(t).replace(token || '\u0000', '<token>').replace(/[A-Za-z0-9_-]{32,}/g, '<long>').slice(0, 300);
   if (!token) console.log('Cronometer diag: no token (' + mask(tokTxt).slice(0, 120) + '), trying the session itself');
