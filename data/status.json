@@ -1,8 +1,8 @@
 {
-  "ran": "2026-11-09T18:57:22.919Z",
+  "ran": "2026-11-09T19:00:36.716Z",
   "Google Sheets": "workouts.xlsx, bible.xlsx, books.xlsx",
   "Strava": "40 activities",
   "Letterboxd": "53 films (0 new)",
   "Book lines": "1 new book(s) waiting - add the ANTHROPIC_API_KEY secret to write lines for them",
-  "Cronometer": "FAILED - no export token (//EX[2,1,[\"<token>\"],0,7])"
+  "Cronometer": "FAILED - no export token (//EX[2,1,[\"com.google.gwt.user.client.rpc.<long>/3936916533\",\"Type \\u0027com.cro)"
 }
