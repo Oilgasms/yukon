@@ -214,14 +214,15 @@ async function cronometer() {
   const nonce = jar.get('sesnonce');
   if (!nonce) throw new Error('signed in but got no session');
   // 2. the GWT version codes: try overrides, then whatever the live app is using, then the old defaults
-  const tries = [];
+  const tries = []; let appJs = '';
   if (process.env.CRONOMETER_GWT_PERMUTATION && process.env.CRONOMETER_GWT_HEADER) tries.push({ permutation: process.env.CRONOMETER_GWT_PERMUTATION, header: process.env.CRONOMETER_GWT_HEADER });
   try {
     const boot = await (await go(`${CM}/cronometer/cronometer.nocache.js`)).text();
     const perms = [...new Set(boot.match(/\b[0-9A-F]{32}\b/g) || [])].slice(0, 6);
     for (const perm of perms) {
       const r = await go(`${CM}/cronometer/${perm}.cache.js`); if (!r.ok) continue;
-      const js = await r.text(), at = js.indexOf('CronometerService'), near = at >= 0 ? js.slice(Math.max(0, at - 4000), at + 4000) : '';
+      const js = await r.text(); appJs = js;
+      const at = js.indexOf('CronometerService'), near = at >= 0 ? js.slice(Math.max(0, at - 4000), at + 4000) : '';
       const hdrs = [...new Set([...(near.match(/\b[0-9A-F]{32}\b/g) || []), ...(js.match(/\b[0-9A-F]{32}\b/g) || [])])].filter((h) => h !== perm).slice(0, 12);
       for (const h of hdrs) tries.push({ permutation: perm, header: h });
       break;
@@ -236,9 +237,17 @@ async function cronometer() {
     if (txt.startsWith('//OK') && m) { v = t; userId = m[1]; break; }
   }
   if (!v) throw new Error('the web app has changed (GWT codes not accepted) - see the CRONOMETER_GWT_* secrets');
-  const tokRes = await gwt(v, `7|0|8|${CM}/cronometer/|${v.header}|com.cronometer.shared.rpc.CronometerService|generateAuthorizationToken|java.lang.String/2004016611|I|com.cronometer.shared.user.AuthScope/2065601159|${jar.get('sesnonce') || nonce}|1|2|3|4|4|5|6|6|7|8|${userId}|3600|7|2|`);
-  const tokTxt = await tokRes.text(), token = (tokTxt.match(/"(.*)"/) || [])[1];
-  const mask = (t) => String(t).replace(token || '\u0000', '<token>').replace(/[A-Za-z0-9_-]{24,}/g, '<long>').slice(0, 300);
+  // The token call: its AuthScope type signature comes from the live app too (it changes with it).
+  const scopeSig = (appJs.match(/com\.cronometer\.shared\.user\.AuthScope\/\d+/) || [])[0] || 'com.cronometer.shared.user.AuthScope/2065601159';
+  const near = appJs.indexOf('generateAuthorizationToken');
+  if (near >= 0) console.log('Cronometer diag: token method strings', JSON.stringify((appJs.slice(Math.max(0, near - 300), near + 500).match(/'[^']{3,80}'|"[^"]{3,80}"/g) || []).slice(0, 25)));
+  let tokTxt = '', token = null, tokRes = null;
+  for (const ord of [2, 0, 1, 3, 4]) {
+    tokRes = await gwt(v, `7|0|8|${CM}/cronometer/|${v.header}|com.cronometer.shared.rpc.CronometerService|generateAuthorizationToken|java.lang.String/2004016611|I|${scopeSig}|${jar.get('sesnonce') || nonce}|1|2|3|4|4|5|6|6|7|8|${userId}|3600|7|${ord}|`);
+    tokTxt = await tokRes.text();
+    if (tokTxt.startsWith('//OK')) { token = (tokTxt.match(/"(.*)"/) || [])[1]; break; }
+  }
+  const mask = (t) => String(t).replace(token || '\u0000', '<token>').replace(/[A-Za-z0-9_-]{32,}/g, '<long>').slice(0, 400);
   console.log('Cronometer diag: gwt', v.permutation.slice(0, 6), v.header.slice(0, 6), '| token reply', tokRes.status, mask(tokTxt));
   if (!token || !tokTxt.startsWith('//OK')) throw new Error('no export token (' + mask(tokTxt).slice(0, 80) + ')');
   // 3. the last 90 days of daily totals (Cronometer allows 10 exports a day; this runs twice)

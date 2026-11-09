@@ -13279,7 +13279,8 @@
   Town.prototype.crier = function () {
     var s = this.st, t = this.today;
     if (!t || !s.byDay) return null;
-    var tt = Date.parse(t), wk = [];
+    // Monday's paper: it covers last week, Monday to Sunday (the same issue all week long).
+    var t0 = Date.parse(t), dow = new Date(t0).getUTCDay(), monday = t0 - ((dow + 6) % 7) * 864e5, tt = monday - 864e5, wk = [];
     for (var d = 0; d < 7; d++) { var key = new Date(tt - d * 864e5).toISOString().slice(0, 10); (s.byDay[key] || []).forEach(function (e) { if (!e.projected && !e.planned) wk.push({ e: e, ago: d, day: WEEKDAY[new Date(tt - d * 864e5).getUTCDay()] }); }); }
     function of(k) { return wk.filter(function (o) { return k.indexOf(o.e.kind) >= 0; }); }
     function km1(x) { return Math.round(x * 10) / 10; }
@@ -13322,7 +13323,7 @@
     var gossip = gm.length ? pickOne(gm) : null;
     var Q = this.keep().quests || {}, hearts = Q.hearts || {}, fav = Object.keys(hearts).sort(function (a, b) { return hearts[b] - hearts[a]; })[0];
     return {
-      issue: Math.floor((tt - Date.UTC(2024, 0, 1)) / (7 * 864e5)), date: new Date(tt).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }),
+      issue: Math.floor((monday - Date.UTC(2024, 0, 1)) / (7 * 864e5)), date: new Date(monday).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }),
       lead: lead, stories: stories, weather: this.weatherNow ? WEATHER[this.weatherNow].label : 'clear skies',
       gossip: gossip ? { who: gossip.name, line: pickOne(gossip.style.lines) } : null,
       friend: fav ? fav + ' (' + hearts[fav] + ' ♥)' : null
