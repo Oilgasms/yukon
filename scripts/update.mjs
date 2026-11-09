@@ -238,9 +238,18 @@ async function cronometer() {
   }
   if (!v) throw new Error('the web app has changed (GWT codes not accepted) - see the CRONOMETER_GWT_* secrets');
   // The token call: its AuthScope type signature comes from the live app too (it changes with it).
-  const scopeSig = (appJs.match(/com\.cronometer\.shared\.user\.AuthScope\/\d+/) || [])[0] || 'com.cronometer.shared.user.AuthScope/2065601159';
+  // The app is split into fragments (deferredjs/<permutation>/N.cache.js): look through them all.
+  try {
+    for (let n = 1; n <= 40 && !/AuthScope\//.test(appJs); n++) {
+      const fr = await go(`${CM}/cronometer/deferredjs/${v.permutation}/${n}.cache.js`);
+      if (!fr.ok) { if (n > 3) break; continue; }
+      appJs += '\n' + await fr.text();
+    }
+  } catch (e) { /* fine */ }
+  const scopeSig = (appJs.match(/com\.cronometer\.[\w.$]*AuthScope\/\d+/) || [])[0] || 'com.cronometer.shared.user.AuthScope/2065601159';
   const near = appJs.indexOf('generateAuthorizationToken');
-  if (near >= 0) console.log('Cronometer diag: token method strings', JSON.stringify((appJs.slice(Math.max(0, near - 300), near + 500).match(/'[^']{3,80}'|"[^"]{3,80}"/g) || []).slice(0, 25)));
+  console.log('Cronometer diag: app js', appJs.length, 'chars | scope', scopeSig, '| method at', near, '| AuthScope mentions', JSON.stringify((appJs.match(/[\w.$]*AuthScope[\w.$\/]*/g) || []).slice(0, 8)));
+  if (near >= 0) console.log('Cronometer diag: token method strings', JSON.stringify((appJs.slice(Math.max(0, near - 400), near + 700).match(/'[^']{2,90}'|"[^"]{2,90}"/g) || []).slice(0, 30)));
   let tokTxt = '', token = null, tokRes = null;
   for (const ord of [2, 0, 1, 3, 4]) {
     tokRes = await gwt(v, `7|0|8|${CM}/cronometer/|${v.header}|com.cronometer.shared.rpc.CronometerService|generateAuthorizationToken|java.lang.String/2004016611|I|${scopeSig}|${jar.get('sesnonce') || nonce}|1|2|3|4|4|5|6|6|7|8|${userId}|3600|7|${ord}|`);

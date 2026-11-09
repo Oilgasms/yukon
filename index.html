@@ -1947,6 +1947,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     // that day; failing that, with a spare Strava run a day either side (a manual entry saved on
     // the wrong day), which then moves to the sheet's day; failing that it counts from the sheet
     // (a treadmill run Strava never saw).
+    acts = acts.map(function (a) { return Object.assign({}, a); }); // (the pairing marks and moved days are this merge's own, not Strava's)
     var runActs = acts.filter(function (a) { return a.kind === 'run'; }), sheetRuns = all.filter(function (e) { return e.kind === 'run' && e.date && e.date >= STRAVA_SINCE; });
     sheetRuns.forEach(function (e) { var a = runActs.filter(function (q) { return !q._paired && q.date === e.date; })[0]; if (a) { a._paired = true; e._pairRun = 'same'; } });
     sheetRuns.forEach(function (e) {
