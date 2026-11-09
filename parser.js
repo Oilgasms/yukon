@@ -63,7 +63,9 @@
   // Sheets left out of the town entirely.
   var EXCLUDE = /^phase\s*1\b/i;
 
-  var NOT_NAMES = /^(kids|fam|family|friends|boys|the|my|everyone|everybody|people|bike|paddleboard|run|walk|and)$/i;
+  var NOT_NAMES = /^(kids|kid|fam|family|friends|friend|boys|girls|guys|gals|the|my|our|everyone|everybody|people|bike|paddleboard|run|walk|and|or|a|an|some|few|couple|crew|team|group|gang|buddies|buddy|neighbours|neighbors|coworkers|work|church|etc|others|other|more|lots|him|her|them|us|me|wife|husband|son|daughter|dogs|dog|after|before|then|also|plus|again|both|all|club|class|league|game|games|round|rounds|disc|golf|ball)$/i;
+  // Workout shorthand written in capitals, not people.
+  var ACRONYMS = /^(PR|PB|PRS|BJJ|HIIT|WOD|AMRAP|EMOM|KM|KMS|MTB|SUP|XC|ATV|UTV|BBQ|YMCA|YWCA|AM|PM|OK|LOL|DNF|TT|FTP|VO2|ZONE)$/;
   // Dogs get their own pen rather than a house.
   var DOGS = { minto: 'Minto', blue: 'Blue', millie: 'Millie' };
   function dogsIn(text) {
@@ -121,11 +123,16 @@
     var chunk = m[1].split(/\b(?:in|to|at|for|from|on)\b/i)[0];
     var out = /\b(everyone|everybody)\b/i.test(chunk) ? ['Jo'] : [];
     // Couples written together, like "AlexHayli", are two people.
-    chunk.replace(/\b([A-Z][a-z]+)(?=[A-Z][a-z])/g, function (w) { return /^(mc|mac|de|di|da|la|le|van|von|st)$/i.test(w) ? w : w + ' '; }).split(/[,&+\s]+/).forEach(function (tok) {
-      tok = tok.replace(/[^A-Za-z']/g, '');
-      if (!tok || NOT_NAMES.test(tok) || DOGS[tok.toLowerCase()]) return;
-      if (!/^[A-Z]/.test(tok) && !/^(mom|dad)$/i.test(tok)) return;
-      if (tok.length > 2 && tok === tok.toUpperCase()) return;
+    var toks = chunk.replace(/\b([A-Z][a-z]+)(?=[A-Z][a-z])/g, function (w) { return /^(mc|mac|de|di|da|la|le|van|von|st)$/i.test(w) ? w : w + ' '; }).split(/[,&+\s]+/)
+      .map(function (tok) { return tok.replace(/[^A-Za-z']/g, ''); })
+      .filter(function (tok) { return tok && !NOT_NAMES.test(tok) && !DOGS[tok.toLowerCase()] && tok.length >= 2 && tok.length <= 14; });
+    function caps(t) { return t === t.toUpperCase(); }
+    function clear(t) { return (/^[A-Z][a-z]/.test(t) || (caps(t) && !ACRONYMS.test(t))) && !/^(mom|dad)$/i.test(t) || /^(mom|dad)$/i.test(t); }
+    // In a list after "with", names count however they're typed ("Mark, joel, PAUL"), as long as
+    // at least one of them is clearly a name; otherwise lowercase words are just words.
+    var isList = /[,&]|\band\b/i.test(chunk), anyClear = toks.some(clear);
+    toks.forEach(function (tok) {
+      if (!clear(tok) && !(isList && anyClear && /^[a-z]+$/.test(tok))) return;
       tok = tok.charAt(0).toUpperCase() + tok.slice(1).toLowerCase();
       if (out.indexOf(tok) < 0) out.push(tok);
     });
