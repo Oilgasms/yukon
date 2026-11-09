@@ -192,6 +192,7 @@ async function bookLines() {
 // secrets. The web app's GWT version codes change when Cronometer updates it, so they're read
 // fresh from the app's own files each run (CRONOMETER_GWT_PERMUTATION / _HEADER override them).
 const CM = 'https://cronometer.com';
+const CRONOMETER_SINCE = '2026-11-09'; // the day logging got consistent: nothing earlier counts
 const GWT_DEFAULT = { permutation: '7B121DC5483BF272B1BC1916DA9FA963', header: '2D6A926E3729946302DC68073CB0D550' };
 async function cronometer() {
   const user = process.env.CRONOMETER_USERNAME, pass = process.env.CRONOMETER_PASSWORD;
@@ -271,7 +272,7 @@ async function cronometer() {
     if (csvRes.ok && /^\s*"?Date/i.test(body)) break;
   }
   if (!csvRes.ok || !/^\s*"?Date/i.test(body)) throw new Error('export failed (' + csvRes.status + ')');
-  const days = parseNutrition(body);
+  const days = parseNutrition(body).filter((d) => d.date >= CRONOMETER_SINCE);
   if (!days.length) throw new Error('export came back empty');
   await writeFile(new URL('nutrition.json', DATA), JSON.stringify(days));
   return `${days.length} days (to ${days[days.length - 1].date})`;
