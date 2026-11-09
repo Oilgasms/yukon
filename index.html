@@ -419,7 +419,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v169';
+var BUILD = 'v170';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1888,7 +1888,9 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   function nutriTargets() { var t = {}; try { t = JSON.parse(localStorage.getItem(NUTRI_KEY) || '{}') || {}; } catch (e) {} return { kcal: +t.kcal || 2200, tol: t.tol != null ? +t.tol : 150, protein: +t.protein || 160 }; }
   var nutriDays = null;
   function loadNutrition() {
-    fetch('data/nutrition.json?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (days) {
+    // (the website has it alongside; here on claude.ai, read the copy saved in the public repo)
+    var get = function (u) { return fetch(u + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); };
+    get('data/nutrition.json').catch(function () { return get('https://raw.githubusercontent.com/Oilgasms/yukon/main/data/nutrition.json'); }).then(function (days) {
       nutriDays = days; town.setNutrition(days, nutriTargets());
       var last = days[days.length - 1], T = nutriTargets();
       $('cdot').className = 'dot live';
