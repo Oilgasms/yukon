@@ -38,6 +38,10 @@ jobs:
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_CODE: ${{ secrets.STRAVA_CODE }}
+          CRONOMETER_USERNAME: ${{ secrets.CRONOMETER_USERNAME }}
+          CRONOMETER_PASSWORD: ${{ secrets.CRONOMETER_PASSWORD }}
+          CRONOMETER_GWT_PERMUTATION: ${{ secrets.CRONOMETER_GWT_PERMUTATION }}
+          CRONOMETER_GWT_HEADER: ${{ secrets.CRONOMETER_GWT_HEADER }}
       - name: Save the new data
         if: github.event_name != 'push'
         run: |

@@ -1962,6 +1962,7 @@
       base.add(hedge);
       this.hedges = { mesh: hedge, spots: spots, saved: {} };
       spots.forEach(function (sp, i) { this.addBrush(hedge, i, sp[0], sp[1], 0.8); }, this);
+      this.hedges = { mesh: hedge, spots: spots };
     }
     // Lone oaks dotted over the fields.
     for (i = 0; i < 90; i++) {
@@ -13244,6 +13245,16 @@
       if (bf.length >= 2) L.push('of all your films lately, ' + bf[0].title + ' came out on top? ' + bf[0].stars + ' stars!', bf[bf.length - 1].title + ' was the weak one this month, eh?');
     }
     var fm = this.filmLine(); if (fm) L.push(fm);
+    // The garden (Cronometer).
+    var NS = this.nutritionStats && this.nutritionStats();
+    if (NS && NS.days) {
+      if (NS.onCal) L.push(NS.onCal + ' days on target this month! the garden beds are filling up', 'the Lean Month garden’s looking lovely. ' + NS.onCal + ' beds and counting');
+      if (NS.onProt >= 2) L.push(NS.onProt + ' prize vegetables in the garden! that’s your protein, that is', 'Bramble says your pumpkins are the best in Yukon. protein, apparently');
+      if (NS.streak >= 3) L.push(NS.streak + ' days logging in a row! the cookfire’s roaring', 'the cookfire’s been going ' + NS.streak + ' days now. don’t let it go out!');
+      else if (NS.streak === 0) L.push('the garden cookfire’s gone out. log your lunch, dear?', 'no food logged today? the garden’s waiting');
+      var yd2 = NS.yest; if (yd2 && yd2.protein >= NS.prot) L.push(Math.round(yd2.protein) + ' g of protein yesterday! you’ll be lifting the whole gym next');
+      if (yd2 && yd2.kcal <= NS.kcal + NS.tol && yd2.kcal >= NS.kcal * 0.6) L.push('right on target yesterday. very disciplined, dear');
+    }
     // The pub and the scales.
     var dr = of(wk, ['drink']).reduce(function (a, o) { return a + (o.e.count || 1); }, 0);
     if (dr >= 6) L.push(dr + ' drinks this week? Doris at the Slow Pour is putting your name on a stool');
@@ -13303,6 +13314,8 @@
     if (news.length) stories.push({ h: 'Around town', b: news.slice(-3).map(function (n) { var l = n.lines[0].replace(/[.!?…]+$/, ''); return l.charAt(0).toUpperCase() + l.slice(1); }).join('. ') + '.' });
     var drinks = of(['drink']).reduce(function (a, o) { return a + (o.e.count || 1); }, 0);
     if (drinks) stories.push({ h: 'Slow Pour report', b: drinks + ' drink' + (drinks > 1 ? 's' : '') + ' poured. Doris says you tip well.' });
+    var NS = this.nutritionStats && this.nutritionStats();
+    if (NS && NS.days) stories.push({ h: 'The garden report', b: NS.onCal + ' of ' + NS.days + ' days on target in ' + NS.month + ', ' + NS.onProt + ' prize vegetables (protein), and the cookfire ' + (NS.streak ? 'has burned ' + NS.streak + ' day' + (NS.streak > 1 ? 's' : '') + ' straight.' : 'has gone out. Log today to light it.') });
     var LO = this.liftOutlook && this.liftOutlook();
     if (LO && LO.next) stories.push({ h: 'Coming soon', b: LO.next + '.' });
     var folk = s.folk || [], gm = folk.filter(function (m) { return m.style && m.style.lines; });
@@ -14839,6 +14852,15 @@
         var hq = this.questState().hearts[p[1]] || 0, hs = hq ? '\u2665'.repeat(hq) + '\u2661'.repeat(10 - hq) + ' (' + hq + ' of 10)' : 'Do them a favour to make friends (look for a gold "!").';
         return mo ? { title: mo.name, lines: [mo.char ? CHAR_NOTE[mo.char] : 'Lives at the ' + mo.homeName + ' house.', doing, hs] } : null;
       }
+      case 'garden': {
+        var NS = this.nutritionStats();
+        if (!NS) return { title: 'The Lean Month Garden', lines: ['Waiting for your Cronometer log.'] };
+        var td = NS.todayD, yd = NS.yest;
+        return { title: 'The Lean Month Garden \u00b7 ' + NS.month, lines: [NS.onCal + ' of ' + NS.days + ' days on calories (' + NS.kcal + ' kcal, \u00b1' + NS.tol + ') \u00b7 ' + NS.onProt + ' on protein (' + NS.prot + ' g+)',
+          'Logging streak: ' + NS.streak + ' day' + (NS.streak === 1 ? '' : 's') + (NS.streak ? ' \u2014 the cookfire\u2019s lit' : ' \u2014 log today to light the fire'),
+          td ? 'Today so far: ' + Math.round(td.kcal) + ' kcal, ' + Math.round(td.protein || 0) + ' g protein' : yd ? 'Yesterday: ' + Math.round(yd.kcal) + ' kcal, ' + Math.round(yd.protein || 0) + ' g protein' : '',
+          'One bed for each day: greens for calories on target, a prize vegetable for protein too.'] };
+      }
       case 'riverboat': return { title: 'The sternwheeler', lines: ['Up and down the Yukon between Whitehorse and Dawson City, stopping at each end.', this.explore ? 'Press E to climb aboard (E again to step off).' : 'Walk the raccoon up to it to ride.'] };
       case 'fox': return { title: 'Jo the fox', lines: ['Jo, mostly round her house, sometimes off exploring.'] };
       case 'green': return { title: 'The village green', lines: ['Main Street splits round it on its way from the river: a well at the top, the gazebo in the middle, the old oak and the market cross at the bottom.'] };
@@ -15158,7 +15180,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -18462,6 +18484,90 @@
     this.posePlayer(pl, dt, performance.now(), false);
   };
 
+
+  // ===== the Lean Month Garden: Cronometer, made into a vegetable patch =====
+  // One bed for every day of the month: on your calorie target it's planted and growing, hit your
+  // protein too and a prize vegetable comes up in it, missed days stay bare. A lantern on the fence
+  // for every day on target, and a cookfire at the gate that burns as long as you keep logging.
+  Town.prototype.setNutrition = function (days, targets) {
+    this.nutri = { days: days || [], T: targets || {} };
+    this.nutriDirty = true; this.needsRender = true;
+  };
+  Town.prototype.nutritionStats = function () {
+    var N = this.nutri, t = this.today;
+    if (!N || !N.days.length || !t) return null;
+    var T = N.T, kcal = +T.kcal || 2200, tol = +T.tol || 150, prot = +T.protein || 160, by = {};
+    N.days.forEach(function (d) { by[d.date] = d; });
+    function judge(d) { return d ? { log: true, cal: d.kcal <= kcal + tol && d.kcal >= kcal * 0.6, prot: d.protein != null && d.protein >= prot, kcal: d.kcal, protein: d.protein } : { log: false }; }
+    var month = t.slice(0, 7), y = +t.slice(0, 4), mo = +t.slice(5, 7), dim = new Date(Date.UTC(y, mo, 0)).getUTCDate(), today = +t.slice(8, 10), list = [];
+    for (var dd = 1; dd <= dim; dd++) { var key = month + '-' + (dd < 10 ? '0' : '') + dd, j = judge(by[key]); j.date = key; j.future = dd > today; j.today = dd === today; list.push(j); }
+    // the logging streak: days in a row, back from today (or yesterday, if today's not logged yet)
+    var streak = 0, tt = Date.parse(t), start = by[t] ? 0 : 1;
+    for (var k = start; k < 120; k++) { var dk = new Date(tt - k * 864e5).toISOString().slice(0, 10); if (by[dk]) streak++; else break; }
+    var past = list.filter(function (d) { return !d.future; });
+    return { list: list, kcal: kcal, tol: tol, prot: prot, streak: streak, onCal: past.filter(function (d) { return d.cal; }).length, onProt: past.filter(function (d) { return d.prot; }).length, logged: past.filter(function (d) { return d.log; }).length, days: past.length, todayD: by[t] || null, yest: by[new Date(tt - 864e5).toISOString().slice(0, 10)] || null, month: new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString('en-CA', { month: 'long', timeZone: 'UTC' }) };
+  };
+  Town.prototype.stepGarden = function (dt, now) {
+    if (this.soft || !this.nutri) return;
+    var self = this;
+    if (this.nutriDirty && this.today && this.st) {
+      this.nutriDirty = false;
+      var S = this.nutritionStats(); if (!S) return;
+      if (this.garden) { this.garden.g.parent && this.garden.g.parent.remove(this.garden.g); }
+      var spot = this.gardenSpot || (this.gardenSpot = this.secretSpot(300, 46, 6));
+      var g = new T.Group(), gy = groundY(spot.x, spot.z); g.position.set(spot.x, gy, spot.z); g.rotation.y = Math.atan2(-spot.x, -spot.z); this.world.add(g);
+      var pick = 'garden';
+      // each piece sits on the ground where it stands (the garden's on a gentle slope)
+      var rc = Math.cos(g.rotation.y), rs = Math.sin(g.rotation.y);
+      function ly(x, z) { return groundY(spot.x + x * rc + z * rs, spot.z - x * rs + z * rc) - gy; }
+      function P(geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || g, geo, mat, sx, sy, sz, x, (par ? 0 : ly(x, z)) + y, z, pick); }
+      // a picket fence
+      [[0, -3.6, 9.2, 0], [0, 3.6, 9.2, 0], [-4.6, 0, 7.2, 1], [4.6, 0, 7.2, 1]].forEach(function (f) {
+        var len = f[2];
+        for (var k = 0; k <= len / 0.45; k++) { var u = -len / 2 + k * 0.45; if (f[1] === 3.6 && Math.abs(u) < 0.8) continue; var fx = f[3] ? f[0] : u, fz = f[3] ? u : f[1]; P(self.geo.box, self.mat('whitewood'), 0.06, 0.45, 0.06, fx, 0.2, fz); if (k) P(self.geo.box, self.mat('whitewood'), f[3] ? 0.04 : 0.45, 0.05, f[3] ? 0.45 : 0.04, f[3] ? fx : fx - 0.22, 0.32, f[3] ? fz - 0.22 : fz); }
+      });
+      // the beds: one for each day of the month, a week to a row
+      var cols = 7, rows = Math.ceil(S.list.length / cols);
+      S.list.forEach(function (d, i) {
+        var cx = -3.6 + (i % cols) * 1.2, cz = -2.6 + Math.floor(i / cols) * (5.2 / Math.max(1, rows - 1));
+        P(self.geo.box, self.mat('wood'), 0.95, 0.22, 0.7, cx, 0.06, cz);
+        P(self.geo.box, self.mat(d.future ? 'tstreet' : 'trunk', 0), 0.85, 0.06, 0.6, cx, 0.18, cz);
+        if (d.cal) for (var c2 = 0; c2 < 6; c2++) { var lx = cx - 0.28 + (c2 % 3) * 0.28, lz = cz - 0.14 + Math.floor(c2 / 3) * 0.28; P(self.geo.ball, self.mat('leaf', c2 % 3), 0.16, 0.2, 0.16, lx, 0.3, lz); P(self.geo.cone4, self.mat('leaf', (c2 + 1) % 3), 0.07, 0.22, 0.07, lx, 0.42, lz); }
+        if (d.prot) P(self.geo.ball, self.mat(i % 3 === 0 ? 'leaf' : 'flag', i % 3 === 0 ? 2 : 1), 0.38, 0.3, 0.38, cx, 0.42, cz); // a prize pumpkin or cabbage
+        if (d.log && !d.cal && !d.future) P(self.geo.cone4, self.mat('leaf', 0), 0.07, 0.14, 0.07, cx, 0.28, cz); // logged, at least: a sprout
+        if (d.today) P(self.geo.cyl6, self.mat('flag', 2), 0.02, 0.6, 0.02, cx + 0.42, 0.4, cz - 0.28); // today's bed, flagged
+      });
+      // a lantern on the fence for every day on target
+      for (var li = 0; li < S.list.length; li++) {
+        var u2 = li / S.list.length, per = 2 * (9.2 + 7.2), dpos = u2 * per, x, z;
+        if (dpos < 9.2) { x = -4.6 + dpos; z = -3.6; } else if (dpos < 16.4) { x = 4.6; z = -3.6 + (dpos - 9.2); } else if (dpos < 25.6) { x = 4.6 - (dpos - 16.4); z = 3.6; } else { x = -4.6; z = 3.6 - (dpos - 25.6); }
+        P(this.geo.box, this.mat(S.list[li].cal ? 'lantern' : 'stoneDark'), 0.12, 0.14, 0.12, x, 0.55, z);
+      }
+      // the cookfire at the gate: as big as your logging streak
+      var fire = new T.Group(); fire.position.set(0, ly(0, 4.4), 4.4); g.add(fire);
+      for (var st = 0; st < 7; st++) { var a = st / 7 * Math.PI * 2; P(this.geo.ball, this.mat('stone', 1), 0.16, 0.1, 0.16, Math.cos(a) * 0.38, 0.05, Math.sin(a) * 0.38, fire); }
+      var flame = new T.Group(); fire.add(flame);
+      P(this.geo.cone4, this.mat('flag', 1), 0.22, 0.5, 0.22, 0, 0.3, 0, flame); P(this.geo.cone4, this.mat('lantern'), 0.13, 0.32, 0.13, 0.03, 0.24, 0.02, flame);
+      flame.visible = S.streak > 0; flame.scale.setScalar(Math.min(1.6, 0.6 + S.streak * 0.12));
+      // the sign
+      var sg = P(this.geo.box, this.mat('woodLight'), 1.5, 0.5, 0.06, -1.3, 0.95, 3.7); P(this.geo.box, this.mat('wood'), 0.06, 0.95, 0.06, -1.3, 0.47, 3.7);
+      this.garden = { g: g, flame: flame, S: S, at: spot };
+      // clear the hedgerows out of the garden
+      if (this.hedges) {
+        var H = this.hedges, inv = new T.Matrix4().makeTranslation(spot.x, 0, spot.z).multiply(new T.Matrix4().makeRotationY(g.rotation.y)).invert(), v3 = new T.Vector3(), zero = new T.Matrix4().makeScale(0, 0, 0);
+        H.spots.forEach(function (sp, i) { v3.set(sp[0], 0, sp[1]).applyMatrix4(inv); if (Math.abs(v3.x) < 5.6 && Math.abs(v3.z) < 5.4) H.mesh.setMatrixAt(i, zero); });
+        H.mesh.instanceMatrix.needsUpdate = true;
+      }
+      if (!this.instant) this.pop(g, 200);
+      // a word from the mice when there's something new to say
+      var K = this.keep(), key = S.month + ':' + S.onCal + ':' + S.onProt;
+      if (K.gardenSaid !== key && this.player && this.explore && S.onCal) { K.gardenSaid = key; this.saveStore(); this.say(S.onCal + ' days on target this month! the garden’s growing', this.player.g, 1.1, 2.4); }
+    }
+    if (this.garden && this.garden.flame.visible) {
+      var fl = this.garden.flame; fl.children.forEach(function (c, i) { c.scale.y = (i ? 0.32 : 0.5) * (1 + Math.sin(now / (90 + i * 40)) * 0.15); });
+      if (now > (this.garden.smokeAt || 0)) { this.garden.smokeAt = now + 400; var wp = new T.Vector3(); fl.getWorldPosition(wp); this.puff(wp.x, wp.y + 0.6, wp.z, 1, 'smoke', 0.05); }
+    }
+  };
   // ===== the night sky: stars, the moon in its real phase, lamplight pooling on the ground =====
   Town.prototype.moonPhase = function () { var days = (Date.now() - Date.UTC(2000, 0, 6, 18, 14)) / 864e5; return ((days % 29.530588) + 29.530588) % 29.530588 / 29.530588; };
   Town.prototype.stepSky = function (dt, now) {

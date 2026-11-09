@@ -185,9 +185,90 @@ async function bookLines() {
   return `${Object.keys(lines).length} books (${added} new)`;
 }
 
+
+// Cronometer: there's no public API for personal accounts, so this signs in the way the web app
+// does (as the open-source gocronometer client does) and downloads the Daily Nutrition export,
+// the same file as Settings > Export Data. Needs CRONOMETER_USERNAME and CRONOMETER_PASSWORD
+// secrets. The web app's GWT version codes change when Cronometer updates it, so they're read
+// fresh from the app's own files each run (CRONOMETER_GWT_PERMUTATION / _HEADER override them).
+const CM = 'https://cronometer.com';
+const GWT_DEFAULT = { permutation: '7B121DC5483BF272B1BC1916DA9FA963', header: '2D6A926E3729946302DC68073CB0D550' };
+async function cronometer() {
+  const user = process.env.CRONOMETER_USERNAME, pass = process.env.CRONOMETER_PASSWORD;
+  if (!user || !pass) return 'not set up (add CRONOMETER_USERNAME and CRONOMETER_PASSWORD secrets)';
+  const jar = new Map();
+  const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+  async function go(url, opts = {}) {
+    const headers = Object.assign({ 'user-agent': UA, cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; ') }, opts.headers || {});
+    const res = await fetch(url, Object.assign({}, opts, { headers, redirect: 'manual' }));
+    for (const c of res.headers.getSetCookie ? res.headers.getSetCookie() : []) { const [kv] = c.split(';'); const i = kv.indexOf('='); jar.set(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); }
+    return res;
+  }
+  // 1. the sign-in form's anti-CSRF token, then sign in
+  const page = await (await go(`${CM}/login/`)).text();
+  const csrf = (page.match(/name="anticsrf"[^>]*value="([^"]+)"/) || page.match(/value="([^"]+)"[^>]*name="anticsrf"/) || [])[1];
+  if (!csrf) throw new Error('could not find the sign-in form');
+  const login = await go(`${CM}/login`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ anticsrf: csrf, password: pass, username: user }).toString() });
+  const lj = await login.json().catch(() => ({}));
+  if (lj.error) throw new Error('sign-in refused: ' + lj.error);
+  const nonce = jar.get('sesnonce');
+  if (!nonce) throw new Error('signed in but got no session');
+  // 2. the GWT version codes: try overrides, then whatever the live app is using, then the old defaults
+  const tries = [];
+  if (process.env.CRONOMETER_GWT_PERMUTATION && process.env.CRONOMETER_GWT_HEADER) tries.push({ permutation: process.env.CRONOMETER_GWT_PERMUTATION, header: process.env.CRONOMETER_GWT_HEADER });
+  try {
+    const boot = await (await go(`${CM}/cronometer/cronometer.nocache.js`)).text();
+    const perms = [...new Set(boot.match(/\b[0-9A-F]{32}\b/g) || [])].slice(0, 6);
+    for (const perm of perms) {
+      const r = await go(`${CM}/cronometer/${perm}.cache.js`); if (!r.ok) continue;
+      const js = await r.text(), at = js.indexOf('CronometerService'), near = at >= 0 ? js.slice(Math.max(0, at - 4000), at + 4000) : '';
+      const hdrs = [...new Set([...(near.match(/\b[0-9A-F]{32}\b/g) || []), ...(js.match(/\b[0-9A-F]{32}\b/g) || [])])].filter((h) => h !== perm).slice(0, 12);
+      for (const h of hdrs) tries.push({ permutation: perm, header: h });
+      break;
+    }
+  } catch (e) { /* fall through to the defaults */ }
+  tries.push(GWT_DEFAULT);
+  const gwt = (v, body) => go(`${CM}/cronometer/app`, { method: 'POST', headers: { 'content-type': 'text/x-gwt-rpc; charset=UTF-8', 'x-gwt-module-base': `${CM}/cronometer/`, 'x-gwt-permutation': v.permutation }, body });
+  let v = null, userId = null;
+  for (const t of tries.slice(0, 16)) {
+    const res = await gwt(t, `7|0|5|${CM}/cronometer/|${t.header}|com.cronometer.shared.rpc.CronometerService|authenticate|java.lang.Integer/3438268394|1|2|3|4|1|5|5|-300|`);
+    const txt = await res.text(), m = txt.match(/OK\[(\d+),/);
+    if (txt.startsWith('//OK') && m) { v = t; userId = m[1]; break; }
+  }
+  if (!v) throw new Error('the web app has changed (GWT codes not accepted) - see the CRONOMETER_GWT_* secrets');
+  const tokRes = await gwt(v, `7|0|8|${CM}/cronometer/|${v.header}|com.cronometer.shared.rpc.CronometerService|generateAuthorizationToken|java.lang.String/2004016611|I|com.cronometer.shared.user.AuthScope/2065601159|${jar.get('sesnonce') || nonce}|1|2|3|4|4|5|6|6|7|8|${userId}|3600|7|2|`);
+  const token = ((await tokRes.text()).match(/"(.*)"/) || [])[1];
+  if (!token) throw new Error('no export token');
+  // 3. the last 90 days of daily totals (Cronometer allows 10 exports a day; this runs twice)
+  const end = new Date(), start = new Date(end.getTime() - 90 * 864e5), day = (d) => d.toISOString().slice(0, 10);
+  const csvRes = await go(`${CM}/export?` + new URLSearchParams({ nonce: token, generate: 'dailySummary', start: day(start), end: day(end) }), { headers: { 'sec-fetch-dest': 'document', 'sec-fetch-mode': 'navigate', 'sec-fetch-site': 'same-origin' } });
+  if (!csvRes.ok) throw new Error('export failed (' + csvRes.status + ')');
+  const days = parseNutrition(await csvRes.text());
+  if (!days.length) throw new Error('export came back empty');
+  await writeFile(new URL('nutrition.json', DATA), JSON.stringify(days));
+  return `${days.length} days (to ${days[days.length - 1].date})`;
+}
+// The daily summary CSV, slimmed to what the town uses.
+function parseNutrition(csv) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < csv.length; i++) {
+    const ch = csv[i];
+    if (q) { if (ch === '"' && csv[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') q = false; else cell += ch; }
+    else if (ch === '"') q = true; else if (ch === ',') { row.push(cell); cell = ''; } else if (ch === '\n' || ch === '\r') { if (ch === '\r' && csv[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; } else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  const head = (rows.shift() || []).map((h) => h.trim().toLowerCase());
+  const col = (re) => head.findIndex((h) => re.test(h));
+  const c = { date: col(/^date/), kcal: col(/^energy/), protein: col(/^protein/), carbs: col(/^(net )?carbs/), fat: col(/^fat/), fiber: col(/^fiber/), done: col(/^completed/) };
+  const num = (r, k) => (c[k] >= 0 && r[c[k]] !== '' ? Math.round(parseFloat(r[c[k]]) * 10) / 10 : null);
+  return rows.filter((r) => c.date >= 0 && /^\d{4}-\d{2}-\d{2}/.test(r[c.date] || '')).map((r) => ({ date: r[c.date].slice(0, 10), kcal: num(r, 'kcal'), protein: num(r, 'protein'), carbs: num(r, 'carbs'), fat: num(r, 'fat'), fiber: num(r, 'fiber'), done: c.done >= 0 ? /true|yes|1/i.test(r[c.done]) : null }))
+    .filter((d) => d.kcal != null && d.kcal > 0).sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
 await step('Google Sheets', sheets);
 await step('Strava', strava);
 await step('Letterboxd', letterboxd);
 await step('Book lines', bookLines);
+await step('Cronometer', cronometer);
 await writeFile(new URL('status.json', DATA), JSON.stringify(status, null, 2) + '\n');
 if (['Google Sheets', 'Strava', 'Letterboxd'].every((k) => String(status[k]).startsWith('FAILED'))) process.exit(1);
