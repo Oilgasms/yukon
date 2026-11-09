@@ -139,9 +139,11 @@
     return out;
   }
 
+  // Every distance in the cell, added up: "Run 2k with Jo plus 10k" is 12 km.
   function kmIn(text) {
-    var m = text.match(/(\d+(?:\.\d+)?)\s*k(?:m)?\b/i);
-    return m ? parseFloat(m[1]) : null;
+    var all = String(text).match(/(\d+(?:\.\d+)?)\s*k(?:m)?\b/gi);
+    if (!all) return null;
+    return Math.round(all.reduce(function (s, m) { return s + parseFloat(m); }, 0) * 10) / 10;
   }
 
   function exerciseGroup(line) {
