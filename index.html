@@ -676,6 +676,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     clearTimeout(mTimer);
     if (e.key === 'm' || e.key === 'M') mTimer = setTimeout(function () { setExplore(!town.explore); }, 450);
     if ((e.key === 'h' || e.key === 'H') && town.explore && town.goHome) town.goHome();
+    if ((e.key === 'g' || e.key === 'G') && town.explore && town.goGarden && !town.goGarden() && !town.gardenSpot) toast('The garden appears once Cronometer sends its first day');
   });
   // The joystick: drag from the circle; the farther out, the faster (all the way out runs).
   (function () {

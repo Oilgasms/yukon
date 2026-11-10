@@ -2387,6 +2387,8 @@
     this.flying = null;
     if (this.world) this.scene.remove(this.world);
     this.anims = [];
+    // the Lean Month Garden lives in the world too: build it again once the town's back
+    this.garden = null; this.gardenSpot = null; if (this.nutri) this.nutriDirty = true;
     this.world = new T.Group();
     this.scene.add(this.world);
     this.picks = [];
@@ -8411,6 +8413,23 @@
     this.solidAt = 0;
   };
   // H: pop straight home, wherever you are.
+  // Hop the raccoon over to the Lean Month Garden's gate (it's out on the edge of town).
+  Town.prototype.goGarden = function () {
+    var pl = this.player, G = this.gardenSpot;
+    if (!pl || !G || pl.inDen || pl.ride || pl.mine || pl.snow || pl.paddle || this.brawl) return false;
+    if (pl.seat) this.leaveSeat(pl);
+    if (pl.cook) this.endCook(pl, true);
+    pl.push = null; pl.iv = null; pl.vy = 0; pl.napping = 0;
+    var d = Math.hypot(G.x, G.z) || 1, x = G.x - G.x / d * 7.5, z = G.z - G.z / d * 7.5;
+    var P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
+    P.set(x, groundY(x, z), z); pl.g.rotation.y = Math.atan2(G.x - x, G.z - z);
+    var c = this.controls, cam = this.camera;
+    cam.position.x += P.x - ox; cam.position.y += P.y - oy; cam.position.z += P.z - oz; c.target.set(P.x, P.y + 0.5, P.z);
+    this.puff(P.x, P.y + 0.3, P.z, 8, 'dust', 0.2);
+    this.near = null; if (this.onNear) this.onNear(null);
+    this.say('the Lean Month Garden', pl.g, 1.0, 2.2);
+    this.needsRender = true; return true;
+  };
   Town.prototype.goHome = function () {
     var pl = this.player;
     if (!pl || !this.explore || pl.inDen || pl.ride || pl.mine || pl.snow || pl.paddle || this.brawl) return false;
@@ -10926,6 +10945,7 @@
     id = String(id).split('#')[0];
     var p = id === 'leangarden' ? this.gardenSpot : this.st.secretPos[id];
     if (!p) return false;
+    if (id === 'leangarden' && this.explore && this.player) return this.goGarden();
     var c = this.controls, off = this.camera.position.clone().sub(c.target), y = groundY(p.x, p.z);
     this.fit.auto = false;
     c.target.set(p.x, y + (id === 'dragon' ? 18 : id === 'rainbow' ? 10 : 2), p.z);
@@ -18491,6 +18511,8 @@
   // One bed for every day of the month: on your calorie target it's planted and growing, hit your
   // protein too and a prize vegetable comes up in it, missed days stay bare. A lantern on the fence
   // for every day on target, and a cookfire at the gate that burns as long as you keep logging.
+  // out in the open meadow south-east of town, by the river (in plain sight from the map)
+  var GARDEN_AT = { x: 59, z: 61 };
   Town.prototype.setNutrition = function (days, targets) {
     this.nutri = { days: days || [], T: targets || {} };
     this.nutriDirty = true; this.needsRender = true;
@@ -18516,7 +18538,7 @@
       this.nutriDirty = false;
       var S = this.nutritionStats(); if (!S) return;
       if (this.garden) { this.garden.g.parent && this.garden.g.parent.remove(this.garden.g); }
-      var spot = this.gardenSpot || (this.gardenSpot = this.secretSpot(300, 46, 6));
+      var spot = this.gardenSpot || (this.gardenSpot = groundClear(GARDEN_AT, 5) ? GARDEN_AT : this.secretSpot(314, 85, 5));
       var g = new T.Group(), gy = groundY(spot.x, spot.z); g.position.set(spot.x, gy, spot.z); g.rotation.y = Math.atan2(-spot.x, -spot.z); this.world.add(g);
       var pick = 'garden';
       // each piece sits on the ground where it stands (the garden's on a gentle slope)
