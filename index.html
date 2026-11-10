@@ -301,7 +301,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     <div class="sync"><span class="dot" id="bdot"></span><span id="bstatus">Bible log: waiting for your sheet</span></div>
     <div class="sync"><span class="dot" id="rdot"></span><span id="rstatus">Reading log: loading…</span><button id="shelf-open" type="button">Bookshelf</button><button id="reading" type="button">Change</button></div>
     <div class="sync"><span class="dot" id="mdot"></span><span id="mstatus">Films</span><button id="films-open" type="button" hidden>Films</button><button id="movies" type="button">Add export</button></div>
-    <div class="sync"><span class="dot" id="cdot"></span><span id="cstatus">Cronometer: waiting for the first update</span><button id="nutri-btn" type="button">Targets</button></div>
+    <div class="sync"><span class="dot" id="cdot"></span><span id="cstatus">Cronometer: waiting for the first update</span><button id="nutri-btn" type="button">Targets</button> <button id="nutri-find" type="button">Show garden</button></div>
     <div class="reading-panel" id="nutri-panel" hidden>
       <label>Daily calories <input id="nutri-kcal" type="number" min="1000" max="5000" step="50" style="width:80px"> kcal, give or take <input id="nutri-tol" type="number" min="0" max="500" step="25" style="width:60px"></label>
       <label>Protein at least <input id="nutri-prot" type="number" min="40" max="400" step="5" style="width:70px"> g</label>
@@ -419,7 +419,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v172';
+var BUILD = 'v173';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1899,6 +1899,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       $('cstatus').textContent = 'Cronometer: ' + days.length + ' days, to ' + dayLabel(last.date) + ' \u00b7 target ' + T.kcal + ' kcal, ' + T.protein + ' g protein';
     }).catch(function () { $('cstatus').textContent = 'Cronometer: not linked yet (see the setup steps)'; });
   }
+  $('nutri-find').addEventListener('click', function () { if (!town || !town.focusOn('leangarden')) toast('The garden appears once Cronometer sends its first day'); });
   $('nutri-btn').addEventListener('click', function () { var T = nutriTargets(); $('nutri-kcal').value = T.kcal; $('nutri-tol').value = T.tol; $('nutri-prot').value = T.protein; $('nutri-panel').hidden = !$('nutri-panel').hidden; });
   $('nutri-save').addEventListener('click', function () {
     var T = { kcal: +$('nutri-kcal').value || 2200, tol: +$('nutri-tol').value || 0, protein: +$('nutri-prot').value || 160 };

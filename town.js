@@ -10924,8 +10924,8 @@
   // Moves the camera to look at a secret (the page's "Show me" button).
   Town.prototype.focusOn = function (id) {
     id = String(id).split('#')[0];
-    var p = this.st.secretPos[id];
-    if (!p) return;
+    var p = id === 'leangarden' ? this.gardenSpot : this.st.secretPos[id];
+    if (!p) return false;
     var c = this.controls, off = this.camera.position.clone().sub(c.target), y = groundY(p.x, p.z);
     this.fit.auto = false;
     c.target.set(p.x, y + (id === 'dragon' ? 18 : id === 'rainbow' ? 10 : 2), p.z);
@@ -10934,6 +10934,7 @@
     this.camera.updateProjectionMatrix();
     c.update();
     this.needsRender = true;
+    return true;
   };
   // Fireworks: bursts of coloured sparks over the town for a while.
   var FW_COLORS = ['#ff5a4a', '#ffd23a', '#5ab0ff', '#7aff7a', '#ff7ae0', '#ffffff', '#ffa03a'];
