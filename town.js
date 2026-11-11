@@ -8427,13 +8427,26 @@
   };
   // H: pop straight home, wherever you are.
   // ===== Interiors: the library, the church and the Slow Pour =====
-  // Each is a room a world away (like the den), built fresh every time you walk in so it shows
-  // what you've done: the books you've read on the shelves, a stained-glass pane for every book of
-  // the Bible you've finished, a mug on the rack for every friend you've worked out with.
-  var ROOMS = {
-    library: { x: -760, z: -700, base: 600, hx: 4.4, hz: 3.4, y: 0.1, wall: 'holdStone', floor: 'woodLight', title: 'the library' },
-    church: { x: -820, z: -700, base: 600, hx: 3.0, hz: 5.4, y: 0.1, wall: 'stone', floor: 'stone', title: 'the church' },
-    pub: { x: -880, z: -700, base: 600, hx: 4.2, hz: 3.2, y: 0.1, wall: 'logwood', floor: 'wood', title: 'the Slow Pour' }
+  // Each is a room a world away (like the den), built fresh every time you walk in so it matches
+  // the building outside (a log cabin is a log cabin inside; the grand library has a gallery and a
+  // dome) and shows what you've done: a spine on the shelves for every book, a stained-glass pane
+  // for every book of the Bible you've finished, a mug on the rack for every training friend.
+  var ROOM_AT = { library: [-760, -700], church: [-820, -700], pub: [-880, -700] };
+  Town.prototype.roomTier = function (kind) {
+    var s = this.st;
+    if (kind === 'library') { var p = s.library.pages; return p < 1500 ? 'cabin' : p < 6000 ? 'brick' : 'grand'; }
+    if (kind === 'church') { var c = s.bible.chapters; return c < 100 ? 'chapel' : c < 400 ? 'brick' : 'stone'; }
+    return s.drinks >= 200 ? 'inn' : 'tavern';
+  };
+  Town.prototype.roomDims = function (kind) {
+    var t = this.roomTier(kind), at = ROOM_AT[kind], R = { x: at[0], z: at[1], base: 600, y: 0.1, kind: kind, tier: t };
+    var D = {
+      library: { cabin: [2.8, 2.3, 2.6, 'logwood', 'wood'], brick: [4.4, 3.4, 3.1, 'brick', 'woodLight'], grand: [6.2, 4.4, 5.2, 'holdStone', 'woodLight'] },
+      church: { chapel: [2.2, 3.0, 2.8, 'logwood', 'wood'], brick: [2.7, 4.4, 3.4, 'plaster', 'wood'], stone: [3.2, 5.8, 4.6, 'stone', 'stone'] },
+      pub: { tavern: [3.4, 2.8, 2.8, 'logwood', 'wood'], inn: [4.8, 3.5, 3.0, 'logwood', 'wood'] }
+    }[kind][t];
+    R.hx = D[0]; R.hz = D[1]; R.H = D[2]; R.wall = D[3]; R.floor = D[4];
+    return R;
   };
   Town.prototype.roomOK = function (kind) {
     var s = this.st;
@@ -8443,23 +8456,24 @@
     return false;
   };
   Town.prototype.buildRoom = function (kind) {
-    var self = this, R = ROOMS[kind], g = new T.Group(), F = R.y, G = this.glowMats();
+    var self = this, R = this.roomDims(kind), g = new T.Group(), F = R.y, G = this.glowMats(), H = R.H;
     g.position.set(R.x, R.base, R.z); this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, y, z, par) { var m = self.part(par || g, geo, mat, sx, sy, sz, x, y, z); m.castShadow = false; return m; }
     var dark = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ color: '#100b08' })); dark.scale.set(300, 0.02, 300); dark.position.y = -0.4; g.add(dark);
-    // Floor: planks (or flagstones in the church).
-    var nb = 10;
+    var nb = Math.round(R.hz * 3);
     for (var i = 0; i < nb; i++) P(this.geo.box, this.mat(R.floor, i % 3), R.hx * 2, 0.1, R.hz * 2 / nb - 0.02, 0, F - 0.05, -R.hz + (i + 0.5) * R.hz * 2 / nb);
-    var H = kind === 'church' ? 4.2 : 3.0, walls = [], solid = [], spots = [], flames = [], spin = [];
+    var walls = [], solid = [], spots = [], flames = [], spin = [];
     [[0, -1], [-1, 0], [0, 1], [1, 0]].forEach(function (n) {
       var w = new T.Group(), along = n[0] === 0; g.add(w);
       var len = along ? R.hx * 2 + 0.6 : R.hz * 2 + 0.6, wx = n[0] * (R.hx + 0.15), wz = n[1] * (R.hz + 0.15);
-      P(self.geo.box, self.mat(R.wall, 0), along ? len : 0.3, H, along ? 0.3 : len, wx, H / 2, wz, w);
-      P(self.geo.box, self.mat(kind === 'pub' ? 'logwood' : 'wood', 1), along ? len : 0.36, 0.2, along ? 0.36 : len, wx, H - 0.05, wz, w);
+      if (R.wall === 'logwood') {
+        // log walls: round logs stacked, with the ends poking past the corners
+        for (var r = 0; r < Math.ceil(H / 0.3); r++) { var lg = P(self.geo.cyl6, self.mat('logwood', r % 2), 0.17, len + 0.3, 0.17, wx, 0.15 + r * 0.3, wz, w); lg.rotation.set(along ? 0 : Math.PI / 2, 0, along ? Math.PI / 2 : 0); }
+      } else P(self.geo.box, self.mat(R.wall, R.wall === 'plaster' ? 0 : 1), along ? len : 0.3, H, along ? 0.3 : len, wx, H / 2, wz, w);
+      P(self.geo.box, self.mat('wood', 1), along ? len : 0.36, 0.2, along ? 0.36 : len, wx, H - 0.05, wz, w);
       P(self.geo.box, self.mat('wood', 0), along ? len : 0.34, 0.16, along ? 0.34 : len, wx, 0.08, wz, w);
-      walls.push({ g: w, nx: n[0], nz: n[1], parts: w });
+      walls.push({ g: w, nx: n[0], nz: n[1] });
     });
-    // The door you came in by, in the middle of the front wall.
     var front = walls[2].g;
     P(this.geo.box, this.mat('wood'), 1.0, 2.0, 0.08, 0, F + 1.0, R.hz - 0.02, front);
     P(this.geo.ball, this.mat('gold'), 0.05, 0.05, 0.05, 0.35, F + 1.0, R.hz - 0.08, front);
@@ -8469,45 +8483,54 @@
     // (anything fixed to a wall hangs on that wall, so it steps aside with it when the camera's behind)
     function wallOf(x, z) { return Math.abs(z) > R.hz - 0.7 ? walls[z < 0 ? 0 : 2].g : Math.abs(x) > R.hx - 0.7 ? walls[x < 0 ? 1 : 3].g : g; }
     function lamp(x, y, z) { var par = wallOf(x, z), c = new T.Mesh(self.geo.box, G.lamp); c.scale.set(0.16, 0.2, 0.16); c.position.set(x, y, z); par.add(c); var h = new T.Mesh(self.geo.ball, G.halo); h.scale.setScalar(0.5); h.position.set(x, y, z); par.add(h); }
-    function fireplace(x, z, ry) {
+    function fireplace(x, z, ry, stove) {
       var f = new T.Group(); f.position.set(x, F, z); f.rotation.y = ry; wallOf(x, z).add(f);
-      P(self.geo.box, self.mat('stone', 1), 1.6, 1.4, 0.5, 0, 0.7, 0, f);
-      P(self.geo.box, self.mat('stone', 2), 1.9, 0.14, 0.7, 0, 1.45, 0.05, f);
-      P(self.geo.box, self.mat('stone', 0), 0.9, 1.6, 0.4, 0, 2.2, -0.05, f);
-      P(self.geo.box, self.mat('stoneDark'), 0.9, 0.7, 0.1, 0, 0.45, 0.22, f).material = new T.MeshBasicMaterial({ color: '#1a0f0a' });
-      [-0.12, 0.12].forEach(function (zz) { var lg = P(self.geo.cyl6, self.mat('logwood', 0), 0.06, 0.6, 0.06, 0, 0.12, 0.3 + zz, f); lg.rotation.z = Math.PI / 2; });
-      [[-0.12, 0.16], [0.1, 0.13], [0, 0.2]].forEach(function (q, k) { var fl = new T.Mesh(self.geo.cone, k === 2 ? G.ember : G.flame); fl.scale.set(0.12, q[1] * 2, 0.12); fl.position.set(q[0], 0.18 + q[1], 0.3); f.add(fl); flames.push({ fire: fl, h: q[1] * 2, ph: k * 2 }); });
+      if (stove) {
+        // a little iron wood stove with a pipe up through the roof
+        P(self.geo.box, self.mat('stoneDark'), 0.7, 0.7, 0.55, 0, 0.45, 0.1, f);
+        P(self.geo.cyl6, self.mat('stoneDark'), 0.1, H, 0.1, 0, 0.8 + H / 2, 0, f);
+        P(self.geo.box, self.mat('stoneDark'), 0.36, 0.3, 0.05, 0, 0.45, 0.39, f).material = new T.MeshBasicMaterial({ color: '#ff7a2a' });
+        flames.push({ fire: P(self.geo.cone, self.mat('stoneDark'), 0.1, 0.2, 0.1, 0, 0.5, 0.42, f), h: 0.2, ph: 1 });
+        flames[flames.length - 1].fire.material = G.flame;
+      } else {
+        P(self.geo.box, self.mat('stone', 1), 1.6, 1.4, 0.5, 0, 0.7, 0, f);
+        P(self.geo.box, self.mat('stone', 2), 1.9, 0.14, 0.7, 0, 1.45, 0.05, f);
+        P(self.geo.box, self.mat('stone', 0), 0.9, Math.max(0.8, H - 1.5), 0.4, 0, 1.5 + Math.max(0.8, H - 1.5) / 2, -0.05, f);
+        P(self.geo.box, self.mat('stoneDark'), 0.9, 0.7, 0.1, 0, 0.45, 0.22, f).material = new T.MeshBasicMaterial({ color: '#1a0f0a' });
+        [-0.12, 0.12].forEach(function (zz) { var lg = P(self.geo.cyl6, self.mat('logwood', 0), 0.06, 0.6, 0.06, 0, 0.12, 0.3 + zz, f); lg.rotation.z = Math.PI / 2; });
+        [[-0.12, 0.16], [0.1, 0.13], [0, 0.2]].forEach(function (q, k) { var fl = new T.Mesh(self.geo.cone, k === 2 ? G.ember : G.flame); fl.scale.set(0.12, q[1] * 2, 0.12); fl.position.set(q[0], 0.18 + q[1], 0.3); f.add(fl); flames.push({ fire: fl, h: q[1] * 2, ph: k * 2 }); });
+      }
       var fh = new T.Mesh(self.geo.ball, G.halo); fh.scale.setScalar(0.7); fh.position.set(0, 0.45, 0.4); f.add(fh);
       return f;
     }
-    var D = { g: g, kind: kind, walls: walls, solid: solid, spots: spots, flames: flames, spin: spin };
-    if (kind === 'library') this.furnishLibrary(D, P, block, lamp, fireplace);
-    if (kind === 'church') this.furnishChurch(D, P, block, lamp);
-    if (kind === 'pub') this.furnishPub(D, P, block, lamp, fireplace);
+    function bulbs(y, step) {
+      // a string of warm bulbs zig-zagging across the ceiling
+      for (var x = -R.hx + 0.4; x < R.hx - 0.3; x += step) for (var z = -R.hz + 0.6; z < R.hz - 0.3; z += 1.4) {
+        var b = new T.Mesh(self.geo.ball, G.lamp); b.scale.setScalar(0.05); b.position.set(x + (Math.round(z) % 2) * step / 2, y - Math.abs(Math.sin(x * 1.3)) * 0.15, z); g.add(b);
+      }
+    }
+    var D = { g: g, kind: kind, R: R, walls: walls, solid: solid, spots: spots, flames: flames, spin: spin };
+    var T0 = { P: P, block: block, lamp: lamp, fireplace: fireplace, bulbs: bulbs, wallOf: wallOf };
+    if (kind === 'library') this.furnishLibrary(D, T0);
+    if (kind === 'church') this.furnishChurch(D, T0);
+    if (kind === 'pub') this.furnishPub(D, T0);
     return D;
   };
-  Town.prototype.furnishLibrary = function (D, P, block, lamp, fireplace) {
-    var self = this, R = ROOMS.library, F = R.y, L = this.st.library, books = L.books.slice(), n = books.length;
-    // Tall shelves along the back wall and the left wall, a spine for every book you've read (in
-    // order, newest last), with gaps still to fill.
-    var cases = [];
-    for (var c = 0; c < 4; c++) cases.push({ x: -3.3 + c * 2.2, z: -R.hz + 0.3, ry: 0 });
-    for (c = 0; c < 2; c++) cases.push({ x: -R.hx + 0.3, z: -1.6 + c * 2.0, ry: Math.PI / 2 });
-    // (filled from the middle cases outward, eye-level shelves first)
-    var k = 0, ORDER = [1, 2, 0, 3, 4, 5], SH = [2, 1, 3, 0, 4], slotOf = {};
-    ORDER.forEach(function (ci) { slotOf[ci] = []; });
-    // work out which books land on which case's shelves, in reading order
-    var queue = books.map(function (b, i) { return i; }), fillCase = {};
-    ORDER.forEach(function (ci) { fillCase[ci] = {}; SH.forEach(function (sh) { var list = [], x = -0.88; while (queue.length) { var b = books[queue[0]], w = 0.07 + Math.min(0.08, (b.pages || 250) / 5000); if (x + w > 0.86) break; list.push(queue.shift()); x += w + 0.01; } fillCase[ci][sh] = list; }); });
+  // Bookcases: open fronts, a coloured spine for every book you've read (filled from the middle
+  // outward, eye-level shelves first), and a plant or a candle on the empty shelves.
+  Town.prototype.bookcases = function (D, T0, cases, books, shelves) {
+    var self = this, F = D.R.y, P = T0.P, SH = [2, 1, 3, 0, 4, 5, 6, 7].filter(function (s) { return s < shelves; }), queue = books.map(function (b, i) { return i; }), fill = {};
+    var order = cases.map(function (c, i) { return i; }).sort(function (a, b) { return (cases[a].ry ? 1 : 0) - (cases[b].ry ? 1 : 0) || Math.abs(cases[a].x) - Math.abs(cases[b].x); });
+    order.forEach(function (ci) { fill[ci] = {}; SH.forEach(function (sh) { var list = [], x = -0.88; while (queue.length) { var b = books[queue[0]], w = 0.07 + Math.min(0.08, (b.pages || 250) / 5000); if (x + w > 0.86) break; list.push(queue.shift()); x += w + 0.01; } fill[ci][sh] = list; }); });
     cases.forEach(function (cs, ci) {
-      var gg = new T.Group(); gg.position.set(cs.x, F, cs.z); gg.rotation.y = cs.ry; D.g.add(gg);
-      [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('wood'), 0.08, 2.65, 0.46, sd * 0.98, 1.32, 0, gg); });
-      P(self.geo.box, self.mat('wood'), 2.04, 0.1, 0.5, 0, 2.66, 0, gg);
-      P(self.geo.box, self.mat('woodLight'), 1.9, 2.55, 0.04, 0, 1.3, -0.21, gg).material = new T.MeshLambertMaterial({ color: '#4a3020' });
-      for (var sh = 0; sh < 5; sh++) {
-        var y = 0.15 + sh * 0.5;
+      var gg = new T.Group(); gg.position.set(cs.x, F + (cs.y || 0), cs.z); gg.rotation.y = cs.ry; (cs.y ? D.g : T0.wallOf(cs.x, cs.z)).add(gg);
+      var h = shelves * 0.5 + 0.15;
+      [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('wood'), 0.08, h, 0.46, sd * 0.98, h / 2, 0, gg); });
+      P(self.geo.box, self.mat('wood'), 2.04, 0.1, 0.5, 0, h, 0, gg);
+      P(self.geo.box, self.mat('woodLight'), 1.9, h - 0.05, 0.04, 0, h / 2, -0.21, gg).material = new T.MeshLambertMaterial({ color: '#4a3020' });
+      for (var sh = 0; sh < shelves; sh++) {
+        var y = 0.15 + sh * 0.5, x = -0.88, mine = fill[ci][sh] || [];
         P(self.geo.box, self.mat('woodLight'), 1.9, 0.05, 0.4, 0, y, 0.02, gg);
-        var x = -0.88, mine = fillCase[ci][sh];
         mine.forEach(function (bi) {
           var b = books[bi], w = 0.07 + Math.min(0.08, (b.pages || 250) / 5000), hgt = 0.32 + ((bi * 37) % 9) / 90;
           P(self.geo.box, self.mat('flag', bi % 6), w, hgt, 0.3, x + w / 2, y + 0.025 + hgt / 2, 0.05, gg);
@@ -8517,156 +8540,238 @@
         });
         if (!mine.length && (sh + ci) % 3 === 1) { P(self.geo.cyl6, self.mat('stone', ci % 3), 0.07, 0.16, 0.07, 0.5, y + 0.1, 0.05, gg); P(self.geo.blob, self.mat('leaf', ci % 3), 0.14, 0.14, 0.14, 0.5, y + 0.26, 0.05, gg); }
       }
-      var wx = cs.ry ? cs.x + 0.55 : cs.x, wz = cs.ry ? cs.z : cs.z + 0.55;
-      block(cs.ry ? cs.x - 0.3 : cs.x - 1.0, cs.ry ? cs.x + 0.3 : cs.x + 1.0, cs.ry ? cs.z - 1.0 : cs.z - 0.3, cs.ry ? cs.z + 1.0 : cs.z + 0.3);
-      if (ci === 1) D.spots.push({ k: 'shelf', x: wx, z: wz, r: 1.1 });
+      if (!cs.y) T0.block(cs.ry ? cs.x - 0.3 : cs.x - 1.0, cs.ry ? cs.x + 0.3 : cs.x + 1.0, cs.ry ? cs.z - 1.0 : cs.z - 0.3, cs.ry ? cs.z + 1.0 : cs.z + 0.3);
     });
-    // A rolling ladder on the back shelves.
-    var lad = new T.Group(); lad.position.set(0.9, F, -R.hz + 0.75); lad.rotation.x = -0.25; D.g.add(lad);
-    [-0.22, 0.22].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.05, 2.7, 0.05, x, 1.3, 0, lad); });
-    for (var r = 0; r < 8; r++) P(self.geo.box, self.mat('woodLight'), 0.44, 0.04, 0.04, 0, 0.25 + r * 0.32, 0, lad);
-    // The fire on the right wall, two armchairs and a rug: curl up and read.
-    fireplace(R.hx - 0.25, -0.6, -Math.PI / 2);
-    D.solid.push([R.hx - 0.55, R.hx, -1.6, 0.4]);
-    P(this.geo.cyl, this.mat('canvas', 1), 1.3, 0.02, 1.0, 2.4, F + 0.01, -0.6);
-    [[2.4, -1.7, 0.4], [2.4, 0.5, Math.PI - 0.4]].forEach(function (a, ai) {
-      var ch = new T.Group(); ch.position.set(a[0], F, a[1]); ch.rotation.y = a[2]; D.g.add(ch);
-      P(self.geo.box, self.mat('canvas', ai ? 0 : 1), 0.7, 0.35, 0.7, 0, 0.3, 0, ch);
-      P(self.geo.box, self.mat('canvas', ai ? 0 : 1), 0.7, 0.75, 0.16, 0, 0.7, -0.3, ch);
-      [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('canvas', ai ? 0 : 1), 0.14, 0.5, 0.7, sd * 0.36, 0.45, 0, ch); });
-      block(a[0] - 0.4, a[0] + 0.4, a[1] - 0.4, a[1] + 0.4);
-      D.spots.push({ k: 'chair', x: a[0] - 0.55, z: a[1], r: 0.8, seat: [a[0], a[1], a[2]] });
-    });
-    // The reading desk in the middle: an open book (the last one you read), a green lamp, a globe.
-    P(this.geo.box, this.mat('wood'), 1.8, 0.08, 0.9, -1.0, F + 0.78, 0.6);
-    [[-1.8, 0.25], [-0.2, 0.25], [-1.8, 0.95], [-0.2, 0.95]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.08, 0.76, 0.08, l[0], F + 0.38, l[1]); });
-    P(this.geo.box, this.mat('plaster', 0), 0.5, 0.02, 0.34, -1.1, F + 0.83, 0.6).rotation.z = 0.05;
-    P(this.geo.box, this.mat('flag', 1), 0.52, 0.03, 0.36, -1.1, F + 0.815, 0.6);
-    P(this.geo.cyl6, this.mat('copper'), 0.03, 0.4, 0.03, -0.45, F + 1.02, 0.45);
-    var shade = P(this.geo.cone, this.mat('hedge'), 0.18, 0.12, 0.18, -0.45, F + 1.24, 0.45);
-    var bulb = new T.Mesh(this.geo.ball, this.glowMats().lamp); bulb.scale.setScalar(0.05); bulb.position.set(-0.45, F + 1.17, 0.45); D.g.add(bulb);
-    var globe = new T.Group(); globe.position.set(-1.7, F + 0.98, 0.5); D.g.add(globe);
-    P(this.geo.ball, this.mat('glass', 4), 0.16, 0.16, 0.16, 0, 0, 0, globe); P(this.geo.ball, this.mat('hedge'), 0.1, 0.08, 0.1, 0.07, 0.04, 0.08, globe);
-    D.spin.push(globe);
-    block(-1.95, -0.05, 0.1, 1.1);
-    D.spots.push({ k: 'desk', x: -1.0, z: 1.4, r: 0.9 });
-    [[-1.0, -0.1], [-1.0, 1.35]].forEach(function (s) { P(self.geo.box, self.mat('wood'), 0.42, 0.42, 0.42, s[0], F + 0.21, s[1]); });
-    // The golden owl, once the library is complete.
-    if (L.pages >= 50000) { P(this.geo.ball, this.mat('gold'), 0.25, 0.32, 0.22, -3.3, F + 2.85, -R.hz + 0.35); P(this.geo.cone, this.mat('gold'), 0.06, 0.12, 0.06, -3.4, F + 3.1, -R.hz + 0.35); }
-    // Lamps on the walls, candles on the mantel.
-    [[-2.2, -R.hz + 0.6], [2.2, -R.hz + 0.6], [-2.2, R.hz - 0.25], [2.2, R.hz - 0.25]].forEach(function (l) { lamp(l[0], F + 2.5, l[1]); });
-    [-0.9, -0.3, 0.3].forEach(function (z, i) { self.candle(D.g, R.hx - 0.3, F + 1.53, z - 0.6, 0.12 + i * 0.04, D.flames); });
-    D.light = { hemi: '#d9a874', ground: '#3a2616', i: 0.95 };
-    D.counts = { books: n, pages: L.pages };
+    return queue.length; // books that didn't fit
   };
-  Town.prototype.furnishChurch = function (D, P, block, lamp) {
-    var self = this, R = ROOMS.church, F = R.y, B = this.st.bible, done = {}, nDone = B.books.length;
-    B.books.forEach(function (bi) { done[bi] = true; });
-    // Stained glass: a pane for every book of the Bible, lit in colour once you've read all of it.
-    // Old Testament down the left, New Testament down the right.
-    for (var bi = 0; bi < 66; bi++) {
-      var nt = bi >= 39, k = nt ? bi - 39 : bi, cols = nt ? 9 : 13, row = Math.floor(k / cols), col = k % cols;
-      var x = (nt ? 1 : -1) * (R.hx - 0.02), z = -R.hz + 1.1 + col * ((R.hz * 2 - 2.6) / (cols - 1)), y = F + 1.6 + row * 0.75;
-      var pane = P(this.geo.box, done[bi] ? this.mat('glass', bi % 12) : this.mat('stoneDark'), 0.06, 0.6, 0.28, x, y, z);
-      if (done[bi]) pane.material = new T.MeshBasicMaterial({ color: new T.Color().setHSL((bi * 0.137) % 1, 0.75, 0.6) });
+  Town.prototype.armchair = function (D, T0, x, z, ry, col) {
+    var self = this, P = T0.P, F = D.R.y, ch = new T.Group(); ch.position.set(x, F, z); ch.rotation.y = ry; D.g.add(ch);
+    P(this.geo.box, this.mat('canvas', col), 0.7, 0.35, 0.7, 0, 0.3, 0, ch);
+    P(this.geo.box, this.mat('canvas', col), 0.7, 0.75, 0.16, 0, 0.7, -0.3, ch);
+    [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('canvas', col), 0.14, 0.5, 0.7, sd * 0.36, 0.45, 0, ch); });
+    T0.block(x - 0.4, x + 0.4, z - 0.4, z + 0.4);
+    var fx = Math.sin(ry), fz = Math.cos(ry);
+    D.spots.push({ k: 'chair', x: x + fx * 0.75, z: z + fz * 0.75, r: 0.75, seat: [x, z, ry] });
+  };
+  Town.prototype.furnishLibrary = function (D, T0) {
+    var self = this, R = D.R, F = R.y, P = T0.P, L = this.st.library, books = L.books.slice(), t = R.tier;
+    var cases = [];
+    if (t === 'cabin') {
+      // A log reading cabin: one bookcase, a wood stove, a rocking chair and a rag rug.
+      cases.push({ x: -0.9, z: -R.hz + 0.3, ry: 0 });
+      T0.fireplace(R.hx - 0.4, -0.9, -Math.PI / 2, true); T0.block(R.hx - 0.8, R.hx, -1.4, -0.4);
+      P(this.geo.cyl, this.mat('canvas', 0), 1.0, 0.02, 0.8, 0.8, F + 0.01, 0.1);
+      this.armchair(D, T0, 1.2, 0.3, -Math.PI / 2 - 0.5, 1);
+      P(this.geo.box, this.mat('wood'), 0.9, 0.06, 0.6, -1.6, F + 0.7, 0.9); [[-1.95, 0.7], [-1.25, 0.7], [-1.95, 1.1], [-1.25, 1.1]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.06, 0.68, 0.06, l[0], F + 0.34, l[1]); });
+      T0.block(-2.1, -1.1, 0.55, 1.25); D.spots.push({ k: 'desk', x: -1.0, z: 0.9, r: 0.8 });
+      this.candle(D.g, -1.4, F + 0.73, 0.85, 0.14, D.flames);
+      T0.lamp(-R.hx + 0.25, F + 1.9, -0.8);
+    } else {
+      var grand = t === 'grand';
+      // Brick: shelves along the back and left walls, the fire on the right, a reading desk.
+      // Grand: a second tier of shelves up on a gallery, and a skylight under the copper dome.
+      var nb = grand ? 5 : 4, sp = grand ? 2.3 : 2.2;
+      for (var c = 0; c < nb; c++) cases.push({ x: -(nb - 1) * sp / 2 + c * sp, z: -R.hz + 0.3, ry: 0 });
+      for (c = 0; c < (grand ? 3 : 2); c++) cases.push({ x: -R.hx + 0.3, z: (grand ? -2.4 : -1.6) + c * 2.2, ry: Math.PI / 2 });
+      T0.fireplace(R.hx - 0.25, -0.6, -Math.PI / 2); D.solid.push([R.hx - 0.55, R.hx, -1.6, 0.4]);
+      P(this.geo.cyl, this.mat('canvas', 1), 1.3, 0.02, 1.0, R.hx - 2.0, F + 0.01, -0.6);
+      this.armchair(D, T0, R.hx - 2.0, -1.7, 0.4, 1); this.armchair(D, T0, R.hx - 2.0, 0.5, Math.PI - 0.4, 0);
+      var lad = new T.Group(); lad.position.set(0.9, F, -R.hz + 0.75); lad.rotation.x = -0.25; D.g.add(lad);
+      [-0.22, 0.22].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.05, 2.7, 0.05, x, 1.3, 0, lad); });
+      for (var r = 0; r < 8; r++) P(this.geo.box, this.mat('woodLight'), 0.44, 0.04, 0.04, 0, 0.25 + r * 0.32, 0, lad);
+      var dx = grand ? -1.6 : -1.0;
+      P(this.geo.box, this.mat('wood'), 1.8, 0.08, 0.9, dx, F + 0.78, 0.6);
+      [[-0.8, -0.35], [0.8, -0.35], [-0.8, 0.35], [0.8, 0.35]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.08, 0.76, 0.08, dx + l[0], F + 0.38, 0.6 + l[1]); });
+      P(this.geo.box, this.mat('plaster', 0), 0.5, 0.02, 0.34, dx - 0.1, F + 0.83, 0.6).rotation.z = 0.05;
+      P(this.geo.box, this.mat('flag', 1), 0.52, 0.03, 0.36, dx - 0.1, F + 0.815, 0.6);
+      P(this.geo.cyl6, this.mat('copper'), 0.03, 0.4, 0.03, dx + 0.55, F + 1.02, 0.45);
+      P(this.geo.cone, this.mat('hedge'), 0.18, 0.12, 0.18, dx + 0.55, F + 1.24, 0.45);
+      var bulb = new T.Mesh(this.geo.ball, this.glowMats().lamp); bulb.scale.setScalar(0.05); bulb.position.set(dx + 0.55, F + 1.17, 0.45); D.g.add(bulb);
+      var globe = new T.Group(); globe.position.set(dx - 0.7, F + 0.98, 0.5); D.g.add(globe);
+      P(this.geo.ball, this.mat('glass', 4), 0.16, 0.16, 0.16, 0, 0, 0, globe); P(this.geo.ball, this.mat('hedge'), 0.1, 0.08, 0.1, 0.07, 0.04, 0.08, globe);
+      D.spin.push(globe);
+      T0.block(dx - 0.95, dx + 0.95, 0.1, 1.1); D.spots.push({ k: 'desk', x: dx, z: 1.4, r: 0.9 });
+      [[-2.2, -R.hz + 0.6], [2.2, -R.hz + 0.6], [-2.2, R.hz - 0.25], [2.2, R.hz - 0.25]].forEach(function (l) { T0.lamp(l[0], F + 2.5, l[1]); });
+      [-0.9, -0.3, 0.3].forEach(function (z, i) { self.candle(D.g, R.hx - 0.3, F + 1.53, z - 0.6, 0.12 + i * 0.04, D.flames); });
+      if (grand) {
+        // the gallery: a walkway at 2.7 m round the back and left walls, with railings and more shelves
+        var gy = 2.75;
+        P(this.geo.box, this.mat('wood'), R.hx * 2, 0.12, 1.1, 0, F + gy, -R.hz + 0.55);
+        P(this.geo.box, this.mat('wood'), 1.1, 0.12, R.hz * 2 - 1.1, -R.hx + 0.55, F + gy, 0.55);
+        for (var px = -R.hx + 1.2; px < R.hx; px += 0.35) P(this.geo.box, this.mat('woodLight'), 0.04, 0.6, 0.04, px, F + gy + 0.36, -R.hz + 1.08);
+        P(this.geo.box, this.mat('woodLight'), R.hx * 2 - 1.1, 0.05, 0.06, 0.55, F + gy + 0.66, -R.hz + 1.08);
+        [-R.hx + 1.6, -1, 1.6, R.hx - 1.6].forEach(function (cx) { P(self.geo.cyl, self.mat('holdStone', 0), 0.14, gy, 0.14, cx, F + gy / 2, -R.hz + 1.1); T0.block(cx - 0.2, cx + 0.2, -R.hz + 0.9, -R.hz + 1.3); });
+        var up = [];
+        for (c = 0; c < 5; c++) up.push({ x: -4.6 + c * 2.3, z: -R.hz + 0.3, ry: 0, y: gy + 0.06 });
+        var spare = this.bookcases(D, T0, cases, books, 5);
+        this.bookcases(D, T0, up, books.slice(books.length - spare), 4);
+        // the skylight: a ring of copper and a glowing disc of sky above the reading desk
+        var sky = new T.Mesh(this.geo.cyl, new T.MeshBasicMaterial({ color: this.dark ? '#2a3a66' : '#bfe0ff' })); sky.scale.set(1.6, 0.04, 1.6); sky.position.set(0, F + R.H - 0.05, 0); D.g.add(sky);
+        P(this.geo.torus, this.mat('copper'), 1.7, 1.7, 1.7, 0, F + R.H - 0.08, 0).rotation.x = Math.PI / 2;
+        var beam = new T.Mesh(this.geo.cyl, this.glowMats().halo); beam.scale.set(1.4, R.H - 0.2, 1.4); beam.position.set(0, F + R.H / 2, 0); D.g.add(beam);
+        // wings: an archway through to more stacks on each side, once they're built outside
+        if (L.pages >= 32000) { P(this.geo.box, this.mat('stoneDark'), 0.1, 2.3, 1.4, R.hx - 0.02, F + 1.15, 2.4, D.walls[3].g).material = new T.MeshBasicMaterial({ color: '#2a1a10' }); }
+        if (L.pages >= 50000) { P(this.geo.ball, this.mat('gold'), 0.25, 0.32, 0.22, 0, F + gy + 1.0, -R.hz + 0.6); P(this.geo.cone, this.mat('gold'), 0.06, 0.12, 0.06, -0.1, F + gy + 1.25, -R.hz + 0.6); }
+        D.spots.push({ k: 'shelf', x: cases[2].x, z: cases[2].z + 0.85, r: 1.1 });
+        D.light = { hemi: '#e2bf8c', ground: '#3a2a1a', i: 1.0 };
+        return;
+      }
     }
-    // The aisle and pews either side.
-    P(this.geo.box, this.mat('canvas', 0), 1.0, 0.02, R.hz * 2 - 2.0, 0, F + 0.01, 0.4);
-    for (var p = 0; p < 6; p++) [-1, 1].forEach(function (sd) {
-      var z = -1.9 + p * 1.15, x = sd * 1.65;
-      P(self.geo.box, self.mat('wood'), 1.9, 0.08, 0.42, x, F + 0.45, z);
-      P(self.geo.box, self.mat('wood'), 1.9, 0.55, 0.06, x, F + 0.75, z + 0.22);
-      [-0.85, 0.85].forEach(function (e) { P(self.geo.box, self.mat('wood'), 0.06, 0.95, 0.5, x + e, F + 0.47, z); });
-      block(x - 1.0, x + 1.0, z - 0.25, z + 0.28);
-      if (p === 2) D.spots.push({ k: 'pew', x: sd * 0.7, z: z, r: 0.6, seat: [x - sd * 0.5, z, Math.PI] });
-    });
-    // The altar at the far end: a white cloth, a gold cross, and a candle for every hundred chapters.
-    P(this.geo.box, this.mat('stone', 2), 2.4, 0.25, 1.3, 0, F + 0.12, -R.hz + 0.9);
-    P(this.geo.box, this.mat('stone', 1), 1.6, 0.9, 0.6, 0, F + 0.7, -R.hz + 0.7);
-    P(this.geo.box, this.mat('plaster', 0), 1.7, 0.04, 0.66, 0, F + 1.17, -R.hz + 0.7);
-    P(this.geo.box, this.mat('gold'), 0.08, 1.0, 0.08, 0, F + 2.6, -R.hz + 0.2);
-    P(this.geo.box, this.mat('gold'), 0.55, 0.08, 0.08, 0, F + 2.85, -R.hz + 0.2);
-    var nc = Math.max(1, Math.min(12, Math.floor(B.chapters / 100) + 1));
-    for (var c = 0; c < nc; c++) this.candle(D.g, -0.7 + (c % 6) * 0.28, F + 1.19, -R.hz + (c < 6 ? 0.55 : 0.85), 0.14 + (c % 3) * 0.05, D.flames);
-    block(-1.2, 1.2, -R.hz, -R.hz + 1.55);
-    D.spots.push({ k: 'altar', x: 0, z: -R.hz + 1.9, r: 0.9 });
-    // The lectern with the open Bible.
-    P(this.geo.box, this.mat('wood'), 0.12, 1.0, 0.12, 1.4, F + 0.5, -R.hz + 2.4);
-    P(this.geo.box, this.mat('wood'), 0.6, 0.06, 0.45, 1.4, F + 1.05, -R.hz + 2.4).rotation.x = 0.35;
-    P(this.geo.box, this.mat('plaster', 0), 0.5, 0.03, 0.36, 1.4, F + 1.1, -R.hz + 2.42).rotation.x = 0.35;
-    P(this.geo.box, this.mat('flag', 0), 0.04, 0.01, 0.3, 1.4, F + 1.12, -R.hz + 2.42).rotation.x = 0.35;
-    block(1.2, 1.6, -R.hz + 2.2, -R.hz + 2.6);
-    D.spots.push({ k: 'bible', x: 1.4, z: -R.hz + 3.0, r: 0.7 });
-    // The bell rope by the door.
-    P(this.geo.cyl6, this.mat('canvas', 2), 0.03, 3.4, 0.03, -1.2, F + 2.5, R.hz - 0.6);
-    P(this.geo.box, this.mat('flag', 0), 0.09, 0.3, 0.09, -1.2, F + 0.9, R.hz - 0.6);
-    D.spots.push({ k: 'rope', x: -1.2, z: R.hz - 0.95, r: 0.6 });
-    // Chandeliers of candles down the nave.
-    [-2.5, 0.5, 3.0].forEach(function (z) {
-      P(self.geo.cyl6, self.mat('stoneDark'), 0.02, 0.9, 0.02, 0, F + 3.7, z);
-      P(self.geo.torus, self.mat('stoneDark'), 0.5, 0.5, 0.5, 0, F + 3.2, z).rotation.x = Math.PI / 2;
-      for (var q = 0; q < 6; q++) { var a = q / 6 * Math.PI * 2; self.candle(D.g, Math.cos(a) * 0.5, F + 3.22, z + Math.sin(a) * 0.5, 0.1, D.flames); }
-    });
-    D.light = { hemi: '#cdb8a0', ground: '#2c241e', i: 0.9 };
+    this.bookcases(D, T0, cases, books, t === 'cabin' ? 4 : 5);
+    var c0 = cases[Math.min(1, cases.length - 1)];
+    D.spots.push({ k: 'shelf', x: c0.x, z: c0.z + 0.85, r: 1.1 });
+    D.light = t === 'cabin' ? { hemi: '#c99560', ground: '#2e1d10', i: 0.85 } : { hemi: '#d9a874', ground: '#3a2616', i: 0.95 };
   };
-  Town.prototype.furnishPub = function (D, P, block, lamp, fireplace) {
-    var self = this, R = ROOMS.pub, F = R.y, s = this.st, friends = Object.keys(s.friends || {}).sort(function (a, b) { return (s.friends[b].n || 0) - (s.friends[a].n || 0); });
-    // The bar along the back wall: a counter, three taps, shelves of bottles behind.
-    P(this.geo.box, this.mat('wood'), 5.0, 1.05, 0.6, 0, F + 0.52, -R.hz + 1.3);
-    P(this.geo.box, this.mat('woodLight'), 5.2, 0.08, 0.75, 0, F + 1.08, -R.hz + 1.3);
-    P(this.geo.box, this.mat('gold'), 5.0, 0.04, 0.04, 0, F + 0.15, -R.hz + 1.62);
-    [-0.5, 0, 0.5].forEach(function (x, i) {
+  Town.prototype.furnishChurch = function (D, T0) {
+    var self = this, R = D.R, F = R.y, P = T0.P, B = this.st.bible, C = B.chapters, done = {}, t = R.tier;
+    B.books.forEach(function (bi) { done[bi] = true; });
+    // Stained glass (clear glass in the chapel): a pane for every book of the Bible, lit in colour
+    // once you've read all of it. Old Testament down the left, New Testament down the right.
+    var rows = 3, y0 = F + (t === 'chapel' ? 1.0 : 1.4), dy = Math.min(0.75, (R.H - (y0 - F) - 0.4) / rows);
+    for (var bi = 0; bi < 66; bi++) {
+      var nt = bi >= 39, k = nt ? bi - 39 : bi, cols = nt ? 9 : 13, row = Math.floor(k / cols), col = k % cols, span = R.hz * 2 - 2.6, step = span / (cols - 1);
+      var x = (nt ? 1 : -1) * (R.hx - (R.wall === 'logwood' ? 0.07 : 0.02)), z = -R.hz + 1.1 + col * step, y = y0 + row * dy;
+      var pane = P(this.geo.box, this.mat('stoneDark'), 0.06, dy * 0.8, Math.min(0.28, step * 0.8), x, y, z, D.walls[nt ? 3 : 1].g);
+      pane.material = done[bi] ? new T.MeshBasicMaterial({ color: new T.Color().setHSL((bi * 0.137) % 1, 0.75, 0.6) }) : (this.unreadGlass || (this.unreadGlass = new T.MeshBasicMaterial({ color: '#1c1a24', transparent: true, opacity: 0.28, depthWrite: false })));
+    }
+    // Pews (benches in the chapel) either side of the aisle.
+    var rowsP = t === 'chapel' ? 3 : t === 'brick' ? 4 : 6, pw = Math.min(1.9, R.hx - 0.75), gap = (R.hz * 2 - 3.6) / rowsP;
+    if (t !== 'chapel') P(this.geo.box, this.mat('canvas', t === 'stone' ? 0 : 1), 1.0, 0.02, R.hz * 2 - 2.0, 0, F + 0.01, 0.4);
+    for (var p = 0; p < rowsP; p++) [-1, 1].forEach(function (sd) {
+      var z = -R.hz + 2.6 + p * gap, x = sd * (0.55 + pw / 2);
+      P(self.geo.box, self.mat('wood'), pw, 0.08, 0.42, x, F + 0.45, z);
+      if (t !== 'chapel') { P(self.geo.box, self.mat('wood'), pw, 0.55, 0.06, x, F + 0.75, z + 0.22); [-1, 1].forEach(function (e) { P(self.geo.box, self.mat('wood'), 0.06, 0.95, 0.5, x + e * (pw / 2 - 0.03), F + 0.47, z); }); }
+      else [-1, 1].forEach(function (e) { P(self.geo.box, self.mat('logwood', 0), 0.1, 0.42, 0.3, x + e * (pw / 2 - 0.15), F + 0.21, z); });
+      T0.block(x - pw / 2 - 0.05, x + pw / 2 + 0.05, z - 0.25, z + 0.28);
+      if (p === Math.floor(rowsP / 2)) D.spots.push({ k: 'pew', x: sd * 0.35, z: z, r: 0.55, seat: [x - sd * (pw / 2 - 0.4), z, Math.PI] });
+    });
+    // The far end: a plain table and wooden cross in the chapel; an altar, a cross in gold and a
+    // candle for every hundred chapters in the brick and stone churches.
+    if (t === 'chapel') {
+      P(this.geo.box, this.mat('wood'), 1.2, 0.8, 0.6, 0, F + 0.4, -R.hz + 0.7);
+      P(this.geo.box, this.mat('woodLight'), 0.1, 1.2, 0.1, 0, F + 1.9, -R.hz + 0.2); P(this.geo.box, this.mat('woodLight'), 0.6, 0.1, 0.1, 0, F + 2.15, -R.hz + 0.2);
+      this.candle(D.g, -0.3, F + 0.81, -R.hz + 0.7, 0.16, D.flames); this.candle(D.g, 0.3, F + 0.81, -R.hz + 0.7, 0.16, D.flames);
+      T0.lamp(-R.hx + 0.25, F + 1.9, 0); T0.lamp(R.hx - 0.25, F + 1.9, 0);
+      T0.block(-0.7, 0.7, -R.hz, -R.hz + 1.05); D.spots.push({ k: 'altar', x: 0, z: -R.hz + 1.45, r: 0.8 });
+      // the Bible on the table
+      P(this.geo.box, this.mat('plaster', 0), 0.4, 0.03, 0.3, 0.1, F + 0.82, -R.hz + 0.75); P(this.geo.box, this.mat('flag', 0), 0.42, 0.02, 0.32, 0.1, F + 0.81, -R.hz + 0.75);
+      D.spots.push({ k: 'bible', x: 0.7, z: -R.hz + 1.4, r: 0.6 });
+    } else {
+      var stone = t === 'stone';
+      if (stone) { P(this.geo.box, this.mat('stone', 2), R.hx * 2, 0.22, 2.2, 0, F + 0.11, -R.hz + 1.1); } // the chancel step
+      P(this.geo.box, this.mat(stone ? 'stone' : 'wood', 1), 1.6, 0.9, 0.6, 0, F + 0.7, -R.hz + 0.7);
+      P(this.geo.box, this.mat('plaster', 0), 1.7, 0.04, 0.66, 0, F + 1.17, -R.hz + 0.7);
+      P(this.geo.box, this.mat('gold'), 0.08, 1.0, 0.08, 0, F + 2.6, -R.hz + 0.2); P(this.geo.box, this.mat('gold'), 0.55, 0.08, 0.08, 0, F + 2.85, -R.hz + 0.2);
+      var nc = Math.max(1, Math.min(12, Math.floor(C / 100) + 1));
+      for (var c = 0; c < nc; c++) this.candle(D.g, -0.7 + (c % 6) * 0.28, F + 1.19, -R.hz + (c < 6 ? 0.55 : 0.85), 0.14 + (c % 3) * 0.05, D.flames);
+      T0.block(-1.0, 1.0, -R.hz, -R.hz + 1.05); D.spots.push({ k: 'altar', x: 0, z: -R.hz + 1.9, r: 0.9 });
+      P(this.geo.box, this.mat('wood'), 0.12, 1.0, 0.12, 1.4, F + 0.5, -R.hz + 2.4);
+      P(this.geo.box, this.mat('wood'), 0.6, 0.06, 0.45, 1.4, F + 1.05, -R.hz + 2.4).rotation.x = 0.35;
+      P(this.geo.box, this.mat('plaster', 0), 0.5, 0.03, 0.36, 1.4, F + 1.1, -R.hz + 2.42).rotation.x = 0.35;
+      T0.block(1.2, 1.6, -R.hz + 2.2, -R.hz + 2.6); D.spots.push({ k: 'bible', x: 1.4, z: -R.hz + 3.0, r: 0.7 });
+      if (!stone) {
+        // a little pump organ against the left wall
+        P(this.geo.box, this.mat('wood'), 0.6, 1.1, 1.2, -R.hx + 0.35, F + 0.55, -R.hz + 2.2);
+        P(this.geo.box, this.mat('plaster', 0), 0.2, 0.04, 1.0, -R.hx + 0.72, F + 0.9, -R.hz + 2.2);
+        for (var kk = 0; kk < 10; kk++) P(this.geo.box, this.mat('stoneDark'), 0.12, 0.05, 0.03, -R.hx + 0.72, F + 0.93, -R.hz + 1.78 + kk * 0.09);
+        T0.block(-R.hx, -R.hx + 0.85, -R.hz + 1.5, -R.hz + 2.9); D.spots.push({ k: 'organ', x: -R.hx + 1.2, z: -R.hz + 2.2, r: 0.6 });
+        [[-R.hx + 0.25, -1], [R.hx - 0.25, -1], [-R.hx + 0.25, 2], [R.hx - 0.25, 2]].forEach(function (l) { T0.lamp(l[0], F + 2.3, l[1]); });
+      } else {
+        // candle chandeliers down the nave; the rose window glows over the door once it's built
+        [-3.0, 0.2, 3.2].forEach(function (z) {
+          P(self.geo.cyl6, self.mat('stoneDark'), 0.02, 0.9, 0.02, 0, F + R.H - 0.5, z);
+          P(self.geo.torus, self.mat('stoneDark'), 0.5, 0.5, 0.5, 0, F + R.H - 1.0, z).rotation.x = Math.PI / 2;
+          for (var q = 0; q < 6; q++) { var a = q / 6 * Math.PI * 2; self.candle(D.g, Math.cos(a) * 0.5, F + R.H - 0.98, z + Math.sin(a) * 0.5, 0.1, D.flames); }
+        });
+        if (C >= 1110) {
+          var fw = D.walls[2].g;
+          for (var rw = 0; rw < 8; rw++) { var ra = rw / 8 * Math.PI * 2, pn = P(this.geo.box, this.mat('stoneDark'), 0.3, 0.3, 0.05, Math.cos(ra) * 0.55, F + 3.3 + Math.sin(ra) * 0.55, R.hz - 0.03, fw); pn.material = new T.MeshBasicMaterial({ color: new T.Color().setHSL(rw / 8, 0.8, 0.6) }); }
+          var rc = P(this.geo.ball, this.mat('stoneDark'), 0.25, 0.25, 0.05, 0, F + 3.3, R.hz - 0.03, fw); rc.material = new T.MeshBasicMaterial({ color: '#ffd76a' });
+        }
+      }
+    }
+    // The bell rope by the door (once there's a bell).
+    if (C >= 70) {
+      P(this.geo.cyl6, this.mat('canvas', 2), 0.03, R.H - 0.9, 0.03, -1.2, F + 0.9 + (R.H - 0.9) / 2, R.hz - 0.6);
+      P(this.geo.box, this.mat('flag', 0), 0.09, 0.3, 0.09, -1.2, F + 0.9, R.hz - 0.6);
+      D.spots.push({ k: 'rope', x: -1.2, z: R.hz - 0.95, r: 0.6 });
+    }
+    D.light = t === 'chapel' ? { hemi: '#c99a68', ground: '#2a1c10', i: 0.85 } : t === 'brick' ? { hemi: '#e0cdb4', ground: '#3a2e26', i: 0.95 } : { hemi: '#cdb8a0', ground: '#2c241e', i: 0.9 };
+  };
+  Town.prototype.furnishPub = function (D, T0) {
+    var self = this, R = D.R, F = R.y, P = T0.P, s = this.st, B = s.pubBuilt || {}, inn = R.tier === 'inn';
+    var friends = Object.keys(s.friends || {}).sort(function (a, b) { return (s.friends[b].n || 0) - (s.friends[a].n || 0); });
+    // The bar along the back wall, taps, and shelves of bottles behind.
+    var bw = inn ? 5.0 : 3.6;
+    P(this.geo.box, this.mat('wood'), bw, 1.05, 0.6, 0, F + 0.52, -R.hz + 1.3);
+    P(this.geo.box, this.mat('woodLight'), bw + 0.2, 0.08, 0.75, 0, F + 1.08, -R.hz + 1.3);
+    P(this.geo.box, this.mat('gold'), bw, 0.04, 0.04, 0, F + 0.15, -R.hz + 1.62);
+    (inn ? [-0.75, -0.25, 0.25, 0.75] : [-0.4, 0, 0.4]).forEach(function (x, i) {
       P(self.geo.cyl6, self.mat('copper'), 0.04, 0.35, 0.04, x, F + 1.28, -R.hz + 1.15);
       P(self.geo.box, self.mat('flag', i + 1), 0.07, 0.16, 0.04, x, F + 1.52, -R.hz + 1.15);
     });
-    block(-2.6, 2.6, -R.hz, -R.hz + 1.65);
+    T0.block(-bw / 2 - 0.1, bw / 2 + 0.1, -R.hz, -R.hz + 1.65);
     D.spots.push({ k: 'bar', x: 0, z: -R.hz + 2.05, r: 0.9 });
-    for (var sh = 0; sh < 3; sh++) {
-      P(this.geo.box, this.mat('woodLight'), 4.6, 0.05, 0.3, 0, F + 1.5 + sh * 0.45, -R.hz + 0.2);
-      for (var b = 0; b < 16; b++) {
-        var bx = -2.1 + b * 0.28, bot = P(this.geo.cyl6, this.mat('glass', (b + sh * 5) % 12), 0.05, 0.28, 0.05, bx, F + 1.67 + sh * 0.45, -R.hz + 0.2);
-        bot.material = new T.MeshLambertMaterial({ color: ['#2f6b3a', '#7a3a1a', '#c9a24a', '#3a4f7a', '#8a2a2a'][(b * 3 + sh) % 5] });
+    var bwall = D.walls[0].g;
+    for (var sh = 0; sh < (inn ? 3 : 2); sh++) {
+      P(this.geo.box, this.mat('woodLight'), bw - 0.4, 0.05, 0.3, 0, F + 1.5 + sh * 0.45, -R.hz + 0.2, bwall);
+      for (var b = 0; b < Math.floor((bw - 0.6) / 0.28); b++) {
+        var bot = P(this.geo.cyl6, this.mat('stoneDark'), 0.05, 0.28, 0.05, -bw / 2 + 0.4 + b * 0.28, F + 1.67 + sh * 0.45, -R.hz + 0.2, bwall);
+        bot.material = this.mat('flag', (b * 3 + sh) % 6);
       }
     }
-    // A barrel stood on end for every barrel the pub's earned (up to six), and the barkeep.
-    for (var br = 0; br < Math.min(6, s.barrels || 0); br++) { var bxx = -R.hx + 0.5, bz = -R.hz + 1.9 + br * 0.65; P(this.geo.cyl, this.mat('wood'), 0.28, 0.6, 0.28, bxx, F + 0.3, bz); P(this.geo.torus, this.mat('stoneDark'), 0.29, 0.29, 0.29, bxx, F + 0.45, bz).rotation.x = Math.PI / 2; block(bxx - 0.3, bxx + 0.3, bz - 0.3, bz + 0.3); }
-    var bk = this.makeMouse(0, 'barkeep'); bk.g.position.set(0.9, F, -R.hz + 0.7); bk.g.scale.setScalar(3.2); D.g.add(bk.g); D.barkeep = bk;
-    // The mug rack: a tankard on a hook for every friend you've trained with.
-    P(this.geo.box, this.mat('logwood', 0), 4.0, 0.08, 0.1, 0, F + 2.6, -R.hz + 0.1);
-    friends.slice(0, 18).forEach(function (nm, i) {
-      var mx = -1.9 + i * 0.22;
-      P(self.geo.cyl6, self.mat(i % 3 ? 'copper' : 'stone', 1), 0.07, 0.14, 0.07, mx, F + 2.43, -R.hz + 0.16);
-      P(self.geo.torus, self.mat('copper'), 0.05, 0.05, 0.05, mx + 0.08, F + 2.43, -R.hz + 0.16).rotation.y = Math.PI / 2;
+    var bk = this.makeMouse(0, 'barkeep'); bk.g.position.set(0.6, F, -R.hz + 0.7); bk.g.scale.setScalar(3.2); D.g.add(bk.g); D.barkeep = bk; D.barX = bw / 2 - 0.8;
+    // The mug rack: a tankard for every friend you've trained with.
+    P(this.geo.box, this.mat('logwood', 0), bw - 0.8, 0.08, 0.1, 0, F + 2.55, -R.hz + 0.1, bwall);
+    friends.slice(0, Math.floor((bw - 1) / 0.22)).forEach(function (nm, i) {
+      var mx = -(bw - 1) / 2 + 0.1 + i * 0.22;
+      P(self.geo.cyl6, self.mat(i % 3 ? 'copper' : 'stone', 1), 0.07, 0.14, 0.07, mx, F + 2.38, -R.hz + 0.16, bwall);
     });
-    D.spots.push({ k: 'mugs', x: -1.8, z: -R.hz + 2.0, r: 0.8 });
-    // Tables and stools, with a pint on each.
-    [[-2.2, 0.6], [0.1, 1.1], [2.3, 0.3]].forEach(function (t, ti) {
+    D.spots.push({ k: 'mugs', x: -bw / 2 + 0.6, z: -R.hz + 2.0, r: 0.8 });
+    // Barrels along the left wall, one for each barrel earned (up to six).
+    for (var br = 0; br < Math.min(inn ? 6 : 3, s.barrels || 0); br++) { var bxx = -R.hx + 0.45, bz = -R.hz + 2.0 + br * 0.65; P(this.geo.cyl, this.mat('wood'), 0.28, 0.6, 0.28, bxx, F + 0.3, bz); P(this.geo.torus, this.mat('stoneDark'), 0.29, 0.29, 0.29, bxx, F + 0.45, bz).rotation.x = Math.PI / 2; T0.block(bxx - 0.3, bxx + 0.3, bz - 0.3, bz + 0.3); }
+    // Tables: two in the tavern, three once it's an inn.
+    var tables = inn ? [[-2.2, 0.8], [0.3, 1.2], [2.0, 0.0]] : [[-1.3, 0.9], [1.0, 0.6]];
+    tables.forEach(function (t, ti) {
       P(self.geo.cyl, self.mat('woodLight'), 0.5, 0.06, 0.5, t[0], F + 0.75, t[1]);
       P(self.geo.cyl6, self.mat('wood'), 0.07, 0.72, 0.07, t[0], F + 0.37, t[1]);
       P(self.geo.cyl6, self.mat('gold'), 0.06, 0.16, 0.06, t[0] + 0.15, F + 0.86, t[1] - 0.1);
       self.candle(D.g, t[0] - 0.12, F + 0.78, t[1] + 0.1, 0.1, D.flames);
-      block(t[0] - 0.5, t[0] + 0.5, t[1] - 0.5, t[1] + 0.5);
+      T0.block(t[0] - 0.5, t[0] + 0.5, t[1] - 0.5, t[1] + 0.5);
       [[0.8, 0], [-0.8, 0]].forEach(function (o) { P(self.geo.cyl6, self.mat('wood'), 0.2, 0.45, 0.2, t[0] + o[0], F + 0.22, t[1] + o[1]); });
       if (ti === 1) D.spots.push({ k: 'table', x: t[0], z: t[1] + 0.85, r: 0.7, seat: [t[0] + 0.8, t[1], -Math.PI / 2] });
     });
-    // The fire, the dartboard and the chalkboard.
-    fireplace(R.hx - 0.25, 1.3, -Math.PI / 2);
-    D.solid.push([R.hx - 0.55, R.hx, 0.3, 2.3]);
-    var board = P(this.geo.cyl, this.mat('stoneDark'), 0.36, 0.05, 0.36, -R.hx + 0.04, F + 1.7, 2.0); board.rotation.z = Math.PI / 2;
-    [0.28, 0.18, 0.08].forEach(function (r, i) { P(self.geo.cyl, self.mat(i % 2 ? 'flag' : 'plaster', 0), r, 0.055, r, -R.hx + 0.05, F + 1.7, 2.0).rotation.z = Math.PI / 2; });
-    D.spots.push({ k: 'darts', x: -R.hx + 1.3, z: 2.0, r: 0.8 });
-    var chalk = P(this.geo.box, this.mat('stoneDark'), 0.05, 0.9, 1.3, -R.hx + 0.04, F + 1.6, 0.3); chalk.material = new T.MeshLambertMaterial({ color: '#1e2a22' });
-    P(this.geo.box, this.mat('wood'), 0.07, 1.0, 1.4, -R.hx + 0.02, F + 1.6, 0.3);
-    D.spots.push({ k: 'board', x: -R.hx + 0.9, z: 0.3, r: 0.8 });
-    [[-2.6, R.hz - 0.25], [2.6, R.hz - 0.25], [-R.hx + 0.25, -1.0]].forEach(function (l) { lamp(l[0], F + 2.3, l[1]); });
-    D.light = { hemi: '#d79a62', ground: '#3a2214', i: 0.9 };
+    // The fire on the right wall; the dartboard and the chalkboard on the left.
+    T0.fireplace(R.hx - 0.25, inn ? 1.6 : 1.0, -Math.PI / 2); D.solid.push([R.hx - 0.55, R.hx, inn ? 0.6 : 0.0, inn ? 2.6 : 2.0]);
+    var lw = D.walls[1].g;
+    var board = P(this.geo.cyl, this.mat('stoneDark'), 0.36, 0.05, 0.36, -R.hx + 0.04, F + 1.7, R.hz - 1.0, lw); board.rotation.z = Math.PI / 2;
+    [0.28, 0.18, 0.08].forEach(function (r, i) { P(self.geo.cyl, self.mat(i % 2 ? 'flag' : 'plaster', 0), r, 0.055, r, -R.hx + 0.05, F + 1.7, R.hz - 1.0, lw).rotation.z = Math.PI / 2; });
+    D.spots.push({ k: 'darts', x: -R.hx + 1.3, z: R.hz - 1.0, r: 0.8 });
+    var chalk = P(this.geo.box, this.mat('stoneDark'), 0.05, 0.8, 1.1, -R.hx + 0.04, F + 1.6, -0.2, lw); chalk.material = new T.MeshLambertMaterial({ color: '#1e2a22' });
+    D.spots.push({ k: 'board', x: -R.hx + 0.9, z: -0.2, r: 0.8 });
+    T0.lamp(-1.6, F + 2.2, R.hz - 0.25); T0.lamp(1.6, F + 2.2, R.hz - 0.25);
+    // What the pub's earned outside shows up inside too.
+    if (B.baskets) [-1.4, 1.4].forEach(function (x) { P(self.geo.box, self.mat('wood'), 0.6, 0.15, 0.2, x, F + 1.2, R.hz - 0.12, D.walls[2].g); [-0.2, 0, 0.2].forEach(function (o, i) { P(self.geo.ball, self.mat('flag', i), 0.08, 0.08, 0.08, x + o, F + 1.33, R.hz - 0.14, D.walls[2].g); }); });
+    if (B.garden) {
+      // a back door with light spilling through from the beer garden
+      var gd = P(this.geo.box, this.mat('stoneDark'), 0.05, 1.9, 0.9, R.hx - 0.02, F + 0.95, -R.hz + 1.0, D.walls[3].g); gd.material = new T.MeshBasicMaterial({ color: this.dark ? '#24304a' : '#cfe8a8' });
+      P(this.geo.box, this.mat('wood'), 0.08, 2.0, 0.08, R.hx - 0.04, F + 1.0, -R.hz + 0.52, D.walls[3].g); P(this.geo.box, this.mat('wood'), 0.08, 2.0, 0.08, R.hx - 0.04, F + 1.0, -R.hz + 1.48, D.walls[3].g);
+    }
+    if (B.lights) T0.bulbs(F + R.H - 0.25, 0.5);
+    if (B.brewhouse) { var kx = -R.hx + 0.8, kz = R.hz - 2.2; P(this.geo.ball, this.mat('copper'), 0.5, 0.45, 0.5, kx, F + 0.75, kz); P(this.geo.cyl6, this.mat('copper'), 0.1, 0.9, 0.1, kx, F + 1.5, kz); P(this.geo.cyl6, this.mat('stoneDark'), 0.45, 0.35, 0.45, kx, F + 0.18, kz); T0.block(kx - 0.55, kx + 0.55, kz - 0.55, kz + 0.55); }
+    // dried hop bines draped along the tops of the back and left walls
+    if (B.hops) { for (var hp = 0; hp < 22; hp++) { var hx2 = -R.hx + 0.3 + hp * (R.hx * 2 - 0.6) / 21; P(this.geo.blob, this.mat('leaf', hp % 3), 0.13, 0.17, 0.13, hx2, F + R.H - 0.35 - Math.abs(Math.sin(hp * 0.9)) * 0.2, -R.hz + 0.12, bwall); } for (hp = 0; hp < 14; hp++) { var hz2 = -R.hz + 0.3 + hp * (R.hz * 2 - 0.6) / 13; P(this.geo.blob, this.mat('leaf', hp % 3), 0.13, 0.17, 0.13, -R.hx + 0.12, F + R.H - 0.35 - Math.abs(Math.sin(hp * 1.1)) * 0.2, hz2, D.walls[1].g); } }
+    if (B.sign) { var mirror = P(this.geo.box, this.mat('gold'), 0.9, 0.6, 0.05, -bw / 2 + 0.7, F + 2.15, -R.hz + 0.04, bwall); P(this.geo.box, this.mat('ice'), 0.75, 0.45, 0.06, -bw / 2 + 0.7, F + 2.15, -R.hz + 0.05, bwall); }
+    if (B.snug) { P(this.geo.box, this.mat('canvas', 1), 1.6, 0.4, 0.6, 2.4, F + 0.25, R.hz - 0.7); P(this.geo.box, this.mat('canvas', 1), 1.6, 0.8, 0.15, 2.4, F + 0.6, R.hz - 0.35); T0.block(1.5, 3.3, R.hz - 1.05, R.hz); D.spots.push({ k: 'snug', x: 2.4, z: R.hz - 1.4, r: 0.6, seat: [2.4, R.hz - 0.75, Math.PI] }); }
+    if (B.bandstand) { P(this.geo.box, this.mat('wood'), 1.4, 0.25, 1.2, -R.hx + 0.9, F + 0.12, 0.6); P(this.geo.box, this.mat('wood', 1), 0.35, 0.9, 0.12, -R.hx + 0.8, F + 0.7, 0.5).rotation.z = 0.2; P(this.geo.cyl, this.mat('copper'), 0.12, 0.3, 0.12, -R.hx + 1.2, F + 0.4, 0.8); T0.block(-R.hx, -R.hx + 1.6, 0, 1.2); }
+    D.light = inn ? { hemi: '#dba06a', ground: '#3a2214', i: 0.95 } : { hemi: '#d08e58', ground: '#331d10', i: 0.88 };
   };
   Town.prototype.enterRoom = function (pl, kind) {
     if (!this.roomOK(kind)) return false;
     if (pl.seat) this.leaveSeat(pl);
     if (pl.cook) this.endCook(pl, true);
     var old = this.st.room; if (old) { this.world.remove(old.g); }
-    var D = this.st.room = this.buildRoom(kind), R = ROOMS[kind];
+    var D = this.st.room = this.buildRoom(kind), R = D.R;
     pl.inRoom = kind; pl.push = null; pl.iv = null; pl.vy = 0; pl.napping = 0;
     pl.roomBack = { x: pl.g.position.x, y: pl.g.position.y, z: pl.g.position.z, ry: pl.g.rotation.y };
     var P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
@@ -8676,7 +8781,11 @@
     if (this.weather) this.weather.visible = false;
     this.sfx('found');
     this.near = null; if (this.onNear) this.onNear(null);
-    var hi = { library: ['shhh… the library', 'all your books, right here'], church: ['so quiet in here', 'the church'], pub: ['ahh, the Slow Pour', 'warm in here!'] }[kind];
+    var hi = {
+      library: { cabin: ['cozy little reading cabin', 'smells like woodsmoke and old books'], brick: ['shhh… the library', 'all your books, right here'], grand: ['whoa. the grand library', 'look at that dome!'] },
+      church: { chapel: ['a little log chapel', 'simple and quiet'], brick: ['the brick church', 'so bright in here'], stone: ['so quiet in here', 'the stone church'] },
+      pub: { tavern: ['ahh, the Slow Pour', 'warm in here!'], inn: ['the Slow Pour Inn!', 'busy tonight'] }
+    }[kind][R.tier];
     this.say(pickOne(hi), pl.g, 1.0, 1.8);
     this.needsRender = true;
     return true;
@@ -8693,7 +8802,7 @@
     this.needsRender = true;
   };
   Town.prototype.roomStep = function (pl, mx, mz, dt, now, moving) {
-    var D = this.st.room, R = ROOMS[D.kind], g = pl.g, P = g.position, K = this.keys, c = this.controls, cam = this.camera, self = this;
+    var D = this.st.room, R = D.R, g = pl.g, P = g.position, K = this.keys, c = this.controls, cam = this.camera, self = this;
     var lx = P.x - R.x, lz = P.z - R.z;
     if (moving) {
       var len = Math.hypot(mx, mz); if (len > 1) { mx /= len; mz /= len; }
@@ -8728,7 +8837,7 @@
       var k = 1 + Math.sin(now / 90 + f.ph) * 0.12 + Math.sin(now / 37 + f.ph * 2) * 0.08; f.f.scale.y = 0.06 * k; f.f.rotation.z = Math.sin(now / 160 + f.ph) * 0.12;
     });
     D.spin.forEach(function (o) { o.rotation.y += dt * 0.3; });
-    if (D.barkeep) { var bk = D.barkeep; bk.g.position.x = 0.9 + Math.sin(now / 2600) * 1.2; bk.g.rotation.y = Math.cos(now / 2600) > 0 ? Math.PI / 2 : -Math.PI / 2; if (Math.abs(Math.sin(now / 2600)) > 0.97) bk.g.rotation.y = 0; }
+    if (D.barkeep) { var bk = D.barkeep; bk.g.position.x = Math.sin(now / 2600) * D.barX; bk.g.rotation.y = Math.cos(now / 2600) > 0 ? Math.PI / 2 : -Math.PI / 2; if (Math.abs(Math.sin(now / 2600)) > 0.97) bk.g.rotation.y = 0; }
     this.hemi.color.set(D.light.hemi); this.hemi.groundColor.set(D.light.ground); this.hemi.intensity = D.light.i; this.sun.intensity = 0.05;
     if (now > (this.nearAt || 0)) {
       this.nearAt = now + 200;
@@ -8754,6 +8863,7 @@
       if (k === 'altar') return { title: 'The altar', lines: ['A candle for every hundred chapters read.', 'The windows: a coloured pane for every book you’ve finished (Old Testament left, New Testament right).'] };
       if (k === 'pew') return { title: 'A pew', lines: ['Press E to sit a while. Move to get up.'] };
       if (k === 'rope') return { title: 'The bell rope', lines: ['Press E to ring the bell.'] };
+      if (k === 'organ') return { title: 'The pump organ', lines: ['Press E to play a hymn (badly).'] };
     }
     if (D.kind === 'pub') {
       var fr = Object.keys(s.friends || {});
@@ -8762,6 +8872,7 @@
       if (k === 'darts') return { title: 'The dartboard', lines: ['Press E to throw three darts.'] };
       if (k === 'board') return { title: 'The chalkboard', lines: ['Press E to read the specials.'] };
       if (k === 'table') return { title: 'A table by the fire', lines: ['Press E to sit down. Move to get up.'] };
+      if (k === 'snug') return { title: 'The snug', lines: ['A cosy corner booth. Press E to sit. Move to get up.'] };
     }
     return null;
   };
@@ -8771,7 +8882,7 @@
     if (k === 'door') { this.leaveRoom(pl); return; }
     var spot = D.spots.filter(function (q) { return q.k === k; })[0];
     if (spot && spot.seat) {
-      var R = ROOMS[D.kind], sx = spot.seat;
+      var R = D.R, sx = spot.seat;
       pl.g.position.set(R.x + sx[0], R.base + R.y + 0.25, R.z + sx[1]); pl.g.rotation.y = sx[2];
       pl.napping = performance.now();
       this.say(D.kind === 'library' ? '*opens a book*' : D.kind === 'church' ? '*sits quietly*' : '*settles in*', pl.g, 1.0, 1.6);
@@ -8796,6 +8907,7 @@
         return;
       }
       if (k === 'altar') { this.say(B.books.length + ' windows lit of 66', pl.g, 1.0, 2.2); return; }
+      if (k === 'organ') { [0, 1, 2, 3, 4].forEach(function (i) { setTimeout(function () { self.sfx('pluck'); self.say(['♪', '♫', '♪'][i % 3], pl.g, 1.2 + i * 0.1, 0.8, true); }, i * 420); }); return; }
     }
     if (D.kind === 'pub') {
       if (k === 'bar') { this.getBeer(); if (D.barkeep) this.say(pickOne(['there you go, love', 'one pint', 'mind how you go']), D.barkeep.g, 0.75, 1.8); return; }
