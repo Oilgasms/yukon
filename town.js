@@ -2367,7 +2367,7 @@
     // Ease in and out over a few seconds.
     this.weatherShown += (target - this.weatherShown) * Math.min(1, dt * 0.6);
     var shown = Math.round(this.weatherShown);
-    this.weather.visible = shown > 2 && !(this.player && this.player.inDen);
+    this.weather.visible = shown > 2 && !(this.player && (this.player.inDen || this.player.inRoom));
     if (!this.weather.visible) return;
     var spec = w || this.lastWeather || WEATHER.snow;
     if (w) this.lastWeather = w;
@@ -6421,7 +6421,7 @@
     ['Colossians', 4], ['1 Thessalonians', 5], ['2 Thessalonians', 3], ['1 Timothy', 6], ['2 Timothy', 4], ['Titus', 3], ['Philemon', 1], ['Hebrews', 13],
     ['James', 5], ['1 Peter', 5], ['2 Peter', 3], ['1 John', 5], ['2 John', 1], ['3 John', 1], ['Jude', 1], ['Revelation', 22]];
   var BIBLE_TOTAL = 1189;
-  var CHURCH_STAGES = [[1, 'A log chapel'], [40, 'Chapel roof and cross'], [70, 'Bell frame'], [100, 'A brick church'], [180, 'Brick church roof'], [250, 'White steeple'],
+  var CHURCH_STAGES = [[1, 'A log chapel'], [40, 'Chapel roof and cross'], [70, 'Bell frame'], [100, 'A brick church'], [180, 'Bell and porch lanterns'], [250, 'White steeple'],
     [330, 'Picket-fenced yard'], [400, 'The stone church'], [450, 'Chancel'], [560, 'Bell tower'], [780, 'Belfry and bell'], [860, 'Spire'], [940, 'Porch and lychgate'],
     [1020, 'Churchyard'], [1110, 'Rose window'], [1189, 'Golden cross']];
   function bookIndex(name) {
@@ -6549,7 +6549,7 @@
   // ---- the library: built from the books you read ------------------------
   // Pages read raise it (walls, roof, portico, courtyard, cloisters, garden, dome, wings); every book
   // lights a window, and every five-star book plants a rose in the courtyard garden.
-  var LIBRARY_STAGES = [[1, 'A log reading cabin'], [800, 'Cabin roof'], [1200, 'Porch and rocking chair'], [1500, 'A brick library'], [3000, 'Brick library roof'],
+  var LIBRARY_STAGES = [[1, 'A log reading cabin'], [800, 'Cabin roof'], [1200, 'Porch and rocking chair'], [1500, 'A brick library'], [3000, 'Clock cupola'],
     [4000, 'Columned entrance'], [5000, 'Garden'], [6000, 'The grand library'], [9000, 'Columned portico'], [12000, 'Courtyard and fountain'], [16000, 'Cloisters'],
     [20000, 'Reading garden'], [26000, 'Copper dome'], [32000, 'East wing'], [40000, 'West wing'], [50000, 'The golden owl: the library is complete']];
   Town.prototype.addBook = function (ev, delay) {
@@ -6958,7 +6958,8 @@
       return;
     }
     // A red-brick church with white trim; a white steeple at 250, a picket-fenced yard at 330.
-    var wh = Math.min(3.2, 1.6 + (C - 100) / 80 * 1.6);
+    // (it goes up whole, roof and all: a new material never looks half-built)
+    var wh = 3.2;
     P(this.geo.box, stone(2), 4.6, 0.2, 7.2, 0, 0.1, 0);
     [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('brick', 0), 0.35, wh, 6.6, sd * 2.0, 0.2 + wh / 2, 0); });
     P(this.geo.box, this.mat('brick', 1), 4.35, wh, 0.35, 0, 0.2 + wh / 2, 3.3);
@@ -6972,7 +6973,13 @@
       P(this.geo.box, k < books ? this.mat('glass', k) : this.mat('stoneDark'), 0.07, 1.35, 0.42, sd * 2.22, 1.75, z);
     }
     var ridge = 0.2 + wh;
-    if (C >= 180) P(this.geo.gable, this.mat('shingle'), 2.75, 2.4, 4.6, 0, ridge, 0);
+    P(this.geo.gable, this.mat('shingle'), 2.75, 2.4, 4.6, 0, ridge, 0);
+    if (C >= 180) {
+      // a little bell in the front gable, and a canopy with lanterns over the door
+      P(this.geo.cone, this.mat('gold'), 0.28, 0.4, 0.28, 0, ridge + 0.9, 3.42);
+      P(this.geo.box, this.mat('whitewood'), 1.6, 0.08, 0.7, 0, 2.05, 3.75).rotation.x = -0.18;
+      [-0.75, 0.75].forEach(function (x) { P(self.geo.box, self.mat('lantern'), 0.16, 0.22, 0.16, x, 1.75, 3.6); });
+    }
     if (C >= 250) {
       P(this.geo.box, this.mat('whitewood'), 1.3, 2.0, 1.3, 0, ridge + 1.0, 2.5);
       [[0, 0.66, 0], [0.66, 0, Math.PI / 2], [0, -0.66, 0], [-0.66, 0, Math.PI / 2]].forEach(function (f) { P(self.geo.box, self.mat('shingle'), 0.5, 0.7, 0.04, f[0], ridge + 1.4, 2.5 + f[1]).rotation.y = f[2]; });
@@ -7039,7 +7046,8 @@
     }
     // A small brick library: walls up by 3,000 pages, a hipped roof, a columned entrance at 4,000,
     // a garden at 5,000.
-    var wh = Math.min(3.0, 1.8 + (P0 - 1500) / 1500 * 1.2);
+    // (it goes up whole, roof and all: a new material never looks half-built)
+    var wh = 3.0;
     P(this.geo.box, this.mat('stone', 2), 6.2, 0.2, 5.0, 0, 0.1, 0);
     [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('brick', 0), 0.35, wh, 4.4, sd * 2.8, 0.2 + wh / 2, 0); });
     P(this.geo.box, this.mat('brick', 1), 5.95, wh, 0.35, 0, 0.2 + wh / 2, 2.05);
@@ -7051,9 +7059,14 @@
       P(self.geo.box, k < n ? self.mat('window') : self.mat('stoneDark'), 0.5, 1.35, 0.07, w[0], 1.55, w[1]).rotation.y = w[2];
     });
     var top = 0.2 + wh;
+    P(this.geo.box, this.mat('plaster', 0), 6.3, 0.25, 4.8, 0, top + 0.12, 0);
+    var hip = P(this.geo.cone4, this.mat('shingle'), 4.5, 1.6, 3.6, 0, top + 1.05, 0); hip.rotation.y = Math.PI / 4;
     if (P0 >= 3000) {
-      P(this.geo.box, this.mat('plaster', 0), 6.3, 0.25, 4.8, 0, top + 0.12, 0);
-      var hip = P(this.geo.cone4, this.mat('shingle'), 4.5, 1.6, 3.6, 0, top + 1.05, 0); hip.rotation.y = Math.PI / 4;
+      // a white clock cupola on the ridge
+      P(this.geo.box, this.mat('whitewood'), 0.8, 0.8, 0.8, 0, top + 1.75, 0);
+      P(this.geo.cyl, this.mat('plaster', 0), 0.26, 0.04, 0.26, 0, top + 1.8, 0.42).rotation.x = Math.PI / 2;
+      P(this.geo.box, this.mat('stoneDark'), 0.03, 0.18, 0.02, 0, top + 1.85, 0.45);
+      P(this.geo.cone4, this.mat('shingle'), 0.7, 0.7, 0.7, 0, top + 2.5, 0).rotation.y = Math.PI / 4;
     }
     if (P0 >= 4000) {
       P(this.geo.box, this.mat('stone', 1), 2.6, 0.18, 1.2, 0, 0.09, 2.8);
@@ -8270,7 +8283,7 @@
   Town.prototype.stepPlay = function (dt, now) {
     var pl = this.player, self = this;
     var W = this.play || (this.play = { puddles: [], leaves: [], balls: [], leafAt: 0 });
-    if (!pl || !this.explore || this.soft || pl.inDen) { W.puddles.forEach(function (q) { self.world.remove(q.m); }); W.puddles = []; return; }
+    if (!pl || !this.explore || this.soft || pl.inDen || pl.inRoom) { W.puddles.forEach(function (q) { self.world.remove(q.m); }); W.puddles = []; return; }
     var P = pl.g.position, ground = pl.air < 0.05 && pl.vy === 0;
     // Puddles near you while it rains.
     var raining = this.weatherNow === 'rain' && this.season !== 'winter';
@@ -8413,10 +8426,396 @@
     this.solidAt = 0;
   };
   // H: pop straight home, wherever you are.
+  // ===== Interiors: the library, the church and the Slow Pour =====
+  // Each is a room a world away (like the den), built fresh every time you walk in so it shows
+  // what you've done: the books you've read on the shelves, a stained-glass pane for every book of
+  // the Bible you've finished, a mug on the rack for every friend you've worked out with.
+  var ROOMS = {
+    library: { x: -760, z: -700, base: 600, hx: 4.4, hz: 3.4, y: 0.1, wall: 'holdStone', floor: 'woodLight', title: 'the library' },
+    church: { x: -820, z: -700, base: 600, hx: 3.0, hz: 5.4, y: 0.1, wall: 'stone', floor: 'stone', title: 'the church' },
+    pub: { x: -880, z: -700, base: 600, hx: 4.2, hz: 3.2, y: 0.1, wall: 'logwood', floor: 'wood', title: 'the Slow Pour' }
+  };
+  Town.prototype.roomOK = function (kind) {
+    var s = this.st;
+    if (kind === 'library') return !!(s.library && s.library.group);
+    if (kind === 'church') return !!(s.bible && s.bible.group);
+    if (kind === 'pub') return !!s.pub;
+    return false;
+  };
+  Town.prototype.buildRoom = function (kind) {
+    var self = this, R = ROOMS[kind], g = new T.Group(), F = R.y, G = this.glowMats();
+    g.position.set(R.x, R.base, R.z); this.world.add(g);
+    function P(geo, mat, sx, sy, sz, x, y, z, par) { var m = self.part(par || g, geo, mat, sx, sy, sz, x, y, z); m.castShadow = false; return m; }
+    var dark = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ color: '#100b08' })); dark.scale.set(300, 0.02, 300); dark.position.y = -0.4; g.add(dark);
+    // Floor: planks (or flagstones in the church).
+    var nb = 10;
+    for (var i = 0; i < nb; i++) P(this.geo.box, this.mat(R.floor, i % 3), R.hx * 2, 0.1, R.hz * 2 / nb - 0.02, 0, F - 0.05, -R.hz + (i + 0.5) * R.hz * 2 / nb);
+    var H = kind === 'church' ? 4.2 : 3.0, walls = [], solid = [], spots = [], flames = [], spin = [];
+    [[0, -1], [-1, 0], [0, 1], [1, 0]].forEach(function (n) {
+      var w = new T.Group(), along = n[0] === 0; g.add(w);
+      var len = along ? R.hx * 2 + 0.6 : R.hz * 2 + 0.6, wx = n[0] * (R.hx + 0.15), wz = n[1] * (R.hz + 0.15);
+      P(self.geo.box, self.mat(R.wall, 0), along ? len : 0.3, H, along ? 0.3 : len, wx, H / 2, wz, w);
+      P(self.geo.box, self.mat(kind === 'pub' ? 'logwood' : 'wood', 1), along ? len : 0.36, 0.2, along ? 0.36 : len, wx, H - 0.05, wz, w);
+      P(self.geo.box, self.mat('wood', 0), along ? len : 0.34, 0.16, along ? 0.34 : len, wx, 0.08, wz, w);
+      walls.push({ g: w, nx: n[0], nz: n[1], parts: w });
+    });
+    // The door you came in by, in the middle of the front wall.
+    var front = walls[2].g;
+    P(this.geo.box, this.mat('wood'), 1.0, 2.0, 0.08, 0, F + 1.0, R.hz - 0.02, front);
+    P(this.geo.ball, this.mat('gold'), 0.05, 0.05, 0.05, 0.35, F + 1.0, R.hz - 0.08, front);
+    P(this.geo.box, this.mat('canvas', 2), 0.9, 0.02, 0.7, 0, F + 0.01, R.hz - 0.45);
+    spots.push({ k: 'door', x: 0, z: R.hz - 0.45, r: 0.8 });
+    function block(x0, x1, z0, z1) { solid.push([x0, x1, z0, z1]); }
+    // (anything fixed to a wall hangs on that wall, so it steps aside with it when the camera's behind)
+    function wallOf(x, z) { return Math.abs(z) > R.hz - 0.7 ? walls[z < 0 ? 0 : 2].g : Math.abs(x) > R.hx - 0.7 ? walls[x < 0 ? 1 : 3].g : g; }
+    function lamp(x, y, z) { var par = wallOf(x, z), c = new T.Mesh(self.geo.box, G.lamp); c.scale.set(0.16, 0.2, 0.16); c.position.set(x, y, z); par.add(c); var h = new T.Mesh(self.geo.ball, G.halo); h.scale.setScalar(0.5); h.position.set(x, y, z); par.add(h); }
+    function fireplace(x, z, ry) {
+      var f = new T.Group(); f.position.set(x, F, z); f.rotation.y = ry; wallOf(x, z).add(f);
+      P(self.geo.box, self.mat('stone', 1), 1.6, 1.4, 0.5, 0, 0.7, 0, f);
+      P(self.geo.box, self.mat('stone', 2), 1.9, 0.14, 0.7, 0, 1.45, 0.05, f);
+      P(self.geo.box, self.mat('stone', 0), 0.9, 1.6, 0.4, 0, 2.2, -0.05, f);
+      P(self.geo.box, self.mat('stoneDark'), 0.9, 0.7, 0.1, 0, 0.45, 0.22, f).material = new T.MeshBasicMaterial({ color: '#1a0f0a' });
+      [-0.12, 0.12].forEach(function (zz) { var lg = P(self.geo.cyl6, self.mat('logwood', 0), 0.06, 0.6, 0.06, 0, 0.12, 0.3 + zz, f); lg.rotation.z = Math.PI / 2; });
+      [[-0.12, 0.16], [0.1, 0.13], [0, 0.2]].forEach(function (q, k) { var fl = new T.Mesh(self.geo.cone, k === 2 ? G.ember : G.flame); fl.scale.set(0.12, q[1] * 2, 0.12); fl.position.set(q[0], 0.18 + q[1], 0.3); f.add(fl); flames.push({ fire: fl, h: q[1] * 2, ph: k * 2 }); });
+      var fh = new T.Mesh(self.geo.ball, G.halo); fh.scale.setScalar(0.7); fh.position.set(0, 0.45, 0.4); f.add(fh);
+      return f;
+    }
+    var D = { g: g, kind: kind, walls: walls, solid: solid, spots: spots, flames: flames, spin: spin };
+    if (kind === 'library') this.furnishLibrary(D, P, block, lamp, fireplace);
+    if (kind === 'church') this.furnishChurch(D, P, block, lamp);
+    if (kind === 'pub') this.furnishPub(D, P, block, lamp, fireplace);
+    return D;
+  };
+  Town.prototype.furnishLibrary = function (D, P, block, lamp, fireplace) {
+    var self = this, R = ROOMS.library, F = R.y, L = this.st.library, books = L.books.slice(), n = books.length;
+    // Tall shelves along the back wall and the left wall, a spine for every book you've read (in
+    // order, newest last), with gaps still to fill.
+    var cases = [];
+    for (var c = 0; c < 4; c++) cases.push({ x: -3.3 + c * 2.2, z: -R.hz + 0.3, ry: 0 });
+    for (c = 0; c < 2; c++) cases.push({ x: -R.hx + 0.3, z: -1.6 + c * 2.0, ry: Math.PI / 2 });
+    // (filled from the middle cases outward, eye-level shelves first)
+    var k = 0, ORDER = [1, 2, 0, 3, 4, 5], SH = [2, 1, 3, 0, 4], slotOf = {};
+    ORDER.forEach(function (ci) { slotOf[ci] = []; });
+    // work out which books land on which case's shelves, in reading order
+    var queue = books.map(function (b, i) { return i; }), fillCase = {};
+    ORDER.forEach(function (ci) { fillCase[ci] = {}; SH.forEach(function (sh) { var list = [], x = -0.88; while (queue.length) { var b = books[queue[0]], w = 0.07 + Math.min(0.08, (b.pages || 250) / 5000); if (x + w > 0.86) break; list.push(queue.shift()); x += w + 0.01; } fillCase[ci][sh] = list; }); });
+    cases.forEach(function (cs, ci) {
+      var gg = new T.Group(); gg.position.set(cs.x, F, cs.z); gg.rotation.y = cs.ry; D.g.add(gg);
+      [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('wood'), 0.08, 2.65, 0.46, sd * 0.98, 1.32, 0, gg); });
+      P(self.geo.box, self.mat('wood'), 2.04, 0.1, 0.5, 0, 2.66, 0, gg);
+      P(self.geo.box, self.mat('woodLight'), 1.9, 2.55, 0.04, 0, 1.3, -0.21, gg).material = new T.MeshLambertMaterial({ color: '#4a3020' });
+      for (var sh = 0; sh < 5; sh++) {
+        var y = 0.15 + sh * 0.5;
+        P(self.geo.box, self.mat('woodLight'), 1.9, 0.05, 0.4, 0, y, 0.02, gg);
+        var x = -0.88, mine = fillCase[ci][sh];
+        mine.forEach(function (bi) {
+          var b = books[bi], w = 0.07 + Math.min(0.08, (b.pages || 250) / 5000), hgt = 0.32 + ((bi * 37) % 9) / 90;
+          P(self.geo.box, self.mat('flag', bi % 6), w, hgt, 0.3, x + w / 2, y + 0.025 + hgt / 2, 0.05, gg);
+          P(self.geo.box, self.mat('plaster', 0), w + 0.004, 0.025, 0.305, x + w / 2, y + 0.06 + hgt * 0.75, 0.05, gg);
+          if (b.stars >= 4.5) P(self.geo.box, self.mat('gold'), w + 0.006, 0.035, 0.31, x + w / 2, y + 0.06 + hgt * 0.45, 0.05, gg);
+          x += w + 0.01;
+        });
+        if (!mine.length && (sh + ci) % 3 === 1) { P(self.geo.cyl6, self.mat('stone', ci % 3), 0.07, 0.16, 0.07, 0.5, y + 0.1, 0.05, gg); P(self.geo.blob, self.mat('leaf', ci % 3), 0.14, 0.14, 0.14, 0.5, y + 0.26, 0.05, gg); }
+      }
+      var wx = cs.ry ? cs.x + 0.55 : cs.x, wz = cs.ry ? cs.z : cs.z + 0.55;
+      block(cs.ry ? cs.x - 0.3 : cs.x - 1.0, cs.ry ? cs.x + 0.3 : cs.x + 1.0, cs.ry ? cs.z - 1.0 : cs.z - 0.3, cs.ry ? cs.z + 1.0 : cs.z + 0.3);
+      if (ci === 1) D.spots.push({ k: 'shelf', x: wx, z: wz, r: 1.1 });
+    });
+    // A rolling ladder on the back shelves.
+    var lad = new T.Group(); lad.position.set(0.9, F, -R.hz + 0.75); lad.rotation.x = -0.25; D.g.add(lad);
+    [-0.22, 0.22].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.05, 2.7, 0.05, x, 1.3, 0, lad); });
+    for (var r = 0; r < 8; r++) P(self.geo.box, self.mat('woodLight'), 0.44, 0.04, 0.04, 0, 0.25 + r * 0.32, 0, lad);
+    // The fire on the right wall, two armchairs and a rug: curl up and read.
+    fireplace(R.hx - 0.25, -0.6, -Math.PI / 2);
+    D.solid.push([R.hx - 0.55, R.hx, -1.6, 0.4]);
+    P(this.geo.cyl, this.mat('canvas', 1), 1.3, 0.02, 1.0, 2.4, F + 0.01, -0.6);
+    [[2.4, -1.7, 0.4], [2.4, 0.5, Math.PI - 0.4]].forEach(function (a, ai) {
+      var ch = new T.Group(); ch.position.set(a[0], F, a[1]); ch.rotation.y = a[2]; D.g.add(ch);
+      P(self.geo.box, self.mat('canvas', ai ? 0 : 1), 0.7, 0.35, 0.7, 0, 0.3, 0, ch);
+      P(self.geo.box, self.mat('canvas', ai ? 0 : 1), 0.7, 0.75, 0.16, 0, 0.7, -0.3, ch);
+      [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('canvas', ai ? 0 : 1), 0.14, 0.5, 0.7, sd * 0.36, 0.45, 0, ch); });
+      block(a[0] - 0.4, a[0] + 0.4, a[1] - 0.4, a[1] + 0.4);
+      D.spots.push({ k: 'chair', x: a[0] - 0.55, z: a[1], r: 0.8, seat: [a[0], a[1], a[2]] });
+    });
+    // The reading desk in the middle: an open book (the last one you read), a green lamp, a globe.
+    P(this.geo.box, this.mat('wood'), 1.8, 0.08, 0.9, -1.0, F + 0.78, 0.6);
+    [[-1.8, 0.25], [-0.2, 0.25], [-1.8, 0.95], [-0.2, 0.95]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.08, 0.76, 0.08, l[0], F + 0.38, l[1]); });
+    P(this.geo.box, this.mat('plaster', 0), 0.5, 0.02, 0.34, -1.1, F + 0.83, 0.6).rotation.z = 0.05;
+    P(this.geo.box, this.mat('flag', 1), 0.52, 0.03, 0.36, -1.1, F + 0.815, 0.6);
+    P(this.geo.cyl6, this.mat('copper'), 0.03, 0.4, 0.03, -0.45, F + 1.02, 0.45);
+    var shade = P(this.geo.cone, this.mat('hedge'), 0.18, 0.12, 0.18, -0.45, F + 1.24, 0.45);
+    var bulb = new T.Mesh(this.geo.ball, this.glowMats().lamp); bulb.scale.setScalar(0.05); bulb.position.set(-0.45, F + 1.17, 0.45); D.g.add(bulb);
+    var globe = new T.Group(); globe.position.set(-1.7, F + 0.98, 0.5); D.g.add(globe);
+    P(this.geo.ball, this.mat('glass', 4), 0.16, 0.16, 0.16, 0, 0, 0, globe); P(this.geo.ball, this.mat('hedge'), 0.1, 0.08, 0.1, 0.07, 0.04, 0.08, globe);
+    D.spin.push(globe);
+    block(-1.95, -0.05, 0.1, 1.1);
+    D.spots.push({ k: 'desk', x: -1.0, z: 1.4, r: 0.9 });
+    [[-1.0, -0.1], [-1.0, 1.35]].forEach(function (s) { P(self.geo.box, self.mat('wood'), 0.42, 0.42, 0.42, s[0], F + 0.21, s[1]); });
+    // The golden owl, once the library is complete.
+    if (L.pages >= 50000) { P(this.geo.ball, this.mat('gold'), 0.25, 0.32, 0.22, -3.3, F + 2.85, -R.hz + 0.35); P(this.geo.cone, this.mat('gold'), 0.06, 0.12, 0.06, -3.4, F + 3.1, -R.hz + 0.35); }
+    // Lamps on the walls, candles on the mantel.
+    [[-2.2, -R.hz + 0.6], [2.2, -R.hz + 0.6], [-2.2, R.hz - 0.25], [2.2, R.hz - 0.25]].forEach(function (l) { lamp(l[0], F + 2.5, l[1]); });
+    [-0.9, -0.3, 0.3].forEach(function (z, i) { self.candle(D.g, R.hx - 0.3, F + 1.53, z - 0.6, 0.12 + i * 0.04, D.flames); });
+    D.light = { hemi: '#d9a874', ground: '#3a2616', i: 0.95 };
+    D.counts = { books: n, pages: L.pages };
+  };
+  Town.prototype.furnishChurch = function (D, P, block, lamp) {
+    var self = this, R = ROOMS.church, F = R.y, B = this.st.bible, done = {}, nDone = B.books.length;
+    B.books.forEach(function (bi) { done[bi] = true; });
+    // Stained glass: a pane for every book of the Bible, lit in colour once you've read all of it.
+    // Old Testament down the left, New Testament down the right.
+    for (var bi = 0; bi < 66; bi++) {
+      var nt = bi >= 39, k = nt ? bi - 39 : bi, cols = nt ? 9 : 13, row = Math.floor(k / cols), col = k % cols;
+      var x = (nt ? 1 : -1) * (R.hx - 0.02), z = -R.hz + 1.1 + col * ((R.hz * 2 - 2.6) / (cols - 1)), y = F + 1.6 + row * 0.75;
+      var pane = P(this.geo.box, done[bi] ? this.mat('glass', bi % 12) : this.mat('stoneDark'), 0.06, 0.6, 0.28, x, y, z);
+      if (done[bi]) pane.material = new T.MeshBasicMaterial({ color: new T.Color().setHSL((bi * 0.137) % 1, 0.75, 0.6) });
+    }
+    // The aisle and pews either side.
+    P(this.geo.box, this.mat('canvas', 0), 1.0, 0.02, R.hz * 2 - 2.0, 0, F + 0.01, 0.4);
+    for (var p = 0; p < 6; p++) [-1, 1].forEach(function (sd) {
+      var z = -1.9 + p * 1.15, x = sd * 1.65;
+      P(self.geo.box, self.mat('wood'), 1.9, 0.08, 0.42, x, F + 0.45, z);
+      P(self.geo.box, self.mat('wood'), 1.9, 0.55, 0.06, x, F + 0.75, z + 0.22);
+      [-0.85, 0.85].forEach(function (e) { P(self.geo.box, self.mat('wood'), 0.06, 0.95, 0.5, x + e, F + 0.47, z); });
+      block(x - 1.0, x + 1.0, z - 0.25, z + 0.28);
+      if (p === 2) D.spots.push({ k: 'pew', x: sd * 0.7, z: z, r: 0.6, seat: [x - sd * 0.5, z, Math.PI] });
+    });
+    // The altar at the far end: a white cloth, a gold cross, and a candle for every hundred chapters.
+    P(this.geo.box, this.mat('stone', 2), 2.4, 0.25, 1.3, 0, F + 0.12, -R.hz + 0.9);
+    P(this.geo.box, this.mat('stone', 1), 1.6, 0.9, 0.6, 0, F + 0.7, -R.hz + 0.7);
+    P(this.geo.box, this.mat('plaster', 0), 1.7, 0.04, 0.66, 0, F + 1.17, -R.hz + 0.7);
+    P(this.geo.box, this.mat('gold'), 0.08, 1.0, 0.08, 0, F + 2.6, -R.hz + 0.2);
+    P(this.geo.box, this.mat('gold'), 0.55, 0.08, 0.08, 0, F + 2.85, -R.hz + 0.2);
+    var nc = Math.max(1, Math.min(12, Math.floor(B.chapters / 100) + 1));
+    for (var c = 0; c < nc; c++) this.candle(D.g, -0.7 + (c % 6) * 0.28, F + 1.19, -R.hz + (c < 6 ? 0.55 : 0.85), 0.14 + (c % 3) * 0.05, D.flames);
+    block(-1.2, 1.2, -R.hz, -R.hz + 1.55);
+    D.spots.push({ k: 'altar', x: 0, z: -R.hz + 1.9, r: 0.9 });
+    // The lectern with the open Bible.
+    P(this.geo.box, this.mat('wood'), 0.12, 1.0, 0.12, 1.4, F + 0.5, -R.hz + 2.4);
+    P(this.geo.box, this.mat('wood'), 0.6, 0.06, 0.45, 1.4, F + 1.05, -R.hz + 2.4).rotation.x = 0.35;
+    P(this.geo.box, this.mat('plaster', 0), 0.5, 0.03, 0.36, 1.4, F + 1.1, -R.hz + 2.42).rotation.x = 0.35;
+    P(this.geo.box, this.mat('flag', 0), 0.04, 0.01, 0.3, 1.4, F + 1.12, -R.hz + 2.42).rotation.x = 0.35;
+    block(1.2, 1.6, -R.hz + 2.2, -R.hz + 2.6);
+    D.spots.push({ k: 'bible', x: 1.4, z: -R.hz + 3.0, r: 0.7 });
+    // The bell rope by the door.
+    P(this.geo.cyl6, this.mat('canvas', 2), 0.03, 3.4, 0.03, -1.2, F + 2.5, R.hz - 0.6);
+    P(this.geo.box, this.mat('flag', 0), 0.09, 0.3, 0.09, -1.2, F + 0.9, R.hz - 0.6);
+    D.spots.push({ k: 'rope', x: -1.2, z: R.hz - 0.95, r: 0.6 });
+    // Chandeliers of candles down the nave.
+    [-2.5, 0.5, 3.0].forEach(function (z) {
+      P(self.geo.cyl6, self.mat('stoneDark'), 0.02, 0.9, 0.02, 0, F + 3.7, z);
+      P(self.geo.torus, self.mat('stoneDark'), 0.5, 0.5, 0.5, 0, F + 3.2, z).rotation.x = Math.PI / 2;
+      for (var q = 0; q < 6; q++) { var a = q / 6 * Math.PI * 2; self.candle(D.g, Math.cos(a) * 0.5, F + 3.22, z + Math.sin(a) * 0.5, 0.1, D.flames); }
+    });
+    D.light = { hemi: '#cdb8a0', ground: '#2c241e', i: 0.9 };
+  };
+  Town.prototype.furnishPub = function (D, P, block, lamp, fireplace) {
+    var self = this, R = ROOMS.pub, F = R.y, s = this.st, friends = Object.keys(s.friends || {}).sort(function (a, b) { return (s.friends[b].n || 0) - (s.friends[a].n || 0); });
+    // The bar along the back wall: a counter, three taps, shelves of bottles behind.
+    P(this.geo.box, this.mat('wood'), 5.0, 1.05, 0.6, 0, F + 0.52, -R.hz + 1.3);
+    P(this.geo.box, this.mat('woodLight'), 5.2, 0.08, 0.75, 0, F + 1.08, -R.hz + 1.3);
+    P(this.geo.box, this.mat('gold'), 5.0, 0.04, 0.04, 0, F + 0.15, -R.hz + 1.62);
+    [-0.5, 0, 0.5].forEach(function (x, i) {
+      P(self.geo.cyl6, self.mat('copper'), 0.04, 0.35, 0.04, x, F + 1.28, -R.hz + 1.15);
+      P(self.geo.box, self.mat('flag', i + 1), 0.07, 0.16, 0.04, x, F + 1.52, -R.hz + 1.15);
+    });
+    block(-2.6, 2.6, -R.hz, -R.hz + 1.65);
+    D.spots.push({ k: 'bar', x: 0, z: -R.hz + 2.05, r: 0.9 });
+    for (var sh = 0; sh < 3; sh++) {
+      P(this.geo.box, this.mat('woodLight'), 4.6, 0.05, 0.3, 0, F + 1.5 + sh * 0.45, -R.hz + 0.2);
+      for (var b = 0; b < 16; b++) {
+        var bx = -2.1 + b * 0.28, bot = P(this.geo.cyl6, this.mat('glass', (b + sh * 5) % 12), 0.05, 0.28, 0.05, bx, F + 1.67 + sh * 0.45, -R.hz + 0.2);
+        bot.material = new T.MeshLambertMaterial({ color: ['#2f6b3a', '#7a3a1a', '#c9a24a', '#3a4f7a', '#8a2a2a'][(b * 3 + sh) % 5] });
+      }
+    }
+    // A barrel stood on end for every barrel the pub's earned (up to six), and the barkeep.
+    for (var br = 0; br < Math.min(6, s.barrels || 0); br++) { var bxx = -R.hx + 0.5, bz = -R.hz + 1.9 + br * 0.65; P(this.geo.cyl, this.mat('wood'), 0.28, 0.6, 0.28, bxx, F + 0.3, bz); P(this.geo.torus, this.mat('stoneDark'), 0.29, 0.29, 0.29, bxx, F + 0.45, bz).rotation.x = Math.PI / 2; block(bxx - 0.3, bxx + 0.3, bz - 0.3, bz + 0.3); }
+    var bk = this.makeMouse(0, 'barkeep'); bk.g.position.set(0.9, F, -R.hz + 0.7); bk.g.scale.setScalar(3.2); D.g.add(bk.g); D.barkeep = bk;
+    // The mug rack: a tankard on a hook for every friend you've trained with.
+    P(this.geo.box, this.mat('logwood', 0), 4.0, 0.08, 0.1, 0, F + 2.6, -R.hz + 0.1);
+    friends.slice(0, 18).forEach(function (nm, i) {
+      var mx = -1.9 + i * 0.22;
+      P(self.geo.cyl6, self.mat(i % 3 ? 'copper' : 'stone', 1), 0.07, 0.14, 0.07, mx, F + 2.43, -R.hz + 0.16);
+      P(self.geo.torus, self.mat('copper'), 0.05, 0.05, 0.05, mx + 0.08, F + 2.43, -R.hz + 0.16).rotation.y = Math.PI / 2;
+    });
+    D.spots.push({ k: 'mugs', x: -1.8, z: -R.hz + 2.0, r: 0.8 });
+    // Tables and stools, with a pint on each.
+    [[-2.2, 0.6], [0.1, 1.1], [2.3, 0.3]].forEach(function (t, ti) {
+      P(self.geo.cyl, self.mat('woodLight'), 0.5, 0.06, 0.5, t[0], F + 0.75, t[1]);
+      P(self.geo.cyl6, self.mat('wood'), 0.07, 0.72, 0.07, t[0], F + 0.37, t[1]);
+      P(self.geo.cyl6, self.mat('gold'), 0.06, 0.16, 0.06, t[0] + 0.15, F + 0.86, t[1] - 0.1);
+      self.candle(D.g, t[0] - 0.12, F + 0.78, t[1] + 0.1, 0.1, D.flames);
+      block(t[0] - 0.5, t[0] + 0.5, t[1] - 0.5, t[1] + 0.5);
+      [[0.8, 0], [-0.8, 0]].forEach(function (o) { P(self.geo.cyl6, self.mat('wood'), 0.2, 0.45, 0.2, t[0] + o[0], F + 0.22, t[1] + o[1]); });
+      if (ti === 1) D.spots.push({ k: 'table', x: t[0], z: t[1] + 0.85, r: 0.7, seat: [t[0] + 0.8, t[1], -Math.PI / 2] });
+    });
+    // The fire, the dartboard and the chalkboard.
+    fireplace(R.hx - 0.25, 1.3, -Math.PI / 2);
+    D.solid.push([R.hx - 0.55, R.hx, 0.3, 2.3]);
+    var board = P(this.geo.cyl, this.mat('stoneDark'), 0.36, 0.05, 0.36, -R.hx + 0.04, F + 1.7, 2.0); board.rotation.z = Math.PI / 2;
+    [0.28, 0.18, 0.08].forEach(function (r, i) { P(self.geo.cyl, self.mat(i % 2 ? 'flag' : 'plaster', 0), r, 0.055, r, -R.hx + 0.05, F + 1.7, 2.0).rotation.z = Math.PI / 2; });
+    D.spots.push({ k: 'darts', x: -R.hx + 1.3, z: 2.0, r: 0.8 });
+    var chalk = P(this.geo.box, this.mat('stoneDark'), 0.05, 0.9, 1.3, -R.hx + 0.04, F + 1.6, 0.3); chalk.material = new T.MeshLambertMaterial({ color: '#1e2a22' });
+    P(this.geo.box, this.mat('wood'), 0.07, 1.0, 1.4, -R.hx + 0.02, F + 1.6, 0.3);
+    D.spots.push({ k: 'board', x: -R.hx + 0.9, z: 0.3, r: 0.8 });
+    [[-2.6, R.hz - 0.25], [2.6, R.hz - 0.25], [-R.hx + 0.25, -1.0]].forEach(function (l) { lamp(l[0], F + 2.3, l[1]); });
+    D.light = { hemi: '#d79a62', ground: '#3a2214', i: 0.9 };
+  };
+  Town.prototype.enterRoom = function (pl, kind) {
+    if (!this.roomOK(kind)) return false;
+    if (pl.seat) this.leaveSeat(pl);
+    if (pl.cook) this.endCook(pl, true);
+    var old = this.st.room; if (old) { this.world.remove(old.g); }
+    var D = this.st.room = this.buildRoom(kind), R = ROOMS[kind];
+    pl.inRoom = kind; pl.push = null; pl.iv = null; pl.vy = 0; pl.napping = 0;
+    pl.roomBack = { x: pl.g.position.x, y: pl.g.position.y, z: pl.g.position.z, ry: pl.g.rotation.y };
+    var P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
+    P.set(R.x, R.base + R.y, R.z + R.hz - 0.9); pl.g.rotation.y = Math.PI;
+    var c = this.controls, cam = this.camera;
+    cam.position.x += P.x - ox; cam.position.y += P.y - oy; cam.position.z += P.z - oz; c.target.set(P.x, P.y + 0.5, P.z);
+    if (this.weather) this.weather.visible = false;
+    this.sfx('found');
+    this.near = null; if (this.onNear) this.onNear(null);
+    var hi = { library: ['shhh… the library', 'all your books, right here'], church: ['so quiet in here', 'the church'], pub: ['ahh, the Slow Pour', 'warm in here!'] }[kind];
+    this.say(pickOne(hi), pl.g, 1.0, 1.8);
+    this.needsRender = true;
+    return true;
+  };
+  Town.prototype.leaveRoom = function (pl) {
+    var D = this.st.room, b = pl.roomBack, P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
+    pl.inRoom = null; pl.napping = 0;
+    if (D) { this.world.remove(D.g); this.st.room = null; }
+    this.applyPalette();
+    if (b) { P.set(b.x, this.floorAt(b.x, b.z, b.y + 2), b.z); pl.g.rotation.y = b.ry + Math.PI; }
+    var c = this.controls, cam = this.camera;
+    cam.position.x += P.x - ox; cam.position.y += P.y - oy; cam.position.z += P.z - oz; c.target.set(P.x, P.y + 0.5, P.z);
+    this.solidAt = 0; this.nearAt = 0; this.near = null; if (this.onNear) this.onNear(null);
+    this.needsRender = true;
+  };
+  Town.prototype.roomStep = function (pl, mx, mz, dt, now, moving) {
+    var D = this.st.room, R = ROOMS[D.kind], g = pl.g, P = g.position, K = this.keys, c = this.controls, cam = this.camera, self = this;
+    var lx = P.x - R.x, lz = P.z - R.z;
+    if (moving) {
+      var len = Math.hypot(mx, mz); if (len > 1) { mx /= len; mz /= len; }
+      var fwd = new T.Vector3().subVectors(c.target, cam.position); fwd.y = 0; fwd.normalize();
+      var right = new T.Vector3(-fwd.z, 0, fwd.x), run = K.shift || (this.stick && Math.hypot(this.stick.x, this.stick.y) > 0.92);
+      var sp = (run ? 4.6 : 2.7) * dt, dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
+      var free = function (x, z) {
+        if (Math.abs(x) > R.hx - 0.22 || Math.abs(z) > R.hz - 0.22) return false;
+        for (var i = 0; i < D.solid.length; i++) { var b = D.solid[i]; if (x > b[0] - 0.15 && x < b[1] + 0.15 && z > b[2] - 0.15 && z < b[3] + 0.15) return false; }
+        return true;
+      };
+      if (!free(lx, lz)) { lx = 0; lz = R.hz - 0.9; }
+      if (free(lx + dx, lz + dz)) { lx += dx; lz += dz; } else if (free(lx + dx, lz)) lx += dx; else if (free(lx, lz + dz)) lz += dz;
+      // Walk back out through the door.
+      if (lz > R.hz - 0.4 && Math.abs(lx) < 0.55 && dz > 0) { this.leaveRoom(pl); return; }
+      P.x = R.x + lx; P.z = R.z + lz;
+      var face = Math.atan2(dx, dz), d = face - g.rotation.y;
+      while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+      g.rotation.y += d * Math.min(1, dt * 14);
+      pl.phase += dt * (run ? 21 : 14);
+      if (Math.floor(pl.phase / Math.PI) !== pl.stepN) { pl.stepN = Math.floor(pl.phase / Math.PI); this.footstep(P.x, P.z, true); }
+      pl.idle = 0;
+    } else pl.idle = (pl.idle || 0) + dt;
+    P.y += (R.base + R.y - P.y) * Math.min(1, dt * 18); pl.vy = 0; pl.air = 0;
+    this.posePlayer(pl, dt, now, moving);
+    this.followCam(P, dt);
+    if (this.weather) this.weather.visible = false;
+    var cx = cam.position.x - c.target.x, cz = cam.position.z - c.target.z;
+    D.walls.forEach(function (w) { w.g.visible = w.nx * cx + w.nz * cz < 0; });
+    D.flames.forEach(function (f) {
+      if (f.fire) { f.fire.scale.y = f.h * (1 + Math.sin(now / 70 + f.ph) * 0.25 + Math.sin(now / 29 + f.ph) * 0.1); f.fire.rotation.z = Math.sin(now / 110 + f.ph) * 0.15; return; }
+      var k = 1 + Math.sin(now / 90 + f.ph) * 0.12 + Math.sin(now / 37 + f.ph * 2) * 0.08; f.f.scale.y = 0.06 * k; f.f.rotation.z = Math.sin(now / 160 + f.ph) * 0.12;
+    });
+    D.spin.forEach(function (o) { o.rotation.y += dt * 0.3; });
+    if (D.barkeep) { var bk = D.barkeep; bk.g.position.x = 0.9 + Math.sin(now / 2600) * 1.2; bk.g.rotation.y = Math.cos(now / 2600) > 0 ? Math.PI / 2 : -Math.PI / 2; if (Math.abs(Math.sin(now / 2600)) > 0.97) bk.g.rotation.y = 0; }
+    this.hemi.color.set(D.light.hemi); this.hemi.groundColor.set(D.light.ground); this.hemi.intensity = D.light.i; this.sun.intensity = 0.05;
+    if (now > (this.nearAt || 0)) {
+      this.nearAt = now + 200;
+      var best = null, bd = 9;
+      D.spots.forEach(function (s) { var dd = Math.hypot(s.x - lx, s.z - lz); if (dd < s.r && dd < bd) { bd = dd; best = 'room:' + s.k; } });
+      if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
+    }
+    this.needsRender = true;
+  };
+  Town.prototype.roomInfo = function (k) {
+    var D = this.st.room, s = this.st; if (!D) return null;
+    var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
+    if (k === 'door') return { title: 'The door', lines: ['Back out into town.'] };
+    if (D.kind === 'library') {
+      var L = s.library, last = L.books[L.books.length - 1];
+      if (k === 'shelf') return { title: 'Your shelves', lines: [plural(L.books.length, 'book') + ' · ' + L.pages.toLocaleString() + ' pages. Gold bands mark the 5-star ones.', 'Press E to browse them.'] };
+      if (k === 'desk') return { title: 'The reading desk', lines: [last ? 'Open at "' + last.title + '".' : 'An empty desk.', 'Press E to pull a book off the shelf.'] };
+      if (k === 'chair') return { title: 'An armchair by the fire', lines: ['Press E to curl up with a book. Move to get up.'] };
+    }
+    if (D.kind === 'church') {
+      var B = s.bible;
+      if (k === 'bible') return { title: 'The lectern Bible', lines: [B.chapters.toLocaleString() + ' of 1,189 chapters read · ' + plural(B.books.length, 'book') + ' finished.', 'Press E to see where you’re up to.'] };
+      if (k === 'altar') return { title: 'The altar', lines: ['A candle for every hundred chapters read.', 'The windows: a coloured pane for every book you’ve finished (Old Testament left, New Testament right).'] };
+      if (k === 'pew') return { title: 'A pew', lines: ['Press E to sit a while. Move to get up.'] };
+      if (k === 'rope') return { title: 'The bell rope', lines: ['Press E to ring the bell.'] };
+    }
+    if (D.kind === 'pub') {
+      var fr = Object.keys(s.friends || {});
+      if (k === 'bar') return { title: 'The bar', lines: [s.drinks + ' drinks logged · ' + s.barrels + ' barrels stacked.', 'Press E for a pint.'] };
+      if (k === 'mugs') return { title: 'The mug rack', lines: [fr.length ? 'A tankard for everyone you’ve trained with: ' + fr.slice(0, 12).join(', ') + (fr.length > 12 ? '…' : '') + '.' : 'No regulars yet. Train with friends and their mugs go up.'] };
+      if (k === 'darts') return { title: 'The dartboard', lines: ['Press E to throw three darts.'] };
+      if (k === 'board') return { title: 'The chalkboard', lines: ['Press E to read the specials.'] };
+      if (k === 'table') return { title: 'A table by the fire', lines: ['Press E to sit down. Move to get up.'] };
+    }
+    return null;
+  };
+  Town.prototype.roomUse = function (pl) {
+    var D = this.st.room, k = (this.near || '').split(':')[1], s = this.st, self = this;
+    if (!D) return;
+    if (k === 'door') { this.leaveRoom(pl); return; }
+    var spot = D.spots.filter(function (q) { return q.k === k; })[0];
+    if (spot && spot.seat) {
+      var R = ROOMS[D.kind], sx = spot.seat;
+      pl.g.position.set(R.x + sx[0], R.base + R.y + 0.25, R.z + sx[1]); pl.g.rotation.y = sx[2];
+      pl.napping = performance.now();
+      this.say(D.kind === 'library' ? '*opens a book*' : D.kind === 'church' ? '*sits quietly*' : '*settles in*', pl.g, 1.0, 1.6);
+      return;
+    }
+    if (D.kind === 'library') {
+      var books = s.library.books;
+      if (k === 'shelf' && this.onInteract) { this.onInteract('library'); return; }
+      if (k === 'desk' && books.length) {
+        var b = books[Math.floor(Math.random() * books.length)];
+        this.say('"' + b.title + '"' + (b.author ? ' by ' + b.author : '') + (b.stars ? ' · ' + '★'.repeat(Math.round(b.stars)) : ''), pl.g, 1.1, 3.2);
+        return;
+      }
+    }
+    if (D.kind === 'church') {
+      var B = s.bible;
+      if (k === 'rope') { if (B.chapters >= 70) { ['Ding!', 'Dong!', 'Ding!', 'Dong!'].forEach(function (w, i) { setTimeout(function () { self.say(w, pl.g, 1.6 + i * 0.12, 1.1, true); self.sfx(i % 2 ? 'dong' : 'ding'); }, i * 650); }); } else this.say('no bell yet (70 chapters)', pl.g, 1.0, 1.6); return; }
+      if (k === 'bible') {
+        var cur = null;
+        for (var i = 0; i < BIBLE.length && !cur; i++) { var rd = Object.keys(B.read[i] || {}).length; if (rd && rd < BIBLE[i][1]) cur = BIBLE[i][0] + ': ' + rd + ' of ' + BIBLE[i][1] + ' chapters'; }
+        this.say(cur ? 'reading ' + cur : Math.round(B.chapters / 11.89) + '% of the way through', pl.g, 1.1, 3);
+        return;
+      }
+      if (k === 'altar') { this.say(B.books.length + ' windows lit of 66', pl.g, 1.0, 2.2); return; }
+    }
+    if (D.kind === 'pub') {
+      if (k === 'bar') { this.getBeer(); if (D.barkeep) this.say(pickOne(['there you go, love', 'one pint', 'mind how you go']), D.barkeep.g, 0.75, 1.8); return; }
+      if (k === 'darts') {
+        var tot = 0, throws = [0, 1, 2].map(function () { var r = Math.random(), sc = r < 0.05 ? 50 : r < 0.12 ? 60 : r < 0.2 ? 0 : 1 + Math.floor(Math.random() * 40); tot += sc; return sc === 50 ? 'BULL' : sc === 60 ? 'treble 20' : sc ? String(sc) : 'miss'; });
+        throws.forEach(function (t, i) { setTimeout(function () { self.say(t, pl.g, 1.1 + i * 0.12, 1.0, true); self.sfx('wood'); }, i * 500); });
+        setTimeout(function () { self.say(tot >= 120 ? tot + '! the regulars cheer' : tot + ' total', pl.g, 1.1, 2); }, 1700);
+        return;
+      }
+      if (k === 'board') {
+        this.say(pickOne(['tonight: hot cider, half price for runners', 'quiz night thursday. bring Jo', 'specials: soup, sourdough, and an early night']), pl.g, 1.1, 3);
+        return;
+      }
+      if (k === 'mugs') { var fr = Object.keys(s.friends || {}); this.say(fr.length ? fr.length + ' mugs on the rack' : 'no regulars yet', pl.g, 1.0, 2); return; }
+    }
+  };
   // Hop the raccoon over to the Lean Month Garden's gate (it's out on the edge of town).
   Town.prototype.goGarden = function () {
     var pl = this.player, G = this.gardenSpot;
-    if (!pl || !G || pl.inDen || pl.ride || pl.mine || pl.snow || pl.paddle || this.brawl) return false;
+    if (!pl || !G || pl.inDen || pl.inRoom || pl.ride || pl.mine || pl.snow || pl.paddle || this.brawl) return false;
     if (pl.seat) this.leaveSeat(pl);
     if (pl.cook) this.endCook(pl, true);
     pl.push = null; pl.iv = null; pl.vy = 0; pl.napping = 0;
@@ -8432,7 +8831,7 @@
   };
   Town.prototype.goHome = function () {
     var pl = this.player;
-    if (!pl || !this.explore || pl.inDen || pl.ride || pl.mine || pl.snow || pl.paddle || this.brawl) return false;
+    if (!pl || !this.explore || pl.inDen || pl.inRoom || pl.ride || pl.mine || pl.snow || pl.paddle || this.brawl) return false;
     if (!this.st.den && this.solids) this.buildDen();
     if (!this.st.den) return false;
     if (pl.cook) this.endCook(pl, true);
@@ -13269,7 +13668,7 @@
     // The garden (Cronometer).
     var NS = this.nutritionStats && this.nutritionStats();
     if (NS && NS.days) {
-      if (NS.onCal) L.push(NS.onCal + ' days on target this month! the garden beds are filling up', 'the Lean Month garden’s looking lovely. ' + NS.onCal + ' beds and counting');
+      if (NS.onCal) L.push(NS.onCal + (NS.onCal === 1 ? ' day' : ' days') + ' on target this month! the garden beds are filling up', 'the Lean Month garden’s looking lovely. ' + NS.onCal + ' beds and counting');
       if (NS.onProt >= 2) L.push(NS.onProt + ' prize vegetables in the garden! that’s your protein, that is', 'Bramble says your pumpkins are the best in Yukon. protein, apparently');
       if (NS.streak >= 3) L.push(NS.streak + ' days logging in a row! the cookfire’s roaring', 'the cookfire’s been going ' + NS.streak + ' days now. don’t let it go out!');
       else if (NS.streak === 0) L.push('the garden cookfire’s gone out. log your lunch, dear?', 'no food logged today? the garden’s waiting');
@@ -14093,7 +14492,7 @@
       m.state = 'idle'; m.legs.forEach(function (l) { l.rotation.x = 0; }); m.arms.forEach(function (a) { a.rotation.x = 0; }); m.body.position.y = 0.13;
       if (line) self.say(line, g, 0.65, 1.8);
     };
-    if (!pl || !this.explore || pl.inDen || pl.ride || pl.mine) { end(pl && pl.inDen ? 'where’d it go?!' : null); return; }
+    if (!pl || !this.explore || pl.inDen || pl.inRoom || pl.ride || pl.mine) { end(pl && (pl.inDen || pl.inRoom) ? 'where’d it go?!' : null); return; }
     var P = pl.g.position, dx = P.x - G.x, dz = P.z - G.z, d = Math.hypot(dx, dz);
     if (now > m.chaseUntil || d > 25) { end(['and STAY out!', '*pant pant*', 'rotten raccoon!', 'I’ll get you next time!'][Math.floor(Math.random() * 4)]); return; }
     if (d < 0.45) {
@@ -14144,7 +14543,7 @@
     if (!cur) return;
     cur.bang.position.y = 0.62 + Math.sin(now / 220) * 0.03; cur.bang.rotation.y = now / 500;
     var P = pl.g.position, d = Math.hypot(P.x - cur.g.position.x, P.z - cur.g.position.z);
-    if (d > 1.8 || !cur.g.visible || pl.inDen) return;
+    if (d > 1.8 || !cur.g.visible || pl.inDen || pl.inRoom) return;
     var c = pl.carry, E = cur.errand, ok = c && (E.want === 'shiny' ? !c.kind : c.kind === E.want);
     cur.helloAt = now + 25000;
     if (!ok) { if (now > (E.askAt || 0)) { E.askAt = now + 15000; this.say(E.ask, cur.g, 0.65, 2.8); } return; }
@@ -14956,6 +15355,7 @@
       case 'klondike': return { title: 'The S.S. Klondike', lines: ['The sternwheeler that hauled ore and passengers down the Yukon River to Dawson, now resting on the riverbank as a National Historic Site.'] };
       case 'rendezvous': return { title: 'Sourdough Rendezvous', lines: ['Whitehorse’s February winter festival, with the Yukon Quest sled dogs waiting at the gate.', 'Up each February.'] };
       case 'raven': return { title: 'A raven', lines: ['The Yukon’s territorial bird. Clever, loud, and very interested in what you’re carrying.'] };
+      case 'room': return this.roomInfo(p[1]);
       case 'denroom': {
         var RS = this.keep();
         if (p[1] === 'bed') return { title: 'Your straw bed', lines: ['Press E to curl up for a nap. Move to get up.'] };
@@ -15225,7 +15625,7 @@
     }
     // Keep the view over the countryside.
     var tg = this.controls.target, far = Math.hypot(tg.x, tg.z);
-    if (far > WORLD_R - 6 && !(this.player && this.player.inDen)) { var back = new T.Vector3(tg.x, 0, tg.z).multiplyScalar(1 - (WORLD_R - 6) / far); tg.sub(back); this.camera.position.sub(back); }
+    if (far > WORLD_R - 6 && !(this.player && (this.player.inDen || this.player.inRoom))) { var back = new T.Vector3(tg.x, 0, tg.z).multiplyScalar(1 - (WORLD_R - 6) / far); tg.sub(back); this.camera.position.sub(back); }
     var changed = this.controls.update();
     if (this.soft) {
       if (!(changed || moved || this.anims.length || this.needsRender) || now - (this.lastPaint || 0) < 33) return;
@@ -15572,6 +15972,11 @@
         this.followCam(P, dt); return true;
       }
     }
+    // Inside the library, church or pub.
+    if (pl.inRoom) {
+      if (this.st.room) { this.roomStep(pl, mx, mz, dt, now, moving); return true; }
+      this.leaveRoom(pl); // (the town was rebuilt around us: step back outside)
+    }
     // At home in the den, a world away from town.
     if (pl.inDen) {
       if (!this.st.den && this.solids) this.buildDen();
@@ -15817,6 +16222,8 @@
     if (pl && !pl.paddle && this.near === 'secret:windmill') { this.millGust(); return; }
     if (pl && pl.napping) { pl.napping = 0; pl.idle = 0; this.say('*yawn*', pl.g, 1.0, 1.0); return; }
     if (pl && pl.inDen) { this.denUse(pl); return; }
+    if (pl && pl.inRoom) { this.roomUse(pl); return; }
+    if (pl && !pl.paddle && !pl.seat && (this.near === 'library' || this.near === 'church' || this.near === 'pub') && this.roomOK(this.near)) { this.enterRoom(pl, this.near); return; }
     if (pl && !pl.paddle && this.near === 'den') { this.enterDen(pl); return; }
     if (pl && !pl.paddle) { var lm = this.lunchNear(pl.g.position); if (lm) { this.stealLunch(pl, lm); return; } }
     // Winter: a snowball for the nearest mouse.
@@ -18291,7 +18698,7 @@
       d.connect(fb); fb.connect(d); d.connect(wet); wet.connect(A.out); this.amb.echo = d;
     }
     var B = this.amb, L = this.explore && this.player ? this.player.g.position : this.controls.target, g = this.gustNow || 1, t = ctx.currentTime;
-    var inDen = this.player && this.player.inDen;
+    var inDen = this.player && (this.player.inDen || this.player.inRoom);
     B.wind.g.gain.setTargetAtTime(inDen ? 0 : 0.018 + 0.03 * Math.min(1.6, g), t, 0.8);
     B.wind.f.frequency.setTargetAtTime(300 + 260 * g, t, 1.2);
     // Water: louder near the river, the sea, the lakes or the Yukon past Dawson.
@@ -18413,7 +18820,7 @@
   // ===== weather you can feel: thunder and lightning, and fog lying on the rivers at dawn =====
   Town.prototype.stepStorm = function (dt, now) {
     var S = this.storm || (this.storm = { at: now + 5000, flash: 0 });
-    if (this.weatherNow === 'storm' && !(this.player && this.player.inDen)) {
+    if (this.weatherNow === 'storm' && !(this.player && (this.player.inDen || this.player.inRoom))) {
       if (now > S.at) {
         S.at = now + 5000 + Math.random() * 12000; S.flash = 1; S.flicker = Math.random() < 0.5;
         var self = this, far = Math.random(); setTimeout(function () { self.sfx('thunder'); }, 500 + far * 2500);
@@ -18585,7 +18992,7 @@
       if (!this.instant) this.pop(g, 200);
       // a word from the mice when there's something new to say
       var K = this.keep(), key = S.month + ':' + S.onCal + ':' + S.onProt;
-      if (K.gardenSaid !== key && this.player && this.explore && S.onCal) { K.gardenSaid = key; this.saveStore(); this.say(S.onCal + ' days on target this month! the garden’s growing', this.player.g, 1.1, 2.4); }
+      if (K.gardenSaid !== key && this.player && this.explore && S.onCal) { K.gardenSaid = key; this.saveStore(); this.say(S.onCal + (S.onCal === 1 ? ' day' : ' days') + ' on target this month! the garden’s growing', this.player.g, 1.1, 2.4); }
     }
     if (this.garden && this.garden.flame.visible) {
       var fl = this.garden.flame; fl.children.forEach(function (c, i) { c.scale.y = (i ? 0.32 : 0.5) * (1 + Math.sin(now / (90 + i * 40)) * 0.15); });
