@@ -8462,7 +8462,7 @@
     if (kind === 'library') { var p = s.library.pages; return p < 5000 ? 'cabin' : p < 8000 ? 'brick' : 'grand'; }
     if (kind === 'church') { var c = s.bible.chapters; return c < 100 ? 'chapel' : c < 400 ? 'brick' : 'stone'; }
     if (kind === 'jo') return s.friends.Jo && s.friends.Jo.n >= 75 ? 'big' : 'small';
-    if (kind === 'cafe') { var nb = (s.city && s.city.built && s.city.built.full) || 0; return nb < 4 ? 'shop' : nb < 8 ? 'cafe' : 'lodge'; }
+    if (kind === 'cafe') { var nr = s.mtb.rides; return nr < 21 ? 'shop' : nr < 36 ? 'cafe' : 'lodge'; }
     if (kind === 'cinema') { var nf = s.cinema.films.length; return nf < 25 ? 'night' : nf < 200 ? 'house' : 'palace'; }
     return s.drinks >= 200 ? 'inn' : 'tavern';
   };
@@ -8486,7 +8486,7 @@
     if (kind === 'pub') return !!s.pub;
     if (kind === 'jo') return !!(s.friends && s.friends.Jo && s.friends.Jo.group);
     if (kind === 'cinema') return !!(s.cinema && s.cinema.group && s.cinema.films.length);
-    if (kind === 'cafe') return !!(s.city && s.city.built && s.city.built.full >= 1);
+    if (kind === 'cafe') return !!(s.mtb && s.mtb.group);
     return false;
   };
   Town.prototype.buildRoom = function (kind) {
@@ -8855,7 +8855,7 @@
       church: { chapel: ['a little log chapel', 'simple and quiet'], brick: ['the brick church', 'so bright in here'], stone: ['so quiet in here', 'the stone church'] },
       pub: { tavern: ['ahh, the Slow Pour', 'warm in here!'], inn: ['the Slow Pour Inn!', 'busy tonight'] },
       jo: { small: ['home sweet home', 'ahh, the cosiest place in Yukon'], big: ['home sweet home', 'the cottage looks lovely'] },
-      cafe: { shop: ['mmm, fresh bread', 'Baked Caf\u00e9!'], cafe: ['Baked Caf\u00e9!', 'smells like cinnamon in here'], lodge: ['the bakery\u2019s grown!', 'look at that oven'] },
+      cafe: { shop: ['smells like coffee and chain oil', 'Icycle Sport!'], cafe: ['the Icycle caf\u00e9!', 'mmm, coffee'], lodge: ['the trail lodge', 'look at this place'] },
       cinema: { night: ['movie night!', 'ooh, what’s on?'], house: ['the picture house', 'best seats in the house'], palace: ['the picture palace!', 'look at that screen'] }
     }[kind][R.tier];
     this.say(pickOne(hi), pl.g, 1.0, 1.8);
@@ -8892,18 +8892,12 @@
     cafe: ['*sip*', 'mm, good roast', 'trails are muddy today', 'one more bun', '*slurp*']
   };
   Town.prototype.bldgDoor = function (kind) {
-    if (kind === 'cafe') return this.cafeDoor();
-    var s = this.st, g = kind === 'library' ? s.library.group : kind === 'church' ? s.bible.group : kind === 'cinema' ? s.cinema.group : s.pub;
+    var s = this.st, g = kind === 'library' ? s.library.group : kind === 'church' ? s.bible.group : kind === 'cinema' ? s.cinema.group : kind === 'cafe' ? s.mtb.group : s.pub;
     if (!g) return null;
     var t = this.roomTier(kind), fz = kind === 'cafe' ? 1.7 : kind === 'cinema' ? 3.0 : kind === 'pub' ? 1.5 : kind === 'library' ? (t === 'cabin' ? 2.0 : 2.9) : (t === 'chapel' ? 2.9 : t === 'brick' ? 4.3 : 6.4);
     g.updateMatrixWorld(true);
     var w = g.localToWorld(new T.Vector3(kind === 'library' && t === 'cabin' ? 0.6 : 0, 0, fz));
     return { x: w.x, z: w.z };
-  };
-  Town.prototype.cafeDoor = function () {
-    var Cy = this.st.city; if (!Cy || !Cy.built || !(Cy.built.full >= 1)) return null;
-    var w = cityLot('full', 'a0+'), f = { x: Math.sin(w.r * D2R), z: Math.cos(w.r * D2R) };
-    return { x: w.x + f.x * 1.2, z: w.z + f.z * 1.2 };
   };
   Town.prototype.visitPick = function (only) {
     var ks = (only ? [only] : ['library', 'church', 'pub', 'cinema', 'cafe']).filter(this.roomOK, this);
@@ -9326,13 +9320,13 @@
     S.tex.needsUpdate = true;
     return f;
   };
-  // ===== The bike café, inside =====
+  // ===== Icycle Sport, the bike shop and café, inside =====
   // A bike shop with a coffee bar to start; a proper café once the patio's out (21 rides); a two-
   // storey trail lodge with a loft and a big stove at 36. Bikes on the wall for your rides, the
   // repair stand and tool wall once they're built, a trail map with your riding on it, and a
   // barista who makes you a flat white.
   Town.prototype.furnishCafe = function (D, T0) {
-    var self = this, R = D.R, F = R.y, P = T0.P, Cy = this.st.city, n = (Cy && Cy.built && Cy.built.full) || 0, t = R.tier, G = this.glowMats(), MC = function (h) { return self.mcm(h); };
+    var self = this, R = D.R, F = R.y, P = T0.P, M = this.st.mtb, n = M.rides, t = R.tier, G = this.glowMats(), MC = function (h) { return self.mcm(h); };
     var bw = D.walls[0].g, lw = D.walls[1].g, rw = D.walls[3].g, lodge = t === 'lodge';
     // The counter: a long wooden bar with an espresso machine, a pastry case and a chalk menu.
     var cw = t === 'shop' ? 2.2 : 3.0, cz = -R.hz + 1.1;
@@ -9349,30 +9343,30 @@
     P(this.geo.box, MC('#2f7f7a'), 0.14, 0.14, 0.03, 0, 0.06, 0.055, ba.body); // her apron
     // the menu board above
     var mc = document.createElement('canvas'); mc.width = 256; mc.height = 128; var x = mc.getContext('2d');
-    x.fillStyle = '#1e2a22'; x.fillRect(0, 0, 256, 128); x.fillStyle = '#f2ead6'; x.font = 'bold 20px Georgia'; x.textAlign = 'center'; x.fillText('BAKED CAF\u00c9', 128, 26);
-    x.font = '15px Georgia'; x.textAlign = 'left'; [['flat white', '4'], ['oat latte', '5'], ['sourdough', '7'], ['cinnamon bun', '4'], ['soup of the day', '6']].forEach(function (it, i) { x.fillText(it[0], 22, 50 + i * 16); x.fillText(it[1], 214, 50 + i * 16); });
+    x.fillStyle = '#1e2a22'; x.fillRect(0, 0, 256, 128); x.fillStyle = '#f2ead6'; x.font = 'bold 20px Georgia'; x.textAlign = 'center'; x.fillText('ICYCLE CAF\u00c9', 128, 26);
+    x.font = '15px Georgia'; x.textAlign = 'left'; [['flat white', '4'], ['oat latte', '5'], ['pour over', '4'], ['cinnamon bun', '4'], ['trail mix', '3']].forEach(function (it, i) { x.fillText(it[0], 22, 50 + i * 16); x.fillText(it[1], 214, 50 + i * 16); });
     var mb = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ map: new T.CanvasTexture(mc) })); mb.scale.set(1.5, 0.75, 0.03); mb.position.set(0.4, F + 1.7, -R.hz + 0.04); bw.add(mb);
     P(this.geo.box, MC('#5a3a22'), 1.58, 0.83, 0.02, 0.4, F + 1.7, -R.hz + 0.02, bw);
-    // Shelves of fresh bread on the left wall: more loaves as Main Street grows.
-    for (var sh = 0; sh < 3; sh++) { P(this.geo.box, MC('#7a4e2c'), 0.35, 0.05, 1.8, -R.hx + 0.2, F + 0.9 + sh * 0.42, -R.hz + 1.3, lw); }
-    for (var lf = 0; lf < Math.min(15, 4 + n * 2); lf++) { var sh2 = lf % 3, lz = -R.hz + 0.55 + Math.floor(lf / 3) * 0.32; P(this.geo.blob, MC(lf % 4 ? '#c88a4a' : '#a86a34'), 0.12, 0.09, 0.15, -R.hx + 0.2, F + 0.98 + sh2 * 0.42, lz, lw); }
-    T0.block(-R.hx, -R.hx + 0.45, -R.hz + 0.3, -R.hz + 2.3);
-    D.spots.push({ k: 'bread', x: -R.hx + 0.9, z: -R.hz + 1.3, r: 0.8 });
-    // The community board: notes pinned up about your latest workouts.
-    var tm = document.createElement('canvas'); tm.width = 256; tm.height = 180; var y = tm.getContext('2d'), last = this.st.last || {}, notes = Object.keys(last).map(function (k) { return last[k]; }).filter(Boolean).sort(function (a, b) { return String(b.day).localeCompare(String(a.day)); }).slice(0, 6);
-    y.fillStyle = '#b8895a'; y.fillRect(0, 0, 256, 180);
-    notes.forEach(function (nt, i) { var nx = 12 + (i % 3) * 80, ny = 12 + Math.floor(i / 3) * 84; y.save(); y.translate(nx + 36, ny + 36); y.rotate(((i * 37) % 9 - 4) * 0.02); y.fillStyle = ['#fff6c8', '#d8f0e0', '#ffd8d0', '#dde8ff'][i % 4]; y.fillRect(-34, -34, 70, 70); y.fillStyle = '#c8262e'; y.beginPath(); y.arc(0, -28, 4, 0, Math.PI * 2); y.fill(); y.fillStyle = '#3a2a1a'; y.font = '10px Georgia'; y.textAlign = 'center'; self.wrapText(y, String(nt.label || '').slice(0, 40), 0, 2, 62, 11); y.fillText(String(nt.day || ''), 0, 28); y.restore(); });
+    // Bikes hung on the left wall: one for every few rides (up to six).
+    for (var bk = 0; bk < Math.min(6, 1 + Math.floor(n / 5)); bk++) { var bg = new T.Group(); bg.position.set(-R.hx + 0.12, F + 1.15 + (bk % 2) * 0.6, -R.hz + 0.8 + Math.floor(bk / 2) * 1.0); bg.rotation.set(0, Math.PI / 2, 0); lw.add(bg); this.bikeModel(bg, 0, 0, 0, bk % 6); bg.scale.setScalar(1.6); }
+    D.spots.push({ k: 'bikes', x: -R.hx + 0.9, z: -R.hz + 1.6, r: 0.8 });
+    // The trail map: your rides, as a red line wiggling across the hills.
+    var tm = document.createElement('canvas'); tm.width = 256; tm.height = 180; var y = tm.getContext('2d');
+    y.fillStyle = '#e8dcbc'; y.fillRect(0, 0, 256, 180);
+    for (var c = 0; c < 6; c++) { y.strokeStyle = 'rgba(90,120,70,' + (0.25 + c * 0.08) + ')'; y.beginPath(); y.ellipse(128 + c * 6, 95 - c * 4, 110 - c * 16, 70 - c * 10, 0.2, 0, Math.PI * 2); y.stroke(); }
+    y.strokeStyle = '#c8262e'; y.lineWidth = 3; y.beginPath(); y.moveTo(20, 160);
+    for (var r2 = 0; r2 < Math.min(40, n); r2++) y.lineTo(20 + (r2 + 1) * (216 / Math.max(10, Math.min(40, n))), 160 - Math.abs(Math.sin(r2 * 0.9)) * 70 - r2 * 2);
+    y.stroke(); y.fillStyle = '#2b2522'; y.font = 'bold 14px Georgia'; y.fillText(n + ' rides', 14, 20);
     var map = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ map: new T.CanvasTexture(tm) })); map.scale.set(0.03, 0.8, 1.15); map.position.set(R.hx - 0.04, F + 1.5, -R.hz + 1.4); map.rotation.y = Math.PI; rw.add(map);
-    P(this.geo.box, MC('#5a3a22'), 0.025, 0.88, 1.23, R.hx - 0.02, F + 1.5, -R.hz + 1.4, rw);
-    D.notes = notes;
-    D.spots.push({ k: 'board', x: R.hx - 0.9, z: -R.hz + 1.4, r: 0.8 });
-    // A brick bread oven glowing in the corner, once it's a proper bakery.
-    if (lodge) {
-      var ox = -R.hx + 1.0, oz = R.hz - 1.1;
-      P(this.geo.box, MC('#9a4a32'), 1.2, 1.1, 1.0, ox, F + 0.55, oz); P(this.geo.ball, MC('#9a4a32'), 0.6, 0.45, 0.5, ox, F + 1.1, oz);
-      var mouth = P(this.geo.box, MC('#ff8a3a'), 0.5, 0.35, 0.05, ox + 0.61, F + 0.65, oz); mouth.rotation.y = Math.PI / 2; mouth.material = G.flame;
-      P(this.geo.cyl6, MC('#9a4a32'), 0.12, 1.4, 0.12, ox - 0.3, F + 1.8, oz - 0.2);
-      T0.block(ox - 0.65, ox + 0.65, oz - 0.55, oz + 0.55); D.spots.push({ k: 'oven', x: ox + 1.1, z: oz, r: 0.6 });
+    D.spots.push({ k: 'map', x: R.hx - 0.9, z: -R.hz + 1.4, r: 0.8 });
+    // The repair stand and tool wall (once they're built outside).
+    if (n >= 10) {
+      P(this.geo.cyl6, MC('#2b2522'), 0.04, 1.1, 0.04, -R.hx + 1.2, F + 0.55, R.hz - 1.3); P(this.geo.box, MC('#2b2522'), 0.4, 0.04, 0.04, -R.hx + 1.2, F + 0.08, R.hz - 1.3);
+      var rb = new T.Group(); rb.position.set(-R.hx + 1.2, F + 0.9, R.hz - 1.3); D.g.add(rb); this.bikeModel(rb, 0, 0, Math.PI / 2, 2); rb.scale.setScalar(1.6); rb.rotation.z = 0.1;
+      var tw = new T.Group(); tw.position.set(-R.hx + 0.05, F + 1.4, R.hz - 1.0); lw.add(tw);
+      P(this.geo.box, MC('#c9a87a'), 0.03, 0.7, 1.0, 0, 0, 0, tw);
+      for (var tl = 0; tl < 8; tl++) P(this.geo.box, MC(tl % 3 ? '#8a8f94' : '#c8262e'), 0.03, 0.22, 0.04, 0.03, (tl % 2) * 0.25 - 0.1, -0.4 + tl * 0.11, tw);
+      T0.block(-R.hx + 0.85, -R.hx + 1.55, R.hz - 1.65, R.hz - 0.95); D.spots.push({ k: 'stand', x: -R.hx + 1.2, z: R.hz - 0.6, r: 0.6 });
     }
     // Tables: a couple in the bike shop, more once it's a café; a stove in the corner.
     var tables = t === 'shop' ? [[1.4, 0.6]] : lodge ? [[1.0, 0.2], [2.6, 0.9], [1.4, 1.9]] : [[0.9, 0.4], [2.4, 1.0]];
@@ -9396,14 +9390,14 @@
       var pd = P(this.geo.box, MC('#cfe8a8'), 0.05, 1.9, 0.9, R.hx - 0.02, F + 0.95, 0.0, rw); pd.material = new T.MeshBasicMaterial({ color: this.dark ? '#24304a' : '#d6ecb8' }); // the patio door
       [-0.5, 0.5].forEach(function (zz) { P(self.geo.box, MC('#7a4e2c'), 0.08, 2.0, 0.08, R.hx - 0.04, F + 1.0, zz, rw); });
     }
-    if (t !== 'shop') T0.bulbs(F + R.H - 0.25, 0.5);
+    if (n >= 28) T0.bulbs(F + R.H - 0.25, 0.5);
     if (lodge) {
       // the loft: a gallery over the back, with a timber rail and a flag
       P(this.geo.box, MC('#8a5a34'), R.hx * 2, 0.15, 1.4, 0, F + 2.6, -R.hz + 0.7);
       for (var px = -R.hx + 0.3; px < R.hx; px += 0.4) P(this.geo.box, MC('#7a4e2c'), 0.05, 0.55, 0.05, px, F + 2.95, -R.hz + 1.38);
       P(this.geo.box, MC('#7a4e2c'), R.hx * 2, 0.06, 0.08, 0, F + 3.2, -R.hz + 1.38);
       [-R.hx + 0.6, R.hx - 0.6].forEach(function (cx) { P(self.geo.box, MC('#7a4e2c'), 0.2, 2.6, 0.2, cx, F + 1.3, -R.hz + 1.4); T0.block(cx - 0.15, cx + 0.15, -R.hz + 1.25, -R.hz + 1.55); });
-      if (true) { P(this.geo.box, MC('#c8262e'), 0.03, 0.5, 0.8, R.hx - 0.05, F + 3.6, -1.0, rw); P(this.geo.box, MC('#efe6d2'), 0.035, 0.12, 0.8, R.hx - 0.05, F + 3.6, -1.0, rw); }
+      if (n >= 50) { P(this.geo.box, MC('#c8262e'), 0.03, 0.5, 0.8, R.hx - 0.05, F + 3.6, -1.0, rw); P(this.geo.box, MC('#efe6d2'), 0.035, 0.12, 0.8, R.hx - 0.05, F + 3.6, -1.0, rw); }
     }
     T0.lamp(-1.0, F + 2.2, R.hz - 0.25); T0.lamp(1.6, F + 2.2, R.hz - 0.25);
     D.light = { hemi: '#e8b884', ground: '#3a2616', i: 0.98 };
@@ -9477,7 +9471,7 @@
     var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
     if (k === 'door') return { title: 'The door', lines: ['Back out into town.'] };
     if (D.kind === 'jo') return this.joInfo(k);
-    if (D.kind === 'cafe' && !/^guest/.test(k)) return { counter: { title: 'The counter', lines: ['Press E for a coffee.'] }, board: { title: 'The community board', lines: ['Notes about your latest workouts. Press E to read one.'] }, bread: { title: 'The bread shelves', lines: ['Fresh loaves: more as Main Street grows.'] }, oven: { title: 'The bread oven', lines: ['Press E to warm up.'] }, stove: { title: 'The stove', lines: ['Press E to warm your paws.'] }, table: { title: 'A table', lines: ['Press E to sit with your coffee. Move to get up.'] } }[k] || null;
+    if (D.kind === 'cafe' && !/^guest/.test(k)) { var MI = s.mtb; return { counter: { title: 'The counter', lines: ['Press E for a coffee.'] }, map: { title: 'The trail map', lines: [MI.rides + ' rides, ' + Math.round(MI.km) + ' km. Press E to look closer.'] }, bikes: { title: 'The bike wall', lines: ['A bike up on the wall for every five rides.'] }, stand: { title: 'The repair stand', lines: ['Press E to give it a tune-up.'] }, stove: { title: 'The stove', lines: ['Press E to warm your paws.'] }, table: { title: 'A table', lines: ['Press E to sit with your coffee. Move to get up.'] } }[k] || null; }
     if (D.kind === 'cinema' && !/^guest/.test(k)) { var fs = s.cinema.films, cur = D.screen && fs[D.screen.i]; if (k === 'screen') return { title: cur ? 'Now showing: ' + cur.title : 'The screen', lines: ['Press E to put another of your films on.'] }; if (k === 'seat') return { title: 'A seat', lines: ['Press E to sit and watch. Move to get up.'] }; if (k === 'posters') return { title: 'The posters', lines: ['Your latest films. Press E for the whole list (' + fs.length + ').'] }; if (k === 'popcorn') return { title: 'The popcorn machine', lines: ['Press E for a bag.'] }; return null; }
     if (/^guest/.test(k)) { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; return gq ? { title: gq.v.name, lines: [{ library: 'Reading.', church: 'Sitting quietly.', pub: 'Having a pint.', cinema: 'Watching the film.', cafe: 'Having a coffee.' }[D.kind] + ' Press E to say hello.'] } : null; }
     if (D.kind === 'library') {
@@ -9510,7 +9504,7 @@
     if (!D) return;
     if (k === 'door') { this.leaveRoom(pl); return; }
     if (D.kind === 'jo' && this.joUse(pl, k)) return;
-    if (D.kind === 'cafe') { if (k === 'counter') { this.getCoffee(); if (D.barkeep) this.say(pickOne(['coming right up', 'one flat white', 'that\u2019ll be one acorn']), D.barkeep.g, 0.75, 1.8); return; } if (k === 'board') { var nt = (D.notes || [])[Math.floor(Math.random() * Math.max(1, (D.notes || []).length))]; this.say(nt ? 'pinned up: "' + String(nt.label).slice(0, 50) + '"' : 'nothing pinned up yet', pl.g, 1.1, 2.8); return; } if (k === 'bread') { this.say(pickOne(['*sniffs a loaf*', 'still warm!', 'one sourdough please']), pl.g, 1.0, 2); return; } if (k === 'oven') { this.say(pickOne(['ooh, toasty', 'something\u2019s rising in there']), pl.g, 1.0, 1.8); return; } if (k === 'stove') { this.say(pickOne(['ahh, toasty', '*warms paws*']), pl.g, 1.0, 1.6); return; } }
+    if (D.kind === 'cafe') { var MM = s.mtb; if (k === 'counter') { this.getCoffee(); if (D.barkeep) this.say(pickOne(['coming right up', 'here you go, speedy', 'that\u2019ll be one acorn']), D.barkeep.g, 0.75, 1.8); return; } if (k === 'map') { this.say(MM.rides + ' rides \u00b7 ' + Math.round(MM.km) + ' km on the trails', pl.g, 1.1, 2.6); return; } if (k === 'bikes') { this.say(pickOne(['ooh, that one\u2019s fast', 'one day I\u2019ll own them all', 'look at the tyres on that']), pl.g, 1.0, 2); return; } if (k === 'stand') { this.say('*tightens a bolt* good as new', pl.g, 1.0, 2); this.sfx('clang'); return; } if (k === 'stove') { this.say(pickOne(['ahh, toasty', '*warms paws*']), pl.g, 1.0, 1.6); return; } }
     if (D.kind === 'cinema') { if (k === 'screen') { var nf2 = this.showFilm(D); if (nf2) this.say(nf2.title + (nf2.year ? ' (' + nf2.year + ')' : ''), pl.g, 1.1, 2.6); this.sfx('wood'); return; } if (k === 'posters' && this.onInteract) { this.onInteract('cinema'); return; } if (k === 'popcorn') { this.say(pickOne(['*munch munch*', 'extra butter please', 'pop pop pop!']), pl.g, 1.0, 1.8); return; } }
     if (k === 'guest') { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; if (gq) this.guestTalk(gq); return; }
     var spot = D.spots.filter(function (q) { return q.k === k; })[0];
@@ -11316,6 +11310,8 @@
       p = polar(175 + (ring ? (j / (ring * 6) - 0.5) * ring * 3 : 0), 86 + ((j % 3) - 1) * ring * 0.6);
       if (groundClear(p, 9.5)) return hilly(p);
     }
+    // (the town's grown dense: settle for a smaller clearing, anywhere in the country)
+    for (var rr = 34; rr < 118; rr += 4) for (var aa = 0; aa < 360; aa += 6) { p = polar(160 + aa, rr); if (groundClear(p, 6.5)) return hilly(p); }
     return null;
   })();
   // The lane out to the bike shop: straight out from the ring road and under the mountain range
@@ -15842,7 +15838,7 @@
         break;
       case 'run': this.addRun(ev, delay); mark('run'); break;
       case 'snowboard': this.addSnowboard(ev, delay); mark('snow'); break;
-      case 'bike': s.bike.km += ev.km; s.bike.sessions++; var c0 = s.bike.crops.length; this.addBike(ev, delay); this.endurancePRs('ride', ev, s.bike.crops[c0] || s.bike.crops[s.bike.crops.length - 1], delay); this.markBatch(); this.updateSheep(ev, delay); mark('bike'); break;
+      case 'bike': s.bike.km += ev.km; s.bike.sessions++; var c0 = s.bike.crops.length; this.addBike(ev, delay); this.addMtb(ev, delay); this.endurancePRs('ride', ev, s.bike.crops[c0] || s.bike.crops[s.bike.crops.length - 1], delay); this.markBatch(); this.updateSheep(ev, delay); mark('bike'); break;
       case 'commute': this.addCommute(ev.km, delay, ev.date); mark('commute'); break;
       case 'row': s.row.km += ev.km; s.row.sessions++; this.addRow(delay); mark('row'); break;
       case 'swim': this.addSwim(ev, delay); mark('swim'); break;
@@ -16105,7 +16101,6 @@
       case 'cliffs': return { title: 'The clay cliffs', lines: ['The pale clay cliffs Whitehorse sits under, with the airport and the museums up on top looking down over town.'] };
       case 'museums': return { title: 'The museum grounds', lines: ['By the airport on the town side: the DC-3 weathervane, the Yukon Transportation Museum and the Beringia Centre, with lawns, flowers and benches to watch the planes from.'] };
       case 'hotsprings': return { title: 'Takhini Hot Springs', lines: ['Two steaming pools out on the edge of the country north of town, with the old log lodge beside them. Bean North Coffee is across the road.'] };
-      case 'bakedcafe': return { title: 'Baked Caf\u00e9', lines: ['The bakery-caf\u00e9 at the top of Main Street. Press E to go in.'] };
       case 'beannorth': return { title: 'Bean North Coffee', lines: ['The little log roastery on the road out to the hot springs: organic beans roasted in the Yukon since 1997.'] };
       case 'artscentre': return { title: 'The Yukon Arts Centre', lines: ['Theatre, galleries and concerts, next door to Yukon University on the campus above town.'] };
       case 'canyon': return { title: 'Miles Canyon', lines: ['Basalt walls above the Yukon River, and the suspension footbridge across them.'] };
@@ -16909,7 +16904,6 @@
       if (em && em.g.visible && Math.hypot(em.g.position.x - P.x, em.g.position.z - P.z) < 1.8) best = 'errand';
       if (this.lunchNear(P)) best = 'lunch';
       if (this.kingAirNear(P)) best = 'charter';
-      var cdr = this.cafeDoor(); if (cdr && Math.hypot(cdr.x - P.x, cdr.z - P.z) < 1.5) best = 'bakedcafe';
       if (this.boatNear(P) && !this.player.boat) best = 'riverboat';
       if (this.noir && Math.hypot(this.noir.g.position.x - P.x, this.noir.g.position.z - P.z) < 2.2) best = 'detective';
       if (this.noir) this.noir.drifters.forEach(function (d) { if (d.g.visible && Math.hypot(d.g.position.x - P.x, d.g.position.z - P.z) < 1.6) { best = 'drifter'; self.nearDrifter = d; } });
@@ -16985,7 +16979,7 @@
     if (pl && !pl.paddle && !pl.seat && (this.near === 'library' || this.near === 'church' || this.near === 'pub') && this.roomOK(this.near)) { this.enterRoom(pl, this.near); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'friend:Jo' && this.roomOK('jo')) { this.enterRoom(pl, 'jo'); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'cinema' && this.roomOK('cinema')) { this.enterRoom(pl, 'cinema'); return; }
-    if (pl && !pl.paddle && !pl.seat && this.near === 'bakedcafe' && this.roomOK('cafe')) { this.enterRoom(pl, 'cafe'); return; }
+    if (pl && !pl.paddle && !pl.seat && this.near === 'mtb' && this.roomOK('cafe')) { this.enterRoom(pl, 'cafe'); return; }
     if (pl && !pl.paddle && this.near === 'den') { this.enterDen(pl); return; }
     if (pl && !pl.paddle) { var lm = this.lunchNear(pl.g.position); if (lm) { this.stealLunch(pl, lm); return; } }
     // Winter: a snowball for the nearest mouse.
