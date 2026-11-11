@@ -8456,12 +8456,13 @@
   // the building outside (a log cabin is a log cabin inside; the grand library has a gallery and a
   // dome) and shows what you've done: a spine on the shelves for every book, a stained-glass pane
   // for every book of the Bible you've finished, a mug on the rack for every training friend.
-  var ROOM_AT = { library: [-760, -700], church: [-820, -700], pub: [-880, -700], jo: [-940, -700] };
+  var ROOM_AT = { library: [-760, -700], church: [-820, -700], pub: [-880, -700], jo: [-940, -700], cinema: [-1000, -700] };
   Town.prototype.roomTier = function (kind) {
     var s = this.st;
     if (kind === 'library') { var p = s.library.pages; return p < 5000 ? 'cabin' : p < 8000 ? 'brick' : 'grand'; }
     if (kind === 'church') { var c = s.bible.chapters; return c < 100 ? 'chapel' : c < 400 ? 'brick' : 'stone'; }
     if (kind === 'jo') return s.friends.Jo && s.friends.Jo.n >= 75 ? 'big' : 'small';
+    if (kind === 'cinema') { var nf = s.cinema.films.length; return nf < 25 ? 'night' : nf < 200 ? 'house' : 'palace'; }
     return s.drinks >= 200 ? 'inn' : 'tavern';
   };
   Town.prototype.roomDims = function (kind) {
@@ -8470,7 +8471,8 @@
       library: { cabin: [2.8, 2.3, 2.6, 'logwood', 'wood'], brick: [4.4, 3.4, 3.1, 'brick', 'woodLight'], grand: [6.2, 4.4, 5.2, 'holdStone', 'woodLight'] },
       church: { chapel: [2.2, 3.0, 2.8, 'logwood', 'wood'], brick: [2.7, 4.4, 3.4, 'plaster', 'wood'], stone: [3.2, 5.8, 4.6, 'stone', 'stone'] },
       pub: { tavern: [3.4, 2.8, 2.8, 'logwood', 'wood'], inn: [4.8, 3.5, 3.0, 'logwood', 'wood'] },
-      jo: { small: [3.4, 2.8, 2.6, 'plaster', 'woodLight'], big: [4.6, 3.6, 2.8, 'plaster', 'woodLight'] }
+      jo: { small: [3.4, 2.8, 2.6, 'plaster', 'woodLight'], big: [4.6, 3.6, 2.8, 'plaster', 'woodLight'] },
+      cinema: { night: [3.6, 3.4, 3.0, 'logwood', 'wood'], house: [4.2, 5.0, 3.8, 'brick', 'wood'], palace: [5.4, 6.4, 5.2, 'holdStone', 'wood'] }
     }[kind][t];
     R.hx = D[0]; R.hz = D[1]; R.H = D[2]; R.wall = D[3]; R.floor = D[4];
     return R;
@@ -8481,6 +8483,7 @@
     if (kind === 'church') return !!(s.bible && s.bible.group);
     if (kind === 'pub') return !!s.pub;
     if (kind === 'jo') return !!(s.friends && s.friends.Jo && s.friends.Jo.group);
+    if (kind === 'cinema') return !!(s.cinema && s.cinema.group && s.cinema.films.length);
     return false;
   };
   Town.prototype.buildRoom = function (kind) {
@@ -8543,6 +8546,7 @@
     if (kind === 'church') this.furnishChurch(D, T0);
     if (kind === 'pub') this.furnishPub(D, T0);
     if (kind === 'jo') this.furnishJo(D, T0);
+    if (kind === 'cinema') this.furnishCinema(D, T0);
     if (kind !== 'jo') this.roomGuests(D);
     return D;
   };
@@ -8846,7 +8850,8 @@
       library: { cabin: ['cozy little reading cabin', 'smells like woodsmoke and old books'], brick: ['shhh… the library', 'all your books, right here'], grand: ['whoa. the grand library', 'look at that dome!'] },
       church: { chapel: ['a little log chapel', 'simple and quiet'], brick: ['the brick church', 'so bright in here'], stone: ['so quiet in here', 'the stone church'] },
       pub: { tavern: ['ahh, the Slow Pour', 'warm in here!'], inn: ['the Slow Pour Inn!', 'busy tonight'] },
-      jo: { small: ['home sweet home', 'ahh, the cosiest place in Yukon'], big: ['home sweet home', 'the cottage looks lovely'] }
+      jo: { small: ['home sweet home', 'ahh, the cosiest place in Yukon'], big: ['home sweet home', 'the cottage looks lovely'] },
+      cinema: { night: ['movie night!', 'ooh, what’s on?'], house: ['the picture house', 'best seats in the house'], palace: ['the picture palace!', 'look at that screen'] }
     }[kind][R.tier];
     this.say(pickOne(hi), pl.g, 1.0, 1.8);
     this.needsRender = true;
@@ -8870,23 +8875,25 @@
   var VISIT_LINES = {
     library: ['off to the library', 'need a new book', 'returning this, it’s overdue…', 'library time'],
     church: ['popping into the church', 'a quiet sit in the church', 'choir practice!', 'off to light a candle'],
-    pub: ['just the one at the Slow Pour', 'lunch at the pub', 'meeting a friend for a pint', 'pub quiz!']
+    pub: ['just the one at the Slow Pour', 'lunch at the pub', 'meeting a friend for a pint', 'pub quiz!'],
+    cinema: ['off to the pictures', 'matinee!', 'I hear the new one’s good', 'popcorn time']
   };
   var GUEST_LINES = {
     library: ['shhh!', '*turns a page*', 'ooh, plot twist', 'one more chapter', 'this one’s a page-turner'],
     church: ['amen', '♪', '*quiet hum*', 'peaceful in here', '*bows head*'],
-    pub: null
+    pub: null,
+    cinema: ['*munch munch*', 'shhh!', 'don’t go in there!', '*gasp*', 'ooh, this bit', '*sniff*']
   };
   Town.prototype.bldgDoor = function (kind) {
-    var s = this.st, g = kind === 'library' ? s.library.group : kind === 'church' ? s.bible.group : s.pub;
+    var s = this.st, g = kind === 'library' ? s.library.group : kind === 'church' ? s.bible.group : kind === 'cinema' ? s.cinema.group : s.pub;
     if (!g) return null;
-    var t = this.roomTier(kind), fz = kind === 'pub' ? 1.5 : kind === 'library' ? (t === 'cabin' ? 2.0 : 2.9) : (t === 'chapel' ? 2.9 : t === 'brick' ? 4.3 : 6.4);
+    var t = this.roomTier(kind), fz = kind === 'cinema' ? 3.0 : kind === 'pub' ? 1.5 : kind === 'library' ? (t === 'cabin' ? 2.0 : 2.9) : (t === 'chapel' ? 2.9 : t === 'brick' ? 4.3 : 6.4);
     g.updateMatrixWorld(true);
     var w = g.localToWorld(new T.Vector3(kind === 'library' && t === 'cabin' ? 0.6 : 0, 0, fz));
     return { x: w.x, z: w.z };
   };
   Town.prototype.visitPick = function (only) {
-    var ks = (only ? [only] : ['library', 'church', 'pub']).filter(this.roomOK, this);
+    var ks = (only ? [only] : ['library', 'church', 'pub', 'cinema']).filter(this.roomOK, this);
     if (!ks.length) return null;
     var k = ks[Math.floor(Math.random() * ks.length)], d = this.bldgDoor(k);
     return d ? { kind: k, door: d, st: nearStreet(d) } : null;
@@ -8908,6 +8915,7 @@
       if (sp.sit) { v.body.position.y = 0.06; v.legs.forEach(function (l) { l.rotation.x = -1.4; }); }
       if (kind === 'library') { var bk = new T.Group(); bk.position.set(0, 0.17, 0.09); v.body.add(bk); self.part(bk, self.geo.box, self.mat('flag', i + 2), 0.12, 0.08, 0.012, 0, 0, 0).rotation.x = -0.5; self.part(bk, self.geo.box, self.mat('plaster', 0), 0.11, 0.075, 0.014, 0, 0.004, 0.003).rotation.x = -0.5; v.arms.forEach(function (a) { a.rotation.x = -1.1; }); }
       if (kind === 'pub') { var pt = new T.Group(); pt.position.set(0, -0.12, 0.03); v.arms[1].add(pt); self.part(pt, self.geo.cyl6, self.mat('gold'), 0.03, 0.06, 0.03, 0, 0, 0); self.part(pt, self.geo.cyl6, self.mat('swan', 0), 0.031, 0.015, 0.031, 0, 0.035, 0); }
+      if (kind === 'cinema') { var pc2 = new T.Group(); pc2.position.set(0, 0.15, 0.08); v.body.add(pc2); self.part(pc2, self.geo.box, self.mcm('#c8262e'), 0.06, 0.07, 0.05, 0, 0, 0); self.part(pc2, self.geo.blob, self.mcm('#fff8e6'), 0.06, 0.04, 0.05, 0, 0.045, 0); v.arms.forEach(function (a) { a.rotation.x = -0.9; }); }
       if (kind === 'church') v.arms.forEach(function (a) { a.rotation.x = -0.9; a.rotation.z = (a === v.arms[0] ? 1 : -1) * 0.4; });
       D.g.add(v.g);
       if (sp.block) D.solid.push(sp.block);
@@ -8933,7 +8941,8 @@
     var D = this.st.room, nm = q.v.name || 'a neighbour', lines = {
       library: ['oh! hello. don’t mind me, I’m just at the good bit', 'the raccoon who reads! I’ve heard about you', 'you’ve read ' + this.st.library.books.length + ' books? goodness'],
       church: ['peace be with you', 'lovely windows, aren’t they?', 'I come here to think'],
-      pub: ['pull up a stool!', 'cheers, raccoon!', 'this round’s on me', 'heard you went for a run today. respect']
+      pub: ['pull up a stool!', 'cheers, raccoon!', 'this round’s on me', 'heard you went for a run today. respect'],
+      cinema: ['shh, it’s the good bit', 'want some popcorn?', 'I’ve seen this one ' + (2 + Math.floor(Math.random() * 5)) + ' times']
     }[D.kind];
     this.say(pickOne(lines), q.v.g, 1.4, 2.6);
   };
@@ -8969,31 +8978,70 @@
     for (var df = 0; df < Math.min(8, 2 + beds); df++) { var bx = fx - 0.9 + df * 0.26; P(this.geo.cyl6, this.mat('trunk'), 0.01, 0.25, 0.01, bx, F + 1.32, -R.hz + 0.55); P(this.geo.blob, this.mat(df % 3 ? 'flag' : 'leaf', df % 5), 0.07, 0.12, 0.07, bx, F + 1.15, -R.hz + 0.55); }
     D.spots.push({ k: 'fire', x: fx, z: -R.hz + 1.3, r: 0.6 });
     // A layered rag rug, and two big armchairs facing the fire with knitted throws.
-    P(this.geo.cyl, this.mat('canvas', 1), 1.5, 0.02, 1.15, fx, F + 0.01, -0.5);
-    P(this.geo.cyl, this.mat('canvas', 0), 1.15, 0.025, 0.85, fx, F + 0.013, -0.5);
-    P(this.geo.cyl, this.mat('flag', 3), 0.7, 0.03, 0.5, fx, F + 0.016, -0.5);
-    [[-1.15, 0.1, Math.PI + 0.45, 0], [1.15, 0.1, Math.PI - 0.45, 1]].forEach(function (a) {
-      self.armchair(D, T0, fx + a[0], a[1], a[2], a[3]);
-      var throwM = P(self.geo.box, self.mat('flag', a[3] ? 4 : 2), 0.5, 0.04, 0.55, fx + a[0] + Math.sin(a[2]) * -0.1, F + 0.82, a[1] + Math.cos(a[2]) * -0.28); throwM.rotation.set(0.9, a[2], 0, 'YXZ');
-      P(self.geo.box, self.mat('plaster', 0), 0.3, 0.22, 0.1, fx + a[0], F + 0.6, a[1] - Math.cos(a[2]) * -0.15).rotation.y = a[2];
-    });
+    P(this.geo.cyl, this.mcm('#efe6d2'), 1.55, 0.02, 1.2, fx, F + 0.01, -0.45);
+    P(this.geo.cyl, this.mcm('#c8642c'), 1.2, 0.025, 0.9, fx, F + 0.013, -0.45);
+    P(this.geo.cyl, this.mcm('#efe6d2'), 0.95, 0.028, 0.7, fx, F + 0.015, -0.45);
+    P(this.geo.cyl, this.mcm('#2f7f7a'), 0.55, 0.031, 0.4, fx, F + 0.017, -0.45);
+    P(this.geo.box, this.mcm('#e9e2d6'), 0.7, 0.04, 0.5, fx - 1.2, F + 0.02, -0.7).rotation.y = 0.4; // a sheepskin
+    // Mid-century by the fire: a walnut-and-leather lounge chair with its ottoman, and a mustard
+    // wingback on tapered teak legs, a knitted throw over the arm.
+    var MC = function (hex) { return self.mcm(hex); };
+    (function (x, z, ry) {
+      var ch = new T.Group(); ch.position.set(x, F, z); ch.rotation.y = ry; D.g.add(ch);
+      P(self.geo.cyl6, MC('#2b2522'), 0.04, 0.28, 0.04, 0, 0.14, 0, ch);
+      [0, 1, 2, 3, 4].forEach(function (k) { var a = k / 5 * Math.PI * 2, leg = P(self.geo.box, MC('#2b2522'), 0.22, 0.03, 0.04, Math.cos(a) * 0.1, 0.03, Math.sin(a) * 0.1, ch); leg.rotation.y = -a; });
+      P(self.geo.box, MC('#5a3a22'), 0.66, 0.08, 0.62, 0, 0.32, 0.02, ch);                 // walnut seat shell
+      P(self.geo.box, MC('#1c1a19'), 0.6, 0.12, 0.56, 0, 0.4, 0.02, ch);                  // black leather cushion
+      var back = P(self.geo.box, MC('#5a3a22'), 0.66, 0.62, 0.07, 0, 0.72, -0.3, ch); back.rotation.x = -0.3;
+      var bc = P(self.geo.box, MC('#1c1a19'), 0.58, 0.56, 0.1, 0, 0.73, -0.25, ch); bc.rotation.x = -0.3;
+      [-1, 1].forEach(function (sd) { P(self.geo.box, MC('#5a3a22'), 0.08, 0.06, 0.48, sd * 0.36, 0.55, 0.0, ch); });
+      // the ottoman
+      P(self.geo.box, MC('#5a3a22'), 0.5, 0.06, 0.42, 0, 0.27, 0.72, ch); P(self.geo.box, MC('#1c1a19'), 0.46, 0.1, 0.38, 0, 0.33, 0.72, ch); P(self.geo.cyl6, MC('#2b2522'), 0.03, 0.24, 0.03, 0, 0.12, 0.72, ch);
+      T0.block(x - 0.42, x + 0.42, z - 0.42, z + 0.42);
+      (D.chairs = D.chairs || []).push({ x: x, z: z, ry: ry });
+      D.spots.push({ k: 'chair', x: x + Math.sin(ry) * 0.75 + Math.cos(ry) * 0.4, z: z + Math.cos(ry) * 0.75 - Math.sin(ry) * 0.4, r: 0.7, seat: [x, z, ry, 0.47] });
+    })(fx - 1.15, 0.1, Math.PI + 0.45);
+    (function (x, z, ry) {
+      var ch = new T.Group(); ch.position.set(x, F, z); ch.rotation.y = ry; D.g.add(ch);
+      [[-0.26, -0.24], [0.26, -0.24], [-0.26, 0.24], [0.26, 0.24]].forEach(function (l) { var lg = P(self.geo.cyl6, MC('#8a5a34'), 0.025, 0.28, 0.025, l[0], 0.14, l[1], ch); lg.rotation.set(l[1] * 0.5, 0, -l[0] * 0.5); });
+      P(self.geo.box, MC('#d4a23a'), 0.66, 0.2, 0.62, 0, 0.36, 0, ch);
+      P(self.geo.box, MC('#d4a23a'), 0.66, 0.7, 0.16, 0, 0.78, -0.25, ch);
+      [-1, 1].forEach(function (sd) { P(self.geo.box, MC('#d4a23a'), 0.12, 0.34, 0.5, sd * 0.33, 0.55, 0.02, ch); P(self.geo.box, MC('#d4a23a'), 0.1, 0.36, 0.16, sd * 0.3, 0.95, -0.22, ch); });
+      var th = P(self.geo.box, MC('#2f7f7a'), 0.14, 0.5, 0.52, 0.4, 0.52, 0.04, ch); th.rotation.z = -0.15;
+      P(self.geo.box, MC('#efe6d2'), 0.3, 0.24, 0.1, -0.05, 0.6, -0.12, ch).rotation.x = -0.2;
+      T0.block(x - 0.42, x + 0.42, z - 0.42, z + 0.42);
+      (D.chairs = D.chairs || []).push({ x: x, z: z, ry: ry });
+      D.spots.push({ k: 'chair', x: x + Math.sin(ry) * 0.75, z: z + Math.cos(ry) * 0.75, r: 0.7, seat: [x, z, ry, 0.47] });
+    })(fx + 1.15, 0.1, Math.PI - 0.45);
+    // A brass arc lamp leaning over the lounge chair, its dome glowing.
+    P(this.geo.box, MC('#efe6d2'), 0.3, 0.06, 0.3, fx - 1.9, F + 0.03, 0.6);
+    for (var ar = 0; ar < 10; ar++) { var aa = ar / 9 * Math.PI * 0.55; P(this.geo.cyl6, MC('#c9a24a'), 0.018, 0.24, 0.018, fx - 1.9 + Math.sin(aa) * 0.75 * (ar / 9), F + 0.15 + Math.sin(aa + 0.2) * 1.7 * (1 - ar * 0.02), 0.6 - (ar / 9) * 0.4).rotation.z = -aa; }
+    P(this.geo.ball, MC('#efe6d2'), 0.2, 0.12, 0.2, fx - 1.2, F + 1.68, 0.25);
+    var ab = new T.Mesh(this.geo.ball, G.lamp); ab.scale.set(0.12, 0.04, 0.12); ab.position.set(fx - 1.2, F + 1.6, 0.25); D.g.add(ab);
+    var ah = new T.Mesh(this.geo.ball, G.halo); ah.scale.setScalar(0.9); ah.position.set(fx - 1.2, F + 1.4, 0.25); D.g.add(ah);
+    T0.block(fx - 2.05, fx - 1.75, 0.45, 0.75);
     // Tea for two between the chairs (and roses in a jug, once they're round the door).
-    P(this.geo.cyl, this.mat('wood'), 0.32, 0.05, 0.32, fx, F + 0.55, 0.45); P(this.geo.cyl6, this.mat('wood'), 0.05, 0.52, 0.05, fx, F + 0.27, 0.45);
+    P(this.geo.cyl, this.mcm('#8a5a34'), 0.36, 0.05, 0.36, fx, F + 0.55, 0.45);
+    [0, 1, 2].forEach(function (k) { var a = k / 3 * Math.PI * 2, lg = P(self.geo.cyl6, self.mcm('#8a5a34'), 0.025, 0.56, 0.025, fx + Math.cos(a) * 0.2, F + 0.27, 0.45 + Math.sin(a) * 0.2); lg.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25); });
+    // a dome pendant hanging over it
+    P(this.geo.cyl6, this.mcm('#2b2522'), 0.01, R.H - 1.55, 0.01, fx, F + 1.55 + (R.H - 1.55) / 2, 0.45);
+    P(this.geo.ball, this.mcm('#2f7f7a'), 0.24, 0.16, 0.24, fx, F + 1.58, 0.45);
+    var pb = new T.Mesh(this.geo.ball, G.lamp); pb.scale.set(0.1, 0.05, 0.1); pb.position.set(fx, F + 1.48, 0.45); D.g.add(pb);
     P(this.geo.ball, this.mat('flag', 1), 0.12, 0.1, 0.12, fx, F + 0.65, 0.42); P(this.geo.cone, this.mat('flag', 1), 0.03, 0.08, 0.03, fx + 0.12, F + 0.67, 0.42).rotation.z = -1.2;
     [-0.16, 0.18].forEach(function (x) { P(self.geo.cyl6, self.mat('plaster', 0), 0.04, 0.05, 0.04, fx + x, F + 0.6, 0.52); });
     if (n >= 5) { P(this.geo.cyl6, this.mat('stone', 2), 0.05, 0.14, 0.05, fx + 0.14, F + 0.64, 0.33); [[0, 0], [0.04, 0.03], [-0.04, 0.02]].forEach(function (r) { P(self.geo.ball, self.mat('flag', 0), 0.05, 0.05, 0.05, fx + 0.14 + r[0], F + 0.75 + r[1], 0.33); }); }
     this.candle(D.g, fx - 0.15, F + 0.58, 0.32, 0.08, D.flames);
     T0.block(fx - 0.35, fx + 0.35, 0.1, 0.8);
     // Jo the fox, curled up asleep on the rug in front of the fire.
-    var fox = this.critter('fox'); fox.g.position.set(fx + 0.1, F + 0.02, -0.75); fox.g.rotation.y = 0.6; D.g.add(fox.g);
-    fox.body.position.y *= 0.5; fox.body.rotation.z = 0.15; fox.legs.forEach(function (l) { l.rotation.x = 1.4; }); fox.head.rotation.x = 0.5; fox.head.rotation.y = 0.9; if (fox.tail) { fox.tail.rotation.y = 1.4; fox.tail.rotation.x = 0.4; }
-    D.fox = fox; T0.block(fx - 0.35, fx + 0.55, -1.05, -0.45);
-    D.spots.push({ k: 'jo', x: fx + 0.1, z: -0.1, r: 0.55 });
+    // Jo comes in with you, and pads about after you; sit down and she curls up at your feet.
+    var fox = this.critter('fox'); fox.g.position.set(0.5, F, R.hz - 1.2); fox.g.rotation.y = Math.PI; D.g.add(fox.g);
+    fox.body0 = fox.body.position.y; fox.hip0 = fox.legs.map(function (l) { return l.position.y; });
+    D.fox = fox; D.joSpot = { k: 'jo', x: 0.5, z: R.hz - 1.2, r: 0.75 }; D.spots.push(D.joSpot);
     // The bed in the back corner: a wooden frame, a patchwork quilt and fat pillows.
     var bx0 = big ? R.hx - 1.0 : -R.hx + 0.8, bz0 = -R.hz + 1.05;
     P(this.geo.box, this.mat('wood'), 1.3, 0.35, 1.9, bx0, F + 0.2, bz0);
     P(this.geo.box, this.mat('wood'), 1.35, 0.8, 0.1, bx0, F + 0.5, bz0 - 0.95);
-    for (var qi = 0; qi < 4; qi++) for (var qj = 0; qj < 5; qj++) P(this.geo.box, this.mat('flag', (qi * 3 + qj * 2) % 6), 0.3, 0.06, 0.3, bx0 - 0.47 + qi * 0.31, F + 0.42, bz0 - 0.35 + qj * 0.31);
+    for (var qi = 0; qi < 4; qi++) for (var qj = 0; qj < 5; qj++) P(this.geo.box, this.mcm(['#d4a23a', '#2f7f7a', '#c8642c', '#efe6d2', '#6b7a3a'][(qi * 3 + qj * 2) % 5]), 0.3, 0.06, 0.3, bx0 - 0.47 + qi * 0.31, F + 0.42, bz0 - 0.35 + qj * 0.31);
     [-0.3, 0.3].forEach(function (x) { P(self.geo.box, self.mat('plaster', 0), 0.45, 0.14, 0.3, bx0 + x, F + 0.47, bz0 - 0.72); });
     P(this.geo.box, this.mat('wood'), 0.45, 0.5, 0.45, bx0 + (big ? -0.95 : 0.95), F + 0.25, bz0 - 0.65);
     this.candle(D.g, bx0 + (big ? -0.95 : 0.95), F + 0.51, bz0 - 0.7, 0.1, D.flames);
@@ -9022,15 +9070,26 @@
       [0.6, 1.2].forEach(function (z, i) { P(self.geo.box, self.mat('flag', i + 2), 0.12, 0.28, 0.32, R.hx - 0.1, F + 0.68, z).rotation.z = 0.25; });
       T0.block(R.hx - 0.6, R.hx, 0.3, 1.5); D.spots.push({ k: 'seat', x: R.hx - 1.0, z: 0.9, r: 0.6, seat: [R.hx - 0.35, 0.9, -Math.PI / 2, 0.55] });
     }
-    // The dresser by the door: plates, mugs, a record player (and honey once the bees are in).
-    var dx = big ? -R.hx + 0.35 : -R.hx + 0.35, dz = R.hz - 1.2;
-    P(this.geo.box, this.mat('wood'), 0.5, 0.9, 1.3, dx, F + 0.45, dz);
-    P(this.geo.box, this.mat('wood'), 0.25, 1.0, 1.3, dx - 0.12, F + 1.4, dz);
-    for (var pl = 0; pl < 5; pl++) P(this.geo.cyl, this.mat(pl % 2 ? 'glass' : 'plaster', pl % 2 ? 4 : 0), 0.12, 0.02, 0.12, dx + 0.02, F + 1.25, dz - 0.5 + pl * 0.25).rotation.z = Math.PI / 2;
-    for (pl = 0; pl < 5; pl++) P(this.geo.cyl6, this.mat('flag', pl), 0.04, 0.07, 0.04, dx + 0.04, F + 1.62, dz - 0.5 + pl * 0.25);
-    P(this.geo.box, this.mat('wood', 1), 0.36, 0.1, 0.36, dx + 0.05, F + 0.95, dz + 0.35); P(this.geo.cyl, this.mat('stoneDark'), 0.15, 0.02, 0.15, dx + 0.05, F + 1.01, dz + 0.35);
-    if (n >= 80) for (var hj = 0; hj < 4; hj++) P(this.geo.cyl6, this.mat('gold'), 0.05, 0.1, 0.05, dx + 0.05, F + 0.97, dz - 0.5 + hj * 0.13);
-    T0.block(dx - 0.3, dx + 0.3, dz - 0.7, dz + 0.7); D.spots.push({ k: 'record', x: dx + 0.75, z: dz + 0.3, r: 0.6 });
+    // A long, low teak credenza on tapered legs: the record player and a speaker on top, a
+    // starburst clock and a print on the wall above (and honey jars once the bees are in).
+    var dx = -R.hx + 0.32, dz = R.hz - 1.5, TK = this.mcm('#8a5a34');
+    P(this.geo.box, TK, 0.45, 0.5, 1.6, dx, F + 0.47, dz);
+    [-0.45, 0.45].forEach(function (zz) { P(self.geo.box, self.mcm('#6e4426'), 0.02, 0.36, 0.7, dx + 0.23, F + 0.47, dz + zz); P(self.geo.box, self.mcm('#c9a24a'), 0.02, 0.1, 0.02, dx + 0.24, F + 0.47, dz + zz * 0.15); });
+    [[-0.15, -0.7], [0.15, -0.7], [-0.15, 0.7], [0.15, 0.7]].forEach(function (l) { var lg = P(self.geo.cyl6, TK, 0.02, 0.24, 0.02, dx + l[0], F + 0.12, dz + l[1]); lg.rotation.x = l[1] > 0 ? -0.15 : 0.15; });
+    P(this.geo.box, this.mcm('#5a3a22'), 0.36, 0.08, 0.42, dx + 0.02, F + 0.76, dz + 0.4); P(this.geo.cyl, this.mcm('#1c1a19'), 0.15, 0.02, 0.15, dx + 0.02, F + 0.81, dz + 0.4);
+    P(this.geo.cyl6, this.mcm('#c9a24a'), 0.005, 0.02, 0.1, dx + 0.12, F + 0.83, dz + 0.32).rotation.x = Math.PI / 2;
+    P(this.geo.box, TK, 0.24, 0.36, 0.24, dx + 0.02, F + 0.9, dz - 0.5); P(this.geo.cyl, this.mcm('#2b2522'), 0.08, 0.02, 0.08, dx + 0.15, F + 0.92, dz - 0.5).rotation.z = Math.PI / 2;
+    P(this.geo.cyl6, this.mcm('#efe6d2'), 0.07, 0.18, 0.07, dx + 0.02, F + 0.81, dz - 0.05); P(this.geo.blob, this.mat('leaf', 1), 0.22, 0.3, 0.22, dx + 0.04, F + 1.05, dz - 0.05);
+    if (n >= 80) for (var hj = 0; hj < 3; hj++) P(this.geo.cyl6, this.mat('gold'), 0.04, 0.08, 0.04, dx + 0.05, F + 0.76, dz + 0.0 + hj * 0.09);
+    var lw2 = W.left, clk = new T.Group(); clk.position.set(-R.hx + 0.05, F + 1.65, dz + 0.35); lw2.add(clk);
+    P(this.geo.cyl, this.mcm('#c9a24a'), 0.08, 0.03, 0.08, 0, 0, 0, clk).rotation.z = Math.PI / 2;
+    for (var sb = 0; sb < 12; sb++) { var sa = sb / 12 * Math.PI * 2; var ray = P(this.geo.box, this.mcm('#c9a24a'), 0.01, 0.2, 0.012, 0.01, Math.sin(sa) * 0.16, Math.cos(sa) * 0.16, clk); ray.rotation.x = -sa; P(this.geo.ball, this.mcm('#c9a24a'), 0.02, 0.02, 0.02, 0.01, Math.sin(sa) * 0.27, Math.cos(sa) * 0.27, clk); }
+    var art = new T.Group(); art.position.set(-R.hx + 0.04, F + 1.45, dz - 0.45); lw2.add(art);
+    P(this.geo.box, this.mcm('#efe6d2'), 0.03, 0.55, 0.42, 0, 0, 0, art);
+    P(this.geo.cyl, this.mcm('#c8642c'), 0.12, 0.035, 0.12, 0.005, 0.08, -0.06, art).rotation.z = Math.PI / 2;
+    P(this.geo.box, this.mcm('#2f7f7a'), 0.035, 0.2, 0.12, 0.006, -0.1, 0.08, art);
+    P(this.geo.box, this.mcm('#d4a23a'), 0.035, 0.06, 0.28, 0.007, -0.18, -0.02, art);
+    T0.block(dx - 0.3, dx + 0.3, dz - 0.85, dz + 0.85); D.spots.push({ k: 'record', x: dx + 0.75, z: dz + 0.4, r: 0.6 });
     // Coat hooks by the door with scarves (and wellies, once the porch is up).
     [-0.9, -0.7, 0.75].forEach(function (x, i) { P(self.geo.box, self.mat('flag', i + 2), 0.12, 0.45, 0.05, x, F + 1.25, R.hz - 0.08, W.front); });
     if (n >= 18) [[0.95, 0], [1.1, 1]].forEach(function (w) { P(self.geo.box, self.mat(w[1] ? 'hedge' : 'flag', 0), 0.1, 0.3, 0.16, w[0], F + 0.15, R.hz - 0.25); });
@@ -9068,9 +9127,39 @@
     T0.lamp(-R.hx + 0.25, F + 1.8, -0.8);
     D.light = { hemi: '#efb27a', ground: '#4a2a18', i: 1.05 };
   };
+  Town.prototype.mcm = function (hex) { var c = this.mcmMats || (this.mcmMats = {}); return c[hex] || (c[hex] = new T.MeshLambertMaterial({ color: hex })); };
+  Town.prototype.stepJoFox = function (D, pl, dt, now) {
+    var f = D.fox, R = D.R, fp = f.g.position, P = pl.g.position, px = P.x - R.x, pz = P.z - R.z, seated = !!(pl.roomSit || pl.napping);
+    // where she wants to be: just behind you as you walk, or at your feet when you sit
+    var ry = pl.g.rotation.y, tx = px - Math.sin(ry) * 0.75 + Math.cos(ry) * 0.25, tz = pz - Math.cos(ry) * 0.75 - Math.sin(ry) * 0.25;
+    if (seated) { tx = px + Math.sin(ry) * 0.6; tz = pz + Math.cos(ry) * 0.6; }
+    tx = Math.max(-R.hx + 0.3, Math.min(R.hx - 0.3, tx)); tz = Math.max(-R.hz + 0.3, Math.min(R.hz - 0.3, tz));
+    var dx = tx - fp.x, dz = tz - fp.z, d = Math.hypot(dx, dz);
+    if (d > 0.12) {
+      var sp = Math.min(d * 3.2, 3.6) * dt;
+      fp.x += dx / d * sp; fp.z += dz / d * sp;
+      var face = Math.atan2(dx, dz), dr = face - f.g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; f.g.rotation.y += dr * Math.min(1, dt * 9);
+      f.phase += dt * (8 + sp / dt * 4);
+      f.legs.forEach(function (l, i) { l.rotation.x = Math.sin(f.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.6; l.position.y = f.hip0[i]; });
+      f.body.position.y = f.body0 + Math.abs(Math.sin(f.phase)) * 0.015; f.body.rotation.z = 0;
+      f.tail.rotation.x = 0.55; f.tail.rotation.y = Math.sin(f.phase * 0.5) * 0.25;
+      f.head.rotation.set(0, 0, 0); f.rest = 0;
+    } else {
+      // still: sit and look up at you, and after a while (if you're sitting) curl up
+      f.rest = (f.rest || 0) + dt;
+      var look = Math.atan2(px - fp.x, pz - fp.z), dr2 = look - f.g.rotation.y; while (dr2 > Math.PI) dr2 -= Math.PI * 2; while (dr2 < -Math.PI) dr2 += Math.PI * 2; f.g.rotation.y += dr2 * Math.min(1, dt * 4);
+      var curl = seated && f.rest > 2.5, k = Math.min(1, dt * 3);
+      f.body.position.y += ((curl ? f.body0 * 0.45 : f.body0) - f.body.position.y) * k;
+      f.legs.forEach(function (l, i) { var want = curl ? 1.4 : i > 1 ? -1.0 : 0; l.rotation.x += (want - l.rotation.x) * k; });
+      f.tail.rotation.y += ((curl ? 1.4 : Math.sin(now / 400) * 0.35) - f.tail.rotation.y) * k;
+      f.head.rotation.x += ((curl ? 0.5 : -0.35) - f.head.rotation.x) * k; f.head.rotation.y += ((curl ? 0.9 : 0) - f.head.rotation.y) * k;
+      if (!curl && Math.random() < dt * 0.04) this.say(pickOne(['*wags*', '\u2665', '*happy fox noises*', '*yip!*']), f.g, 0.9, 1.4);
+    }
+    D.joSpot.x = fp.x; D.joSpot.z = fp.z;
+  };
   Town.prototype.joInfo = function (k) {
     var f = this.st.friends.Jo, n = f ? f.n : 0;
-    if (k === 'jo') return { title: 'Jo', lines: ['Fast asleep by the fire. Press E for a cuddle.'] };
+    if (k === 'jo') return { title: 'Jo', lines: ['Following you about. Press E for a cuddle.'] };
     if (k === 'kettle') return { title: 'The kettle', lines: ['Press E to put the kettle on.'] };
     if (k === 'fire') return { title: 'The inglenook', lines: ['Crackling away. Press E to warm your paws.'] };
     if (k === 'photos') return { title: 'The photo wall', lines: [n + ' workouts together · a new frame every five.'] };
@@ -9088,6 +9177,139 @@
     if (k === 'photos') { var f = this.st.friends.Jo, L = this.st.last && this.st.last['friend:Jo']; this.say(f.n + ' workouts with Jo', pl.g, 1.0, 2.2); return true; }
     if (k === 'record') { [0, 1, 2, 3, 4, 5].forEach(function (i) { setTimeout(function () { self.sfx('pluck'); self.say(['♪', '♫'][i % 2], pl.g, 1.2 + (i % 3) * 0.1, 0.9, true); }, i * 450); }); return true; }
     return false;
+  };
+  // ===== The picture house, inside =====
+  // Movie night in a barn (a bedsheet screen, deckchairs, hay bales and string lights) until the
+  // picture house opens at 25 films: red velvet rows, curtains, a projection booth, posters of what
+  // you've watched, and (as it grows) marquee bulbs, a popcorn machine, a neon sign; at 200 films
+  // the picture palace, with a gold proscenium, a balcony, Screen 2 and a red carpet at 365.
+  // The screen is always showing one of your films: press E at the front for another.
+  Town.prototype.furnishCinema = function (D, T0) {
+    var self = this, R = D.R, F = R.y, P = T0.P, C = this.st.cinema, films = C.films, n = films.length, t = R.tier, G = this.glowMats(), MC = function (h) { return self.mcm(h); };
+    var bw = D.walls[0].g, palace = t === 'palace', night = t === 'night';
+    // The screen, with the film drawn on it.
+    var sw = night ? 2.6 : palace ? 4.8 : 3.6, sh = sw * 0.52, sy = F + (night ? 1.45 : palace ? 2.6 : 1.95);
+    var cv = document.createElement('canvas'); cv.width = 512; cv.height = 266;
+    var tex = new T.CanvasTexture(cv), scr = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ map: tex }));
+    scr.scale.set(sw, sh, 0.02); scr.position.set(0, sy, -R.hz + 0.12); bw.add(scr);
+    D.screen = { cv: cv, tex: tex, mesh: scr, i: -1 };
+    this.showFilm(D);
+    if (night) {
+      // a white sheet strung between two poles
+      [-1, 1].forEach(function (sd) { P(self.geo.cyl6, self.mat('logwood', 0), 0.05, sh + 1.0, 0.05, sd * (sw / 2 + 0.1), F + (sh + 1.0) / 2, -R.hz + 0.2, bw); });
+      P(this.geo.cyl6, this.mat('canvas', 2), 0.02, sw + 0.3, 0.02, 0, sy + sh / 2 + 0.05, -R.hz + 0.15, bw).rotation.z = Math.PI / 2;
+    } else {
+      // velvet curtains either side, a gold frame, and a stage
+      P(this.geo.box, MC('#5a1a1e'), sw + 0.6, 0.35, 0.8, 0, F + 0.17, -R.hz + 0.5);
+      [-1, 1].forEach(function (sd) { for (var f = 0; f < 4; f++) P(self.geo.box, MC(f % 2 ? '#8a1f26' : '#a8262e'), 0.18, R.H - 0.3, 0.12, sd * (sw / 2 + 0.15 + f * 0.17), F + (R.H - 0.3) / 2 + 0.05, -R.hz + 0.3 + (f % 2) * 0.05, bw); });
+      P(this.geo.box, MC('#8a1f26'), sw + 1.6, 0.4, 0.14, 0, F + R.H - 0.35, -R.hz + 0.3, bw);
+      P(this.geo.box, MC('#c9a24a'), sw + 0.12, 0.06, 0.04, 0, sy + sh / 2 + 0.04, -R.hz + 0.14, bw); P(this.geo.box, MC('#c9a24a'), sw + 0.12, 0.06, 0.04, 0, sy - sh / 2 - 0.04, -R.hz + 0.14, bw);
+      T0.block(-sw / 2 - 0.3, sw / 2 + 0.3, -R.hz, -R.hz + 0.9);
+      if (palace) {
+        // the gold proscenium arch
+        [-1, 1].forEach(function (sd) { P(self.geo.box, MC('#c9a24a'), 0.35, R.H - 0.2, 0.3, sd * (sw / 2 + 0.95), F + (R.H - 0.2) / 2, -R.hz + 0.3, bw); });
+        for (var ar = 0; ar < 9; ar++) { var aa = ar / 8 * Math.PI; P(this.geo.box, MC('#c9a24a'), 0.35, 0.3, 0.3, Math.cos(aa) * (sw / 2 + 0.95), F + R.H - 0.4 + Math.sin(aa) * 0.25, -R.hz + 0.3, bw); }
+      }
+      if (n >= 40) for (var mb = 0; mb < Math.round(sw * 3); mb++) { var b = new T.Mesh(this.geo.ball, G.lamp); b.scale.setScalar(0.04); b.position.set(-sw / 2 + mb / (sw * 3 - 1) * sw, sy + sh / 2 + 0.14, -R.hz + 0.16); bw.add(b); }
+    }
+    D.spots.push({ k: 'screen', x: 0, z: night ? -R.hz + 1.6 : -R.hz + 1.4, r: 0.8 });
+    // The projector and its beam of light across the room.
+    var px = 0, py = night ? F + 0.9 : F + R.H - 0.6, pz = night ? R.hz - 1.3 : R.hz - 0.2;
+    if (night) { P(this.geo.box, this.mat('wood'), 0.5, 0.6, 0.45, px, F + 0.3, pz); P(this.geo.box, this.mcm('#2b2522'), 0.32, 0.22, 0.4, px, F + 0.72, pz); [-0.1, 0.1].forEach(function (z) { P(self.geo.cyl, self.mcm('#2b2522'), 0.14, 0.03, 0.14, px, F + 0.98, pz + z).rotation.x = Math.PI / 2; }); T0.block(-0.3, 0.3, pz - 0.3, pz + 0.3); }
+    else { var booth = P(this.geo.box, this.mcm('#1c1a19'), 0.6, 0.4, 0.06, 0, py, R.hz - 0.05, D.walls[2].g); booth.material = new T.MeshBasicMaterial({ color: '#ffe9b0' }); }
+    var beamG = new T.Group(); beamG.position.set(px, py, pz); D.g.add(beamG); beamG.lookAt(new T.Vector3(D.g.position.x, D.g.position.y + sy, D.g.position.z - R.hz + 0.2));
+    var L = Math.hypot(sy - py, (-R.hz + 0.2) - pz), bm = this.beamMat || (this.beamMat = new T.MeshBasicMaterial({ color: '#fff2c8', transparent: true, opacity: 0.07, depthWrite: false, blending: T.AdditiveBlending }));
+    var beam = new T.Mesh(this.geo.cone, bm); beam.scale.set(sw * 0.5, L, sh * 0.5); beam.rotation.x = -Math.PI / 2; beam.position.z = L / 2; beamG.add(beam);
+    D.beam = beam;
+    // Seats facing the screen.
+    var gs = D.guestSpots = [], rows = night ? 2 : palace ? 6 : 4, per = night ? 3 : palace ? 4 : 3, z0 = night ? -0.4 : -R.hz + 2.3, step = night ? 1.3 : 0.95;
+    for (var r = 0; r < rows; r++) [-1, 1].forEach(function (sd) {
+      for (var c = 0; c < per; c++) {
+        var x = sd * (0.75 + c * (night ? 0.85 : 0.62)), z = z0 + r * step, top = night ? 0.32 : 0.42;
+        if (night) {
+          // stripy deckchairs
+          var dc = new T.Group(); dc.position.set(x, F, z); D.g.add(dc);
+          P(self.geo.box, self.mat('wood'), 0.5, 0.04, 0.6, 0, 0.18, 0, dc).rotation.x = 0.15;
+          var cl = P(self.geo.box, MC(['#c8642c', '#2f7f7a', '#d4a23a'][(c + r) % 3]), 0.44, 0.02, 0.75, 0, 0.32, 0.12, dc); cl.rotation.x = -0.75;
+          [-0.22, 0.22].forEach(function (lx) { P(self.geo.box, self.mat('wood'), 0.03, 0.55, 0.03, lx, 0.27, 0.2, dc).rotation.x = -0.6; });
+        } else {
+          P(self.geo.box, MC('#8a1f26'), 0.5, 0.12, 0.45, x, F + top - 0.06, z);
+          P(self.geo.box, MC('#8a1f26'), 0.5, 0.55, 0.1, x, F + top + 0.25, z + 0.22);
+          P(self.geo.box, MC('#2b2522'), 0.06, top, 0.45, x - 0.27, F + top / 2, z); P(self.geo.box, MC('#2b2522'), 0.06, top, 0.45, x + 0.27, F + top / 2, z);
+        }
+        T0.block(x - 0.3, x + 0.3, z - 0.28, z + 0.3);
+        if (r === Math.floor(rows / 2) && c === 0 && sd > 0) D.spots.push({ k: 'seat', x: 0, z: z, r: 0.5, seat: [x, z, Math.PI, top] });
+        else gs.push({ x: x, z: z, ry: Math.PI, sit: night ? 0.22 : top - 0.05, o: (r * 7 + c * 3 + (sd > 0 ? 1 : 0)) % 11 });
+      }
+    });
+    gs.sort(function (a, b) { return a.o - b.o; });
+    if (night) {
+      // hay bales, blankets and fairy lights
+      [[-R.hx + 0.6, R.hz - 0.8], [R.hx - 0.6, R.hz - 0.8], [-R.hx + 0.6, -0.6]].forEach(function (h) { P(self.geo.box, self.mcm('#d9b860'), 0.9, 0.45, 0.5, h[0], F + 0.22, h[1]); P(self.geo.box, self.mat('flag', 4), 0.6, 0.03, 0.45, h[0], F + 0.46, h[1]); T0.block(h[0] - 0.5, h[0] + 0.5, h[1] - 0.3, h[1] + 0.3); });
+      T0.bulbs(F + R.H - 0.25, 0.55);
+    } else {
+      // posters of the films you've watched, down both side walls
+      var recent = films.slice(-8).reverse();
+      recent.forEach(function (fm, i) {
+        var sd = i % 2 ? 1 : -1, k = Math.floor(i / 2), z = -R.hz + 1.6 + k * 1.3, wall = D.walls[sd < 0 ? 1 : 3].g;
+        var pc = document.createElement('canvas'); pc.width = 128; pc.height = 180; var x = pc.getContext('2d'), hue = (fm.title.length * 47) % 360;
+        x.fillStyle = 'hsl(' + hue + ',45%,28%)'; x.fillRect(0, 0, 128, 180); x.fillStyle = 'hsl(' + hue + ',60%,55%)'; x.beginPath(); x.arc(64, 70, 38, 0, Math.PI * 2); x.fill();
+        x.fillStyle = '#f5ecd6'; x.font = 'bold 15px Georgia'; x.textAlign = 'center'; self.wrapText(x, fm.title, 64, 128, 116, 17);
+        if (fm.year) { x.font = '12px Georgia'; x.fillText(String(fm.year), 64, 172); }
+        var pt = new T.Mesh(self.geo.box, new T.MeshBasicMaterial({ map: new T.CanvasTexture(pc) })); pt.scale.set(0.03, 0.9, 0.64); pt.position.set(sd * (R.hx - 0.03), F + 1.55, z); if (sd > 0) pt.rotation.y = Math.PI; wall.add(pt);
+        P(self.geo.box, MC('#c9a24a'), 0.025, 0.98, 0.72, sd * (R.hx - 0.015), F + 1.55, z, wall);
+      });
+      D.spots.push({ k: 'posters', x: -R.hx + 0.8, z: -R.hz + 1.6, r: 0.8 });
+      [[-R.hx + 0.25, 0], [R.hx - 0.25, 0], [-R.hx + 0.25, R.hz - 1.5], [R.hx - 0.25, R.hz - 1.5]].forEach(function (l) { T0.lamp(l[0], F + 2.3, l[1]); });
+      if (n >= 50) {
+        // the popcorn machine by the door
+        var cx = R.hx - 0.6, cz = R.hz - 0.7;
+        P(this.geo.box, MC('#8a1f26'), 0.7, 0.8, 0.6, cx, F + 0.4, cz); P(this.geo.box, MC('#c9a24a'), 0.72, 0.05, 0.62, cx, F + 0.82, cz);
+        var glass = P(this.geo.box, MC('#fff3c4'), 0.5, 0.5, 0.4, cx, F + 1.1, cz); glass.material = new T.MeshBasicMaterial({ color: '#ffe9a0' });
+        for (var pp = 0; pp < 12; pp++) P(this.geo.ball, MC('#fff8e6'), 0.06, 0.06, 0.06, cx - 0.18 + (pp % 4) * 0.12, F + 0.92 + Math.floor(pp / 4) * 0.08, cz + 0.05);
+        P(this.geo.box, MC('#8a1f26'), 0.56, 0.08, 0.46, cx, F + 1.39, cz);
+        T0.block(cx - 0.4, cx + 0.4, cz - 0.35, cz + 0.35); D.spots.push({ k: 'popcorn', x: cx - 0.8, z: cz, r: 0.6 });
+      }
+      if (n >= 100) {
+        // a pink neon sign on the side wall
+        var ne = new T.Group(); ne.position.set(-R.hx + 0.05, F + 2.4, R.hz - 1.6); D.walls[1].g.add(ne);
+        var neM = new T.MeshBasicMaterial({ color: '#ff5fa8' });
+        [[0, 0, 0.9, 0.05], [0, 0.25, 0.9, 0.05], [0, -0.25, 0.9, 0.05]].forEach(function (q) { var m = new T.Mesh(self.geo.box, neM); m.scale.set(0.04, q[3], q[2]); m.position.set(0, q[1], q[0]); ne.add(m); });
+        var nh = new T.Mesh(this.geo.ball, G.halo); nh.scale.setScalar(1.1); ne.add(nh); D.neon = neM;
+      }
+      if (palace) {
+        // the balcony at the back, and an archway through to Screen 2
+        P(this.geo.box, MC('#5a1a1e'), R.hx * 2, 0.25, 1.4, 0, F + 2.4, R.hz - 0.7);
+        P(this.geo.box, MC('#c9a24a'), R.hx * 2 - 0.4, 0.5, 0.08, 0, F + 2.75, R.hz - 1.42);
+        [-2, 0, 2].forEach(function (x) { P(self.geo.cyl, MC('#c9a24a'), 0.1, 2.4, 0.1, x, F + 1.2, R.hz - 1.45); T0.block(x - 0.15, x + 0.15, R.hz - 1.6, R.hz - 1.3); });
+        var s2 = P(this.geo.box, MC('#1c1a19'), 0.06, 2.0, 1.2, R.hx - 0.03, F + 1.0, R.hz - 2.6, D.walls[3].g); s2.material = new T.MeshBasicMaterial({ color: '#2a2440' });
+        if (n >= 365) {
+          P(this.geo.box, MC('#a8262e'), 1.0, 0.02, R.hz * 2 - 1.5, 0, F + 0.012, 0.55);
+          for (var rp = 0; rp < 6; rp++) [-0.6, 0.6].forEach(function (x) { P(self.geo.cyl6, MC('#c9a24a'), 0.04, 0.5, 0.04, x, F + 0.25, R.hz - 1.2 - rp * 0.7); });
+        }
+      }
+    }
+    D.light = night ? { hemi: '#b89070', ground: '#2a1c12', i: 0.7 } : { hemi: '#a8787a', ground: '#2a1416', i: 0.62 };
+  };
+  Town.prototype.wrapText = function (x, text, cx, y, maxW, lh) {
+    var words = String(text).split(' '), line = '', lines = [];
+    words.forEach(function (w) { var test = line ? line + ' ' + w : w; if (x.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test; });
+    if (line) lines.push(line);
+    lines = lines.slice(0, 3);
+    lines.forEach(function (l, i) { x.fillText(l, cx, y + (i - (lines.length - 1) / 2) * lh); });
+  };
+  // Put a film up on the screen: a poster-ish card with the title, year and your stars.
+  Town.prototype.showFilm = function (D, pick) {
+    var films = this.st.cinema.films, S = D.screen; if (!films.length) return null;
+    var i = pick != null ? pick : Math.floor(Math.random() * films.length); if (films.length > 1 && i === S.i) i = (i + 1) % films.length; S.i = i;
+    var f = films[i], x = S.cv.getContext('2d'), hue = (f.title.length * 47) % 360;
+    var gr = x.createLinearGradient(0, 0, 0, 266); gr.addColorStop(0, 'hsl(' + hue + ',40%,22%)'); gr.addColorStop(1, 'hsl(' + ((hue + 40) % 360) + ',45%,10%)');
+    x.fillStyle = gr; x.fillRect(0, 0, 512, 266);
+    x.fillStyle = 'rgba(255,240,200,0.08)'; for (var k = 0; k < 40; k++) x.fillRect((k * 97) % 512, (k * 53) % 266, 2, 2);
+    x.fillStyle = '#f7efd8'; x.textAlign = 'center'; x.font = 'bold 40px Georgia'; this.wrapText(x, f.title, 256, 112, 470, 44);
+    x.font = '22px Georgia'; x.fillStyle = '#e8d6a6'; x.fillText((f.year ? f.year + '  ·  ' : '') + (f.stars ? '★'.repeat(Math.floor(f.stars)) + (f.stars % 1 ? '½' : '') : 'now showing'), 256, 220);
+    S.tex.needsUpdate = true;
+    return f;
   };
   Town.prototype.roomStep = function (pl, mx, mz, dt, now, moving) {
     var D = this.st.room, R = D.R, g = pl.g, P = g.position, K = this.keys, c = this.controls, cam = this.camera, self = this;
@@ -9140,6 +9362,9 @@
     });
     D.spin.forEach(function (o) { o.rotation.y += dt * 0.3; });
     this.stepGuests(D, dt, now);
+    if (D.fox) this.stepJoFox(D, pl, dt, now);
+    if (D.screen) { var fk = 0.9 + Math.sin(now / 47) * 0.04 + Math.sin(now / 13) * 0.03; D.screen.mesh.material.color.setScalar(fk); if (D.beam) D.beam.material.opacity = 0.06 + Math.sin(now / 60) * 0.012; }
+    if (D.neon) D.neon.color.setHSL(0.92, 1, Math.random() < 0.01 ? 0.3 : 0.68);
     if (D.barkeep) { var bk = D.barkeep; bk.g.position.x = Math.sin(now / 2600) * D.barX; bk.g.rotation.y = Math.cos(now / 2600) > 0 ? Math.PI / 2 : -Math.PI / 2; if (Math.abs(Math.sin(now / 2600)) > 0.97) bk.g.rotation.y = 0; }
     this.hemi.color.set(D.light.hemi); this.hemi.groundColor.set(D.light.ground); this.hemi.intensity = D.light.i; this.sun.intensity = 0.05;
     if (now > (this.nearAt || 0)) {
@@ -9155,7 +9380,8 @@
     var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
     if (k === 'door') return { title: 'The door', lines: ['Back out into town.'] };
     if (D.kind === 'jo') return this.joInfo(k);
-    if (/^guest/.test(k)) { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; return gq ? { title: gq.v.name, lines: [{ library: 'Reading.', church: 'Sitting quietly.', pub: 'Having a pint.' }[D.kind] + ' Press E to say hello.'] } : null; }
+    if (D.kind === 'cinema' && !/^guest/.test(k)) { var fs = s.cinema.films, cur = D.screen && fs[D.screen.i]; if (k === 'screen') return { title: cur ? 'Now showing: ' + cur.title : 'The screen', lines: ['Press E to put another of your films on.'] }; if (k === 'seat') return { title: 'A seat', lines: ['Press E to sit and watch. Move to get up.'] }; if (k === 'posters') return { title: 'The posters', lines: ['Your latest films. Press E for the whole list (' + fs.length + ').'] }; if (k === 'popcorn') return { title: 'The popcorn machine', lines: ['Press E for a bag.'] }; return null; }
+    if (/^guest/.test(k)) { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; return gq ? { title: gq.v.name, lines: [{ library: 'Reading.', church: 'Sitting quietly.', pub: 'Having a pint.', cinema: 'Watching the film.' }[D.kind] + ' Press E to say hello.'] } : null; }
     if (D.kind === 'library') {
       var L = s.library, last = L.books[L.books.length - 1];
       if (k === 'shelf') return { title: 'Your shelves', lines: [plural(L.books.length, 'book') + ' · ' + L.pages.toLocaleString() + ' pages. Gold bands mark the 5-star ones.', 'Press E to browse them.'] };
@@ -9186,6 +9412,7 @@
     if (!D) return;
     if (k === 'door') { this.leaveRoom(pl); return; }
     if (D.kind === 'jo' && this.joUse(pl, k)) return;
+    if (D.kind === 'cinema') { if (k === 'screen') { var nf2 = this.showFilm(D); if (nf2) this.say(nf2.title + (nf2.year ? ' (' + nf2.year + ')' : ''), pl.g, 1.1, 2.6); this.sfx('wood'); return; } if (k === 'posters' && this.onInteract) { this.onInteract('cinema'); return; } if (k === 'popcorn') { this.say(pickOne(['*munch munch*', 'extra butter please', 'pop pop pop!']), pl.g, 1.0, 1.8); return; } }
     if (k === 'guest') { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; if (gq) this.guestTalk(gq); return; }
     var spot = D.spots.filter(function (q) { return q.k === k; })[0];
     if (spot && spot.seat) {
@@ -16656,6 +16883,7 @@
     if (pl && pl.inRoom) { this.roomUse(pl); return; }
     if (pl && !pl.paddle && !pl.seat && (this.near === 'library' || this.near === 'church' || this.near === 'pub') && this.roomOK(this.near)) { this.enterRoom(pl, this.near); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'friend:Jo' && this.roomOK('jo')) { this.enterRoom(pl, 'jo'); return; }
+    if (pl && !pl.paddle && !pl.seat && this.near === 'cinema' && this.roomOK('cinema')) { this.enterRoom(pl, 'cinema'); return; }
     if (pl && !pl.paddle && this.near === 'den') { this.enterDen(pl); return; }
     if (pl && !pl.paddle) { var lm = this.lunchNear(pl.g.position); if (lm) { this.stealLunch(pl, lm); return; } }
     // Winter: a snowball for the nearest mouse.
