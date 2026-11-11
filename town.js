@@ -6549,8 +6549,9 @@
   // ---- the library: built from the books you read ------------------------
   // Pages read raise it (walls, roof, portico, courtyard, cloisters, garden, dome, wings); every book
   // lights a window, and every five-star book plants a rose in the courtyard garden.
-  var LIBRARY_STAGES = [[1, 'A log reading cabin'], [800, 'Cabin roof'], [1200, 'Porch and rocking chair'], [1500, 'A brick library'], [3000, 'Clock cupola'],
-    [4000, 'Columned entrance'], [5000, 'Garden'], [6000, 'The grand library'], [9000, 'Columned portico'], [12000, 'Courtyard and fountain'], [16000, 'Cloisters'],
+  var LIBRARY_STAGES = [[1, 'A log reading cabin'], [800, 'Cabin roof'], [1200, 'Porch and rocking chair'], [2000, 'Stone chimney and woodpile'], [2800, 'A reading loft dormer'],
+    [3600, 'A lean-to book shed'], [4400, 'Lanterns and a garden bench'], [5000, 'A brick library'], [5800, 'Clock cupola'],
+    [6600, 'Columned entrance'], [7300, 'Garden'], [8000, 'The grand library'], [9000, 'Columned portico'], [12000, 'Courtyard and fountain'], [16000, 'Cloisters'],
     [20000, 'Reading garden'], [26000, 'Copper dome'], [32000, 'East wing'], [40000, 'West wing'], [50000, 'The golden owl: the library is complete']];
   Town.prototype.addBook = function (ev, delay) {
     var L = this.st.library;
@@ -6765,7 +6766,7 @@
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
     var warm = function (i) { return self.mat('holdStone', i); }, tile = this.mat('shingle'), five = L.books.filter(function (b) { return b.stars >= 4.5; }).length; // 4.5 stars and up plant roses
     // A log reading cabin, then a brick library, before the grand library takes over at 6,000 pages.
-    if (P0 < 6000) { this.smallLibrary(P, P0, n, five); return this.finishGrowth(g, 'libraryPop'); }
+    if (P0 < 8000) { this.smallLibrary(P, P0, n, five); return this.finishGrowth(g, 'libraryPop'); }
     P0 = libEff(P0);
     // A reading nook from the very first book: a bench under a lamp, a stack of books.
     P(this.geo.box, this.mat('stone', 2), 8.4, 0.25, 5.4, 0, 0.12, -0.5);
@@ -6925,7 +6926,7 @@
     return to[to.length - 1];
   }
   function churchEff(C) { return piecewise(C, [400, 450, 500, 560, 700, 780, 860, 940, 1020, 1110, 1189], [200, 260, 340, 400, 580, 700, 800, 900, 1000, 1100, 1189]); }
-  function libEff(P) { return piecewise(P, [6000, 9000, 12000, 16000, 20000, 26000, 32000, 40000, 50000], [3000, 4500, 6000, 8000, 10000, 13000, 17000, 22000, 30000]); }
+  function libEff(P) { return piecewise(P, [8000, 9000, 12000, 16000, 20000, 26000, 32000, 40000, 50000], [3000, 4500, 6000, 8000, 10000, 13000, 17000, 22000, 30000]); }
   // Interlocking log walls: rows alternate front/back and sides, like a cabin.
   Town.prototype.logWalls = function (P, w, d, rows) {
     for (var r = 0; r < rows; r++) {
@@ -7018,8 +7019,9 @@
     P(this.geo.cyl6, this.mat('stoneDark'), 0.04, 1.6, 0.04, 3.8, 0.8, 3.4);
     P(this.geo.box, this.mat('lantern'), 0.18, 0.22, 0.18, 3.8, 1.65, 3.4);
     for (var bs = 0; bs < Math.min(6, n); bs++) P(this.geo.box, this.mat('glass', bs), 0.42, 0.09, 0.3, 2.3, 0.55 + bs * 0.09, 3.4).rotation.y = bs * 0.3;
-    if (P0 < 1500) {
-      // A log reading cabin: roof at 800 pages, a porch with a rocking chair at 1,200.
+    if (P0 < 5000) {
+      // A log reading cabin: roof at 800 pages, a porch with a rocking chair at 1,200, then a stone
+      // chimney, a loft dormer, a lean-to book shed and lanterns, before it turns to brick at 5,000.
       P(this.geo.box, this.mat('stone', 2), 3.8, 0.2, 3.4, 0, 0.1, 0);
       var top = this.logWalls(P, 3.2, 2.8, Math.min(9, Math.ceil(P0 / 90)));
       if (top > 2) P(this.geo.box, this.mat('trunk'), 0.7, 1.4, 0.08, 0.6, 0.9, 1.45);
@@ -7042,6 +7044,29 @@
         P(this.geo.torus, this.mat('wood'), 0.28, 0.28, 0.28, -0.9, 0.4, 2.2).rotation.y = Math.PI / 2;
         P(this.geo.box, this.mat('lantern'), 0.16, 0.2, 0.16, 1.3, 1.7, 2.6);
       }
+      if (P0 >= 2000) {
+        // a proper stone chimney up the side, and a woodpile under a little roof
+        P(this.geo.box, this.mat('stone', 0), 0.7, top + 1.6, 0.7, 1.95, (top + 1.6) / 2, -0.5);
+        for (var wp = 0; wp < 9; wp++) { var lgw = P(this.geo.cyl6, this.mat('logwood', wp % 2), 0.08, 0.7, 0.08, -2.1, 0.12 + Math.floor(wp / 3) * 0.16, -0.6 + (wp % 3) * 0.17); lgw.rotation.x = Math.PI / 2; }
+        P(this.geo.box, this.mat('wood'), 0.6, 0.06, 0.9, -2.1, 0.68, -0.43).rotation.z = 0.2;
+      }
+      if (P0 >= 2800) {
+        // a dormer in the roof with a lit window: the reading loft
+        P(this.geo.box, this.mat('logwood', 1), 0.8, 0.6, 0.6, 0.4, top + 0.45, 0.85);
+        P(this.geo.gable, this.mat('wood'), 0.5, 0.4, 0.4, 0.4, top + 0.75, 0.85).rotation.y = Math.PI / 2;
+        P(this.geo.box, this.mat('window'), 0.4, 0.35, 0.05, 0.4, top + 0.45, 1.16);
+      }
+      if (P0 >= 3600) {
+        // a lean-to book shed on the back, its shelves showing through the open front
+        P(this.geo.box, this.mat('logwood', 0), 2.2, 1.4, 1.0, -0.2, 0.7, -2.0);
+        P(this.geo.box, this.mat('wood'), 2.4, 0.08, 1.2, -0.2, 1.48, -2.0).rotation.x = -0.25;
+        for (var bsh = 0; bsh < 7; bsh++) P(this.geo.box, this.mat('flag', bsh % 6), 0.12, 0.3, 0.2, -1.0 + bsh * 0.25, 0.75, -2.52);
+      }
+      if (P0 >= 4400) {
+        // lanterns on posts down the path, and a bench to read on outside
+        [[-1.0, 3.6], [1.0, 3.6], [-1.0, 5.0], [1.0, 5.0]].forEach(function (lp) { P(self.geo.cyl6, self.mat('stoneDark'), 0.04, 1.3, 0.04, lp[0], 0.65, lp[1]); P(self.geo.box, self.mat('lantern'), 0.16, 0.2, 0.16, lp[0], 1.4, lp[1]); });
+        P(this.geo.box, this.mat('wood'), 1.2, 0.08, 0.4, 2.3, 0.45, 2.6); [-0.5, 0.5].forEach(function (x) { P(self.geo.box, self.mat('wood'), 0.08, 0.45, 0.35, 2.3 + x, 0.22, 2.6); });
+      }
       return;
     }
     // A small brick library: walls up by 3,000 pages, a hipped roof, a columned entrance at 4,000,
@@ -7061,20 +7086,20 @@
     var top = 0.2 + wh;
     P(this.geo.box, this.mat('plaster', 0), 6.3, 0.25, 4.8, 0, top + 0.12, 0);
     var hip = P(this.geo.cone4, this.mat('shingle'), 4.5, 1.6, 3.6, 0, top + 1.05, 0); hip.rotation.y = Math.PI / 4;
-    if (P0 >= 3000) {
+    if (P0 >= 5800) {
       // a white clock cupola on the ridge
       P(this.geo.box, this.mat('whitewood'), 0.8, 0.8, 0.8, 0, top + 1.75, 0);
       P(this.geo.cyl, this.mat('plaster', 0), 0.26, 0.04, 0.26, 0, top + 1.8, 0.42).rotation.x = Math.PI / 2;
       P(this.geo.box, this.mat('stoneDark'), 0.03, 0.18, 0.02, 0, top + 1.85, 0.45);
       P(this.geo.cone4, this.mat('shingle'), 0.7, 0.7, 0.7, 0, top + 2.5, 0).rotation.y = Math.PI / 4;
     }
-    if (P0 >= 4000) {
+    if (P0 >= 6600) {
       P(this.geo.box, this.mat('stone', 1), 2.6, 0.18, 1.2, 0, 0.09, 2.8);
       [-0.8, 0.8].forEach(function (x) { P(self.geo.cyl, self.mat('plaster', 0), 0.14, 2.4, 0.14, x, 1.4, 3.1); });
       P(this.geo.box, this.mat('plaster', 0), 2.2, 0.25, 1.0, 0, 2.7, 2.75);
       P(this.geo.gable, this.mat('plaster', 1), 1.35, 0.8, 0.7, 0, 2.82, 2.75);
     }
-    if (P0 >= 5000) {
+    if (P0 >= 7300) {
       [[-3.8, 2.6], [3.8, 2.6]].forEach(function (h) { P(self.geo.box, self.mat('hedge'), 1.4, 0.45, 0.6, h[0], 0.22, h[1]); });
       P(this.geo.cyl6, this.mat('trunk'), 0.15, 1.2, 0.15, -3.6, 0.6, -1.8);
       P(this.geo.blob, this.mat('leaf', 2), 0.9, 0.8, 0.9, -3.6, 1.7, -1.8);
@@ -7082,7 +7107,7 @@
     }
     // Vines up the brick sides, more as it grows.
     var bv = [[2.98, -1.3, 1, 0], [-2.98, 1.2, -1, 0], [2.98, 1.1, 1, 0], [-2.98, -1.2, -1, 0], [-2.2, -2.23, 0, -1], [2.2, -2.23, 0, -1]];
-    for (var bvi = 0; bvi < Math.min(bv.length, 2 + Math.floor((P0 - 1500) / 600)); bvi++) this.libVine(P, bv[bvi][0], bv[bvi][1], bv[bvi][2], bv[bvi][3], wh + 0.1, bvi);
+    for (var bvi = 0; bvi < Math.min(bv.length, 2 + Math.floor((P0 - 5000) / 500)); bvi++) this.libVine(P, bv[bvi][0], bv[bvi][1], bv[bvi][2], bv[bvi][3], wh + 0.1, bvi);
   };
 
   // ---- Jo the fox and the raccoon -----------------------------------------
@@ -8431,11 +8456,12 @@
   // the building outside (a log cabin is a log cabin inside; the grand library has a gallery and a
   // dome) and shows what you've done: a spine on the shelves for every book, a stained-glass pane
   // for every book of the Bible you've finished, a mug on the rack for every training friend.
-  var ROOM_AT = { library: [-760, -700], church: [-820, -700], pub: [-880, -700] };
+  var ROOM_AT = { library: [-760, -700], church: [-820, -700], pub: [-880, -700], jo: [-940, -700] };
   Town.prototype.roomTier = function (kind) {
     var s = this.st;
-    if (kind === 'library') { var p = s.library.pages; return p < 1500 ? 'cabin' : p < 6000 ? 'brick' : 'grand'; }
+    if (kind === 'library') { var p = s.library.pages; return p < 5000 ? 'cabin' : p < 8000 ? 'brick' : 'grand'; }
     if (kind === 'church') { var c = s.bible.chapters; return c < 100 ? 'chapel' : c < 400 ? 'brick' : 'stone'; }
+    if (kind === 'jo') return s.friends.Jo && s.friends.Jo.n >= 75 ? 'big' : 'small';
     return s.drinks >= 200 ? 'inn' : 'tavern';
   };
   Town.prototype.roomDims = function (kind) {
@@ -8443,7 +8469,8 @@
     var D = {
       library: { cabin: [2.8, 2.3, 2.6, 'logwood', 'wood'], brick: [4.4, 3.4, 3.1, 'brick', 'woodLight'], grand: [6.2, 4.4, 5.2, 'holdStone', 'woodLight'] },
       church: { chapel: [2.2, 3.0, 2.8, 'logwood', 'wood'], brick: [2.7, 4.4, 3.4, 'plaster', 'wood'], stone: [3.2, 5.8, 4.6, 'stone', 'stone'] },
-      pub: { tavern: [3.4, 2.8, 2.8, 'logwood', 'wood'], inn: [4.8, 3.5, 3.0, 'logwood', 'wood'] }
+      pub: { tavern: [3.4, 2.8, 2.8, 'logwood', 'wood'], inn: [4.8, 3.5, 3.0, 'logwood', 'wood'] },
+      jo: { small: [3.4, 2.8, 2.6, 'plaster', 'woodLight'], big: [4.6, 3.6, 2.8, 'plaster', 'woodLight'] }
     }[kind][t];
     R.hx = D[0]; R.hz = D[1]; R.H = D[2]; R.wall = D[3]; R.floor = D[4];
     return R;
@@ -8453,6 +8480,7 @@
     if (kind === 'library') return !!(s.library && s.library.group);
     if (kind === 'church') return !!(s.bible && s.bible.group);
     if (kind === 'pub') return !!s.pub;
+    if (kind === 'jo') return !!(s.friends && s.friends.Jo && s.friends.Jo.group);
     return false;
   };
   Town.prototype.buildRoom = function (kind) {
@@ -8514,6 +8542,8 @@
     if (kind === 'library') this.furnishLibrary(D, T0);
     if (kind === 'church') this.furnishChurch(D, T0);
     if (kind === 'pub') this.furnishPub(D, T0);
+    if (kind === 'jo') this.furnishJo(D, T0);
+    if (kind !== 'jo') this.roomGuests(D);
     return D;
   };
   // Bookcases: open fronts, a coloured spine for every book you've read (filled from the middle
@@ -8550,6 +8580,7 @@
     P(this.geo.box, this.mat('canvas', col), 0.7, 0.75, 0.16, 0, 0.7, -0.3, ch);
     [-1, 1].forEach(function (sd) { P(self.geo.box, self.mat('canvas', col), 0.14, 0.5, 0.7, sd * 0.36, 0.45, 0, ch); });
     T0.block(x - 0.4, x + 0.4, z - 0.4, z + 0.4);
+    (D.chairs = D.chairs || []).push({ x: x, z: z, ry: ry });
     var fx = Math.sin(ry), fz = Math.cos(ry);
     D.spots.push({ k: 'chair', x: x + fx * 0.75, z: z + fz * 0.75, r: 0.75, seat: [x, z, ry] });
   };
@@ -8558,12 +8589,26 @@
     var cases = [];
     if (t === 'cabin') {
       // A log reading cabin: one bookcase, a wood stove, a rocking chair and a rag rug.
+      var pg = L.pages;
       cases.push({ x: -0.9, z: -R.hz + 0.3, ry: 0 });
-      T0.fireplace(R.hx - 0.4, -0.9, -Math.PI / 2, true); T0.block(R.hx - 0.8, R.hx, -1.4, -0.4);
+      if (pg >= 3600) cases.push({ x: -R.hx + 0.3, z: -0.3, ry: Math.PI / 2 }); // more shelves once the book shed's built
+      // the iron stove, swapped for a stone hearth once the chimney goes up outside
+      if (pg >= 2000) { T0.fireplace(R.hx - 0.25, -0.9, -Math.PI / 2); T0.block(R.hx - 0.55, R.hx, -1.9, 0.1); }
+      else { T0.fireplace(R.hx - 0.4, -0.9, -Math.PI / 2, true); T0.block(R.hx - 0.8, R.hx, -1.4, -0.4); }
+      if (pg >= 2800) {
+        // the reading loft: a platform under the dormer with cushions and a lamp, and a ladder up
+        P(this.geo.box, this.mat('wood'), 2.2, 0.1, 1.3, 0.9, F + 1.9, -R.hz + 0.65);
+        P(this.geo.box, this.mat('canvas', 1), 0.7, 0.18, 0.6, 0.5, F + 2.04, -R.hz + 0.6); P(this.geo.box, this.mat('canvas', 0), 0.5, 0.16, 0.5, 1.3, F + 2.03, -R.hz + 0.6);
+        var lad2 = new T.Group(); lad2.position.set(1.9, F, -R.hz + 1.35); lad2.rotation.x = -0.2; D.g.add(lad2);
+        [-0.2, 0.2].forEach(function (x) { P(self.geo.box, self.mat('woodLight'), 0.05, 2.0, 0.05, x, 1.0, 0, lad2); });
+        for (var lr = 0; lr < 6; lr++) P(this.geo.box, this.mat('woodLight'), 0.4, 0.04, 0.04, 0, 0.25 + lr * 0.32, 0, lad2);
+        this.candle(D.g, 1.6, F + 1.95, -R.hz + 0.4, 0.12, D.flames);
+      }
+      if (pg >= 4400) T0.bulbs(F + R.H - 0.2, 0.45);
       P(this.geo.cyl, this.mat('canvas', 0), 1.0, 0.02, 0.8, 0.8, F + 0.01, 0.1);
       this.armchair(D, T0, 1.2, 0.3, -Math.PI / 2 - 0.5, 1);
       P(this.geo.box, this.mat('wood'), 0.9, 0.06, 0.6, -1.6, F + 0.7, 0.9); [[-1.95, 0.7], [-1.25, 0.7], [-1.95, 1.1], [-1.25, 1.1]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.06, 0.68, 0.06, l[0], F + 0.34, l[1]); });
-      T0.block(-2.1, -1.1, 0.55, 1.25); D.spots.push({ k: 'desk', x: -1.0, z: 0.9, r: 0.8 });
+      T0.block(-2.1, -1.1, 0.55, 1.25); D.spots.push({ k: 'desk', x: -1.0, z: 0.9, r: 0.8 }); D.deskAt = { x: -1.6, z: 1.55 };
       this.candle(D.g, -1.4, F + 0.73, 0.85, 0.14, D.flames);
       T0.lamp(-R.hx + 0.25, F + 1.9, -0.8);
     } else {
@@ -8590,7 +8635,7 @@
       var globe = new T.Group(); globe.position.set(dx - 0.7, F + 0.98, 0.5); D.g.add(globe);
       P(this.geo.ball, this.mat('glass', 4), 0.16, 0.16, 0.16, 0, 0, 0, globe); P(this.geo.ball, this.mat('hedge'), 0.1, 0.08, 0.1, 0.07, 0.04, 0.08, globe);
       D.spin.push(globe);
-      T0.block(dx - 0.95, dx + 0.95, 0.1, 1.1); D.spots.push({ k: 'desk', x: dx, z: 1.4, r: 0.9 });
+      T0.block(dx - 0.95, dx + 0.95, 0.1, 1.1); D.spots.push({ k: 'desk', x: dx, z: 1.4, r: 0.9 }); D.deskAt = { x: dx - 0.5, z: 1.5 };
       [[-2.2, -R.hz + 0.6], [2.2, -R.hz + 0.6], [-2.2, R.hz - 0.25], [2.2, R.hz - 0.25]].forEach(function (l) { T0.lamp(l[0], F + 2.5, l[1]); });
       [-0.9, -0.3, 0.3].forEach(function (z, i) { self.candle(D.g, R.hx - 0.3, F + 1.53, z - 0.6, 0.12 + i * 0.04, D.flames); });
       if (grand) {
@@ -8614,13 +8659,21 @@
         if (L.pages >= 50000) { P(this.geo.ball, this.mat('gold'), 0.25, 0.32, 0.22, 0, F + gy + 1.0, -R.hz + 0.6); P(this.geo.cone, this.mat('gold'), 0.06, 0.12, 0.06, -0.1, F + gy + 1.25, -R.hz + 0.6); }
         D.spots.push({ k: 'shelf', x: cases[2].x, z: cases[2].z + 0.85, r: 1.1 });
         D.light = { hemi: '#e2bf8c', ground: '#3a2a1a', i: 1.0 };
+        this.libraryGuestSpots(D, cases[3]);
         return;
       }
     }
     this.bookcases(D, T0, cases, books, t === 'cabin' ? 4 : 5);
     var c0 = cases[Math.min(1, cases.length - 1)];
     D.spots.push({ k: 'shelf', x: c0.x, z: c0.z + 0.85, r: 1.1 });
+    this.libraryGuestSpots(D, cases[cases.length > 2 ? 2 : 0]);
     D.light = t === 'cabin' ? { hemi: '#c99560', ground: '#2e1d10', i: 0.85 } : { hemi: '#d9a874', ground: '#3a2616', i: 0.95 };
+  };
+  Town.prototype.libraryGuestSpots = function (D, browse) {
+    var gs = D.guestSpots = [], ch = D.chairs || [];
+    if (ch.length) { var c = ch[ch.length - 1]; gs.push({ x: c.x, z: c.z, ry: c.ry, sit: 0.42 }); D.spots = D.spots.filter(function (q) { return !(q.seat && q.seat[0] === c.x && q.seat[1] === c.z); }); }
+    if (browse) gs.push({ x: browse.ry ? browse.x + 0.75 : browse.x + 0.5, z: browse.ry ? browse.z + 0.4 : browse.z + 0.75, ry: browse.ry ? -Math.PI / 2 : Math.PI });
+    if (D.deskAt) gs.push({ x: D.deskAt.x, z: D.deskAt.z, ry: Math.PI });
   };
   Town.prototype.furnishChurch = function (D, T0) {
     var self = this, R = D.R, F = R.y, P = T0.P, B = this.st.bible, C = B.chapters, done = {}, t = R.tier;
@@ -8643,7 +8696,8 @@
       if (t !== 'chapel') { P(self.geo.box, self.mat('wood'), pw, 0.55, 0.06, x, F + 0.75, z + 0.22); [-1, 1].forEach(function (e) { P(self.geo.box, self.mat('wood'), 0.06, 0.95, 0.5, x + e * (pw / 2 - 0.03), F + 0.47, z); }); }
       else [-1, 1].forEach(function (e) { P(self.geo.box, self.mat('logwood', 0), 0.1, 0.42, 0.3, x + e * (pw / 2 - 0.15), F + 0.21, z); });
       T0.block(x - pw / 2 - 0.05, x + pw / 2 + 0.05, z - 0.25, z + 0.28);
-      if (p === Math.floor(rowsP / 2)) D.spots.push({ k: 'pew', x: sd * 0.35, z: z, r: 0.55, seat: [x - sd * (pw / 2 - 0.4), z, Math.PI] });
+      if (p === Math.floor(rowsP / 2)) D.spots.push({ k: 'pew', x: sd * 0.35, z: z, r: 0.55, seat: [x - sd * (pw / 2 - 0.4), z, Math.PI, 0.49] });
+      else (D.guestSpots = D.guestSpots || []).push({ x: x + sd * (pw / 2 - 0.45) * (p % 2 ? 1 : -1), z: z - 0.02, ry: Math.PI, sit: 0.42, o: p * 2 + (sd > 0 ? 1 : 0) });
     });
     // The far end: a plain table and wooden cross in the chapel; an altar, a cross in gold and a
     // candle for every hundred chapters in the brick and stone churches.
@@ -8696,6 +8750,7 @@
       P(this.geo.box, this.mat('flag', 0), 0.09, 0.3, 0.09, -1.2, F + 0.9, R.hz - 0.6);
       D.spots.push({ k: 'rope', x: -1.2, z: R.hz - 0.95, r: 0.6 });
     }
+    if (D.guestSpots) D.guestSpots.sort(function (a, b) { return ((a.o * 7) % 5) - ((b.o * 7) % 5); });
     D.light = t === 'chapel' ? { hemi: '#c99a68', ground: '#2a1c10', i: 0.85 } : t === 'brick' ? { hemi: '#e0cdb4', ground: '#3a2e26', i: 0.95 } : { hemi: '#cdb8a0', ground: '#2c241e', i: 0.9 };
   };
   Town.prototype.furnishPub = function (D, T0) {
@@ -8703,12 +8758,12 @@
     var friends = Object.keys(s.friends || {}).sort(function (a, b) { return (s.friends[b].n || 0) - (s.friends[a].n || 0); });
     // The bar along the back wall, taps, and shelves of bottles behind.
     var bw = inn ? 5.0 : 3.6;
-    P(this.geo.box, this.mat('wood'), bw, 1.05, 0.6, 0, F + 0.52, -R.hz + 1.3);
-    P(this.geo.box, this.mat('woodLight'), bw + 0.2, 0.08, 0.75, 0, F + 1.08, -R.hz + 1.3);
-    P(this.geo.box, this.mat('gold'), bw, 0.04, 0.04, 0, F + 0.15, -R.hz + 1.62);
+    P(this.geo.box, this.mat('wood'), bw, 0.55, 0.55, 0, F + 0.27, -R.hz + 1.3);
+    P(this.geo.box, this.mat('woodLight'), bw + 0.2, 0.06, 0.68, 0, F + 0.57, -R.hz + 1.3);
+    P(this.geo.box, this.mat('gold'), bw, 0.03, 0.03, 0, F + 0.08, -R.hz + 1.6);
     (inn ? [-0.75, -0.25, 0.25, 0.75] : [-0.4, 0, 0.4]).forEach(function (x, i) {
-      P(self.geo.cyl6, self.mat('copper'), 0.04, 0.35, 0.04, x, F + 1.28, -R.hz + 1.15);
-      P(self.geo.box, self.mat('flag', i + 1), 0.07, 0.16, 0.04, x, F + 1.52, -R.hz + 1.15);
+      P(self.geo.cyl6, self.mat('copper'), 0.03, 0.22, 0.03, x, F + 0.7, -R.hz + 1.18);
+      P(self.geo.box, self.mat('flag', i + 1), 0.05, 0.1, 0.03, x, F + 0.85, -R.hz + 1.18);
     });
     T0.block(-bw / 2 - 0.1, bw / 2 + 0.1, -R.hz, -R.hz + 1.65);
     D.spots.push({ k: 'bar', x: 0, z: -R.hz + 2.05, r: 0.9 });
@@ -8720,7 +8775,9 @@
         bot.material = this.mat('flag', (b * 3 + sh) % 6);
       }
     }
-    var bk = this.makeMouse(0, 'barkeep'); bk.g.position.set(0.6, F, -R.hz + 0.7); bk.g.scale.setScalar(3.2); D.g.add(bk.g); D.barkeep = bk; D.barX = bw / 2 - 0.8;
+    // (she stands on a step behind the bar, so she can see over it)
+    P(this.geo.box, this.mat('wood', 1), bw - 0.3, 0.22, 0.5, 0, F + 0.11, -R.hz + 0.72);
+    var bk = this.makeMouse(0, 'barkeep'); bk.g.position.set(0.6, F + 0.22, -R.hz + 0.72); bk.g.scale.setScalar(1.5); D.g.add(bk.g); D.barkeep = bk; D.barX = bw / 2 - 0.8;
     // The mug rack: a tankard for every friend you've trained with.
     P(this.geo.box, this.mat('logwood', 0), bw - 0.8, 0.08, 0.1, 0, F + 2.55, -R.hz + 0.1, bwall);
     friends.slice(0, Math.floor((bw - 1) / 0.22)).forEach(function (nm, i) {
@@ -8733,13 +8790,16 @@
     // Tables: two in the tavern, three once it's an inn.
     var tables = inn ? [[-2.2, 0.8], [0.3, 1.2], [2.0, 0.0]] : [[-1.3, 0.9], [1.0, 0.6]];
     tables.forEach(function (t, ti) {
-      P(self.geo.cyl, self.mat('woodLight'), 0.5, 0.06, 0.5, t[0], F + 0.75, t[1]);
-      P(self.geo.cyl6, self.mat('wood'), 0.07, 0.72, 0.07, t[0], F + 0.37, t[1]);
-      P(self.geo.cyl6, self.mat('gold'), 0.06, 0.16, 0.06, t[0] + 0.15, F + 0.86, t[1] - 0.1);
-      self.candle(D.g, t[0] - 0.12, F + 0.78, t[1] + 0.1, 0.1, D.flames);
-      T0.block(t[0] - 0.5, t[0] + 0.5, t[1] - 0.5, t[1] + 0.5);
-      [[0.8, 0], [-0.8, 0]].forEach(function (o) { P(self.geo.cyl6, self.mat('wood'), 0.2, 0.45, 0.2, t[0] + o[0], F + 0.22, t[1] + o[1]); });
-      if (ti === 1) D.spots.push({ k: 'table', x: t[0], z: t[1] + 0.85, r: 0.7, seat: [t[0] + 0.8, t[1], -Math.PI / 2] });
+      P(self.geo.cyl, self.mat('woodLight'), 0.42, 0.05, 0.42, t[0], F + 0.45, t[1]);
+      P(self.geo.cyl6, self.mat('wood'), 0.06, 0.43, 0.06, t[0], F + 0.22, t[1]);
+      P(self.geo.cyl6, self.mat('gold'), 0.04, 0.1, 0.04, t[0] + 0.12, F + 0.52, t[1] - 0.08);
+      self.candle(D.g, t[0] - 0.1, F + 0.47, t[1] + 0.08, 0.08, D.flames);
+      T0.block(t[0] - 0.42, t[0] + 0.42, t[1] - 0.42, t[1] + 0.42);
+      [[0.7, 0], [-0.7, 0]].forEach(function (o) { P(self.geo.cyl6, self.mat('wood'), 0.16, 0.26, 0.16, t[0] + o[0], F + 0.13, t[1] + o[1]); });
+      if (ti === 1) D.spots.push({ k: 'table', x: t[0], z: t[1] + 0.85, r: 0.7, seat: [t[0] + 0.7, t[1], -Math.PI / 2, 0.27] });
+      var gs = D.guestSpots = D.guestSpots || [];
+      if (ti !== 1) gs.push({ x: t[0] + 0.7, z: t[1], ry: -Math.PI / 2, sit: 0.2 });
+      gs.push({ x: t[0] - 0.7, z: t[1], ry: Math.PI / 2, sit: 0.2 });
     });
     // The fire on the right wall; the dartboard and the chalkboard on the left.
     T0.fireplace(R.hx - 0.25, inn ? 1.6 : 1.0, -Math.PI / 2); D.solid.push([R.hx - 0.55, R.hx, inn ? 0.6 : 0.0, inn ? 2.6 : 2.0]);
@@ -8762,8 +8822,9 @@
     // dried hop bines draped along the tops of the back and left walls
     if (B.hops) { for (var hp = 0; hp < 22; hp++) { var hx2 = -R.hx + 0.3 + hp * (R.hx * 2 - 0.6) / 21; P(this.geo.blob, this.mat('leaf', hp % 3), 0.13, 0.17, 0.13, hx2, F + R.H - 0.35 - Math.abs(Math.sin(hp * 0.9)) * 0.2, -R.hz + 0.12, bwall); } for (hp = 0; hp < 14; hp++) { var hz2 = -R.hz + 0.3 + hp * (R.hz * 2 - 0.6) / 13; P(this.geo.blob, this.mat('leaf', hp % 3), 0.13, 0.17, 0.13, -R.hx + 0.12, F + R.H - 0.35 - Math.abs(Math.sin(hp * 1.1)) * 0.2, hz2, D.walls[1].g); } }
     if (B.sign) { var mirror = P(this.geo.box, this.mat('gold'), 0.9, 0.6, 0.05, -bw / 2 + 0.7, F + 2.15, -R.hz + 0.04, bwall); P(this.geo.box, this.mat('ice'), 0.75, 0.45, 0.06, -bw / 2 + 0.7, F + 2.15, -R.hz + 0.05, bwall); }
-    if (B.snug) { P(this.geo.box, this.mat('canvas', 1), 1.6, 0.4, 0.6, 2.4, F + 0.25, R.hz - 0.7); P(this.geo.box, this.mat('canvas', 1), 1.6, 0.8, 0.15, 2.4, F + 0.6, R.hz - 0.35); T0.block(1.5, 3.3, R.hz - 1.05, R.hz); D.spots.push({ k: 'snug', x: 2.4, z: R.hz - 1.4, r: 0.6, seat: [2.4, R.hz - 0.75, Math.PI] }); }
+    if (B.snug) { P(this.geo.box, this.mat('canvas', 1), 1.6, 0.4, 0.6, 2.4, F + 0.25, R.hz - 0.7); P(this.geo.box, this.mat('canvas', 1), 1.6, 0.8, 0.15, 2.4, F + 0.6, R.hz - 0.35); T0.block(1.5, 3.3, R.hz - 1.05, R.hz); D.spots.push({ k: 'snug', x: 2.4, z: R.hz - 1.4, r: 0.6, seat: [2.4, R.hz - 0.75, Math.PI, 0.45] }); }
     if (B.bandstand) { P(this.geo.box, this.mat('wood'), 1.4, 0.25, 1.2, -R.hx + 0.9, F + 0.12, 0.6); P(this.geo.box, this.mat('wood', 1), 0.35, 0.9, 0.12, -R.hx + 0.8, F + 0.7, 0.5).rotation.z = 0.2; P(this.geo.cyl, this.mat('copper'), 0.12, 0.3, 0.12, -R.hx + 1.2, F + 0.4, 0.8); T0.block(-R.hx, -R.hx + 1.6, 0, 1.2); }
+    D.guestSpots.splice(1, 0, { x: -0.9, z: -R.hz + 1.95, ry: Math.PI });
     D.light = inn ? { hemi: '#dba06a', ground: '#3a2214', i: 0.95 } : { hemi: '#d08e58', ground: '#331d10', i: 0.88 };
   };
   Town.prototype.enterRoom = function (pl, kind) {
@@ -8772,7 +8833,7 @@
     if (pl.cook) this.endCook(pl, true);
     var old = this.st.room; if (old) { this.world.remove(old.g); }
     var D = this.st.room = this.buildRoom(kind), R = D.R;
-    pl.inRoom = kind; pl.push = null; pl.iv = null; pl.vy = 0; pl.napping = 0;
+    pl.inRoom = kind; pl.roomSit = null; pl.push = null; pl.iv = null; pl.vy = 0; pl.napping = 0;
     pl.roomBack = { x: pl.g.position.x, y: pl.g.position.y, z: pl.g.position.z, ry: pl.g.rotation.y };
     var P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
     P.set(R.x, R.base + R.y, R.z + R.hz - 0.9); pl.g.rotation.y = Math.PI;
@@ -8784,7 +8845,8 @@
     var hi = {
       library: { cabin: ['cozy little reading cabin', 'smells like woodsmoke and old books'], brick: ['shhh… the library', 'all your books, right here'], grand: ['whoa. the grand library', 'look at that dome!'] },
       church: { chapel: ['a little log chapel', 'simple and quiet'], brick: ['the brick church', 'so bright in here'], stone: ['so quiet in here', 'the stone church'] },
-      pub: { tavern: ['ahh, the Slow Pour', 'warm in here!'], inn: ['the Slow Pour Inn!', 'busy tonight'] }
+      pub: { tavern: ['ahh, the Slow Pour', 'warm in here!'], inn: ['the Slow Pour Inn!', 'busy tonight'] },
+      jo: { small: ['home sweet home', 'ahh, the cosiest place in Yukon'], big: ['home sweet home', 'the cottage looks lovely'] }
     }[kind][R.tier];
     this.say(pickOne(hi), pl.g, 1.0, 1.8);
     this.needsRender = true;
@@ -8792,7 +8854,7 @@
   };
   Town.prototype.leaveRoom = function (pl) {
     var D = this.st.room, b = pl.roomBack, P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
-    pl.inRoom = null; pl.napping = 0;
+    pl.inRoom = null; pl.roomSit = null; pl.napping = 0;
     if (D) { this.world.remove(D.g); this.st.room = null; }
     this.applyPalette();
     if (b) { P.set(b.x, this.floorAt(b.x, b.z, b.y + 2), b.z); pl.g.rotation.y = b.ry + Math.PI; }
@@ -8801,8 +8863,236 @@
     this.solidAt = 0; this.nearAt = 0; this.near = null; if (this.onNear) this.onNear(null);
     this.needsRender = true;
   };
+  // ===== Mice who visit the library, the church and the pub =====
+  // Now and then a mouse walks over and goes in for a while; step inside yourself and they're
+  // there: reading in an armchair, sitting in a pew, or at a table with a pint.
+  function nearStreet(p) { var best = null, bd = 1e9; STREETS.forEach(function (st, si) { st.forEach(function (q, ti) { var d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = { si: si, ti: ti }; } }); }); return best; }
+  var VISIT_LINES = {
+    library: ['off to the library', 'need a new book', 'returning this, it’s overdue…', 'library time'],
+    church: ['popping into the church', 'a quiet sit in the church', 'choir practice!', 'off to light a candle'],
+    pub: ['just the one at the Slow Pour', 'lunch at the pub', 'meeting a friend for a pint', 'pub quiz!']
+  };
+  var GUEST_LINES = {
+    library: ['shhh!', '*turns a page*', 'ooh, plot twist', 'one more chapter', 'this one’s a page-turner'],
+    church: ['amen', '♪', '*quiet hum*', 'peaceful in here', '*bows head*'],
+    pub: null
+  };
+  Town.prototype.bldgDoor = function (kind) {
+    var s = this.st, g = kind === 'library' ? s.library.group : kind === 'church' ? s.bible.group : s.pub;
+    if (!g) return null;
+    var t = this.roomTier(kind), fz = kind === 'pub' ? 1.5 : kind === 'library' ? (t === 'cabin' ? 2.0 : 2.9) : (t === 'chapel' ? 2.9 : t === 'brick' ? 4.3 : 6.4);
+    g.updateMatrixWorld(true);
+    var w = g.localToWorld(new T.Vector3(kind === 'library' && t === 'cabin' ? 0.6 : 0, 0, fz));
+    return { x: w.x, z: w.z };
+  };
+  Town.prototype.visitPick = function (only) {
+    var ks = (only ? [only] : ['library', 'church', 'pub']).filter(this.roomOK, this);
+    if (!ks.length) return null;
+    var k = ks[Math.floor(Math.random() * ks.length)], d = this.bldgDoor(k);
+    return d ? { kind: k, door: d, st: nearStreet(d) } : null;
+  };
+  // Who's in when you walk in: the mice visiting, and (often) a neighbour or two who popped over.
+  Town.prototype.roomGuests = function (D) {
+    var self = this, folk = this.st.folk || [], kind = D.kind, F = D.R.y, night = this.dark || this.phase === 'night';
+    var here = folk.filter(function (m) { return m.visiting === kind && m.state === 'inside'; });
+    var spots = D.guestSpots || [], want = kind === 'pub' && night ? 3 : 1 + (Math.random() < 0.5 ? 1 : 0);
+    if (here.length < want && Math.random() < 0.75) {
+      var door = this.bldgDoor(kind), cand = folk.filter(function (m) { return m.state === 'inside' && !m.exitDoor && !m.visiting && (!night || m.owl || kind === 'pub'); });
+      for (var i = cand.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), tmp = cand[i]; cand[i] = cand[j]; cand[j] = tmp; }
+      cand.slice(0, want - here.length).forEach(function (m) { m.exitDoor = door; m.visiting = kind; m.wait = 40 + Math.random() * 40; here.push(m); });
+    }
+    D.guests = [];
+    here.slice(0, spots.length).forEach(function (m, i) {
+      var sp = spots[i], v = self.makeMouse(m.k);
+      v.g.scale.setScalar(1.5); v.g.position.set(sp.x, F + (sp.sit ? sp.sit : 0), sp.z); v.g.rotation.y = sp.ry;
+      if (sp.sit) { v.body.position.y = 0.06; v.legs.forEach(function (l) { l.rotation.x = -1.4; }); }
+      if (kind === 'library') { var bk = new T.Group(); bk.position.set(0, 0.17, 0.09); v.body.add(bk); self.part(bk, self.geo.box, self.mat('flag', i + 2), 0.12, 0.08, 0.012, 0, 0, 0).rotation.x = -0.5; self.part(bk, self.geo.box, self.mat('plaster', 0), 0.11, 0.075, 0.014, 0, 0.004, 0.003).rotation.x = -0.5; v.arms.forEach(function (a) { a.rotation.x = -1.1; }); }
+      if (kind === 'pub') { var pt = new T.Group(); pt.position.set(0, -0.12, 0.03); v.arms[1].add(pt); self.part(pt, self.geo.cyl6, self.mat('gold'), 0.03, 0.06, 0.03, 0, 0, 0); self.part(pt, self.geo.cyl6, self.mat('swan', 0), 0.031, 0.015, 0.031, 0, 0.035, 0); }
+      if (kind === 'church') v.arms.forEach(function (a) { a.rotation.x = -0.9; a.rotation.z = (a === v.arms[0] ? 1 : -1) * 0.4; });
+      D.g.add(v.g);
+      if (sp.block) D.solid.push(sp.block);
+      D.guests.push({ v: v, m: m, sp: sp, ph: Math.random() * 10 });
+      D.spots.push({ k: 'guest:' + (D.guests.length - 1), x: sp.x + Math.sin(sp.ry) * 0.8, z: sp.z + Math.cos(sp.ry) * 0.8, r: 0.55 });
+    });
+  };
+  Town.prototype.stepGuests = function (D, dt, now) {
+    var self = this;
+    (D.guests || []).forEach(function (q, i) {
+      var v = q.v, t = now / 1000 + q.ph;
+      if (D.kind === 'library') { v.head.rotation.x = 0.35 + Math.sin(t * 0.4) * 0.08; if (Math.floor(t / 6) !== q.pg) { q.pg = Math.floor(t / 6); v.arms[1].rotation.z = -0.3; setTimeout(function () { v.arms[1].rotation.z = 0; }, 300); } }
+      if (D.kind === 'church') v.head.rotation.x = 0.25 + Math.sin(t * 0.3) * 0.05;
+      if (D.kind === 'pub') { var sip = (t % 7) < 1.2; v.arms[1].rotation.x = sip ? -2.2 : -1.0; v.head.rotation.x = sip ? -0.3 : 0.05; v.body.rotation.z = Math.sin(t * 0.8) * 0.05; }
+      if (Math.random() < dt * 0.025) {
+        var L = D.kind === 'pub' ? PUB_LINES : GUEST_LINES[D.kind];
+        if (D.kind === 'library' && Math.random() < 0.4 && self.st.library.books.length) { var b = self.st.library.books[Math.floor(Math.random() * self.st.library.books.length)]; self.say('have you read "' + b.title + '"?', v.g, 1.4, 2.6); }
+        else self.say(pickOne(L), v.g, 1.4, 1.8);
+      }
+    });
+  };
+  Town.prototype.guestTalk = function (q) {
+    var D = this.st.room, nm = q.v.name || 'a neighbour', lines = {
+      library: ['oh! hello. don’t mind me, I’m just at the good bit', 'the raccoon who reads! I’ve heard about you', 'you’ve read ' + this.st.library.books.length + ' books? goodness'],
+      church: ['peace be with you', 'lovely windows, aren’t they?', 'I come here to think'],
+      pub: ['pull up a stool!', 'cheers, raccoon!', 'this round’s on me', 'heard you went for a run today. respect']
+    }[D.kind];
+    this.say(pickOne(lines), q.v.g, 1.4, 2.6);
+  };
+  // ===== Jo's cottage, inside =====
+  // The cosiest room in Yukon: an inglenook fire, two armchairs with knitted throws, a patchwork
+  // bed, tea on the go, fairy lights, and Jo the fox curled up on the rug. It grows with the
+  // cottage outside (window boxes, roses, a kitchen once the veg garden's in, a window seat, the
+  // stairs up to the dormers, a dining room in the cross wing, honey from the hives, a glasshouse),
+  // and the photo wall gets a new frame for every five workouts you've done together.
+  Town.prototype.furnishJo = function (D, T0) {
+    var self = this, R = D.R, F = R.y, P = T0.P, f = this.st.friends.Jo, n = f.n, G = this.glowMats(), big = R.tier === 'big';
+    var W = { back: D.walls[0].g, left: D.walls[1].g, front: D.walls[2].g, right: D.walls[3].g };
+    // Whitewashed walls with dark oak framing, and a low beam round the top.
+    [['back', 'x'], ['front', 'x'], ['left', 'z'], ['right', 'z']].forEach(function (w) {
+      var along = w[1] === 'x', len = along ? R.hx : R.hz, sx = w[0] === 'left' ? -1 : 1, sz = w[0] === 'back' ? -1 : 1;
+      for (var t = -len + 0.6; t < len; t += 1.3) P(self.geo.box, self.mat('logwood', 0), along ? 0.14 : 0.06, R.H - 0.2, along ? 0.06 : 0.14, along ? t : sx * (R.hx - 0.02), F + (R.H - 0.2) / 2, along ? sz * (R.hz - 0.02) : t, W[w[0]]);
+      P(self.geo.box, self.mat('logwood', 1), along ? len * 2 : 0.08, 0.18, along ? 0.08 : len * 2, along ? 0 : sx * (R.hx - 0.03), F + R.H - 0.35, along ? sz * (R.hz - 0.03) : 0, W[w[0]]);
+    });
+    // Fairy lights looped along the beams.
+    [['back', 'x'], ['left', 'z'], ['right', 'z']].forEach(function (w) {
+      var along = w[1] === 'x', len = along ? R.hx : R.hz, sx = w[0] === 'left' ? -1 : 1;
+      for (var t = -len + 0.2; t < len; t += 0.22) { var b = new T.Mesh(self.geo.ball, G.lamp); b.scale.setScalar(0.035); b.position.set(along ? t : sx * (R.hx - 0.08), F + R.H - 0.5 - Math.abs(Math.sin(t * 2.6)) * 0.12, along ? -(R.hz - 0.08) : t); W[w[0]].add(b); }
+    });
+    // The inglenook: a deep stone fireplace with an oak beam, candles on top, a copper kettle on the
+    // hearth, and bunches of dried flowers from Jo's beds hanging from the beam.
+    var fx = big ? -0.8 : 0;
+    T0.fireplace(fx, -R.hz + 0.25, 0); T0.block(fx - 1.1, fx + 1.1, -R.hz, -R.hz + 0.7);
+    P(this.geo.box, this.mat('logwood', 0), 2.3, 0.24, 0.3, fx, F + 1.55, -R.hz + 0.45, W.back);
+    [-0.8, -0.4, 0.5, 0.85].forEach(function (x, i) { self.candle(D.g, fx + x, F + 1.68, -R.hz + 0.45, 0.1 + (i % 2) * 0.07, D.flames); });
+    P(this.geo.ball, this.mat('copper'), 0.16, 0.13, 0.16, fx + 0.7, F + 0.14, -R.hz + 0.65); P(this.geo.cone, this.mat('copper'), 0.04, 0.12, 0.04, fx + 0.85, F + 0.2, -R.hz + 0.65).rotation.z = -1.0;
+    D.spots.push({ k: 'kettle', x: fx + 0.8, z: -R.hz + 1.2, r: 0.6 });
+    var beds = JO_BEDS.filter(function (bd) { return n >= bd[0]; }).length;
+    for (var df = 0; df < Math.min(8, 2 + beds); df++) { var bx = fx - 0.9 + df * 0.26; P(this.geo.cyl6, this.mat('trunk'), 0.01, 0.25, 0.01, bx, F + 1.32, -R.hz + 0.55); P(this.geo.blob, this.mat(df % 3 ? 'flag' : 'leaf', df % 5), 0.07, 0.12, 0.07, bx, F + 1.15, -R.hz + 0.55); }
+    D.spots.push({ k: 'fire', x: fx, z: -R.hz + 1.3, r: 0.6 });
+    // A layered rag rug, and two big armchairs facing the fire with knitted throws.
+    P(this.geo.cyl, this.mat('canvas', 1), 1.5, 0.02, 1.15, fx, F + 0.01, -0.5);
+    P(this.geo.cyl, this.mat('canvas', 0), 1.15, 0.025, 0.85, fx, F + 0.013, -0.5);
+    P(this.geo.cyl, this.mat('flag', 3), 0.7, 0.03, 0.5, fx, F + 0.016, -0.5);
+    [[-1.15, 0.1, Math.PI + 0.45, 0], [1.15, 0.1, Math.PI - 0.45, 1]].forEach(function (a) {
+      self.armchair(D, T0, fx + a[0], a[1], a[2], a[3]);
+      var throwM = P(self.geo.box, self.mat('flag', a[3] ? 4 : 2), 0.5, 0.04, 0.55, fx + a[0] + Math.sin(a[2]) * -0.1, F + 0.82, a[1] + Math.cos(a[2]) * -0.28); throwM.rotation.set(0.9, a[2], 0, 'YXZ');
+      P(self.geo.box, self.mat('plaster', 0), 0.3, 0.22, 0.1, fx + a[0], F + 0.6, a[1] - Math.cos(a[2]) * -0.15).rotation.y = a[2];
+    });
+    // Tea for two between the chairs (and roses in a jug, once they're round the door).
+    P(this.geo.cyl, this.mat('wood'), 0.32, 0.05, 0.32, fx, F + 0.55, 0.45); P(this.geo.cyl6, this.mat('wood'), 0.05, 0.52, 0.05, fx, F + 0.27, 0.45);
+    P(this.geo.ball, this.mat('flag', 1), 0.12, 0.1, 0.12, fx, F + 0.65, 0.42); P(this.geo.cone, this.mat('flag', 1), 0.03, 0.08, 0.03, fx + 0.12, F + 0.67, 0.42).rotation.z = -1.2;
+    [-0.16, 0.18].forEach(function (x) { P(self.geo.cyl6, self.mat('plaster', 0), 0.04, 0.05, 0.04, fx + x, F + 0.6, 0.52); });
+    if (n >= 5) { P(this.geo.cyl6, this.mat('stone', 2), 0.05, 0.14, 0.05, fx + 0.14, F + 0.64, 0.33); [[0, 0], [0.04, 0.03], [-0.04, 0.02]].forEach(function (r) { P(self.geo.ball, self.mat('flag', 0), 0.05, 0.05, 0.05, fx + 0.14 + r[0], F + 0.75 + r[1], 0.33); }); }
+    this.candle(D.g, fx - 0.15, F + 0.58, 0.32, 0.08, D.flames);
+    T0.block(fx - 0.35, fx + 0.35, 0.1, 0.8);
+    // Jo the fox, curled up asleep on the rug in front of the fire.
+    var fox = this.critter('fox'); fox.g.position.set(fx + 0.1, F + 0.02, -0.75); fox.g.rotation.y = 0.6; D.g.add(fox.g);
+    fox.body.position.y *= 0.5; fox.body.rotation.z = 0.15; fox.legs.forEach(function (l) { l.rotation.x = 1.4; }); fox.head.rotation.x = 0.5; fox.head.rotation.y = 0.9; if (fox.tail) { fox.tail.rotation.y = 1.4; fox.tail.rotation.x = 0.4; }
+    D.fox = fox; T0.block(fx - 0.35, fx + 0.55, -1.05, -0.45);
+    D.spots.push({ k: 'jo', x: fx + 0.1, z: -0.1, r: 0.55 });
+    // The bed in the back corner: a wooden frame, a patchwork quilt and fat pillows.
+    var bx0 = big ? R.hx - 1.0 : -R.hx + 0.8, bz0 = -R.hz + 1.05;
+    P(this.geo.box, this.mat('wood'), 1.3, 0.35, 1.9, bx0, F + 0.2, bz0);
+    P(this.geo.box, this.mat('wood'), 1.35, 0.8, 0.1, bx0, F + 0.5, bz0 - 0.95);
+    for (var qi = 0; qi < 4; qi++) for (var qj = 0; qj < 5; qj++) P(this.geo.box, this.mat('flag', (qi * 3 + qj * 2) % 6), 0.3, 0.06, 0.3, bx0 - 0.47 + qi * 0.31, F + 0.42, bz0 - 0.35 + qj * 0.31);
+    [-0.3, 0.3].forEach(function (x) { P(self.geo.box, self.mat('plaster', 0), 0.45, 0.14, 0.3, bx0 + x, F + 0.47, bz0 - 0.72); });
+    P(this.geo.box, this.mat('wood'), 0.45, 0.5, 0.45, bx0 + (big ? -0.95 : 0.95), F + 0.25, bz0 - 0.65);
+    this.candle(D.g, bx0 + (big ? -0.95 : 0.95), F + 0.51, bz0 - 0.7, 0.1, D.flames);
+    T0.block(bx0 - 0.7, bx0 + 0.7, bz0 - 1.0, bz0 + 1.0);
+    D.spots.push({ k: 'bed', x: bx0 + (big ? -0.9 : 0.9), z: bz0 + 0.4, r: 0.6, seat: [bx0, bz0, Math.PI / 2] });
+    // The photo wall: a frame for every five workouts together.
+    var pw = big ? W.left : W.left, frames = Math.min(18, Math.floor(n / 5) + 1);
+    for (var fr = 0; fr < frames; fr++) {
+      var col = fr % 6, row = Math.floor(fr / 6), z = (big ? -1.2 : 0.2) + col * 0.36 - 0.9, y = F + 1.15 + row * 0.38;
+      P(this.geo.box, this.mat(fr % 3 ? 'wood' : 'gold'), 0.04, 0.3, 0.26, -R.hx + 0.04, y, z, pw);
+      P(this.geo.box, this.mat('flag', (fr * 2) % 6), 0.045, 0.22, 0.18, -R.hx + 0.05, y, z, pw);
+    }
+    D.spots.push({ k: 'photos', x: -R.hx + 0.8, z: (big ? -1.2 : 0.2), r: 0.7 });
+    // Windows in the side walls, glowing, with flowers on the sills once the window boxes are in.
+    var sky = this.dark ? '#26304a' : '#d8ecff';
+    [[W.right, R.hx - 0.03, 0.9]].concat(big ? [[W.right, R.hx - 0.03, -1.2]] : []).forEach(function (w) {
+      P(self.geo.box, self.mat('whitewood'), 0.06, 0.8, 0.9, w[1], F + 1.35, w[2], w[0]);
+      P(self.geo.box, self.mat('stoneDark'), 0.07, 0.68, 0.78, w[1], F + 1.35, w[2], w[0]).material = new T.MeshBasicMaterial({ color: sky });
+      P(self.geo.box, self.mat('whitewood'), 0.08, 0.04, 0.78, w[1], F + 1.35, w[2], w[0]);
+      if (n >= 3) for (var fl = 0; fl < 4; fl++) { P(self.geo.cyl6, self.mat('stone', 2), 0.05, 0.08, 0.05, w[1] - 0.12, F + 0.98, w[2] - 0.3 + fl * 0.2, w[0]); P(self.geo.ball, self.mat('flag', fl), 0.06, 0.06, 0.06, w[1] - 0.12, F + 1.08, w[2] - 0.3 + fl * 0.2, w[0]); }
+      if (n >= 135) self.candle(w[0], w[1] - 0.15, F + 0.95, w[2] + 0.35, 0.1, D.flames);
+    });
+    // The window seat (once the bench is in outside): cushions under the window.
+    if (n >= 38) {
+      P(this.geo.box, this.mat('wood'), 0.5, 0.45, 1.2, R.hx - 0.3, F + 0.22, 0.9); P(this.geo.box, this.mat('canvas', 1), 0.48, 0.1, 1.15, R.hx - 0.3, F + 0.5, 0.9);
+      [0.6, 1.2].forEach(function (z, i) { P(self.geo.box, self.mat('flag', i + 2), 0.12, 0.28, 0.32, R.hx - 0.1, F + 0.68, z).rotation.z = 0.25; });
+      T0.block(R.hx - 0.6, R.hx, 0.3, 1.5); D.spots.push({ k: 'seat', x: R.hx - 1.0, z: 0.9, r: 0.6, seat: [R.hx - 0.35, 0.9, -Math.PI / 2, 0.55] });
+    }
+    // The dresser by the door: plates, mugs, a record player (and honey once the bees are in).
+    var dx = big ? -R.hx + 0.35 : -R.hx + 0.35, dz = R.hz - 1.2;
+    P(this.geo.box, this.mat('wood'), 0.5, 0.9, 1.3, dx, F + 0.45, dz);
+    P(this.geo.box, this.mat('wood'), 0.25, 1.0, 1.3, dx - 0.12, F + 1.4, dz);
+    for (var pl = 0; pl < 5; pl++) P(this.geo.cyl, this.mat(pl % 2 ? 'glass' : 'plaster', pl % 2 ? 4 : 0), 0.12, 0.02, 0.12, dx + 0.02, F + 1.25, dz - 0.5 + pl * 0.25).rotation.z = Math.PI / 2;
+    for (pl = 0; pl < 5; pl++) P(this.geo.cyl6, this.mat('flag', pl), 0.04, 0.07, 0.04, dx + 0.04, F + 1.62, dz - 0.5 + pl * 0.25);
+    P(this.geo.box, this.mat('wood', 1), 0.36, 0.1, 0.36, dx + 0.05, F + 0.95, dz + 0.35); P(this.geo.cyl, this.mat('stoneDark'), 0.15, 0.02, 0.15, dx + 0.05, F + 1.01, dz + 0.35);
+    if (n >= 80) for (var hj = 0; hj < 4; hj++) P(this.geo.cyl6, this.mat('gold'), 0.05, 0.1, 0.05, dx + 0.05, F + 0.97, dz - 0.5 + hj * 0.13);
+    T0.block(dx - 0.3, dx + 0.3, dz - 0.7, dz + 0.7); D.spots.push({ k: 'record', x: dx + 0.75, z: dz + 0.3, r: 0.6 });
+    // Coat hooks by the door with scarves (and wellies, once the porch is up).
+    [-0.9, -0.7, 0.75].forEach(function (x, i) { P(self.geo.box, self.mat('flag', i + 2), 0.12, 0.45, 0.05, x, F + 1.25, R.hz - 0.08, W.front); });
+    if (n >= 18) [[0.95, 0], [1.1, 1]].forEach(function (w) { P(self.geo.box, self.mat(w[1] ? 'hedge' : 'flag', 0), 0.1, 0.3, 0.16, w[0], F + 0.15, R.hz - 0.25); });
+    // A kitchen corner once the vegetable garden's in: a cream range, copper pans, a veg basket.
+    if (n >= 26) {
+      var kx = big ? R.hx - 1.0 : R.hx - 0.5, kz = big ? 1.6 : -R.hz + 0.6;
+      P(this.geo.box, this.mat('plaster', 0), 0.9, 0.85, 0.6, kx, F + 0.43, kz); P(this.geo.box, this.mat('stoneDark'), 0.9, 0.05, 0.6, kx, F + 0.88, kz);
+      [-0.2, 0.2].forEach(function (x) { P(self.geo.cyl, self.mat('stoneDark'), 0.12, 0.02, 0.12, kx + x, F + 0.92, kz); });
+      [-0.3, 0, 0.3].forEach(function (x, i) { P(self.geo.cyl, self.mat('copper'), 0.1 + i * 0.02, 0.05, 0.1 + i * 0.02, kx + x, F + 1.7, kz - 0.15).rotation.x = Math.PI / 2; });
+      P(this.geo.cyl, this.mat('wood'), 0.22, 0.14, 0.22, kx - 0.65, F + 0.07, kz + 0.2); [0, 1, 2].forEach(function (i) { P(self.geo.ball, self.mat(i ? 'flag' : 'hedge', i), 0.07, 0.07, 0.07, kx - 0.7 + i * 0.07, F + 0.16, kz + 0.2); });
+      T0.block(kx - 0.5, kx + 0.5, kz - 0.35, kz + 0.35);
+    }
+    // Pot plants everywhere once the potting shed's built.
+    if (n >= 60) [[-R.hx + 0.3, R.hz - 0.3], [R.hx - 0.3, R.hz - 0.3], [fx - 1.3, -R.hz + 0.35], [fx + 1.3, -R.hz + 0.35]].forEach(function (pp, i) { P(self.geo.cyl6, self.mat('fox', 0), 0.13, 0.22, 0.13, pp[0], F + 0.11, pp[1]); P(self.geo.blob, self.mat('leaf', i % 3), 0.28, 0.38, 0.28, pp[0], F + 0.42, pp[1]); });
+    // Stairs up to the dormer rooms.
+    if (n >= 52) {
+      var sx0 = big ? R.hx - 0.5 : R.hx - 0.5, sz0 = big ? -R.hz + 0.6 : R.hz - 0.5;
+      for (var st = 0; st < 7; st++) P(this.geo.box, this.mat('wood'), 0.7, 0.12, 0.3, sx0, F + 0.3 + st * 0.32, sz0 + (big ? 1 : -1) * (-st * 0.28));
+      T0.block(sx0 - 0.4, R.hx, Math.min(sz0, sz0 + (big ? 1 : -1) * -1.8) - 0.2, Math.max(sz0, sz0 + (big ? 1 : -1) * -1.8) + 0.2);
+    }
+    // The cross wing: a dining table with candles and four chairs.
+    if (big) {
+      var tx = 1.4, tz = 1.2;
+      P(this.geo.box, this.mat('woodLight'), 1.6, 0.08, 0.9, tx, F + 0.75, tz); [[-0.7, -0.35], [0.7, -0.35], [-0.7, 0.35], [0.7, 0.35]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.08, 0.73, 0.08, tx + l[0], F + 0.37, tz + l[1]); });
+      P(this.geo.box, this.mat('canvas', 0), 0.3, 0.01, 0.85, tx, F + 0.8, tz);
+      [-0.4, 0, 0.4].forEach(function (x, i) { self.candle(D.g, tx + x, F + 0.8, tz, 0.15 + (i % 2) * 0.06, D.flames); });
+      [[-0.5, -0.65, 0], [0.5, -0.65, 0], [-0.5, 0.65, Math.PI], [0.5, 0.65, Math.PI]].forEach(function (c) { P(self.geo.box, self.mat('wood'), 0.4, 0.06, 0.4, tx + c[0], F + 0.45, tz + c[1]); P(self.geo.box, self.mat('wood'), 0.4, 0.5, 0.06, tx + c[0], F + 0.7, tz + c[1] + (c[2] ? 0.18 : -0.18)); });
+      T0.block(tx - 0.9, tx + 0.9, tz - 0.85, tz + 0.85);
+    }
+    // The glasshouse: the far end of the room opens into glass, full of green.
+    if (n >= 120) {
+      var gw = W.back;
+      for (var gp = 0; gp < 5; gp++) { var gpx = R.hx - 0.45 - gp * 0.45; if (gpx < fx + 1.3) break; var pane = P(this.geo.box, this.mat('stoneDark'), 0.4, 1.8, 0.04, gpx, F + 1.2, -R.hz + 0.04, gw); pane.material = new T.MeshBasicMaterial({ color: this.dark ? '#22303a' : '#cfeedd' }); P(this.geo.blob, this.mat('leaf', gp % 3), 0.3, 0.45, 0.25, gpx, F + 0.35, -R.hz + 0.35); }
+    }
+    T0.lamp(-R.hx + 0.25, F + 1.8, -0.8);
+    D.light = { hemi: '#efb27a', ground: '#4a2a18', i: 1.05 };
+  };
+  Town.prototype.joInfo = function (k) {
+    var f = this.st.friends.Jo, n = f ? f.n : 0;
+    if (k === 'jo') return { title: 'Jo', lines: ['Fast asleep by the fire. Press E for a cuddle.'] };
+    if (k === 'kettle') return { title: 'The kettle', lines: ['Press E to put the kettle on.'] };
+    if (k === 'fire') return { title: 'The inglenook', lines: ['Crackling away. Press E to warm your paws.'] };
+    if (k === 'photos') return { title: 'The photo wall', lines: [n + ' workouts together · a new frame every five.'] };
+    if (k === 'bed') return { title: 'The patchwork bed', lines: ['Press E for a nap. Move to get up.'] };
+    if (k === 'seat') return { title: 'The window seat', lines: ['Press E to curl up and watch the garden. Move to get up.'] };
+    if (k === 'record') return { title: 'The record player', lines: ['Press E to put a record on.'] };
+    if (k === 'chair') return { title: 'An armchair by the fire', lines: ['Press E to sit. Move to get up.'] };
+    return null;
+  };
+  Town.prototype.joUse = function (pl, k) {
+    var D = this.st.room, self = this;
+    if (k === 'jo' && D.fox) { var wp = new T.Vector3(); D.fox.g.getWorldPosition(wp); this.hearts(wp, true); this.say(pickOne(['*snuggles*', 'love you, Jo', '*soft fox snore*']), pl.g, 1.0, 2); return true; }
+    if (k === 'kettle') { this.say('*puts the kettle on*', pl.g, 1.0, 1.6); setTimeout(function () { var wp = new T.Vector3(); if (D.fox) D.fox.g.getWorldPosition(wp); self.say('tea for two ☕', pl.g, 1.1, 2); self.sfx('whistle'); }, 2200); return true; }
+    if (k === 'fire') { this.say(pickOne(['ahh, toasty', 'so cosy', '*warms paws*']), pl.g, 1.0, 1.6); return true; }
+    if (k === 'photos') { var f = this.st.friends.Jo, L = this.st.last && this.st.last['friend:Jo']; this.say(f.n + ' workouts with Jo', pl.g, 1.0, 2.2); return true; }
+    if (k === 'record') { [0, 1, 2, 3, 4, 5].forEach(function (i) { setTimeout(function () { self.sfx('pluck'); self.say(['♪', '♫'][i % 2], pl.g, 1.2 + (i % 3) * 0.1, 0.9, true); }, i * 450); }); return true; }
+    return false;
+  };
   Town.prototype.roomStep = function (pl, mx, mz, dt, now, moving) {
     var D = this.st.room, R = D.R, g = pl.g, P = g.position, K = this.keys, c = this.controls, cam = this.camera, self = this;
+    // Getting up out of a chair or a pew: step back to where you sat down from.
+    if (pl.roomSit && moving) { P.set(R.x + pl.roomSit.sx, R.base + R.y, R.z + pl.roomSit.sz); pl.roomSit = null; }
     var lx = P.x - R.x, lz = P.z - R.z;
     if (moving) {
       var len = Math.hypot(mx, mz); if (len > 1) { mx /= len; mz /= len; }
@@ -8823,11 +9113,23 @@
       while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
       g.rotation.y += d * Math.min(1, dt * 14);
       pl.phase += dt * (run ? 21 : 14);
+      pl.running = run; pl.sneak = false; pl.swim = false; pl.wade = false; pl.tired = false; pl.snowy = false; pl.aloftNow = false;
+      pl.legs.forEach(function (l, li) { l.rotation.x = Math.sin(pl.phase + (li === 0 || li === 3 ? 0 : Math.PI)) * 0.7; });
+      pl.tail.rotation.y = Math.sin(pl.phase * 0.5) * 0.3;
       if (Math.floor(pl.phase / Math.PI) !== pl.stepN) { pl.stepN = Math.floor(pl.phase / Math.PI); this.footstep(P.x, P.z, true); }
       pl.idle = 0;
     } else pl.idle = (pl.idle || 0) + dt;
-    P.y += (R.base + R.y - P.y) * Math.min(1, dt * 18); pl.vy = 0; pl.air = 0;
-    this.posePlayer(pl, dt, now, moving);
+    pl.vy = 0; pl.air = 0;
+    if (pl.roomSit) {
+      // Sitting up properly in the chair or pew.
+      P.set(R.x + pl.roomSit.x, R.base + R.y + pl.roomSit.y, R.z + pl.roomSit.z);
+      var dr = pl.roomSit.ry - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 10);
+      this.applyPose(pl, this.sitPose(now / 1000, 'sit'), dt, now / 1000, false);
+      g.scale.setScalar(PLAYER_SCALE * (pl.size || 1));
+    } else {
+      P.y += (R.base + R.y - P.y) * Math.min(1, dt * 18);
+      this.posePlayer(pl, dt, now, moving);
+    }
     this.followCam(P, dt);
     if (this.weather) this.weather.visible = false;
     var cx = cam.position.x - c.target.x, cz = cam.position.z - c.target.z;
@@ -8837,6 +9139,7 @@
       var k = 1 + Math.sin(now / 90 + f.ph) * 0.12 + Math.sin(now / 37 + f.ph * 2) * 0.08; f.f.scale.y = 0.06 * k; f.f.rotation.z = Math.sin(now / 160 + f.ph) * 0.12;
     });
     D.spin.forEach(function (o) { o.rotation.y += dt * 0.3; });
+    this.stepGuests(D, dt, now);
     if (D.barkeep) { var bk = D.barkeep; bk.g.position.x = Math.sin(now / 2600) * D.barX; bk.g.rotation.y = Math.cos(now / 2600) > 0 ? Math.PI / 2 : -Math.PI / 2; if (Math.abs(Math.sin(now / 2600)) > 0.97) bk.g.rotation.y = 0; }
     this.hemi.color.set(D.light.hemi); this.hemi.groundColor.set(D.light.ground); this.hemi.intensity = D.light.i; this.sun.intensity = 0.05;
     if (now > (this.nearAt || 0)) {
@@ -8851,6 +9154,8 @@
     var D = this.st.room, s = this.st; if (!D) return null;
     var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
     if (k === 'door') return { title: 'The door', lines: ['Back out into town.'] };
+    if (D.kind === 'jo') return this.joInfo(k);
+    if (/^guest/.test(k)) { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; return gq ? { title: gq.v.name, lines: [{ library: 'Reading.', church: 'Sitting quietly.', pub: 'Having a pint.' }[D.kind] + ' Press E to say hello.'] } : null; }
     if (D.kind === 'library') {
       var L = s.library, last = L.books[L.books.length - 1];
       if (k === 'shelf') return { title: 'Your shelves', lines: [plural(L.books.length, 'book') + ' · ' + L.pages.toLocaleString() + ' pages. Gold bands mark the 5-star ones.', 'Press E to browse them.'] };
@@ -8880,12 +9185,14 @@
     var D = this.st.room, k = (this.near || '').split(':')[1], s = this.st, self = this;
     if (!D) return;
     if (k === 'door') { this.leaveRoom(pl); return; }
+    if (D.kind === 'jo' && this.joUse(pl, k)) return;
+    if (k === 'guest') { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; if (gq) this.guestTalk(gq); return; }
     var spot = D.spots.filter(function (q) { return q.k === k; })[0];
     if (spot && spot.seat) {
       var R = D.R, sx = spot.seat;
-      pl.g.position.set(R.x + sx[0], R.base + R.y + 0.25, R.z + sx[1]); pl.g.rotation.y = sx[2];
-      pl.napping = performance.now();
-      this.say(D.kind === 'library' ? '*opens a book*' : D.kind === 'church' ? '*sits quietly*' : '*settles in*', pl.g, 1.0, 1.6);
+      if (k === 'bed') { pl.g.position.set(R.x + sx[0], R.base + R.y + 0.45, R.z + sx[1]); pl.g.rotation.y = sx[2]; pl.napping = performance.now(); }
+      else pl.roomSit = { x: sx[0], z: sx[1], ry: sx[2], y: sx[3] != null ? sx[3] : 0.47, sx: spot.x, sz: spot.z };
+      this.say(D.kind === 'jo' ? (k === 'bed' ? '*curls up under the quilt*' : '*sinks into the cushions*') : D.kind === 'library' ? '*opens a book*' : D.kind === 'church' ? '*sits quietly*' : '*settles in*', pl.g, 1.0, 1.6);
       return;
     }
     if (D.kind === 'library') {
@@ -14219,7 +14526,7 @@
       if (m.state === 'inside') {
         g.visible = false;
         m.wait -= dt;
-        if (m.wait <= 0 && (!night || m.owl || pubNow || m.exitDoor)) { var ed = m.exitDoor || m.home.door; m.exitDoor = null; m.state = 'idle'; g.visible = true; g.position.set(ed.x, groundY(ed.x, ed.z), ed.z); self.pop(g, 0); }
+        if (m.wait <= 0 && (!night || m.owl || pubNow || m.exitDoor)) { var ed = m.exitDoor || m.home.door; m.exitDoor = null; m.visiting = null; m.state = 'idle'; g.visible = true; g.position.set(ed.x, groundY(ed.x, ed.z), ed.z); self.pop(g, 0); }
         return;
       }
       if (m.state === 'chase') { self.chaseStep(m, dt, now); return; }
@@ -14294,7 +14601,7 @@
       }
       if (m.state === 'idle') {
         // Decide where to next: a neighbour's, a bench on the square, or home (always home by dark).
-        var r = Math.random(), dest, route, from = m.at || { si: m.home.si, ti: m.home.ti }, doors;
+        var r = Math.random(), dest, route, from = m.at || { si: m.home.si, ti: m.home.ti }, doors, vb;
         var needs = winter && s.snowmen ? s.snowmen.filter(function (sm) { return sm.prog < 1 && !sm.builder; }) : [];
         if (pubNow) dest = { kind: 'pub', spot: self.pubSpot(folk.indexOf(m)) };
         else if (night && !m.owl) dest = { kind: 'home' };
@@ -14304,6 +14611,7 @@
         else if (night) dest = { kind: 'home' };
         else if (needs.length && r < 0.5) { var sm0 = needs[Math.floor(Math.random() * needs.length)]; sm0.builder = m; dest = { kind: 'snowman', sm: sm0 }; }
         else if (r < 0.06 && self.ranToday()) dest = { kind: 'stroll', jog: true };
+        else if (r < 0.14 && (vb = self.visitPick())) dest = { kind: 'bldg', b: vb.kind, door: vb.door, st: vb.st };
         else if (r < 0.35) { var bench = (self.seats || []).filter(function (q) { return !q.taken && inTownSquare(q.x, q.z, 1); })[Math.floor(Math.random() * 4)]; dest = bench ? { kind: 'bench', seat: bench } : { kind: 'home' }; }
         else if (r < 0.5 && s.pub) {
           var tk = s.picnic || (s.picnic = []), free = [0, 1, 2, 3, 4, 5, 6, 7].filter(function (i) { return !tk[i]; });
@@ -14326,6 +14634,16 @@
           route = here0.concat(m.inTown ? townLeg(m.inTown, TOWN_ENTRY).concat(streetRoute(TOWN_ENTRY_ST, G0.via)) : streetRoute(from, G0.via)).concat(G0.pts);
           m.inTown = null; m.at = G0.via; dest.kind = 'outing';
           if (Math.random() < 0.6) self.say(pickOne(OUTING_LINES[G0.name] || ['off out for a bit']), g, 0.65, 2.4);
+          m.route = route; m.ri = 1; m.dest = dest; m.state = 'walk';
+          return;
+        }
+        if (dest.kind === 'bldg') {
+          // Over to the library, the church or the pub, in through the door.
+          var hereB = [{ x: g.position.x, z: g.position.z }];
+          route = hereB.concat(m.inTown ? townLeg(m.inTown, TOWN_ENTRY).concat(streetRoute(TOWN_ENTRY_ST, dest.st)) : streetRoute(from, dest.st));
+          route.push({ x: dest.door.x, z: dest.door.z });
+          m.inTown = null; m.at = dest.st;
+          if (Math.random() < 0.6) self.say(pickOne(VISIT_LINES[dest.b]), g, 0.65, 2.2);
           m.route = route; m.ri = 1; m.dest = dest; m.state = 'walk';
           return;
         }
@@ -14410,6 +14728,7 @@
         if (G2.face) m.g.rotation.y = Math.atan2(G2.face.x - m.g.position.x, G2.face.z - m.g.position.z);
         m.state = 'linger'; m.wait = 10 + Math.random() * 15; return;
       }
+      if (D.kind === 'bldg') { m.state = 'inside'; m.wait = 30 + Math.random() * 40; m.exitDoor = D.door; m.visiting = D.b; return; }
       if (D.kind === 'shop') { m.state = 'inside'; m.wait = 10 + Math.random() * 25; m.exitDoor = D.door.door; return; }
       if (D.kind === 'plaza') { var pc0 = dtw(PLAZA.t, PLAZA.n); m.g.rotation.y = Math.atan2(pc0.x - m.g.position.x, pc0.z - m.g.position.z); m.state = 'linger'; m.wait = 8 + Math.random() * 14; if (Math.random() < 0.4) self.say(pickOne(PLAZA_LINES), m.g, 0.65, 2.2); return; }
       if (D.kind === 'picnic') {
@@ -14885,7 +15204,7 @@
     if (s.pub) {
       if (!J.barkeep) { J.barkeep = this.makeMouse(5, 'barkeep'); }
       var bk = J.barkeep, bp = s.pub.localToWorld(new T.Vector3(0.9, 0, 2.85));
-      bk.g.visible = true; bk.g.position.set(bp.x, groundY(bp.x, bp.z), bp.z); bk.g.rotation.y = s.pub.rotation.y;
+      bk.g.visible = false; // (she works behind the bar inside now) bk.g.position.set(bp.x, groundY(bp.x, bp.z), bp.z); bk.g.rotation.y = s.pub.rotation.y;
       bk.arms[1].rotation.x = -1.1 + Math.sin(now / 300) * 0.25; bk.arms[0].rotation.x = -1.0 + Math.cos(now / 300) * 0.25;
       if (bk.pour > 0) { bk.pour -= dt; bk.arms[1].rotation.x = -2.0; }
       all.push(bk);
@@ -16336,6 +16655,7 @@
     if (pl && pl.inDen) { this.denUse(pl); return; }
     if (pl && pl.inRoom) { this.roomUse(pl); return; }
     if (pl && !pl.paddle && !pl.seat && (this.near === 'library' || this.near === 'church' || this.near === 'pub') && this.roomOK(this.near)) { this.enterRoom(pl, this.near); return; }
+    if (pl && !pl.paddle && !pl.seat && this.near === 'friend:Jo' && this.roomOK('jo')) { this.enterRoom(pl, 'jo'); return; }
     if (pl && !pl.paddle && this.near === 'den') { this.enterDen(pl); return; }
     if (pl && !pl.paddle) { var lm = this.lunchNear(pl.g.position); if (lm) { this.stealLunch(pl, lm); return; } }
     // Winter: a snowball for the nearest mouse.
@@ -17437,7 +17757,7 @@
     this.carryItem(pl, 'beer');
     this.say(['one pint please', 'pint of the usual', 'put it on my tab'][Math.floor(Math.random() * 3)], pl.g, 1.0, 1.6);
     var bk = this.st.jobMice && this.st.jobMice.barkeep, self = this;
-    if (bk) { bk.pour = 1.2; setTimeout(function () { self.say(['there you go, love', 'one pint', 'mind how you go', 'on the house, dear'][Math.floor(Math.random() * 4)], bk.g, 0.65, 1.6); }, 700); }
+    if (bk && bk.g.visible) { bk.pour = 1.2; setTimeout(function () { self.say(['there you go, love', 'one pint', 'mind how you go', 'on the house, dear'][Math.floor(Math.random() * 4)], bk.g, 0.65, 1.6); }, 700); }
     this.sfx('found');
     return true;
   };
