@@ -419,7 +419,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v177';
+var BUILD = 'v178';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -616,6 +616,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     if (name && /^(library|church|pub)$/.test(key) && town.roomOK && town.roomOK(key)) name = 'Go inside ' + name.replace(/^The /, 'the ');
     if (key === 'friend:Jo' && town.roomOK && town.roomOK('jo')) name = 'Go inside Jo\u2019s cottage';
     if (key === 'cinema' && town.roomOK && town.roomOK('cinema')) name = 'Go inside the picture house';
+    if (key === 'bakedcafe') name = 'Go inside Baked Caf\u00e9';
     if (!name) { n.hidden = true; $('act').textContent = 'Chitter'; return; }
     $('act').textContent = 'Look';
     n.innerHTML = '';
