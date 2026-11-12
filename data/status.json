@@ -1,8 +1,8 @@
 {
-  "ran": "2026-11-12T17:13:29.106Z",
+  "ran": "2026-11-12T20:47:35.686Z",
   "Google Sheets": "workouts.xlsx, bible.xlsx, books.xlsx",
   "Strava": "45 activities",
-  "Letterboxd": "54 films (1 new)",
+  "Letterboxd": "54 films (0 new)",
   "Book lines": "2 new book(s) waiting - add the ANTHROPIC_API_KEY secret to write lines for them",
-  "Cronometer": "3 days (to 2026-11-11)"
+  "Cronometer": "4 days (to 2026-11-12)"
 }
