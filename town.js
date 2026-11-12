@@ -10549,6 +10549,7 @@
     M.km += ev.km || 15; M.rides++;
     if (!M.group) {
       M.group = new T.Group(); M.group.position.set(MTB_HILL.x, groundY(MTB_HILL.x, MTB_HILL.z), MTB_HILL.z);
+      this.clearDecor(MTB_HILL.x, MTB_HILL.z, 9); // (no hedgerows through the shop)
       M.group.rotation.y = Math.atan2(-MTB_HILL.x, -MTB_HILL.z); // the front faces town
       this.world.add(M.group);
     }
@@ -11302,6 +11303,10 @@
       });
       return { x: p.x, z: p.z, r: 7, h: 1.3, hills: hills };
     }
+    // Out on its own: the open meadow north-east of town, with the forest and the mountains behind
+    // it, where the shop, its trails and its wings all have room to spread out.
+    var OWN = { x: 80, z: -80 };
+    if (groundClear(OWN, 12)) return hilly(OWN);
     for (var ring = 0; ring < 8; ring++) for (var j = 0; j < Math.max(1, ring * 6); j++) {
       var p = polar(160 + (ring ? (j / (ring * 6) - 0.5) * ring * 2 : 0), 30 + ((j % 3) - 1) * ring * 0.5);
       if (groundClear(p, 6.5)) return hilly(p);
