@@ -2389,6 +2389,7 @@
     this.anims = [];
     // the Lean Month Garden lives in the world too: build it again once the town's back
     this.garden = null; this.gardenSpot = null; if (this.nutri) this.nutriDirty = true;
+    this.scales = null; this.scalesDirty = true; this.tangle = null; this.camp = null; this.tangleDirty = true;
     this.world = new T.Group();
     this.scene.add(this.world);
     this.picks = [];
@@ -8214,6 +8215,7 @@
     else if (hat === 'straw') { P(h, this.geo.cyl, this.mat('sand'), 0.24, 0.02, 0.24, 0, 0, 0); P(h, this.geo.cyl, this.mat('sand'), 0.11, 0.08, 0.11, 0, 0.05, 0); P(h, this.geo.cyl, this.mat('flag', 0), 0.115, 0.02, 0.115, 0, 0.03, 0); }
     else if (hat === 'cowboy') { P(h, this.geo.box, this.mat('trunk'), 0.32, 0.02, 0.26, 0, 0, 0); [-1, 1].forEach(function (sd) { P(h, self.geo.box, self.mat('trunk'), 0.04, 0.05, 0.25, sd * 0.15, 0.02, 0).rotation.z = sd * -0.5; }); P(h, this.geo.box, this.mat('trunk'), 0.16, 0.11, 0.14, 0, 0.06, 0); P(h, this.geo.box, this.mat('gold'), 0.165, 0.02, 0.145, 0, 0.02, 0); }
     else if (hat === 'party') { P(h, this.geo.cone, this.mat('flag', 4), 0.08, 0.22, 0.08, 0, 0.1, 0); P(h, this.geo.ball, this.mat('flag', 1), 0.04, 0.04, 0.04, 0, 0.22, 0); }
+    else if (hat === 'bandana') { P(h, this.geo.box, this.mat('flag', 0), 0.26, 0.06, 0.24, 0, -0.02, 0); var kn = P(h, this.geo.box, this.mat('flag', 0), 0.08, 0.1, 0.03, 0, -0.04, -0.13); kn.rotation.x = 0.4; P(h, this.geo.ball, this.mat('swan', 0), 0.02, 0.02, 0.02, 0.06, 0.0, 0.11); }
     else if (hat === 'top') { P(h, this.geo.cyl, blk, 0.2, 0.02, 0.2, 0, 0, 0); P(h, this.geo.cyl, blk, 0.12, 0.2, 0.12, 0, 0.1, 0); P(h, this.geo.cyl, this.mat('flag', 0), 0.122, 0.03, 0.122, 0, 0.03, 0); }
   };
   // Everything found goes in the den, the raccoon's treasure museum.
@@ -13750,12 +13752,313 @@
   // week's average), up to the last 26 weeks, so the pillar tops trace your weight like a chart.
   // A brass rail marks your first weigh-in and the latest pillar wears a gold cap.
   var WALL_WEEKS = 26;
+  // ===== The Tangle, and the coyotes' camp =====
+  // Past the hedgerows to the north-east, beyond the edge of the map, a wood that's been left to
+  // itself for a very long time: a wall of brambles, and inside, old trees, moss, fog and the ruins
+  // of something. Every long run (10 km and up) and every hike pushes the brambles back a little
+  // further. Outside it, the hill coyotes keep a camp: a palisade, tents, a fire, a training yard
+  // where they lift logs and do push-ups, and a trading post that takes the mice's coins.
+  var TANGLE = { x: 118, z: -112, R: 11 }, CAMP = { x: 97, z: -90, R: 5.2 };
+  Town.prototype.tangleLevel = function () { var s = this.st; return (s.longRuns || 0) + ((s.hike && s.hike.sessions) || 0); };
+  Town.prototype.buildTangle = function () {
+    var self = this, s = this.st, L = this.tangleLevel(), pick = 'tangle', G = this.glowMats();
+    if (this.tangle) { this.world.remove(this.tangle.g); this.picks = this.picks.filter(function (m) { return m.userData.pick !== pick; }); }
+    var g = new T.Group(), y0 = groundY(TANGLE.x, TANGLE.z); g.position.set(TANGLE.x, 0, TANGLE.z); this.world.add(g);
+    function gy(x, z) { return groundY(TANGLE.x + x, TANGLE.z + z); }
+    function P(geo, mat, sx, sy, sz, x, y, z, par) { var m = self.part(par || g, geo, mat, sx, sy, sz, x, (par ? 0 : gy(x, z)) + y, z, pick); return m; }
+    var r = rng(4242), toTown = Math.atan2(-TANGLE.z, -TANGLE.x), gate = 0.32 + Math.min(1.1, L * 0.09); // the gap in the brambles widens as you go
+    var bram = [this.mcm('#3a4a2a'), this.mcm('#2e3b22'), this.mcm('#4a3a2a')];
+    // The bramble wall: thorny mounds all the way round (but the gap).
+    for (var a = 0; a < Math.PI * 2; a += 0.09) {
+      var da = Math.atan2(Math.sin(a - toTown), Math.cos(a - toTown));
+      if (L > 0 && Math.abs(da) < gate) continue;
+      var rr = TANGLE.R + (r() - 0.5) * 1.2, bx = Math.cos(a) * rr, bz = Math.sin(a) * rr, sz = 0.9 + r() * 0.7;
+      P(this.geo.blob, bram[Math.floor(r() * 3)], sz, sz * (0.8 + r() * 0.5), sz, bx, sz * 0.35, bz);
+      if (r() < 0.4) P(this.geo.cone, this.mcm('#6a2a3a'), 0.05, 0.12, 0.05, bx + (r() - 0.5) * 0.6, sz * 0.75, bz + (r() - 0.5) * 0.6); // a bramble flower
+    }
+    // A weathered signpost by the way in.
+    var sx0 = Math.cos(toTown) * (TANGLE.R + 2.4), sz0 = Math.sin(toTown) * (TANGLE.R + 2.4);
+    P(this.geo.box, this.mat('logwood', 0), 0.12, 1.5, 0.12, sx0, 0.75, sz0);
+    var cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; var x = cv.getContext('2d');
+    x.fillStyle = '#6a4a2a'; x.fillRect(0, 0, 256, 96); x.fillStyle = '#efe0b8'; x.font = 'italic bold 30px Georgia'; x.textAlign = 'center'; x.fillText('The Tangle', 128, 42);
+    x.font = 'italic 17px Georgia'; x.fillText(L ? 'mind the brambles' : 'here be wild things', 128, 74);
+    var sign = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv) })); sign.scale.set(1.2, 0.45, 0.04); sign.position.set(sx0, gy(sx0, sz0) + 1.35, sz0); sign.rotation.y = -toTown + Math.PI / 2; g.add(sign);
+    // A dark canopy overhead, and fog drifting in the trees.
+    var canopy = [this.mcm('#1e3a22'), this.mcm('#24452a'), this.mcm('#2a3a1e')];
+    // (round the rim only, so you can look down into the wood; it lifts away when you're inside)
+    var canopyG = new T.Group(); g.add(canopyG);
+    for (var c = 0; c < 18; c++) { var ca = c / 18 * Math.PI * 2 + r() * 0.2, cr = TANGLE.R - 1.2 - r() * 1.5, cx0 = Math.cos(ca) * cr, cz0 = Math.sin(ca) * cr; self.part(canopyG, this.geo.blob, canopy[c % 3], 2.6 + r() * 1.4, 1.2 + r() * 0.8, 2.6 + r() * 1.4, cx0, gy(cx0, cz0) + 6 + r() * 1.5, cz0, pick); }
+    // Old trees: thick, crooked trunks with roots; more of the wood shows the deeper you've been.
+    var trees = [];
+    for (var t = 0; t < 14; t++) {
+      var ta = r() * Math.PI * 2, tr = 2 + r() * (TANGLE.R - 3.5), tx = Math.cos(ta) * tr, tz = Math.sin(ta) * tr;
+      if (Math.abs(Math.atan2(Math.sin(ta - toTown), Math.cos(ta - toTown))) < 0.3 && tr > 4) continue; // keep the path clear
+      var th = 5 + r() * 3, tw = 0.45 + r() * 0.35;
+      var tk = P(this.geo.cyl6, this.mat('trunk'), tw, th, tw, tx, th / 2, tz); tk.rotation.z = (r() - 0.5) * 0.15; tk.rotation.x = (r() - 0.5) * 0.15;
+      for (var rt = 0; rt < 4; rt++) { var ra = rt / 4 * Math.PI * 2 + r(), root = P(this.geo.box, this.mat('trunk'), 0.18, 0.14, 0.9, tx + Math.cos(ra) * 0.5, 0.06, tz + Math.sin(ra) * 0.5); root.rotation.y = -ra + Math.PI / 2; }
+      P(this.geo.blob, this.mcm('#4f7a3a'), tw * 2.2, 0.12, tw * 2.2, tx, 0.04, tz); // moss
+      trees.push({ x: tx, z: tz, h: th });
+    }
+    var T2 = this.tangle = { g: g, L: L, flies: null, wisps: [], stag: null, canopy: canopyG };
+    if (L >= 1) {
+      // A path of flat stones winding in.
+      for (var ps = 0; ps < 9; ps++) { var pr = TANGLE.R + 1 - ps * 1.3, pa = toTown + Math.sin(ps * 0.9) * 0.12; P(this.geo.cyl, this.mat('stone', ps % 3), 0.35, 0.05, 0.3, Math.cos(pa) * pr, 0.03, Math.sin(pa) * pr); }
+      // Fog: soft white puffs low among the trunks.
+      var fogM = this.fogMat || (this.fogMat = new T.MeshBasicMaterial({ color: '#e8eee8', transparent: true, opacity: 0.14, depthWrite: false }));
+      for (var f = 0; f < 18; f++) { var fa = r() * Math.PI * 2, fr = r() * TANGLE.R * 0.9, fm = new T.Mesh(this.geo.blob, fogM); fm.scale.set(2.5 + r() * 2, 0.6 + r() * 0.4, 2 + r() * 2); fm.position.set(Math.cos(fa) * fr, gy(Math.cos(fa) * fr, Math.sin(fa) * fr) + 0.5, Math.sin(fa) * fr); g.add(fm); T2.wisps.push({ m: fm, ph: r() * 6, bx: fm.position.x }); }
+    }
+    if (L >= 3) {
+      // Ruins under the ivy: an old stone arch, broken columns, a toppled statue's head.
+      var rx = -Math.cos(toTown) * 2, rz = -Math.sin(toTown) * 2;
+      [-1, 1].forEach(function (sd) { var px = rx + Math.cos(toTown + Math.PI / 2) * sd * 1.3, pz = rz + Math.sin(toTown + Math.PI / 2) * sd * 1.3; P(self.geo.box, self.mat('stone', 1), 0.5, 2.6, 0.5, px, 1.3, pz); for (var iv = 0; iv < 5; iv++) P(self.geo.blob, self.mat('hedge'), 0.25, 0.3, 0.25, px + (r() - 0.5) * 0.4, 0.4 + iv * 0.45, pz + (r() - 0.5) * 0.4); });
+      var arch = P(this.geo.box, this.mat('stone', 2), 3.1, 0.45, 0.55, rx, 2.8, rz); arch.rotation.y = -toTown + Math.PI / 2;
+      for (var col = 0; col < 4; col++) { var ca2 = toTown + 1.6 + col * 0.7, cx = Math.cos(ca2) * 5, cz = Math.sin(ca2) * 5; P(this.geo.cyl, this.mat('stone', col % 3), 0.3, 0.6 + r() * 1.4, 0.3, cx, 0.5, cz); P(this.geo.blob, this.mat('hedge'), 0.4, 0.2, 0.4, cx, 1.0, cz); }
+      P(this.geo.ball, this.mat('stone', 1), 0.6, 0.65, 0.55, Math.cos(toTown - 1.8) * 4.5, 0.4, Math.sin(toTown - 1.8) * 4.5);
+      // Lanterns hung from the low branches.
+      trees.slice(0, 6).forEach(function (tr2, i) { var lx = tr2.x + 0.7, lz = tr2.z; P(self.geo.cyl6, self.mat('stoneDark'), 0.01, 0.6, 0.01, lx, 2.9, lz); var ln = new T.Mesh(self.geo.box, G.lamp); ln.scale.set(0.16, 0.2, 0.16); ln.position.set(lx, gy(lx, lz) + 2.5, lz); g.add(ln); var lh = new T.Mesh(self.geo.ball, G.halo); lh.scale.setScalar(0.6); lh.position.copy(ln.position); g.add(lh); });
+    }
+    if (L >= 5) {
+      // A ring of glowing mushrooms, and fireflies.
+      var mr = new T.MeshBasicMaterial({ color: '#b8f0ff' });
+      for (var mu = 0; mu < 12; mu++) { var ma = mu / 12 * Math.PI * 2, mx = Math.cos(ma) * 1.6 + 3, mz = Math.sin(ma) * 1.6 - 1; P(this.geo.cyl6, this.mat('whitewood'), 0.04, 0.16, 0.04, mx, 0.08, mz); var cap = new T.Mesh(this.geo.ball, mr); cap.scale.set(0.13, 0.07, 0.13); cap.position.set(mx, gy(mx, mz) + 0.18, mz); g.add(cap); }
+      var n = 60, pos = new Float32Array(n * 3); for (var fi = 0; fi < n; fi++) { var fa2 = r() * Math.PI * 2, fr2 = r() * TANGLE.R; pos[fi * 3] = Math.cos(fa2) * fr2; pos[fi * 3 + 1] = gy(Math.cos(fa2) * fr2, Math.sin(fa2) * fr2) + 0.5 + r() * 2; pos[fi * 3 + 2] = Math.sin(fa2) * fr2; }
+      var fg = new T.BufferGeometry(); fg.setAttribute('position', new T.BufferAttribute(pos, 3));
+      T2.flies = new T.Points(fg, new T.PointsMaterial({ color: '#f6ff9a', size: 0.12, transparent: true, opacity: 0.9, depthWrite: false })); T2.flyBase = pos.slice(); g.add(T2.flies);
+    }
+    if (L >= 8) {
+      // The heart of the wood: one enormous ancient tree with a door in its roots, and standing stones.
+      var hx = Math.cos(toTown + Math.PI) * 4, hz = Math.sin(toTown + Math.PI) * 4;
+      P(this.geo.cyl6, this.mat('trunk'), 1.6, 9, 1.6, hx, 4.5, hz);
+      P(this.geo.blob, this.mcm('#2f5a2e'), 6, 3, 6, hx, 9.5, hz);
+      var dr = P(this.geo.cyl, this.mat('hobbitDoor'), 0.45, 0.05, 0.45, hx + Math.cos(toTown) * 1.62, 0.5, hz + Math.sin(toTown) * 1.62); dr.rotation.set(Math.PI / 2, 0, 0); dr.rotation.y = -toTown + Math.PI / 2;
+      for (var ss = 0; ss < 7; ss++) { var sa = ss / 7 * Math.PI * 2, sxx = hx + Math.cos(sa) * 3.2, szz = hz + Math.sin(sa) * 3.2; P(this.geo.box, this.mat('stone', ss % 3), 0.45, 1.3 + r() * 0.6, 0.3, sxx, 0.7, szz).rotation.y = -sa; }
+      T2.heart = { x: TANGLE.x + hx, z: TANGLE.z + hz };
+    }
+    if (L >= 12) {
+      // Now and then, the white stag.
+      var stag = new T.Group(); g.add(stag);
+      var wm = this.mcm('#f2f0e8');
+      self.part(stag, this.geo.box, wm, 0.4, 0.4, 1.0, 0, 0.9, 0, pick); self.part(stag, this.geo.box, wm, 0.25, 0.3, 0.35, 0, 1.25, 0.55, pick);
+      [[-0.15, 0.4], [0.15, 0.4], [-0.15, -0.4], [0.15, -0.4]].forEach(function (l) { self.part(stag, self.geo.box, wm, 0.1, 0.7, 0.1, l[0], 0.35, l[1], pick); });
+      [-1, 1].forEach(function (sd) { for (var an = 0; an < 3; an++) { var ant = self.part(stag, self.geo.box, self.mcm('#e8d8a8'), 0.04, 0.4, 0.04, sd * (0.1 + an * 0.08), 1.6 + an * 0.12, 0.5 - an * 0.05, pick); ant.rotation.z = sd * (0.4 + an * 0.2); } });
+      stag.visible = false; T2.stag = stag;
+    }
+    this.needsRender = true;
+  };
+  Town.prototype.buildCamp = function () {
+    var self = this, pick = 'camp', G = this.glowMats();
+    if (this.camp) { this.world.remove(this.camp.g); this.picks = this.picks.filter(function (m) { return m.userData.pick !== pick; }); }
+    var g = new T.Group(); g.position.set(CAMP.x, 0, CAMP.z); this.world.add(g);
+    function gy(x, z) { return groundY(CAMP.x + x, CAMP.z + z); }
+    function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, gy(x, z) + y, z, pick); }
+    var toTown = Math.atan2(-CAMP.z, -CAMP.x);
+    // The palisade: sharpened logs all round, a gate facing town, and a banner with a paw on it.
+    for (var a = 0; a < Math.PI * 2; a += 0.16) {
+      var da = Math.atan2(Math.sin(a - toTown), Math.cos(a - toTown)); if (Math.abs(da) < 0.32) continue;
+      var lx = Math.cos(a) * CAMP.R, lz = Math.sin(a) * CAMP.R, h = 1.3 + (Math.floor(a * 7) % 3) * 0.12;
+      P(this.geo.cyl6, this.mat('logwood', Math.floor(a * 5) % 2), 0.12, h, 0.12, lx, h / 2, lz); P(this.geo.cone, this.mat('logwood', 1), 0.12, 0.25, 0.12, lx, h + 0.12, lz);
+    }
+    var gx = Math.cos(toTown) * CAMP.R, gz = Math.sin(toTown) * CAMP.R, pa = toTown + Math.PI / 2;
+    [-1, 1].forEach(function (sd) { P(self.geo.cyl6, self.mat('logwood', 0), 0.16, 2.4, 0.16, gx + Math.cos(pa) * sd * 1.05, 1.2, gz + Math.sin(pa) * sd * 1.05); });
+    var cv = document.createElement('canvas'); cv.width = 128; cv.height = 160; var x = cv.getContext('2d');
+    x.fillStyle = '#8a2a1a'; x.beginPath(); x.moveTo(0, 0); x.lineTo(128, 0); x.lineTo(128, 130); x.lineTo(64, 160); x.lineTo(0, 130); x.fill();
+    x.fillStyle = '#f2d98a'; [[64, 80, 22], [36, 46, 10], [56, 34, 10], [76, 34, 10], [94, 46, 10]].forEach(function (p) { x.beginPath(); x.arc(p[0], p[1], p[2], 0, Math.PI * 2); x.fill(); });
+    var ban = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv), transparent: true })); ban.scale.set(0.8, 1.0, 0.02); ban.position.set(gx, gy(gx, gz) + 1.9, gz); ban.rotation.y = -toTown + Math.PI / 2; g.add(ban);
+    P(this.geo.box, this.mat('logwood', 1), 2.3, 0.14, 0.14, gx, 2.35, gz).rotation.y = -toTown + Math.PI / 2;
+    // Tents round the back, and the fire in the middle.
+    [-1.2, 0, 1.2].forEach(function (o, i) { var ta = toTown + Math.PI + o * 0.7, tx = Math.cos(ta) * 3.4, tz = Math.sin(ta) * 3.4; P(self.geo.cone, self.mat('canvas', i), 0.9, 1.4, 0.9, tx, 0.7, tz); P(self.geo.cone, self.mcm('#2a2018'), 0.25, 0.6, 0.06, tx + Math.cos(ta + Math.PI) * 0.7, 0.3, tz + Math.sin(ta + Math.PI) * 0.7); });
+    P(this.geo.cyl, this.mat('stone', 1), 0.55, 0.12, 0.55, 0, 0.06, 0);
+    var fire = []; [[-0.1, 0.25], [0.1, 0.2], [0, 0.32]].forEach(function (q, k) { var fl = new T.Mesh(self.geo.cone, k === 2 ? G.ember : G.flame); fl.scale.set(0.16, q[1] * 2, 0.16); fl.position.set(q[0], gy(0, 0) + 0.12 + q[1], 0); g.add(fl); fire.push({ m: fl, h: q[1] * 2, ph: k * 2 }); });
+    var fh = new T.Mesh(this.geo.ball, G.halo); fh.scale.setScalar(1.2); fh.position.set(0, gy(0, 0) + 0.5, 0); g.add(fh);
+    // The training yard: a log to lift, a straw dummy to box, a pull-up bar.
+    var yard = toTown + 1.5, yx = Math.cos(yard) * 2.6, yz = Math.sin(yard) * 2.6;
+    P(this.geo.cyl6, this.mat('logwood', 0), 0.06, 1.5, 0.06, yx - 0.6, 0.75, yz); P(this.geo.cyl6, this.mat('logwood', 0), 0.06, 1.5, 0.06, yx + 0.6, 0.75, yz); P(this.geo.cyl6, this.mat('stoneDark'), 0.03, 1.2, 0.03, yx, 1.48, yz).rotation.z = Math.PI / 2;
+    var dx = Math.cos(yard - 0.7) * 3.3, dz = Math.sin(yard - 0.7) * 3.3, dummy = new T.Group(); dummy.position.set(dx, gy(dx, dz), dz); g.add(dummy);
+    self.part(dummy, this.geo.cyl6, this.mat('logwood', 0), 0.05, 1.2, 0.05, 0, 0.6, 0, pick); self.part(dummy, this.geo.blob, this.mat('sand'), 0.3, 0.5, 0.3, 0, 1.1, 0, pick); self.part(dummy, this.geo.ball, this.mat('sand'), 0.17, 0.17, 0.17, 0, 1.5, 0, pick);
+    // The trading post: a plank counter on crates under an awning, by the gate.
+    var tp = toTown - 0.9, tx2 = Math.cos(tp) * 3.4, tz2 = Math.sin(tp) * 3.4, face = -tp - Math.PI / 2;
+    var post = new T.Group(); post.position.set(tx2, gy(tx2, tz2), tz2); post.rotation.y = Math.atan2(-tx2, -tz2) + Math.PI; g.add(post);
+    [[-0.5, 0], [0.5, 0]].forEach(function (c2) { self.part(post, self.geo.box, self.mat('wood'), 0.5, 0.5, 0.5, c2[0], 0.25, c2[1], pick); });
+    self.part(post, this.geo.box, this.mat('woodLight'), 1.6, 0.08, 0.6, 0, 0.54, 0, pick);
+    [-0.75, 0.75].forEach(function (x2) { self.part(post, self.geo.box, self.mat('logwood', 0), 0.08, 1.6, 0.08, x2, 0.8, -0.35, pick); });
+    var aw = self.part(post, this.geo.box, this.mat('canvas', 0), 1.8, 0.04, 1.0, 0, 1.62, -0.05, pick); aw.rotation.x = 0.2;
+    [['#c8a060', 0], ['#8a6a3a', 1], ['#d8c8a0', 2]].forEach(function (it, i) { self.part(post, self.geo.box, self.mcm(it[0]), 0.16, 0.12, 0.16, -0.5 + i * 0.45, 0.64, 0.05, pick); });
+    // The coyotes: a coach, two at their push-ups, one at the log, one at the bag, one doing laps.
+    var jobs = [{ k: 'coach', x: 0.9, z: 0.8 }, { k: 'push', x: -1.0, z: 1.3 }, { k: 'push', x: -1.6, z: 0.6 }, { k: 'log', x: yx - 0.1, z: yz + 0.9 }, { k: 'box', x: dx + 0.55, z: dz + 0.2 }, { k: 'lap', x: 0, z: 0 }, { k: 'trader', x: tx2 * 1.17, z: tz2 * 1.17 }];
+    var cs = jobs.map(function (j, i) {
+      var c = self.coyoteBody(i); c.body = c.g.children[0]; c.job = j.k; c.home = j; c.ph = i * 1.3; g.add(c.g);
+      c.g.position.set(j.x, gy(j.x, j.z), j.z); c.g.rotation.y = Math.atan2(-j.x, -j.z);
+      if (j.k === 'log') { var lg = c.log = new T.Group(); g.add(lg); self.part(lg, self.geo.cyl6, self.mat('logwood', 0), 0.14, 1.3, 0.14, 0, 0, 0, pick).rotation.z = Math.PI / 2; }
+      if (j.k === 'trader') { c.g.position.set(tx2 * 1.16, gy(tx2, tz2), tz2 * 1.16); c.g.rotation.y = Math.atan2(-tx2, -tz2); var hat = new T.Group(); hat.position.set(0, 0.16, 0.05); c.head.add(hat); self.buildHat(hat, 'cowboy'); }
+      if (j.k === 'coach') { var wh = new T.Group(); wh.position.set(0, -0.08, 0.16); c.head.add(wh); self.part(wh, self.geo.box, self.mat('gold'), 0.04, 0.03, 0.06, 0, 0, 0, pick); }
+      return c;
+    });
+    this.camp = { g: g, cs: cs, fire: fire, dummy: dummy, yard: { x: yx, z: yz }, post: { x: CAMP.x + tx2 * 1.4, z: CAMP.z + tz2 * 1.4 }, talkAt: 0 };
+  };
+  var CAMP_LINES = ['ONE MORE REP, VARMINT', 'feel the burn, pardner', 'AWOOO', 'is that all ya got?', 'drink yer water', 'leg day, boys', 'form, Clem! FORM!', 'who stole my protein jerky', 'the raccoon’s been liftin’, I hear'];
+  Town.prototype.stepTangle = function (dt, now) {
+    if (this.soft) return;
+    if (this.tangleDirty && this.today && this.st) { this.tangleDirty = false; this.buildTangle(); this.buildCamp(); }
+    var T2 = this.tangle, C = this.camp, self = this, pl = this.player, P = pl && pl.g.position;
+    if (T2) {
+      T2.wisps.forEach(function (w) { w.m.position.x = w.bx + Math.sin(now / 4000 + w.ph) * 0.8; w.m.material.opacity = 0.12; });
+      if (T2.flies) { var a = T2.flies.geometry.attributes.position, b = T2.flyBase; for (var i = 0; i < a.count; i++) { a.array[i * 3] = b[i * 3] + Math.sin(now / 900 + i) * 0.4; a.array[i * 3 + 1] = b[i * 3 + 1] + Math.sin(now / 600 + i * 2) * 0.25; a.array[i * 3 + 2] = b[i * 3 + 2] + Math.cos(now / 1100 + i) * 0.4; } a.needsUpdate = true; T2.flies.material.opacity = 0.5 + Math.sin(now / 300) * 0.3; }
+      if (T2.stag) { var show = Math.floor(now / 45000) % 3 === 0; T2.stag.visible = show; if (show) { var sa = now / 9000; T2.stag.position.set(Math.cos(sa) * 6, groundY(TANGLE.x + Math.cos(sa) * 6, TANGLE.z + Math.sin(sa) * 6), Math.sin(sa) * 6); T2.stag.rotation.y = -sa; } }
+      if (P) { var din = Math.hypot(P.x - TANGLE.x, P.z - TANGLE.z) < TANGLE.R + 1; if (T2.canopy.visible === din) { T2.canopy.visible = !din; this.needsRender = true; } }
+      // Locked out: the brambles are too thick until you've done a long run or a hike.
+      if (P && this.explore && !pl.inRoom && !pl.inDen) {
+        var dx = P.x - TANGLE.x, dz = P.z - TANGLE.z, d = Math.hypot(dx, dz);
+        if (T2.L < 1 && d < TANGLE.R + 0.8 && d > 0.1) { P.x = TANGLE.x + dx / d * (TANGLE.R + 0.9); P.z = TANGLE.z + dz / d * (TANGLE.R + 0.9); if (now > (this.brambleSay || 0)) { this.brambleSay = now + 5000; this.say(pickOne(['ow! thorns', 'too thick to get through', 'a long run might open a way in']), pl.g, 1.0, 2.2); } }
+        if (T2.L >= 1 && d < TANGLE.R - 1 && !this.tangleSeen) { this.tangleSeen = true; this.say('so quiet in here…', pl.g, 1.0, 2.2); }
+      }
+    }
+    if (C) {
+      C.fire.forEach(function (f) { f.m.scale.y = f.h * (1 + Math.sin(now / 70 + f.ph) * 0.25); });
+      C.cs.forEach(function (c, i) {
+        var t = now / 1000 + c.ph, g = c.g, by = groundY(CAMP.x + c.home.x, CAMP.z + c.home.z);
+        if (c.job === 'push') { var dip = (Math.sin(t * 3) + 1) / 2; g.position.y = by - dip * 0.12; g.rotation.x = 0.25 + dip * 0.08; c.legs.forEach(function (l, li) { l.rotation.x = li < 2 ? -0.9 - dip * 0.3 : 0.5; }); }
+        else if (c.job === 'log') { var up = (Math.sin(t * 1.6) + 1) / 2; g.rotation.x = -1.0; g.position.y = by + 0.25; c.legs.forEach(function (l, li) { l.rotation.x = li < 2 ? -2.2 - up * 0.6 : 1.0; }); c.log.position.set(c.home.x, by + 1.25 + up * 0.45, c.home.z - 0.05); c.log.rotation.y = g.rotation.y; if (up > 0.98 && Math.random() < dt * 2) self.say('HNNGH', g, 1.4, 0.8, true); }
+        else if (c.job === 'box') { var jab = Math.max(0, Math.sin(t * 6)); g.rotation.x = -0.6; g.position.y = by + 0.12; c.legs[0].rotation.x = -1.6 - jab * 1.2; c.legs[1].rotation.x = -1.6 - Math.max(0, Math.sin(t * 6 + Math.PI)) * 1.2; C.dummy.rotation.z = Math.sin(t * 6) * 0.08; }
+        else if (c.job === 'lap') { var la = t * 0.5, lr = CAMP.R - 1.0, lx = Math.cos(la) * lr, lz = Math.sin(la) * lr; g.position.set(lx, groundY(CAMP.x + lx, CAMP.z + lz), lz); g.rotation.y = Math.atan2(-Math.sin(la), Math.cos(la)); c.ph2 = (c.ph2 || 0) + dt * 12; self.quadGait(c, c.ph2, 0, dt * 2.5, dt, now, 0.7); }
+        else if (c.job === 'coach') { g.rotation.y = Math.atan2(-1.0 - c.home.x, 1.0 - c.home.z) + Math.sin(t * 0.7) * 0.6; c.head.rotation.x = Math.sin(t * 2) * 0.1; }
+        else if (c.job === 'trader') { c.head.rotation.y = Math.sin(t * 0.5) * 0.4; }
+      });
+      if (P && now > C.talkAt && Math.hypot(P.x - CAMP.x, P.z - CAMP.z) < 16) { C.talkAt = now + 3000 + Math.random() * 4000; var who = C.cs[Math.random() < 0.5 ? 0 : 1 + Math.floor(Math.random() * 4)]; this.say(pickOne(CAMP_LINES), who.g, 1.1, 1.8); }
+    }
+  };
+  var TRADES = [
+    { id: 'jerky', name: 'Trail jerky', cost: 2, text: 'a strip of trail jerky (a burst of speed)' },
+    { id: 'howl', name: 'A howling lesson', cost: 1, text: 'a howling lesson' },
+    { id: 'antler', name: 'A carved antler', cost: 4, text: 'a carved antler for your den' },
+    { id: 'scrap', name: 'A map scrap', cost: 3, text: 'a scrap of old map (it marks the Tangle)' },
+    { id: 'bandana', name: 'A coyote bandana', cost: 8, text: 'a red bandana, like theirs' }
+  ];
+  Town.prototype.coyoteTrade = function () {
+    var S = this.keep(), self = this, pl = this.player, C = this.camp, tr = C && C.cs.filter(function (c) { return c.job === 'trader'; })[0];
+    if (tr) this.say(pickOne(['what’ll it be, stranger?', 'fair prices, mostly', 'coin up front, varmint']), tr.g, 1.1, 2);
+    var opts = TRADES.filter(function (t) { return !(t.id === 'bandana' && S.hats.indexOf('bandana') >= 0); }).map(function (t, i) { return { ci: t.id, name: t.name + ' · ' + t.cost + ' coin' + (t.cost > 1 ? 's' : '') }; });
+    if (!this.onMenu) return;
+    this.onMenu('The coyotes’ trading post', 'You have ' + S.coins + ' coin' + (S.coins === 1 ? '' : 's'), 'Coins come from running errands for the mice (look for a gold "!").', opts, function (id) {
+      var t = TRADES.filter(function (q) { return q.id === id; })[0]; if (!t) return;
+      if (S.coins < t.cost) { self.say('not enough coin, varmint. run some errands', tr ? tr.g : pl.g, 1.1, 2.4); return; }
+      S.coins -= t.cost; self.sfx('found');
+      if (id === 'jerky') { pl.caffeine = performance.now() + 60000; self.say('*chomp* PROTEIN', pl.g, 1.0, 1.8); }
+      if (id === 'howl') { self.say('awoooOOO', pl.g, 1.0, 1.6); self.sfx('howl'); (C.cs || []).forEach(function (c, i) { setTimeout(function () { self.say('AWOOO', c.g, 1.2, 1.2, true); }, 400 + i * 180); }); }
+      if (id === 'antler') { self.collect('a carved antler'); self.say('one for the den', pl.g, 1.0, 1.6); }
+      if (id === 'scrap') { S.mapScraps = (S.mapScraps || 0) + 1; self.say('it’s marked… "the Tangle"', pl.g, 1.0, 2.2); }
+      if (id === 'bandana') { S.hats.push('bandana'); S.hat = 'bandana'; self.dressPlayer(); self.say('lookin’ like one of us', tr ? tr.g : pl.g, 1.1, 2); }
+      self.saveStore();
+    });
+  };
+  // ===== The King's Scales: a medieval weigh-in beside the weight wall =====
+  // A great timber balance. This week's average weight sits in one pan as iron weights, last
+  // week's in the other, and the beam tips towards the heavier week. Seven candles along the
+  // plinth, one lit for each day you've weighed in this week, because a steady habit matters more
+  // than any one morning's number.
+  var SCALES_AT = dtw(25.6, WALK_N + 1.6);
+  Town.prototype.weighStats = function () {
+    var w = this.st.weight, days = (w && w.days) || [];
+    if (!days.length || !this.today) return null;
+    var t0 = Date.parse(this.today + 'T12:00:00'), DAY = 864e5;
+    function avg(from, to) { var v = days.filter(function (d) { var t = Date.parse(d.date + 'T12:00:00'); return t > t0 - from * DAY && t <= t0 - to * DAY; }); return v.length ? { avg: v.reduce(function (a, d) { return a + d.value; }, 0) / v.length, n: v.length, days: v } : null; }
+    var now = avg(7, 0), last = null;
+    for (var k = 1; k <= 8 && !last; k++) last = avg(7 * (k + 1), 7 * k); // (the last week you actually weighed in)
+    var wk0 = new Date(t0); wk0.setDate(wk0.getDate() - (wk0.getDay() + 6) % 7);
+    var thisWeek = {}; days.forEach(function (d) { if (Date.parse(d.date + 'T12:00:00') >= wk0.getTime() - DAY / 2) thisWeek[d.date] = true; });
+    return { now: now, last: last, logged: Object.keys(thisWeek).length, latest: days[days.length - 1], start: w.first };
+  };
+  Town.prototype.buildScales = function () {
+    var self = this, S = this.weighStats(), pick = 'scales';
+    if (this.scales) { this.world.remove(this.scales.g); this.picks = this.picks.filter(function (m) { return m.userData.pick !== pick; }); this.scales = null; }
+    if (!S) return;
+    var g = new T.Group(), y0 = groundY(SCALES_AT.x, SCALES_AT.z); g.position.set(SCALES_AT.x, y0, SCALES_AT.z); g.rotation.y = Math.atan2(-DT_N.x, -DT_N.z); this.world.add(g);
+    function P(geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || g, geo, mat, sx, sy, sz, x, y, z, pick); }
+    var oak = this.mat('logwood', 0), iron = this.mat('stoneDark'), brass = this.mat('gold'), G = this.glowMats();
+    // A stone plinth with the seven candles of the week.
+    P(this.geo.box, this.mat('stone', 2), 3.0, 0.3, 1.3, 0, 0.15, 0);
+    P(this.geo.box, this.mat('stone', 1), 3.2, 0.06, 1.4, 0, 0.32, 0);
+    for (var c = 0; c < 7; c++) {
+      var cx = -1.2 + c * 0.4, lit = c < S.logged;
+      P(this.geo.cyl, this.mat('whitewood'), 0.05, 0.18, 0.05, cx, 0.44, 0.55);
+      if (lit) { var f = new T.Mesh(this.geo.cone, G.flame); f.scale.set(0.035, 0.09, 0.035); f.position.set(cx, 0.58, 0.55); g.add(f); var h = new T.Mesh(this.geo.ball, G.halo); h.scale.setScalar(0.18); h.position.set(cx, 0.58, 0.55); g.add(h); }
+    }
+    // Two oak posts, braced, with an iron pivot at the top.
+    [-0.18, 0.18].forEach(function (z) { P(self.geo.box, oak, 0.2, 2.6, 0.2, 0, 1.6, z); });
+    [-1, 1].forEach(function (sd) { var br = P(self.geo.box, oak, 0.12, 1.1, 0.12, sd * 0.45, 0.75, 0); br.rotation.z = sd * 0.6; });
+    P(this.geo.box, iron, 0.18, 0.18, 0.5, 0, 2.85, 0);
+    P(this.geo.cone4, brass, 0.12, 0.25, 0.12, 0, 3.05, 0);
+    // The beam, and the two pans on chains.
+    var beam = new T.Group(); beam.position.set(0, 2.8, 0); g.add(beam);
+    P(this.geo.box, iron, 2.8, 0.1, 0.12, 0, 0, 0, beam);
+    [-1, 1].forEach(function (sd) { P(self.geo.ball, brass, 0.08, 0.08, 0.08, sd * 1.4, 0, 0, beam); });
+    P(this.geo.cone, brass, 0.06, 0.4, 0.06, 0, 0.25, 0, beam); // the pointer
+    var pans = [-1, 1].map(function (sd) {
+      var pan = new T.Group(); g.add(pan);
+      for (var ch = 0; ch < 3; ch++) { var a = ch / 3 * Math.PI * 2; var link = P(self.geo.cyl6, iron, 0.012, 1.2, 0.012, Math.cos(a) * 0.18, 0.6, Math.sin(a) * 0.18, pan); link.rotation.set(Math.sin(a) * -0.15, 0, Math.cos(a) * 0.15); }
+      P(self.geo.cyl, brass, 0.36, 0.05, 0.36, 0, 0, 0, pan);
+      P(self.geo.cyl, brass, 0.3, 0.06, 0.3, 0, 0.03, 0, pan);
+      return { g: pan, sd: sd };
+    });
+    // Iron weights in each pan: a stack for the week's average (more stones, heavier).
+    function stones(pan, v, col) {
+      if (!v) { P(self.geo.box, self.mat('plaster', 0), 0.3, 0.02, 0.2, 0, 0.07, 0, pan.g); return; }
+      var n = Math.max(1, Math.min(9, Math.round((v - (S.start || v) + 12) / 3)));
+      for (var i = 0; i < n; i++) { var lv = Math.floor(i / 3), k = i % 3; P(self.geo.box, self.mat(col, (i % 2)), 0.16, 0.12, 0.16, -0.16 + k * 0.16, 0.12 + lv * 0.13, (lv % 2) * 0.05, pan.g); }
+    }
+    stones(pans[0], S.now && S.now.avg, 'stoneDark');
+    stones(pans[1], S.last && S.last.avg, 'stone');
+    // Pennants over the pans: "This week" (left) and "Last week" (right).
+    [['THIS WEEK', -1, '#7a1f1f'], ['LAST WEEK', 1, '#24384a']].forEach(function (b) {
+      var cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; var x = cv.getContext('2d');
+      x.fillStyle = b[2]; x.beginPath(); x.moveTo(0, 0); x.lineTo(128, 0); x.lineTo(128, 44); x.lineTo(64, 64); x.lineTo(0, 44); x.fill();
+      x.fillStyle = '#f2d98a'; x.font = 'bold 18px Georgia'; x.textAlign = 'center'; x.fillText(b[0], 64, 28);
+      var m = new T.Mesh(self.geo.box, new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv), transparent: true })); m.scale.set(0.9, 0.45, 0.02); m.position.set(b[1] * 1.4, 3.55, 0); g.add(m);
+    });
+    // The herald's board: the numbers, written up like a proclamation.
+    var dv = S.now && S.last ? S.now.avg - S.last.avg : null;
+    var cv = document.createElement('canvas'); cv.width = 256; cv.height = 160; var x = cv.getContext('2d');
+    x.fillStyle = '#e8d9b0'; x.fillRect(0, 0, 256, 160); x.strokeStyle = '#7a5a2a'; x.lineWidth = 6; x.strokeRect(5, 5, 246, 150);
+    x.fillStyle = '#3a2410'; x.textAlign = 'center'; x.font = 'bold 18px Georgia'; x.fillText('Hear ye! The Weighing', 128, 32);
+    x.font = '16px Georgia';
+    x.fillText('This week: ' + (S.now ? S.now.avg.toFixed(1) + ' lb' : '—'), 128, 62);
+    x.fillText('Last week: ' + (S.last ? S.last.avg.toFixed(1) + ' lb' : '—'), 128, 84);
+    x.font = 'bold 17px Georgia'; x.fillStyle = dv == null ? '#3a2410' : dv <= 0 ? '#2a6a2a' : '#8a2a1a';
+    x.fillText(dv == null ? 'Weigh in to set the scales' : (dv <= 0 ? 'Lighter by ' : 'Heavier by ') + Math.abs(dv).toFixed(1) + ' lb', 128, 112);
+    x.font = '13px Georgia'; x.fillStyle = '#3a2410'; x.fillText(S.logged + ' of 7 days weighed this week', 128, 140);
+    var board = new T.Mesh(this.geo.box, new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv) })); board.scale.set(1.1, 0.7, 0.04); board.position.set(2.1, 1.1, 0.2); board.rotation.y = -0.35; g.add(board);
+    P(this.geo.box, oak, 0.08, 1.5, 0.08, 2.1, 0.5, 0.15); P(this.geo.box, oak, 1.2, 0.06, 0.06, 2.1, 1.47, 0.2).rotation.y = -0.35;
+    // Which way it tips: heavier pan down. Lighter this week = the left pan rises (and it's a win).
+    var tilt = dv == null ? 0 : Math.max(-0.32, Math.min(0.32, dv * 0.12));
+    this.scales = { g: g, beam: beam, pans: pans, tilt: tilt, cur: 0, swing: 0, dv: dv, S: S };
+    this.needsRender = true;
+  };
+  Town.prototype.stepScales = function (dt, now) {
+    if (this.scalesDirty && this.today && this.st) { this.scalesDirty = false; this.buildScales(); }
+    var K = this.scales; if (!K) return;
+    // the beam settles towards its tilt with a damped swing (a nudge sets it rocking again)
+    K.swing *= Math.max(0, 1 - dt * 0.6);
+    var target = K.tilt + Math.sin(now / 420) * K.swing;
+    K.cur += (target - K.cur) * Math.min(1, dt * 3);
+    K.beam.rotation.z = K.cur; // the left end (this week) dips when tilt > 0, i.e. this week is heavier
+    K.pans.forEach(function (p) { p.g.position.set(p.sd * 1.4 * Math.cos(K.cur), 2.8 + p.sd * 1.4 * Math.sin(K.cur) - 1.25, 0); });
+    if (K.swing > 0.002) this.needsRender = true;
+  };
+  Town.prototype.nudgeScales = function () {
+    var K = this.scales, pl = this.player; if (!K) return;
+    K.swing = 0.25; this.sfx('clang');
+    var S = K.S, dv = K.dv;
+    var line = dv == null ? 'weigh in a few days to set the scales' : dv <= 0 ? pickOne(['the scales favour thee! ' + Math.abs(dv).toFixed(1) + ' lb lighter', 'huzzah! lighter by ' + Math.abs(dv).toFixed(1) + ' lb', 'the realm rejoices']) : pickOne(['heavier by ' + dv.toFixed(1) + ' lb. fear not, sire', 'a heavier week. onward!', 'the scales are fickle. weigh again tomorrow']);
+    this.say(line, pl ? pl.g : K.g, 1.1, 2.8);
+    if (S.logged < 7) setTimeout(function () { if (pl) this.say(S.logged + ' of 7 candles lit this week', pl.g, 1.1, 2.2); }.bind(this), 1600);
+  };
   Town.prototype.addWeight = function (ev, delay) {
     var w = this.st.weight, value = ev.value, self = this, pick = 'statue';
     w.count++;
     if (w.first == null) w.first = value;
     w.prev = w.latest;
     w.latest = value;
+    if (ev.date) (w.days = w.days || []).push({ date: ev.date, value: value });
+    this.scalesDirty = true;
     w.weeks = w.weeks || [];
     var key = ev.date ? (function () { var d = new Date(ev.date + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.toISOString().slice(0, 10); })() : 'n' + w.count;
     var last = w.weeks[w.weeks.length - 1];
@@ -15841,7 +16144,7 @@
         this.markBatch();
         mark('castle');
         break;
-      case 'run': this.addRun(ev, delay); mark('run'); break;
+      case 'run': this.addRun(ev, delay); if ((ev.km || 0) >= 10) s.longRuns = (s.longRuns || 0) + 1; this.tangleDirty = true; mark('run'); break;
       case 'snowboard': this.addSnowboard(ev, delay); mark('snow'); break;
       case 'bike': s.bike.km += ev.km; s.bike.sessions++; var c0 = s.bike.crops.length; this.addBike(ev, delay); this.addMtb(ev, delay); this.endurancePRs('ride', ev, s.bike.crops[c0] || s.bike.crops[s.bike.crops.length - 1], delay); this.markBatch(); this.updateSheep(ev, delay); mark('bike'); break;
       case 'commute': this.addCommute(ev.km, delay, ev.date); mark('commute'); break;
@@ -16106,6 +16409,10 @@
       case 'cliffs': return { title: 'The clay cliffs', lines: ['The pale clay cliffs Whitehorse sits under, with the airport and the museums up on top looking down over town.'] };
       case 'museums': return { title: 'The museum grounds', lines: ['By the airport on the town side: the DC-3 weathervane, the Yukon Transportation Museum and the Beringia Centre, with lawns, flowers and benches to watch the planes from.'] };
       case 'hotsprings': return { title: 'Takhini Hot Springs', lines: ['Two steaming pools out on the edge of the country north of town, with the old log lodge beside them. Bean North Coffee is across the road.'] };
+      case 'scales': { var SK = this.scales && this.scales.S; if (!SK) return null; var dv0 = this.scales.dv; return { title: 'The King\u2019s Scales', lines: ['This week\u2019s average: ' + (SK.now ? SK.now.avg.toFixed(1) + ' lb' : '\u2014') + ' \u00b7 last week: ' + (SK.last ? SK.last.avg.toFixed(1) + ' lb' : '\u2014') + (dv0 != null ? ' (' + (dv0 <= 0 ? '\u2212' : '+') + Math.abs(dv0).toFixed(1) + ')' : ''), SK.logged + ' of 7 candles lit: one for each day you weigh in this week. Press E to nudge the beam.'] }; }
+      case 'tradingpost': return { title: 'The coyotes\u2019 trading post', lines: ['Jerky, antlers, map scraps, bandanas. Press E to trade (' + this.keep().coins + ' coins).'] };
+      case 'camp': return { title: 'The hill coyotes\u2019 camp', lines: ['They train here every day: log lifts, push-ups, laps. Press E to join in.'] };
+      case 'tangle': { var TL2 = this.tangleLevel(), nxt = [1, 3, 5, 8, 12].filter(function (q) { return q > TL2; })[0]; return { title: 'The Tangle', lines: [TL2 < 1 ? 'A wall of brambles. Nobody\u2019s been in for a very long time.' : 'An old, wild wood, beyond the edge of the map.', TL2 + ' long runs (10 km+) and hikes so far.' + (nxt ? ' ' + (nxt - TL2) + ' more to push deeper.' : ' You\u2019ve reached its heart.')] }; }
       case 'beannorth': return { title: 'Bean North Coffee', lines: ['The little log roastery on the road out to the hot springs: organic beans roasted in the Yukon since 1997.'] };
       case 'artscentre': return { title: 'The Yukon Arts Centre', lines: ['Theatre, galleries and concerts, next door to Yukon University on the campus above town.'] };
       case 'canyon': return { title: 'Miles Canyon', lines: ['Basalt walls above the Yukon River, and the suspension footbridge across them.'] };
@@ -16360,7 +16667,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -16909,6 +17216,10 @@
       if (em && em.g.visible && Math.hypot(em.g.position.x - P.x, em.g.position.z - P.z) < 1.8) best = 'errand';
       if (this.lunchNear(P)) best = 'lunch';
       if (this.kingAirNear(P)) best = 'charter';
+      if (this.scales && Math.hypot(SCALES_AT.x - P.x, SCALES_AT.z - P.z) < 2.6) best = 'scales';
+      if (this.camp && Math.hypot(this.camp.post.x - P.x, this.camp.post.z - P.z) < 2.2) best = 'tradingpost';
+      else if (this.camp && Math.hypot(CAMP.x - P.x, CAMP.z - P.z) < CAMP.R) best = 'camp';
+      else if (this.tangle && Math.hypot(TANGLE.x - P.x, TANGLE.z - P.z) < TANGLE.R + 3) best = 'tangle';
       if (this.boatNear(P) && !this.player.boat) best = 'riverboat';
       if (this.noir && Math.hypot(this.noir.g.position.x - P.x, this.noir.g.position.z - P.z) < 2.2) best = 'detective';
       if (this.noir) this.noir.drifters.forEach(function (d) { if (d.g.visible && Math.hypot(d.g.position.x - P.x, d.g.position.z - P.z) < 1.6) { best = 'drifter'; self.nearDrifter = d; } });
@@ -16986,6 +17297,10 @@
     if (pl && !pl.paddle && !pl.seat && this.near === 'cinema' && this.roomOK('cinema')) { this.enterRoom(pl, 'cinema'); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'mtb' && this.roomOK('cafe')) { this.enterRoom(pl, 'cafe'); return; }
     if (pl && !pl.paddle && this.near === 'den') { this.enterDen(pl); return; }
+    if (pl && this.near === 'scales') { this.nudgeScales(); return; }
+    if (pl && this.near === 'tradingpost') { this.coyoteTrade(); return; }
+    if (pl && this.near === 'camp') { this.say(pickOne(['*does a push-up*', 'mind if I join?', '*flexes*']), pl.g, 1.0, 1.8); var cc = this.camp.cs[0]; this.say(pickOne(['THAT\u2019S THE SPIRIT', 'drop and give me twenty, raccoon', 'not bad, for a trash panda']), cc.g, 1.1, 2.2); return; }
+    if (pl && this.near === 'tangle') { var TL = this.tangleLevel(); this.say(TL < 1 ? 'the brambles are too thick. a long run might clear a way' : TL < 3 ? 'something\u2019s in there\u2026 go deeper' : pickOne(['the trees are whispering', 'it\u2019s older than the town', 'I swear that stone moved']), pl.g, 1.0, 2.6); return; }
     if (pl && !pl.paddle) { var lm = this.lunchNear(pl.g.position); if (lm) { this.stealLunch(pl, lm); return; } }
     // Winter: a snowball for the nearest mouse.
     if (pl && this.season === 'winter' && !pl.paddle && !pl.seat) {

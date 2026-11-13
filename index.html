@@ -340,9 +340,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   </details>
 
   <section class="card secret-card" id="charter" role="dialog" aria-label="Where to?" hidden>
-    <div class="eyebrow">Alkan Air charter</div>
-    <h2>Where to?</h2>
-    <p>The King Air’s fuelled up. Pick a town.</p>
+    <div class="eyebrow" id="charter-eb">Alkan Air charter</div>
+    <h2 id="charter-h">Where to?</h2>
+    <p id="charter-p">The King Air’s fuelled up. Pick a town.</p>
     <div class="acts" id="charter-list"></div>
     <div class="acts"><button class="btn" type="button" id="charter-close">Not today</button></div>
   </section>
@@ -419,7 +419,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v181';
+var BUILD = 'v182';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -592,8 +592,14 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   var coarse = matchMedia('(pointer: coarse)').matches, EXPLORE_KEY = 'fittertown:explore', tipTimer = null;
   function nearName(key) { var info = key && town.info(key); return info ? info.title : ''; }
   // The King Air charter: a little menu of the towns you can fly to.
+  // (the same little menu does for other choices too: the coyotes' trading post)
+  town.onMenu = function (eb, h, p, opts, go) {
+    town.onCharter(opts, go);
+    $('charter-eb').textContent = eb; $('charter-h').textContent = h; $('charter-p').textContent = p;
+  };
   town.onCharter = function (opts, go) {
     var box = $('charter'), list = $('charter-list');
+    $('charter-eb').textContent = 'Alkan Air charter'; $('charter-h').textContent = 'Where to?'; $('charter-p').textContent = 'The King Air\u2019s fuelled up. Pick a town.';
     list.innerHTML = '';
     opts.forEach(function (o, i) {
       var b = document.createElement('button'); b.className = 'btn' + (i === 0 ? ' primary' : ''); b.type = 'button';
