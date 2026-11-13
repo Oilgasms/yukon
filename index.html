@@ -60,6 +60,9 @@ body {
 .title { grid-column: 1; grid-row: 1; justify-self: start; padding: 12px 16px; max-width: 360px; }
 .eyebrow { font-family: var(--display); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 h1 { font-family: var(--display); font-weight: 700; font-size: 32px; line-height: 1; margin: 2px 0 8px; text-wrap: balance; }
+.inkmap { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; background: rgba(30,20,10,0.6); padding: 16px; }
+.inkmap[hidden] { display: none; }
+.inkmap canvas { max-width: 100%; max-height: calc(100vh - 90px); border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
 .sync { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 4px; }
 .dot { width: 8px; height: 8px; background: var(--muted); flex: none; }
 .dot.live { background: var(--live); } .dot.err { background: var(--warn); }
@@ -339,6 +342,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     </div>
   </details>
 
+  <section class="inkmap" id="inkmap" role="dialog" aria-label="The inked map" hidden>
+    <canvas id="inkmap-cv" width="1000" height="760"></canvas>
+    <button class="btn" id="inkmap-close" type="button">Close</button>
+  </section>
   <section class="card secret-card" id="charter" role="dialog" aria-label="Where to?" hidden>
     <div class="eyebrow" id="charter-eb">Alkan Air charter</div>
     <h2 id="charter-h">Where to?</h2>
@@ -365,6 +372,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn" id="explore" type="button" aria-pressed="true">Map view</button>
       <button class="btn" id="recenter" type="button">Recenter</button>
       <button class="btn" id="postcard" type="button" title="Jump to a postcard view of each town in turn">Postcard</button>
+      <button class="btn" id="inkmap-btn" type="button" title="The inked map of everywhere you've walked (N)">Inked map</button>
       <button class="btn" id="recentbtn" type="button" title="The last 25 things logged into the town">Latest</button>
       <button class="btn" id="crierbtn" type="button" title="This week's Town Crier">Paper</button>
       <button class="btn" id="pixel" type="button" aria-pressed="true">Style: Handmade</button>
@@ -419,7 +427,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v182';
+var BUILD = 'v183';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -710,6 +718,76 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   town.onLoot = function (what, n) { lsSet('fittertown:loot', String(n)); if (town.collect) town.collect(what); };
   // Coins, hats, errands and the den's treasures, kept from visit to visit.
   try { town.store = JSON.parse(lsGet('fittertown:store') || '{}'); } catch (e) { town.store = {}; }
+  // ---- The inked map: a parchment chart of everywhere you've walked (N, or the Inked map button) ----
+  function openInkMap() {
+    if (!town || !town.mapData) return;
+    var D = town.mapData(), box = $('inkmap'), cv = $('inkmap-cv'), W = cv.width = 1000, H = cv.height = 760, x = cv.getContext('2d');
+    var cell = D.cell, V = D.visited, keys = Object.keys(V);
+    // the part of the world worth drawing: everything visited, plus a margin
+    var xs = [], zs = []; keys.forEach(function (k) { var p = k.split(','); xs.push(+p[0] * cell); zs.push(+p[1] * cell); });
+    if (D.player) { xs.push(D.player.x); zs.push(D.player.z); }
+    var x0 = Math.min.apply(null, xs) - 18, x1 = Math.max.apply(null, xs) + 24, z0 = Math.min.apply(null, zs) - 18, z1 = Math.max.apply(null, zs) + 24;
+    var sc = Math.min((W - 120) / (x1 - x0), (H - 120) / (z1 - z0)), ox = (W - (x1 - x0) * sc) / 2, oz = (H - (z1 - z0) * sc) / 2;
+    function M(px, pz) { return [ox + (px - x0) * sc, oz + (pz - z0) * sc]; }
+    var seed = 7; function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    // parchment
+    var gr = x.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, W * 0.7); gr.addColorStop(0, '#f1e3bf'); gr.addColorStop(1, '#cfb27a');
+    x.fillStyle = gr; x.fillRect(0, 0, W, H);
+    for (var i = 0; i < 1600; i++) { x.fillStyle = 'rgba(110,80,40,' + (rnd() * 0.06) + ')'; x.fillRect(rnd() * W, rnd() * H, 1 + rnd() * 3, 1 + rnd() * 2); }
+    x.strokeStyle = 'rgba(90,60,30,0.55)'; x.lineWidth = 3; x.strokeRect(18, 18, W - 36, H - 36); x.lineWidth = 1; x.strokeRect(26, 26, W - 52, H - 52);
+    // the explored land: a slightly darker wash, cell by cell, with soft edges
+    x.save(); x.beginPath();
+    keys.forEach(function (k) { var p = k.split(','), a = M(+p[0] * cell, +p[1] * cell); x.rect(a[0] - 1, a[1] - 1, cell * sc + 2, cell * sc + 2); });
+    x.fillStyle = 'rgba(160,130,70,0.16)'; x.fill(); x.clip();
+    // ink: the river (a double line), the streets (dashes), the lake (hatched)
+    function line(pts, w, col, dash) { x.beginPath(); pts.forEach(function (q, i) { var a = M(q[0], q[1]); if (i) x.lineTo(a[0] + (rnd() - 0.5) * 0.8, a[1] + (rnd() - 0.5) * 0.8); else x.moveTo(a[0], a[1]); }); x.lineWidth = w; x.strokeStyle = col; x.setLineDash(dash || []); x.stroke(); x.setLineDash([]); }
+    line(D.river, Math.max(3, 3.2 * sc), 'rgba(60,90,120,0.55)'); line(D.river, 1.2, '#2c3e58');
+    D.streets.forEach(function (st) { line(st, 1.4, 'rgba(70,45,20,0.8)', [5, 3]); });
+    var lk = M(D.lake.x, D.lake.z); x.beginPath(); x.ellipse(lk[0], lk[1], D.lake.r * sc, D.lake.r * sc * 0.8, 0, 0, Math.PI * 2); x.fillStyle = 'rgba(80,110,140,0.25)'; x.fill(); x.strokeStyle = '#2c3e58'; x.lineWidth = 1.2; x.stroke();
+    for (var h = -D.lake.r; h < D.lake.r; h += 1.6) { x.beginPath(); x.moveTo(lk[0] - D.lake.r * sc * 0.6, lk[1] + h * sc * 0.5); x.lineTo(lk[0] + D.lake.r * sc * 0.6, lk[1] + h * sc * 0.5); x.strokeStyle = 'rgba(44,62,88,0.25)'; x.stroke(); }
+    // little ink trees and hills scattered over explored ground
+    keys.forEach(function (k, i) { if (i % 5) return; var p = k.split(','), a = M(+p[0] * cell + cell / 2, +p[1] * cell + cell / 2); x.strokeStyle = 'rgba(60,45,25,0.45)'; x.lineWidth = 1; if (i % 3) { x.beginPath(); x.moveTo(a[0] - 4, a[1] + 4); x.lineTo(a[0], a[1] - 5); x.lineTo(a[0] + 4, a[1] + 4); x.stroke(); } else { x.beginPath(); x.arc(a[0], a[1], 4, Math.PI, 0); x.stroke(); } });
+    x.restore();
+    // landmarks: an ink mark and a name, but only where you've been
+    function seen(px, pz) { return !!V[Math.floor(px / cell) + ',' + Math.floor(pz / cell)]; }
+    var ICON = { square: '▣', church: '✝', book: '≡', mug: '☕', film: '★', heart: '♥', sprout: '⚘', scales: '⚖', wheel: '☸', paw: '❂', water: '≋', peak: '▲', steam: '♨', door: '◖', eye: '◉', town: '⌂', tangle: '❦' };
+    x.textAlign = 'center';
+    var placed = [];
+    function free(bx) { return !placed.some(function (q) { return bx[0] < q[2] && bx[2] > q[0] && bx[1] < q[3] && bx[3] > q[1]; }); }
+    D.marks.forEach(function (m) {
+      if (!seen(m.x, m.z)) return;
+      var a = M(m.x, m.z); if (a[0] < 30 || a[0] > W - 30 || a[1] < 30 || a[1] > H - 30) return;
+      x.fillStyle = '#3a2410'; x.font = (m.ic === 'town' ? '22px' : '16px') + ' Georgia'; x.fillText(ICON[m.ic] || '\u2022', a[0], a[1] + 5);
+      // the name beneath (or above, or to the side) wherever it doesn't run into another
+      x.font = 'italic ' + (m.ic === 'town' ? 'bold 16px' : '13px') + ' Georgia';
+      var w = x.measureText(m.n).width, opts = [[0, 20], [0, -12], [w / 2 + 12, 4], [-w / 2 - 12, 4], [0, 34], [0, -26]];
+      for (var o = 0; o < opts.length; o++) { var lx = a[0] + opts[o][0], ly = a[1] + opts[o][1], bx = [lx - w / 2 - 2, ly - 12, lx + w / 2 + 2, ly + 3]; if (free(bx)) { placed.push(bx); x.fillText(m.n, lx, ly); break; } }
+    });
+    // the Tangle: drawn if you've been, hinted at if a coyote sold you a scrap, otherwise wild
+    var T2 = D.tangle, ta = M(T2.x, T2.z), tin = ta[0] > 30 && ta[0] < W - 30 && ta[1] > 30 && ta[1] < H - 30;
+    if (seen(T2.x, T2.z) || T2.scrap) {
+      if (tin) { x.strokeStyle = '#2a3a1e'; x.lineWidth = 1.5; for (var b = 0; b < 26; b++) { var ang = b / 26 * Math.PI * 2, rr = T2.R * sc; x.beginPath(); x.arc(ta[0] + Math.cos(ang) * rr, ta[1] + Math.sin(ang) * rr, 5, 0, Math.PI * 2); x.stroke(); }
+        x.fillStyle = '#2a3a1e'; x.font = 'italic bold 18px Georgia'; x.fillText(seen(T2.x, T2.z) ? 'The Tangle' : 'The Tangle?', ta[0], ta[1] + 6); }
+    }
+    // unexplored edges: "here be wild things"
+    x.fillStyle = 'rgba(70,45,20,0.55)'; x.font = 'italic 15px Georgia'; x.fillText('here be wild things', W - 150, H - 48); x.fillText('unmapped country', 140, 52);
+    // you are here
+    if (D.player) { var pa = M(D.player.x, D.player.z); x.fillStyle = '#b21e1e'; x.beginPath(); x.arc(pa[0], pa[1], 6, 0, Math.PI * 2); x.fill(); x.font = 'italic bold 13px Georgia'; x.fillText('you are here', pa[0], pa[1] - 12); }
+    // compass rose and title cartouche
+    var cx = W - 90, cy = 95; x.strokeStyle = '#3a2410'; x.fillStyle = '#3a2410'; x.lineWidth = 1.2;
+    [[0, -1, 'N'], [1, 0, 'E'], [0, 1, 'S'], [-1, 0, 'W']].forEach(function (d) { x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + d[0] * 34, cy + d[1] * 34); x.stroke(); x.font = 'bold 13px Georgia'; x.fillText(d[2], cx + d[0] * 46, cy + d[1] * 46 + 5); });
+    x.beginPath(); x.arc(cx, cy, 14, 0, Math.PI * 2); x.stroke();
+    x.fillStyle = 'rgba(241,227,191,0.9)'; x.fillRect(W / 2 - 170, 34, 340, 56); x.strokeStyle = '#5a3a1a'; x.strokeRect(W / 2 - 170, 34, 340, 56); x.strokeRect(W / 2 - 164, 40, 328, 44);
+    x.fillStyle = '#3a2410'; x.font = 'italic bold 24px Georgia'; x.fillText('Yukon & Environs', W / 2, 66); x.font = 'italic 12px Georgia'; x.fillText('as walked by one raccoon', W / 2, 82);
+    box.hidden = false;
+  }
+  $('inkmap-btn').addEventListener('click', openInkMap);
+  $('inkmap-close').addEventListener('click', function () { $('inkmap').hidden = true; });
+  addEventListener('keydown', function (e) {
+    if (/input|textarea|select/i.test((e.target && e.target.tagName) || '')) return;
+    if (e.key === 'n' || e.key === 'N') { if ($('inkmap').hidden) openInkMap(); else $('inkmap').hidden = true; }
+    if (e.key === 'Escape' && !$('inkmap').hidden) $('inkmap').hidden = true;
+  });
   town.onStore = function (st) { lsSet('fittertown:store', JSON.stringify(st)); };
   if (town.dressPlayer) town.dressPlayer();
   // A bite: a timing bar. Stop the marker in the green to land it; in the gold for something good.
