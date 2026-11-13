@@ -1432,6 +1432,7 @@
     this.soft = !!opts.software;
     this.pixel = opts.pixel !== false;
     this.handmade = !!opts.handmade && !this.pixel;
+    this.treeStyle = TREE_STYLES[opts.trees] ? opts.trees : 'puff';
     if (this.soft) { this.lite = true; this.renderer = new SoftRenderer(canvas); }
     else {
       this.renderer = new T.WebGLRenderer({ canvas: canvas, antialias: false, alpha: true, powerPreference: this.lite ? 'low-power' : 'default', failIfMajorPerformanceCaveat: false });
@@ -1693,7 +1694,7 @@
     U.aspect.value = this.aspect || 1.4;
     U.time.value = this.reduced ? 0 : performance.now() / 1000;
     var ph = this.phase || (this.dark ? 'dusk' : 'day');
-    var RAY = { day: ['#fff3d6', 0.12], golden: ['#ffc77e', 0.42], dawn: ['#ffc0a8', 0.32], dusk: ['#ff9f7a', 0.12], night: ['#9fb4ff', 0.035] }[ph] || ['#fff3d6', 0.07];
+    var RAY = { day: ['#fff3d6', 0.04], golden: ['#ffc77e', 0.15], dawn: ['#ffc0a8', 0.12], dusk: ['#ff9f7a', 0.05], night: ['#9fb4ff', 0.015] }[ph] || ['#fff3d6', 0.04];
     U.rayCol.value.set(RAY[0]); U.rayK.value = inRoom ? 0 : RAY[1];
     var sv = this.sun.position.clone().sub(this.sun.target.position).normalize().multiplyScalar(400).add(this.controls.target).project(this.camera);
     U.sunUv.value.set(Math.max(-0.5, Math.min(1.5, sv.x * 0.5 + 0.5)), Math.max(0.6, Math.min(1.6, sv.y * 0.5 + 0.5)));
@@ -1813,8 +1814,8 @@
     var V3 = function (a, b, c) { return new T.Vector3(a, b, c); };
     var GR = {
       day: { fill: '#b3c8ff', fi: 0.3, sh: V3(0.94, 0.98, 1.06), li: V3(1.04, 1.01, 0.96), bt: 0.92, bk: 0.4, ao: 0.32, sc: '#fff1d6', sk: 0.03 },
-      golden: { fill: '#a48cff', fi: 0.36, sh: V3(0.9, 0.9, 1.08), li: V3(1.13, 1.01, 0.82), bt: 0.8, bk: 0.6, ao: 0.35, sc: '#ffc27a', sk: 0.2 },
-      dawn: { fill: '#b7a8ff', fi: 0.32, sh: V3(0.92, 0.92, 1.07), li: V3(1.1, 0.99, 0.94), bt: 0.8, bk: 0.6, ao: 0.32, sc: '#ffb7a6', sk: 0.16 },
+      golden: { fill: '#a48cff', fi: 0.36, sh: V3(0.9, 0.9, 1.08), li: V3(1.13, 1.01, 0.82), bt: 0.8, bk: 0.6, ao: 0.35, sc: '#ffc27a', sk: 0.1 },
+      dawn: { fill: '#b7a8ff', fi: 0.32, sh: V3(0.92, 0.92, 1.07), li: V3(1.1, 0.99, 0.94), bt: 0.8, bk: 0.6, ao: 0.32, sc: '#ffb7a6', sk: 0.08 },
       dusk: { fill: '#8a8ae0', fi: 0.3, sh: V3(0.92, 0.95, 1.14), li: V3(1.12, 0.98, 0.9), bt: 0.5, bk: 1.8, ao: 0.3, sc: '#ff9f7a', sk: 0.1 },
       night: { fill: '#7385d6', fi: 0.36, sh: V3(0.98, 1.04, 1.24), li: V3(1.1, 1.0, 0.88), bt: 0.4, bk: 2.4, ao: 0.28, sc: '#9fb4ff', sk: 0.05 }
     }[ph] || null;
@@ -3010,7 +3011,7 @@
       this.buildBoreal();
       this.buildTufts();
       var self2 = this;
-      ['paintMaterials', 'buildClouds', 'buildMeadows', 'windifyScenery', 'buildNorthRiver', 'buildSkagScenery', 'buildNoir', 'buildCreeks'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
+      ['paintMaterials', 'buildClouds', 'buildMeadows', 'buildTallGrass', 'windifyScenery', 'buildNorthRiver', 'buildSkagScenery', 'buildNoir', 'buildCreeks'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
     }
     this.buildLetterbox();
     return C;
@@ -12488,6 +12489,111 @@
       if (small && small.size < 2) { small.size = Math.min(2, small.size + 0.15); this.animScale(small.g, small.size, delay); }
     }
   };
+  // How the leafy crowns are drawn (a setting): billowing puffs, a storybook cauliflower of many
+  // small clumps, faceted low-poly gems, or ragged wild crowns with gaps of sky.
+  var TREE_STYLES = { puff: 'Puffy', storybook: 'Storybook', faceted: 'Faceted', wild: 'Wild', painted: 'Painted' };
+  function mergeGeos(parts) {
+    var pos = [], nor = [], idx = [], off = 0;
+    parts.forEach(function (g) {
+      var P = g.attributes.position.array, N = g.attributes.normal.array, n = P.length / 3;
+      for (var a = 0; a < P.length; a++) { pos.push(P[a]); nor.push(N[a]); }
+      if (g.index) { var I = g.index.array; for (var b = 0; b < I.length; b++) idx.push(I[b] + off); }
+      else for (var c = 0; c < n; c++) idx.push(off + c);
+      off += n;
+    });
+    var geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+    geo.setIndex(idx); geo.computeBoundingSphere(); geo.userData.canopy = true;
+    return geo;
+  }
+  // Painted: a crown of leaf cards, each a hand-painted cluster of leaves with a ragged edge, turned
+  // every which way, their normals pointing out from the middle so the crown shades like one form.
+  Town.prototype.leafCardTex = function () {
+    if (this.leafTex) return this.leafTex;
+    var cv = document.createElement('canvas'); cv.width = cv.height = 128; var x = cv.getContext('2d'), r = rng(31337);
+    for (var i = 0; i < 70; i++) {
+      var a = r() * Math.PI * 2, d = Math.sqrt(r()) * 46, lx = 64 + Math.cos(a) * d, ly = 64 + Math.sin(a) * d * 0.9, sh = 0.72 + r() * 0.28;
+      x.save(); x.translate(lx, ly); x.rotate(a + (r() - 0.5)); x.fillStyle = 'rgb(' + Math.round(255 * sh) + ',' + Math.round(255 * sh) + ',' + Math.round(255 * sh) + ')';
+      x.beginPath(); x.ellipse(0, 0, 9 + r() * 6, 4.5 + r() * 2.5, 0, 0, Math.PI * 2); x.fill(); x.restore();
+    }
+    var t = new T.CanvasTexture(cv); t.anisotropy = 2;
+    return (this.leafTex = t);
+  };
+  Town.prototype.cardCanopy = function (v, tall) {
+    var r = rng(5100 + (v % 6) * 17 + (tall ? 3 : 0)), pos = [], nor = [], uv = [], idx = [], n = tall ? 22 : 34, q = new T.Quaternion(), e = new T.Euler(), c = new T.Vector3();
+    for (var i = 0; i < n; i++) {
+      var u = r(), th = r() * Math.PI * 2, ph = Math.acos(1 - 2 * u * 0.92);
+      var rad = tall ? 0.42 : 0.78, cx = Math.sin(ph) * Math.cos(th) * rad * (0.6 + r() * 0.45), cy = Math.cos(ph) * (tall ? 0.85 : 0.58), cz = Math.sin(ph) * Math.sin(th) * rad * (0.6 + r() * 0.45);
+      var sz = (tall ? 0.34 : 0.48) * (0.8 + r() * 0.45);
+      q.setFromEuler(e.set(r() * 6.28, r() * 6.28, r() * 6.28));
+      var corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]], base = pos.length / 3;
+      c.set(cx, cy, cz);
+      var nn = c.clone().normalize(); if (nn.lengthSq() < 0.01) nn.set(0, 1, 0);
+      corners.forEach(function (k) {
+        var p = new T.Vector3(k[0] * sz, k[1] * sz, 0).applyQuaternion(q).add(c);
+        pos.push(p.x, p.y, p.z);
+        var pn = p.clone().normalize().lerp(nn, 0.5).normalize(); nor.push(pn.x, pn.y, pn.z);
+        uv.push((k[0] + 1) / 2, (k[1] + 1) / 2);
+      });
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    var g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx); g.computeBoundingSphere(); g.userData.canopy = true; g.userData.cards = true;
+    return g;
+  };
+  // The leaf material for card crowns: the leaf colour, painted texture, cut out at the leaf edges.
+  Town.prototype.cardMat = function (base) {
+    var C = this.cardMats || (this.cardMats = {}), key = base.uuid;
+    if (C[key]) return C[key];
+    var m = this.windMat(base, 0.12, 0, 'card');
+    m.map = this.leafCardTex(); m.alphaTest = 0.5; m.side = T.DoubleSide; m.needsUpdate = true; m.userData.card = true;
+    return (C[key] = m);
+  };
+  Town.prototype.cardDepth = function () {
+    return this.cardDepthM || (this.cardDepthM = new T.MeshDepthMaterial({ depthPacking: T.RGBADepthPacking, map: this.leafCardTex(), alphaTest: 0.5, side: T.DoubleSide }));
+  };
+  // Swap the crowns of everything built so far onto painted leaf cards (when that's the style).
+  Town.prototype.paintCrowns = function (root) {
+    if (this.treeStyle !== 'painted') return;
+    var self = this;
+    (root || this.world).traverse(function (o) {
+      if (!o.isMesh || !o.geometry || !o.geometry.userData || !o.geometry.userData.cards || o.material.userData.card) return;
+      var base = o.material.userData && o.material.userData.base || o.material;
+      o.material = self.cardMat(base); o.customDepthMaterial = self.cardDepth();
+    });
+  };
+  Town.prototype.canopyStyled = function (v, tall) {
+    var st = this.treeStyle;
+    if (st === 'painted') return this.cardCanopy(v, tall);
+    var r = rng(9100 + (v % 6) * 31 + (tall ? 7 : 0)), parts = [], m4 = new T.Matrix4();
+    var ball = st === 'faceted' ? new T.IcosahedronGeometry(1, 0) : new T.SphereGeometry(1, st === 'storybook' ? 8 : 10, st === 'storybook' ? 6 : 7);
+    function add(x, y, z, sc, sy) { var g = ball.clone(); m4.makeScale(sc, sc * (sy || 0.86), sc); m4.makeRotationY(r() * 6.28).premultiply(new T.Matrix4().makeScale(sc, sc * (sy || 0.86), sc)); m4.setPosition(x, y, z); g.applyMatrix4(m4); parts.push(g); }
+    var i, a, h;
+    if (st === 'storybook') {
+      // many small clumps over a dome: a cauliflower crown, every clump catching its own light
+      var n = tall ? 16 : 26;
+      for (i = 0; i < n; i++) {
+        var u = r(), th = r() * Math.PI * 2, ph2 = Math.acos(1 - u * 1.25); // biased to the upper dome
+        var rad = tall ? 0.42 : 0.72, x = Math.sin(ph2) * Math.cos(th) * rad, y = Math.cos(ph2) * (tall ? 0.85 : 0.55) - 0.1, z = Math.sin(ph2) * Math.sin(th) * rad;
+        add(x, y, z, (tall ? 0.22 : 0.28) + r() * 0.1, 0.85);
+      }
+      add(0, -0.05, 0, tall ? 0.38 : 0.6, 0.8);
+    } else if (st === 'faceted') {
+      // a few big angular gems, flat-shaded like a woodcut
+      add(0, 0, 0, tall ? 0.5 : 0.82, tall ? 1.5 : 0.9);
+      for (i = 0; i < (tall ? 3 : 5); i++) { a = i * 2.4 + r(); add(Math.cos(a) * (tall ? 0.22 : 0.5), (r() - 0.4) * (tall ? 0.8 : 0.4), Math.sin(a) * (tall ? 0.22 : 0.5), (tall ? 0.32 : 0.5) + r() * 0.12, 0.95); }
+    } else {
+      // wild: ragged, uneven, taller on one side, with gaps between the clumps
+      var lean = (r() - 0.5) * 0.5, m = tall ? 9 : 14;
+      for (i = 0; i < m; i++) {
+        a = r() * Math.PI * 2; h = (r() - 0.35) * (tall ? 1.3 : 0.9);
+        var rr = (tall ? 0.3 : 0.55) * (0.5 + r() * 0.7) * (1 - Math.abs(h) * 0.4);
+        add(Math.cos(a) * rr + lean * (h + 0.3), h, Math.sin(a) * rr, (tall ? 0.24 : 0.3) + r() * 0.16, 0.75 + r() * 0.3);
+      }
+    }
+    return mergeGeos(parts);
+  };
   // A billowing crown: one merged cloud of round puffs, a few shapes to choose from, shared by every
   // tree that uses it (so a forest of them still draws quickly). About a unit across.
   // A small bush: five low puffs, light enough to draw thousands of.
@@ -12506,9 +12612,11 @@
     geo.setIndex(idx); geo.computeBoundingSphere();
     return (this.bushG = geo);
   };
+  Town.TREE_STYLES = TREE_STYLES;
   Town.prototype.canopyGeo = function (v, tall) {
     var C = this.canopyC || (this.canopyC = {}), key = (tall ? 't' : 'r') + (v % 6);
     if (C[key]) return C[key];
+    if (this.treeStyle !== 'puff') return (C[key] = this.canopyStyled(v, tall));
     var ball = new T.SphereGeometry(1, 12, 9), r = rng(9100 + (v % 6) * 31 + (tall ? 7 : 0)), parts = [], m4 = new T.Matrix4();
     function add(x, y, z, sc, sy) { var g = ball.clone(); m4.makeScale(sc, sc * (sy || 0.86), sc); m4.setPosition(x, y, z); g.applyMatrix4(m4); parts.push(g); }
     if (tall) {
@@ -12577,6 +12685,7 @@
       part(this.geo.cone6, this.mat('pine', 1), 0.45, 1.1, 0.45, 0, 8.4, 0);
     }
     this.world.add(g);
+    this.paintCrowns(g);
     // Remember where the crown is, so brushing past shakes a few leaves (or snow) loose.
     var crown = { spruce: 1.6 * s, bigspruce: 2.6, birch: 1.6 * s, maple: 1.4 * s, bigoak: 2.1 }[kind] || 5.6;
     (this.st.treeSpots = this.st.treeSpots || []).push({ x: p.x, z: p.z, y: g.position.y + crown * (size || 1), r: (kind === 'bigoak' || kind === 'bigspruce' ? 1.1 : 0.7) * (size || 1), conifer: /spruce|^seq/.test(kind) || !{ birch: 1, maple: 1, bigoak: 1 }[kind], kind: kind, k: k, at: 0 });
@@ -16618,6 +16727,7 @@
   var BATCH_PICKS = { bike: 1, run: 1, tower: 1, cbld: 1, commute: 1, walk: 1, sport: 1 };
   Town.prototype.markBatch = function () { this.batchDirty = true; this.batchMarked = performance.now(); };
   Town.prototype.rebatch = function () {
+    this.paintCrowns();
     this.batchDirty = false;
     var self = this, groups = {}, inv = new T.Matrix4(), nm = new T.Matrix3(), mw = new T.Matrix4(), v = new T.Vector3();
     (this.batchMeshes || []).forEach(function (m) { if (m.parent) m.parent.remove(m); m.geometry.dispose(); });
@@ -19567,15 +19677,15 @@
     var m4 = new T.Matrix4(), q4 = new T.Quaternion(), e = new T.Euler(), v3 = new T.Vector3(), s3 = new T.Vector3();
     if (blades.length) {
       var gm = this.windMat(this.meadowMat(), 0.22, 0.22, 'meadow');
-      var im = new T.InstancedMesh(this.geo.cone4, gm, blades.length);
-      blades.forEach(function (b, i) { q4.setFromEuler(e.set(b.t, b.a, b.t * 0.5)); im.setMatrixAt(i, m4.compose(v3.set(b.x, b.y + 0.21 * b.s, b.z), q4, s3.set(0.032 * b.s, 0.46 * b.s, 0.032 * b.s))); });
+      var im = new T.InstancedMesh(this.grassClumpGeo(), gm, blades.length);
+      blades.forEach(function (b, i) { q4.setFromEuler(e.set(b.t, b.a, b.t * 0.5)); im.setMatrixAt(i, m4.compose(v3.set(b.x, b.y + 0.21 * b.s, b.z), q4, s3.set(0.5 * b.s, 0.46 * b.s, 0.5 * b.s))); });
       im.receiveShadow = true;
       this.base.add(im);
     }
     if (tufts.length) {
       var tm = this.windMat(this.meadowMat(), 0.1, 0, 'tuft');
-      var it = new T.InstancedMesh(this.geo.cone4, tm, tufts.length);
-      tufts.forEach(function (t, i) { q4.setFromEuler(e.set(0, t.a, 0)); it.setMatrixAt(i, m4.compose(v3.set(t.x, t.y + 0.08 * t.s, t.z), q4, s3.set(0.09 * t.s, 0.17 * t.s, 0.09 * t.s))); });
+      var it = new T.InstancedMesh(this.grassClumpGeo(), tm, tufts.length);
+      tufts.forEach(function (t, i) { q4.setFromEuler(e.set(0, t.a, 0)); it.setMatrixAt(i, m4.compose(v3.set(t.x, t.y + 0.1 * t.s, t.z), q4, s3.set(0.35 * t.s, 0.22 * t.s, 0.35 * t.s))); });
       this.base.add(it);
     }
     // Each flower is a stem and a head; the heads nod in the wind.
@@ -19593,10 +19703,122 @@
     }
   };
 
+  // ---- tall grass: sweeps of it two and three times the raccoon's height that part as you push
+  // through, with Yukon wildflowers standing up out of it: fireweed spires, blue lupines, white
+  // daisies and yellow arnica. Gold with seed heads in the fall, gone under winter's snow. ----
+  // A clump of tall grass: eight curved, tapering blades fanned out from one root, darker at the
+  // root and lighter at the tip, spanning y -0.5 to 0.5 (so the wind bends the tips, not the roots).
+  Town.prototype.grassClumpGeo = function () {
+    if (this.clumpG) return this.clumpG;
+    var r = rng(4242), pos = [], col = [], nor = [], idx = [], off = 0;
+    for (var b = 0; b < 8; b++) {
+      var a = b / 8 * Math.PI * 2 + r() * 0.6, lean = 0.12 + r() * 0.28, w = 0.035 + r() * 0.02, hh = 0.75 + r() * 0.25, bx = Math.cos(a) * 0.05, bz = Math.sin(a) * 0.05;
+      var dx = Math.cos(a), dz = Math.sin(a), px = -dz, pz = dx; // the blade faces sideways to its lean
+      for (var j = 0; j <= 4; j++) {
+        var t = j / 4, y = -0.5 + t * hh, bend = lean * t * t, ww = w * (1 - t * 0.92), cx = bx + dx * bend, cz = bz + dz * bend;
+        pos.push(cx - px * ww, y, cz - pz * ww, cx + px * ww, y, cz + pz * ww);
+        var sh = 0.55 + t * 0.6; col.push(sh, sh, sh * 0.95, sh, sh, sh * 0.95);
+        nor.push(dx * 0.3, 0.95, dz * 0.3, dx * 0.3, 0.95, dz * 0.3);
+        if (j < 4) { var q = off + j * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+      }
+      off += 10;
+    }
+    var g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(col, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+    g.setIndex(idx); g.computeBoundingSphere();
+    return (this.clumpG = g);
+  };
+  // A spire of small blossoms (fireweed, lupine), about a unit tall, base at -0.5.
+  Town.prototype.spireGeo = function () {
+    if (this.spireG) return this.spireG;
+    var ball = new T.SphereGeometry(1, 6, 4), m4 = new T.Matrix4(), pos = [], nor = [], idx = [], off = 0;
+    for (var k = 0; k < 7; k++) {
+      var t = k / 6, g = ball.clone(), rr = 0.32 * (1 - t * 0.6), a = k * 2.3;
+      m4.makeScale(rr, rr * 0.8, rr); m4.setPosition(Math.cos(a) * 0.12 * (1 - t), -0.35 + t * 0.8, Math.sin(a) * 0.12 * (1 - t)); g.applyMatrix4(m4);
+      var P = g.attributes.position.array, N = g.attributes.normal.array, I = g.index.array;
+      for (var i = 0; i < P.length; i++) { pos.push(P[i]); nor.push(N[i]); }
+      for (var j = 0; j < I.length; j++) idx.push(I[j] + off);
+      off += P.length / 3;
+    }
+    var geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); geo.setIndex(idx); geo.computeBoundingSphere();
+    return (this.spireG = geo);
+  };
+  Town.prototype.buildTallGrass = function () {
+    if (this.soft) return;
+    var r = rng(5151), self = this, blades = [], fl = { fireweed: [], lupine: [], daisy: [], arnica: [] }, seeds = [], centres = [];
+    for (var tries = 0; tries < 900 && centres.length < (this.lite ? 18 : 42); tries++) {
+      var a = r() * Math.PI * 2, d = 14 + r() * 110, p = { x: Math.cos(a) * d, z: Math.sin(a) * d }, R = 3.5 + r() * 5;
+      if (!groundClear(p, R * 0.8, false) || centres.some(function (c) { return Math.hypot(c.x - p.x, c.z - p.z) < c.R + R + 3; })) continue;
+      p.R = R; centres.push(p);
+    }
+    centres.forEach(function (c) {
+      var n = Math.round(c.R * c.R * (self.lite ? 3.5 : 8)), stretch = 1 + r() * 0.6, rot = r() * 6.28;
+      for (var k = 0; k < n; k++) {
+        var aa = r() * Math.PI * 2, dd = Math.sqrt(r()) * c.R, lx = Math.cos(aa) * dd * stretch, lz = Math.sin(aa) * dd;
+        var x = c.x + lx * Math.cos(rot) - lz * Math.sin(rot), z = c.z + lx * Math.sin(rot) + lz * Math.cos(rot);
+        if (nearPath(x, z, 0.8) || waterAt(x, z) != null) continue;
+        var edge = dd / c.R, h = (0.8 + r() * 0.6) * (1 - edge * 0.5), y = groundY(x, z); // tallest in the middle, feathering out at the edges
+        blades.push({ x: x, z: z, y: y, h: h, a: r() * 6.28, t: (r() - 0.5) * 0.35 });
+        if (r() < 0.16) {
+          var kind = ['fireweed', 'fireweed', 'lupine', 'daisy', 'arnica'][Math.floor(r() * 5)];
+          fl[kind].push({ x: x + (r() - 0.5) * 0.2, z: z + (r() - 0.5) * 0.2, y: y, h: h * (kind === 'fireweed' ? 1.25 : kind === 'lupine' ? 1.0 : 0.85) });
+        }
+        if (r() < 0.12) seeds.push({ x: x, z: z, y: y, h: h * 1.05 });
+      }
+    });
+    var m4 = new T.Matrix4(), q4 = new T.Quaternion(), e = new T.Euler(), v3 = new T.Vector3(), s3 = new T.Vector3();
+    var grassG = new T.Group(), flowerG = new T.Group(), seedG = new T.Group();
+    // the blades: tall thin leaves, leaning every which way, parting where you walk
+    // (no depth written: the ink pass leaves it unlined, so a sweep of grass reads as one soft mass;
+    // drawn after everything else so it still tucks in front of and behind things properly)
+    var tgm = this.tallGrassM = new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: MEADOW_COL.summer, vertexColors: true, side: T.DoubleSide, depthWrite: false });
+    tgm.userData.name = 'tallgrass';
+    var gm = this.windMat(tgm, 0.3, 0.6, 'tallgrass');
+    var im = new T.InstancedMesh(this.grassClumpGeo(), gm, blades.length);
+    blades.forEach(function (b, i) { q4.setFromEuler(e.set(b.t * 0.4, b.a, b.t * 0.3)); im.setMatrixAt(i, m4.compose(v3.set(b.x, b.y + b.h / 2, b.z), q4, s3.set(b.h * 2.1, b.h, b.h * 2.1))); });
+    im.receiveShadow = true; im.renderOrder = 4; grassG.add(im);
+    // the flowers: a stem, and a head (a spire of blossom, or a flat daisy face)
+    var FL = {
+      fireweed: { col: '#d6337f', head: 'spire', s: [0.09, 0.34, 0.09] },
+      lupine: { col: '#6a6fd6', head: 'spire', s: [0.09, 0.26, 0.09] },
+      daisy: { col: '#f6f2e8', head: 'cyl', s: [0.075, 0.02, 0.075] },
+      arnica: { col: '#f2c21a', head: 'cyl', s: [0.07, 0.025, 0.07] }
+    };
+    var stems = [];
+    Object.keys(fl).forEach(function (k) {
+      var list = fl[k], F = FL[k]; if (!list.length) return;
+      var hm = self.windMat(new T.MeshToonMaterial({ gradientMap: self.toonSteps, color: F.col }), 0.05, 0.08, 'tallflower');
+      var hi = new T.InstancedMesh(F.head === 'spire' ? self.spireGeo() : self.geo.cyl, hm, list.length);
+      list.forEach(function (f, i) { hi.setMatrixAt(i, m4.compose(v3.set(f.x, f.y + f.h + (F.head === 'spire' ? F.s[1] * 0.45 : 0), f.z), q4.identity(), s3.set(F.s[0], F.s[1], F.s[2]))); stems.push(f); });
+      flowerG.add(hi);
+      if (k === 'daisy' || k === 'arnica') { // the eye of the daisy
+        var em = self.windMat(new T.MeshToonMaterial({ gradientMap: self.toonSteps, color: '#e8a21a' }), 0.05, 0.08, 'tallflower');
+        var ei = new T.InstancedMesh(self.geo.ball, em, list.length);
+        list.forEach(function (f, i) { ei.setMatrixAt(i, m4.compose(v3.set(f.x, f.y + f.h + 0.015, f.z), q4.identity(), s3.set(0.03, 0.02, 0.03))); });
+        flowerG.add(ei);
+      }
+    });
+    if (stems.length) {
+      var sm = new T.InstancedMesh(this.geo.cyl6, this.windMat(this.meadowMat(), 0.05, 0.08, 'tallstem'), stems.length);
+      stems.forEach(function (f, i) { sm.setMatrixAt(i, m4.compose(v3.set(f.x, f.y + f.h / 2, f.z), q4.identity(), s3.set(0.012, f.h, 0.012))); });
+      flowerG.add(sm);
+    }
+    // in the fall: feathery seed heads nodding over the gold
+    if (seeds.length) {
+      var dm = this.windMat(new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: '#efe2c0' }), 0.05, 0.08, 'tallflower');
+      var di = new T.InstancedMesh(this.geo.blob, dm, seeds.length);
+      seeds.forEach(function (f, i) { di.setMatrixAt(i, m4.compose(v3.set(f.x, f.y + f.h, f.z), q4.identity(), s3.set(0.05, 0.11, 0.05))); });
+      seedG.add(di);
+    }
+    [grassG, flowerG, seedG].forEach(function (g) { self.base.add(g); });
+    this.tallGrass = { grass: grassG, flowers: flowerG, seeds: seedG, centres: centres };
+    if (this.meadowM) this.meadowM.userData.key = null; // (pick the season's look on the next frame)
+  };
   // Long grass: fresh green in spring, deep in summer, straw-gold in the fall, pale under winter's frost.
   var MEADOW_COL = { spring: '#8fc95a', summer: '#79b347', fall: '#d6bd6c', winter: '#d9d3bd' };
   Town.prototype.meadowMat = function () {
-    if (!this.meadowM) { this.meadowM = new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: MEADOW_COL.summer }); this.meadowM.userData.name = 'meadow'; }
+    if (!this.meadowM) { this.meadowM = new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: MEADOW_COL.summer, side: T.DoubleSide }); this.meadowM.userData.name = 'meadow'; }
     return this.meadowM;
   };
   Town.prototype.stepMeadow = function () {
@@ -19604,6 +19826,8 @@
     var key = this.season + (this.dark ? 'n' : '');
     if (m.userData.key === key) return;
     m.userData.key = key; m.color.set(MEADOW_COL[this.season] || MEADOW_COL.summer); if (this.dark) m.color.multiplyScalar(0.55);
+    if (this.tallGrassM) { this.tallGrassM.color.set(MEADOW_COL[this.season] || MEADOW_COL.summer); if (this.dark) this.tallGrassM.color.multiplyScalar(0.55); }
+    if (this.tallGrass) { this.tallGrass.grass.visible = this.season !== 'winter'; this.tallGrass.flowers.visible = this.season === 'spring' || this.season === 'summer'; this.tallGrass.seeds.visible = this.season === 'fall'; }
   };
   // ---- the forest and tufts lean in the wind too ----
   Town.prototype.windifyScenery = function () {
@@ -19622,6 +19846,7 @@
       var ud = o.material.userData || {}, nm = ud.name;
       if (nm !== 'leaf' && nm !== 'birchleaf') return;
       var key = nm + (ud.idx == null ? '' : ud.idx);
+      if (o.geometry.userData && o.geometry.userData.cards) { o.material = self.cardMat(o.material); o.customDepthMaterial = self.cardDepth(); return; }
       o.material = cache[key] || (cache[key] = self.windMat(o.material, 0.13, 0, 'crown'));
     });
   };
@@ -20859,7 +21084,7 @@
     if (pl && (pl.inRoom || pl.inDen || pl.mine)) want = 0;
     M.a += (want - M.a) * Math.min(1, dt * 0.5);
     M.im.visible = M.a > 0.02; if (!M.im.visible) return;
-    M.im.material.opacity = M.a * 0.75;
+    M.im.material.opacity = M.a * 0.3;
     M.im.material.color.set(ph === 'night' ? '#8a96b8' : ph === 'golden' ? '#fff0d8' : ph === 'dusk' ? '#e8d0dc' : '#eef3f6');
     var t = this.reduced ? 0 : now / 1000, m4 = M.m4, q = new T.Quaternion(), sc = new T.Vector3(), p = new T.Vector3(), up = new T.Vector3(0, 1, 0);
     M.spots.forEach(function (sp, i) {
