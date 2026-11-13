@@ -342,6 +342,11 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     </div>
   </details>
 
+  <section class="card secret-card" id="ask" role="dialog" aria-label="A question" hidden>
+    <h2 id="ask-h">?</h2>
+    <p id="ask-p"></p>
+    <form id="ask-form" class="acts"><input id="ask-in" type="text" autocomplete="off" style="flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--line);font:inherit"><button class="btn primary" type="submit">Say it</button><button class="btn" type="button" id="ask-x">Never mind</button></form>
+  </section>
   <section class="inkmap" id="inkmap" role="dialog" aria-label="The inked map" hidden>
     <canvas id="inkmap-cv" width="1000" height="760"></canvas>
     <button class="btn" id="inkmap-close" type="button">Close</button>
@@ -427,7 +432,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v183';
+var BUILD = 'v184';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -788,6 +793,11 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     if (e.key === 'n' || e.key === 'N') { if ($('inkmap').hidden) openInkMap(); else $('inkmap').hidden = true; }
     if (e.key === 'Escape' && !$('inkmap').hidden) $('inkmap').hidden = true;
   });
+  // A small question box (the odd book in the library asks for a word).
+  var askCb = null;
+  town.onAsk = function (h, p, cb) { $('ask-h').textContent = h; $('ask-p').textContent = p; $('ask-in').value = ''; askCb = cb; $('ask').hidden = false; setTimeout(function () { $('ask-in').focus(); }, 30); };
+  $('ask-form').addEventListener('submit', function (e) { e.preventDefault(); $('ask').hidden = true; var cb = askCb; askCb = null; if (cb) cb($('ask-in').value); });
+  $('ask-x').addEventListener('click', function () { $('ask').hidden = true; askCb = null; });
   town.onStore = function (st) { lsSet('fittertown:store', JSON.stringify(st)); };
   if (town.dressPlayer) town.dressPlayer();
   // A bite: a timing bar. Stop the marker in the green to land it; in the gold for something good.
@@ -1298,6 +1308,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     if (!e.key || e.key.length !== 1 || /input|textarea/i.test((e.target && e.target.tagName) || '')) return;
     typed = (typed + e.key.toLowerCase()).slice(-6);
     if (typed === 'mellon' && town) { mellonOpen = true; town.unlockSecret('mellon'); renderLedger(); }
+    if (typed === 'secret' && town && town.player && town.player.inRoom === 'library') town.openSociety();
   });
   $('scene').addEventListener('click', function (e) {
     var k = town && town.pick(e.clientX, e.clientY);
