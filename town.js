@@ -1501,6 +1501,7 @@
         N.needsUpdate = true; return g;
       })(),
       ball: new T.SphereGeometry(1, 12, 8),
+      ballLo: new T.SphereGeometry(1, 6, 4),
       torus: new T.TorusGeometry(1, 0.18, 6, 12),
       ring: new T.RingGeometry(6.0, 7.1, 48).rotateX(-Math.PI / 2),
       flag: (function () {
@@ -6784,7 +6785,16 @@
     g.rotation.y = facingSquare(CINEMA); // the doors face the town square
     this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
-    var glow = this.mat('lantern'), screen = this.screenMat || (this.screenMat = new T.MeshLambertMaterial({ color: '#f4f1e6' })); // (lit by the sky like everything else, so it doesn't glow at night)
+    var glow = this.mat('lantern'), screen = this.screenMat || (this.screenMat = new T.MeshLambertMaterial({ color: '#ffffff', map: (function () { // a cotton sheet: cream weave, a hem, a few soft folds (lit like everything else, so no glow at night)
+      var cv = document.createElement('canvas'); cv.width = 128; cv.height = 72; var x = cv.getContext('2d');
+      x.fillStyle = '#efe5cc'; x.fillRect(0, 0, 128, 72);
+      for (var i = 0; i < 128; i += 2) { x.fillStyle = 'rgba(120,90,50,' + (0.03 + (i % 4 ? 0 : 0.02)) + ')'; x.fillRect(i, 0, 1, 72); }
+      for (var j = 0; j < 72; j += 2) { x.fillStyle = 'rgba(120,90,50,0.03)'; x.fillRect(0, j, 128, 1); }
+      [22, 51, 83, 107].forEach(function (fx, k) { var g = x.createLinearGradient(fx - 6, 0, fx + 6, 0); g.addColorStop(0, 'rgba(90,70,40,0)'); g.addColorStop(0.5, 'rgba(90,70,40,' + (0.08 + k % 2 * 0.05) + ')'); g.addColorStop(1, 'rgba(90,70,40,0)'); x.fillStyle = g; x.fillRect(fx - 6, 0, 12, 72); });
+      x.strokeStyle = 'rgba(110,80,45,0.45)'; x.lineWidth = 3; x.strokeRect(1.5, 1.5, 125, 69);
+      x.fillStyle = 'rgba(110,80,45,0.6)'; [[3, 3], [124, 3], [3, 68], [124, 68]].forEach(function (q) { x.beginPath(); x.arc(q[0], q[1], 2.2, 0, Math.PI * 2); x.fill(); });
+      return new T.CanvasTexture(cv);
+    })() }));
     if (n < 25) {
       // Movie night: a white sheet between two poles, a projector on a crate, benches and string lights;
       // more benches, a blanket, deck chairs and a snack crate as the films add up.
@@ -12567,7 +12577,7 @@
     var st = this.treeStyle;
     if (st === 'painted') return this.cardCanopy(v, tall);
     var r = rng(9100 + (v % 6) * 31 + (tall ? 7 : 0)), parts = [], m4 = new T.Matrix4();
-    var ball = st === 'faceted' ? new T.IcosahedronGeometry(1, 0) : new T.SphereGeometry(1, st === 'storybook' ? 8 : 10, st === 'storybook' ? 6 : 7);
+    var ball = st === 'faceted' ? new T.IcosahedronGeometry(1, 0) : new T.SphereGeometry(1, st === 'storybook' ? 7 : 8, st === 'storybook' ? 5 : 6);
     function add(x, y, z, sc, sy) { var g = ball.clone(); m4.makeScale(sc, sc * (sy || 0.86), sc); m4.makeRotationY(r() * 6.28).premultiply(new T.Matrix4().makeScale(sc, sc * (sy || 0.86), sc)); m4.setPosition(x, y, z); g.applyMatrix4(m4); parts.push(g); }
     var i, a, h;
     if (st === 'storybook') {
@@ -12599,8 +12609,8 @@
   // A small bush: five low puffs, light enough to draw thousands of.
   Town.prototype.bushGeo = function () {
     if (this.bushG) return this.bushG;
-    var ball = new T.SphereGeometry(1, 7, 5), m4 = new T.Matrix4(), pos = [], nor = [], idx = [], off = 0;
-    [[0, 0.05, 0, 0.7], [0.5, -0.15, 0.2, 0.5], [-0.45, -0.12, 0.25, 0.48], [0.1, -0.15, -0.5, 0.5], [0.05, 0.45, 0.05, 0.42]].forEach(function (c) {
+    var ball = new T.SphereGeometry(1, 6, 4), m4 = new T.Matrix4(), pos = [], nor = [], idx = [], off = 0;
+    [[0, 0.08, 0, 0.72], [0.5, -0.12, 0.25, 0.52], [-0.42, -0.1, -0.3, 0.5]].forEach(function (c) {
       var g = ball.clone(); m4.makeScale(c[3], c[3] * 0.85, c[3]); m4.setPosition(c[0], c[1], c[2]); g.applyMatrix4(m4);
       var P = g.attributes.position.array, N = g.attributes.normal.array, I = g.index.array;
       for (var a = 0; a < P.length; a++) { pos.push(P[a]); nor.push(N[a]); }
@@ -12617,7 +12627,7 @@
     var C = this.canopyC || (this.canopyC = {}), key = (tall ? 't' : 'r') + (v % 6);
     if (C[key]) return C[key];
     if (this.treeStyle !== 'puff') return (C[key] = this.canopyStyled(v, tall));
-    var ball = new T.SphereGeometry(1, 12, 9), r = rng(9100 + (v % 6) * 31 + (tall ? 7 : 0)), parts = [], m4 = new T.Matrix4();
+    var ball = new T.SphereGeometry(1, 9, 6), r = rng(9100 + (v % 6) * 31 + (tall ? 7 : 0)), parts = [], m4 = new T.Matrix4();
     function add(x, y, z, sc, sy) { var g = ball.clone(); m4.makeScale(sc, sc * (sy || 0.86), sc); m4.setPosition(x, y, z); g.applyMatrix4(m4); parts.push(g); }
     if (tall) {
       add(0, -0.05, 0, 0.5, 1.15);
@@ -19656,7 +19666,7 @@
         var aa = r() * Math.PI * 2, dd = Math.sqrt(r()) * R, x = c.x + Math.cos(aa) * dd * 1.3, z = c.z + Math.sin(aa) * dd;
         if (nearPath(x, z, 0.9) || waterAt(x, z) != null) continue;
         if (r() < 0.08) flowers[Math.floor(r() * 5)].push({ x: x, z: z, y: groundY(x, z), s: 0.9 + r() * 0.5, tall: true });
-        else blades.push({ x: x, z: z, y: groundY(x, z), s: 0.8 + r() * 0.6, a: r() * 6, t: r() * 0.1 });
+        else if (r() < 0.34) blades.push({ x: x, z: z, y: groundY(x, z), s: 0.8 + r() * 0.6, a: r() * 6, t: r() * 0.1 });
       }
     });
     // Wildflowers and tufts along the roads out to the towns, thinning as they go.
@@ -19692,7 +19702,7 @@
     var stems = [], cols = [0, 1, 4, 3, 2];
     flowers.forEach(function (list, ci) {
       if (!list.length) return;
-      var fm = new T.InstancedMesh(self.geo.ball, self.windMat(self.mat('flag', cols[ci]), 0.04, 0.04, 'flower' + ci), list.length);
+      var fm = new T.InstancedMesh(self.geo.ballLo, self.windMat(self.mat('flag', cols[ci]), 0.04, 0.04, 'flower' + ci), list.length);
       list.forEach(function (f, i) { var hy = f.tall ? 0.42 : 0.16; fm.setMatrixAt(i, m4.compose(v3.set(f.x, f.y + hy * f.s, f.z), q4.identity(), s3.set(0.045 * f.s, 0.04 * f.s, 0.045 * f.s))); stems.push({ x: f.x, y: f.y, z: f.z, h: hy * f.s }); });
       self.base.add(fm);
     });
@@ -19714,14 +19724,14 @@
     for (var b = 0; b < 8; b++) {
       var a = b / 8 * Math.PI * 2 + r() * 0.6, lean = 0.12 + r() * 0.28, w = 0.035 + r() * 0.02, hh = 0.75 + r() * 0.25, bx = Math.cos(a) * 0.05, bz = Math.sin(a) * 0.05;
       var dx = Math.cos(a), dz = Math.sin(a), px = -dz, pz = dx; // the blade faces sideways to its lean
-      for (var j = 0; j <= 4; j++) {
-        var t = j / 4, y = -0.5 + t * hh, bend = lean * t * t, ww = w * (1 - t * 0.92), cx = bx + dx * bend, cz = bz + dz * bend;
+      for (var j = 0; j <= 3; j++) {
+        var t = j / 3, y = -0.5 + t * hh, bend = lean * t * t, ww = w * (1 - t * 0.92), cx = bx + dx * bend, cz = bz + dz * bend;
         pos.push(cx - px * ww, y, cz - pz * ww, cx + px * ww, y, cz + pz * ww);
         var sh = 0.55 + t * 0.6; col.push(sh, sh, sh * 0.95, sh, sh, sh * 0.95);
         nor.push(dx * 0.3, 0.95, dz * 0.3, dx * 0.3, 0.95, dz * 0.3);
-        if (j < 4) { var q = off + j * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+        if (j < 3) { var q = off + j * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
       }
-      off += 10;
+      off += 8;
     }
     var g = new T.BufferGeometry();
     g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(col, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
