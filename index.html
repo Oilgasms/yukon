@@ -226,6 +226,31 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .fishgame.win .fg-bar { border-color: #3f8a3a; }
 .fishgame.lose .fg-bar { border-color: #b8483a; }
 @media (max-width: 640px) { .tl-top { flex-wrap: wrap; row-gap: 6px; } }
+/* Skills: a grid of levels, experience drops floating up, a banner on level-ups */
+.skills { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 8; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; padding: 14px 16px 12px; }
+.skills[hidden] { display: none; }
+.skills h2 { font-family: var(--display); font-size: 24px; margin: 2px 0 2px; }
+.skills .sub { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+.sk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 520px) { .sk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sk { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 2px 8px; padding: 6px 8px; border-radius: 6px; background: var(--card-2); border: 2px solid rgba(60,40,20,0.15); cursor: default; }
+.sk .ic { font-size: 22px; line-height: 1; grid-row: span 2; text-align: center; }
+.sk .nm { font-weight: 700; font-size: 13px; }
+.sk .lv { font-family: var(--display); font-weight: 700; font-size: 18px; grid-row: span 2; }
+.sk .bar { height: 6px; border-radius: 3px; background: rgba(60,40,20,0.15); overflow: hidden; }
+.sk .bar i { display: block; height: 100%; border-radius: 3px; }
+.sk.maxed { border-color: #b8860b; background: linear-gradient(180deg, #fff3c4, var(--card-2)); }
+.sk-detail { font-size: 12.5px; color: var(--muted); min-height: 2.6em; margin: 10px 2px 8px; line-height: 1.35; }
+.sk-total { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-weight: 700; }
+.xpdrops { position: fixed; right: calc(20px + env(safe-area-inset-right, 0px)); top: 34%; z-index: 9; pointer-events: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.xpdrop { font-family: var(--display); font-weight: 700; font-size: 17px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,0.55), 0 0 6px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 6px; animation: xp-rise 2.4s ease-out forwards; }
+.xpdrop .ic { font-size: 18px; }
+@keyframes xp-rise { 0% { transform: translateY(18px); opacity: 0; } 12% { transform: translateY(0); opacity: 1; } 75% { opacity: 1; } 100% { transform: translateY(-70px); opacity: 0; } }
+.lvlup { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); z-index: 9; pointer-events: none; text-align: center; padding: 12px 22px; border-color: #b8860b; background: linear-gradient(180deg, #fff3c4, var(--card)); animation: lv-in 4s ease forwards; }
+.lvlup .big { font-family: var(--display); font-size: 28px; font-weight: 700; color: #8a5a00; }
+.lvlup .ic { font-size: 36px; display: block; }
+@keyframes lv-in { 0% { transform: translate(-50%, -20px) scale(0.7); opacity: 0; } 10% { transform: translate(-50%, 0) scale(1.06); opacity: 1; } 16% { transform: translate(-50%, 0) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .xpdrop, .lvlup { animation-duration: 0.01s; animation-iteration-count: 1; } }
 /* Secret unlocked card */
 .secret-card {
   position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
@@ -337,7 +362,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <br><br>      <b>Lifts</b> build <b>Whitehorse</b>: each muscle group is a street running out from the plaza (Main Street for full-body days, then Lambert Street with the log skyscrapers and the Old Log Church, Front Street with the waterfront trolley, Government Square, Airport Hill with the DC-3 weathervane, Takhini and Marwell), a building every three sessions. A street can only get so far ahead of the rest of town; extra sessions add street life (lamps, benches, planters, fire hydrants). As sessions add up the city gains the Yukon flag, the Welcome to Whitehorse sign, fireweed, bunting, the airport (with Alkan Air’s King Air 350 flying circuits over town), the S.S. Klondike, the Alaska Highway milepost, ravens, the Yukon Arts Centre, the Miles Canyon footbridge and lights along every street, plus the Yukon Quest and Sourdough Rendezvous each February. Once a street is fully built, that group’s sessions build the towns up the line (each street on its own, so one slow street never holds the others back): Dawson City, then Atlin, Haines Junction, Skagway and Haines, each growing from a few cabins along a dirt street into the real thing, landmarks and all, then spreading out into homesteads (hover a town to see what’s next). Pennants fly for PRs: on each street’s flagpole, and across each town’s street.
       <b>Runs</b> plant a tree each, plus one more for every 5 km, in groves by kind (trail runs spruce, short runs birch, 5–10 km road runs maples, 10 km+ giant oaks, half marathons sequoias; longer runs grow bigger trees), <b>bike rides</b> plough farmland and sow a crop per 5 km (rides of 30 km+ launch <b>balloons</b>, and every Strava ride over 100 km adds a <b>sheep</b> to the pasture), <b>commutes</b> lay the cobbled lane through the forest and over the river to the office (commute every weekday and Friday's cobble is gold), and <b>hikes</b> raise the mountain range, with a <b>cairn</b> on every peak you finish. Runs, rides and commutes come from Strava.
       <b>Snowboard days</b> first build the chairlift, then cut green, blue and black runs on the snowboard mountain.
-      <b>Hockey</b> floods the rink kept clear behind the castle (ice in winter). <b>Sports</b> build fields (and once a field has all 22 pennants, it slowly becomes a stadium), <b>pilates and stretching</b> plant the flower garden, <b>friends</b> get houses that keep growing, each with a road that grows out to it (couples share one), <b>Jo</b> gets an English cottage on the village green that keeps getting bigger (a porch, a two-storey wing, a side wing and rooms over it) while her garden fills with beds, a pond, an apple tree and more, <b>Minto, Blue and Millie</b> live in the dog pen, and <b>weigh-ins</b> build the weight wall at the end of the gate road (one pillar per week, so the tops trace your weight), and <b>drinks</b> stack barrels at the Slow Pour, then grow it into a cosy coaching inn. <b>Bible chapters</b> (from your reading log) build the church on Church Hill past the end of the south street: each finished book lights a stained-glass window. <b>Books you read</b> (from your Whitehorse Book Tracker) build the library on the town square: pages raise it, each book lights a window, books you rate 4.5 or higher plant roses in its courtyard. Click the library (or Bookshelf, top left) for your shelf of covers, ratings and reviews, and how tall your books would stand stacked up. <b>Films</b> (from your Letterboxd diary) grow the picture house across the square, from an outdoor movie night to a cinema with marquee lights; click it for your film list. A great horned owl comes at 10,000 pages, and something sleeps in a cave out past the river at 50,000. <b>Rowing and paddling</b> build the harbour on the coast; <b>swims</b> build a swimming dock, sauna and lido on the lake; <b>cross-country ski days</b> build a cozy log ski cabin and a little trail winding round the lake, with spruces, lanterns, a fire pit and more along it; <b>mountain bike rides</b> sow the farmland like any ride and also grow a little bike shop cottage behind the mountains, with a dirt lane out to it (through a tunnel) that gets longer with every ride; every full year of logging adds to the island in the bay; the finished castle and every finished town open stations on a White Pass &amp; Yukon Route style railway round the edge of the map, through three tunnels and over timber trestles, swinging out round the lighthouse. <b>Wildlife</b> moves in as you hit different goals: ravens follow your commutes, hares your runs, a moose your hikes, butterflies your mobility, fireflies a three-week streak, a grizzly your lifting, an Ent your first half marathon, and more. The ledger shows the closest one; hover over an animal to see what brought it. At night the chimneys smoke and the lighthouse sweeps the sea, holidays decorate the town, and the weather follows Whitehorse.
+      <b>Hockey</b> floods the rink kept clear behind the castle (ice in winter). <b>Sports</b> build fields (and once a field has all 22 pennants, it slowly becomes a stadium), <b>pilates and stretching</b> plant the flower garden, <b>friends</b> get houses that keep growing, each with a road that grows out to it (couples share one), <b>Jo</b> gets an English cottage on the village green that keeps getting bigger (a porch, a two-storey wing, a side wing and rooms over it) while her garden fills with beds, a pond, an apple tree and more, <b>Minto, Blue and Millie</b> live in the dog pen, and <b>weigh-ins</b> tip the King’s Scales by the statue, and <b>drinks</b> stack barrels at the Slow Pour, then grow it into a cosy coaching inn. <b>Bible chapters</b> (from your reading log) build the church on Church Hill past the end of the south street: each finished book lights a stained-glass window. <b>Books you read</b> (from your Whitehorse Book Tracker) build the library on the town square: pages raise it, each book lights a window, books you rate 4.5 or higher plant roses in its courtyard. Click the library (or Bookshelf, top left) for your shelf of covers, ratings and reviews, and how tall your books would stand stacked up. <b>Films</b> (from your Letterboxd diary) grow the picture house across the square, from an outdoor movie night to a cinema with marquee lights; click it for your film list. A great horned owl comes at 10,000 pages, and something sleeps in a cave out past the river at 50,000. <b>Rowing and paddling</b> build the harbour on the coast; <b>swims</b> build a swimming dock, sauna and lido on the lake; <b>cross-country ski days</b> build a cozy log ski cabin and a little trail winding round the lake, with spruces, lanterns, a fire pit and more along it; <b>mountain bike rides</b> sow the farmland like any ride and also grow a little bike shop cottage behind the mountains, with a dirt lane out to it (through a tunnel) that gets longer with every ride; every full year of logging adds to the island in the bay; the finished castle and every finished town open stations on a White Pass &amp; Yukon Route style railway round the edge of the map, through three tunnels and over timber trestles, swinging out round the lighthouse. <b>Wildlife</b> moves in as you hit different goals: ravens follow your commutes, hares your runs, a moose your hikes, butterflies your mobility, fireflies a three-week streak, a grizzly your lifting, an Ent your first half marathon, and more. The ledger shows the closest one; hover over an animal to see what brought it. At night the chimneys smoke and the lighthouse sweeps the sea, holidays decorate the town, and the weather follows Whitehorse.
       <br><br><b>Move around:</b> drag to slide across the map, right-drag to turn, scroll or pinch to zoom. WASD or the arrow keys move, Q and E turn.
     </div>
   </details>
@@ -347,6 +372,15 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
     <p id="ask-p"></p>
     <form id="ask-form" class="acts"><input id="ask-in" type="text" autocomplete="off" style="flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--line);font:inherit"><button class="btn primary" type="submit">Say it</button><button class="btn" type="button" id="ask-x">Never mind</button></form>
   </section>
+  <section class="card skills" id="skills" role="dialog" aria-label="Skills" hidden>
+    <div class="eyebrow">The raccoon's</div>
+    <h2>Skills</h2>
+    <p class="sub">Every workout you log earns experience. Levels run from 1 to 99; 99 takes years and earns a mastery cloak.</p>
+    <div class="sk-grid" id="sk-grid"></div>
+    <div class="sk-detail" id="sk-detail">Tap a skill to see how it's trained.</div>
+    <div class="sk-total"><span id="sk-total">Total level</span><button class="btn" type="button" id="skills-close">Close</button></div>
+  </section>
+  <div class="xpdrops" id="xpdrops" aria-live="polite"></div>
   <section class="inkmap" id="inkmap" role="dialog" aria-label="The inked map" hidden>
     <canvas id="inkmap-cv" width="1000" height="760"></canvas>
     <button class="btn" id="inkmap-close" type="button">Close</button>
@@ -377,6 +411,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn" id="explore" type="button" aria-pressed="true">Map view</button>
       <button class="btn" id="recenter" type="button">Recenter</button>
       <button class="btn" id="postcard" type="button" title="Jump to a postcard view of each town in turn">Postcard</button>
+      <button class="btn" id="skills-btn" type="button" title="Your skills and levels (K)">Skills</button>
       <button class="btn" id="inkmap-btn" type="button" title="The inked map of everywhere you've walked (N)">Inked map</button>
       <button class="btn" id="recentbtn" type="button" title="The last 25 things logged into the town">Latest</button>
       <button class="btn" id="crierbtn" type="button" title="This week's Town Crier">Paper</button>
@@ -432,7 +467,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v185';
+var BUILD = 'v186';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -787,6 +822,53 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     box.hidden = false;
   }
   $('inkmap-btn').addEventListener('click', openInkMap);
+  // ---- skills ----
+  function fmt(n) { return Math.round(n).toLocaleString(); }
+  function openSkills() {
+    if (!town.skills) return;
+    var S = town.skills(), grid = $('sk-grid'); grid.innerHTML = '';
+    S.list.forEach(function (k) {
+      var d = document.createElement('div'); d.className = 'sk' + (k.level >= 99 ? ' maxed' : ''); d.tabIndex = 0;
+      d.innerHTML = '<span class="ic"></span><span class="nm"></span><span class="lv"></span><span class="bar"><i></i></span>';
+      d.querySelector('.ic').textContent = k.icon; d.querySelector('.nm').textContent = k.name; d.querySelector('.lv').textContent = k.level;
+      var b = d.querySelector('.bar i'); b.style.width = Math.round(k.pct * 100) + '%'; b.style.background = k.col;
+      var info = function () { $('sk-detail').textContent = k.name + ' ' + k.level + ' \u00b7 ' + fmt(k.xp) + ' xp' + (k.level < 99 ? ' \u00b7 ' + fmt(k.next) + ' to level ' + (k.level + 1) : ' \u00b7 mastered!') + '. ' + k.what + '.'; };
+      d.addEventListener('mouseenter', info); d.addEventListener('focus', info); d.addEventListener('click', info);
+      grid.appendChild(d);
+    });
+    $('sk-total').textContent = 'Total level ' + S.total + ' / ' + S.max + ' \u00b7 ' + fmt(S.totalXp) + ' xp';
+    $('sk-detail').textContent = 'Tap a skill to see how it\u2019s trained.';
+    $('skills').hidden = false;
+  }
+  $('skills-btn').addEventListener('click', function () { if ($('skills').hidden) openSkills(); else $('skills').hidden = true; });
+  $('skills-close').addEventListener('click', function () { $('skills').hidden = true; });
+  document.addEventListener('keydown', function (e) {
+    if (/input|textarea|select/i.test((e.target && e.target.tagName) || '')) return;
+    if (e.key === 'k' || e.key === 'K') { if ($('skills').hidden) openSkills(); else $('skills').hidden = true; }
+    if (e.key === 'Escape') $('skills').hidden = true;
+  });
+  town.onXp = function (drops, delay) {
+    if (playing) return;
+    setTimeout(function () {
+      drops.forEach(function (d, i) {
+        setTimeout(function () {
+          var el = document.createElement('div'); el.className = 'xpdrop';
+          el.innerHTML = '<span class="ic"></span><span></span>'; el.firstChild.textContent = d.icon; el.lastChild.textContent = '+' + fmt(d.xp) + ' ' + d.name;
+          $('xpdrops').appendChild(el); setTimeout(function () { el.remove(); }, 2500);
+        }, i * 280);
+      });
+      if (!$('skills').hidden) openSkills();
+    }, delay || 0);
+  };
+  town.onLevel = function (u) {
+    if (playing) return;
+    var el = document.createElement('div'); el.className = 'card lvlup'; el.setAttribute('role', 'status');
+    el.innerHTML = '<span class="ic"></span><div class="eyebrow">Level up!</div><div class="big"></div><div class="small"></div>';
+    el.querySelector('.ic').textContent = u.icon; el.querySelector('.big').textContent = u.name + ' ' + u.level;
+    el.querySelector('.small').textContent = u.level >= 99 ? 'Mastered! The raccoon wears the cloak.' : 'You\u2019ve just reached level ' + u.level + ' ' + u.name + '.';
+    document.body.appendChild(el); setTimeout(function () { el.remove(); }, 4100);
+    if (!$('skills').hidden) openSkills();
+  };
   $('inkmap-close').addEventListener('click', function () { $('inkmap').hidden = true; });
   addEventListener('keydown', function (e) {
     if (/input|textarea|select/i.test((e.target && e.target.tagName) || '')) return;

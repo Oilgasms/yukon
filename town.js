@@ -2474,6 +2474,7 @@
     this.scene.add(this.world);
     this.picks = [];
     this.st = {
+      xp: {},
       towers: {}, walls: null, lifts: 0, castle: {},
       forest: { trees: [], runs: 0, km: 0, kinds: {} },
       bike: { km: 0, sessions: 0, balloons: [], crops: [], fields: [], barns: [], longest: 0 }, sheep: { list: [], pen: null },
@@ -7305,6 +7306,7 @@
     var C = this.st.critters;
     for (var k in C) {
       var c = C[k], g = c.g;
+      if (c.kind === 'fox') this.unAlive(c);
       // Jo the fox: walk up to her and she sticks right by your side for a good long while, hopping
       // up after you onto roofs and walls, sitting when you sit, then heads home.
       if (c.kind === 'fox' && this.explore && this.player && this.player.g.visible) {
@@ -7325,7 +7327,8 @@
           if (fd > 0.12) {
             var fs = Math.min(fd, dt * Math.min(10, 1.5 + fd * 3.5) * (c.gsp || 1)), fy0 = g.position.y;
             g.position.x += fdx / fd * fs; g.position.z += fdz / fd * fs;
-            g.rotation.y = Math.atan2(fdx, fdz);
+            var jt = Math.atan2(fdx, fdz) - g.rotation.y; while (jt > Math.PI) jt -= Math.PI * 2; while (jt < -Math.PI) jt += Math.PI * 2;
+            g.rotation.y += jt * Math.min(1, dt * 10); c.running = fs / dt > 3;
             c.phase += dt * Math.min(22, 6 + fd * 9);
             c.gsp = this.quadGait(c, c.phase, this.floorAt(g.position.x, g.position.z, Math.max(g.position.y, pp.y) + 0.6) - fy0, fs, dt, now, 0.6);
           } else {
@@ -7340,7 +7343,11 @@
           var fy = this.floorAt(g.position.x, g.position.z, Math.max(g.position.y, pp.y) + 0.6);
           if (fy > g.position.y + 0.02) g.position.y = Math.min(fy, g.position.y + dt * 7);
           else g.position.y = Math.max(fy, g.position.y - dt * 6);
-          c.tail.rotation.y = Math.sin(now / 160) * 0.5;
+          this.unAlive(c);
+          c.tail.rotation.y = fd > 0.12 ? Math.sin(c.phase * 0.5) * 0.3 : Math.sin(now / 160) * 0.5; // wag
+          // looks up at you while sitting by your side
+          var lk = 0; if (fd <= 0.12) { var la = Math.atan2(pp.x - g.position.x, pp.z - g.position.z) - g.rotation.y; while (la > Math.PI) la -= Math.PI * 2; while (la < -Math.PI) la += Math.PI * 2; lk = Math.max(-0.8, Math.min(0.8, la)) * (Math.sin(now / 2300) > -0.3 ? 1 : 0); }
+          this.alive(c, dt, now, fd > 0.12, { look: lk || 0.0001 });
           this.needsRender = true;
           continue;
         }
@@ -7350,6 +7357,7 @@
         c.wait -= dt;
         c.legs.forEach(function (l) { l.rotation.x *= 0.8; });
         c.tail.rotation.y = Math.sin(now / 300) * 0.3;
+        if (c.kind === 'fox') this.alive(c, dt, now, false);
         continue;
       }
       if (d < 0.05) {
@@ -7364,10 +7372,12 @@
       var step = Math.min(d, dt * c.speed * (c.away || Math.hypot(g.position.x - c.cx, g.position.z - c.cz) > c.rOut + 1 ? 1.7 : 1) * (c.gsp || 1)), wy0 = g.position.y;
       g.position.x += dx / d * step; g.position.z += dz / d * step;
       g.position.y = groundY(g.position.x, g.position.z);
-      g.rotation.y = Math.atan2(dx, dz);
+      if (c.kind === 'fox') { var jt2 = Math.atan2(dx, dz) - g.rotation.y; while (jt2 > Math.PI) jt2 -= Math.PI * 2; while (jt2 < -Math.PI) jt2 += Math.PI * 2; g.rotation.y += jt2 * Math.min(1, dt * 8); }
+      else g.rotation.y = Math.atan2(dx, dz);
       c.phase += dt * c.speed * 9;
       c.gsp = this.quadGait(c, c.phase, g.position.y - wy0, step, dt, now, 0.6);
       c.tail.rotation.y = Math.sin(c.phase * 0.5) * 0.25;
+      if (c.kind === 'fox') this.alive(c, dt, now, true);
     }
   };
 
@@ -8281,6 +8291,16 @@
       var tail = P(sc, this.geo.box, this.mat('flag', 0), 0.07, 0.05, 0.18, 0.1, -0.02, -0.12); tail.rotation.x = 0.4;
       P(sc, this.geo.box, this.mat('swan', 0), 0.071, 0.051, 0.04, 0.1, -0.05, -0.19);
     }
+    // A mastery cloak for any skill at 99, in that skill's colour, with a gold trim.
+    var maxed = this.skills().list.filter(function (k) { return k.level >= 99; });
+    if (maxed.length) {
+      var ck = new T.Group(); ck.position.set(0, 0.13, 0.05); pl.body.add(ck); pl.cosG.push(ck);
+      var cm = new T.MeshLambertMaterial({ color: maxed[0].col });
+      var cl = P(ck, this.geo.box, cm, 0.3, 0.03, 0.5, 0, 0, -0.18); cl.rotation.x = -0.12;
+      P(ck, this.geo.box, this.mat('gold'), 0.31, 0.035, 0.04, 0, -0.005, -0.43);
+      P(ck, this.geo.box, this.mat('gold'), 0.12, 0.04, 0.06, 0, 0.01, 0.07);
+      pl.cloak = cl;
+    } else pl.cloak = null;
     var hat = S.hat, h = new T.Group(); h.position.set(0, 0.11, -0.01); pl.head.add(h); pl.cosG.push(h);
     this.buildHat(h, hat);
     if (pl.crownG) pl.crownG.visible = !hat;
@@ -16370,6 +16390,88 @@
     });
   };
 
+  // ---- skills: every workout earns experience in one or more skills, levels 1 to 99 ----
+  // The curve steepens as you go: the first levels come in a week, the thirties in a season, and
+  // 99 takes years of showing up (about 80,000 xp; a 10 km run is 120).
+  var SKILLS = [
+    { id: 'strength', name: 'Strength', icon: '\u{1F4AA}', col: '#c8442a', what: 'Lifting sessions, more for PRs' },
+    { id: 'running', name: 'Running', icon: '\u{1F3C3}', col: '#e07a2a', what: '12 xp a kilometre run' },
+    { id: 'endurance', name: 'Endurance', icon: '\u{1F525}', col: '#d4a017', what: 'The long ones: runs of 10 km or more, long rides, big hikes' },
+    { id: 'hiking', name: 'Hiking', icon: '\u{26F0}\u{FE0F}', col: '#6b8e4e', what: 'Hikes by distance and climb, and stair sessions' },
+    { id: 'cycling', name: 'Cycling', icon: '\u{1F6B4}', col: '#3a7ca5', what: 'Rides, mountain biking and bike commutes' },
+    { id: 'swimming', name: 'Swimming', icon: '\u{1F3CA}', col: '#2a9db0', what: 'Swims and rowing' },
+    { id: 'agility', name: 'Agility', icon: '\u{26BD}', col: '#8a5cc2', what: 'Futsal and other sports, snowboarding, skiing, mobility' },
+    { id: 'discipline', name: 'Discipline', icon: '\u{1F4C5}', col: '#5a6a7a', what: 'Every workout logged, every weigh-in' },
+    { id: 'fellowship', name: 'Fellowship', icon: '\u{1F91D}', col: '#d0607a', what: 'Workouts with friends (and Jo), and nights out' },
+    { id: 'devotion', name: 'Devotion', icon: '\u{271D}\u{FE0F}', col: '#b08a3a', what: 'Bible chapters read' },
+    { id: 'lore', name: 'Lore', icon: '\u{1F4D6}', col: '#7a5230', what: 'Pages read' }
+  ];
+  function xpForLevel(L) { return L <= 1 ? 0 : Math.round(3.3 * Math.pow(L - 1, 2.2)); }
+  function levelForXp(x) { var L = 1; while (L < 99 && x >= xpForLevel(L + 1)) L++; return L; }
+  Town.prototype.xpFor = function (ev) {
+    var g = {}, km = ev.km || 0, add = function (k, v) { if (v > 0) g[k] = (g[k] || 0) + Math.round(v); };
+    switch (ev.kind) {
+      case 'lift': add('strength', 100 + 40 * (ev.prCount || 0)); break;
+      case 'run': add('running', km * 12); if (km >= 10) add('endurance', 60 + km * 6); break;
+      case 'bike': case 'mtb': add('cycling', (km || 15) * 3); if (km >= 40) add('endurance', km * 2); break;
+      case 'commute': add('cycling', km * 3); break;
+      case 'hike': add('hiking', 60 + km * 10 + (ev.elev || 0) / 15); if (km >= 12 || (ev.elev || 0) >= 800) add('endurance', 80 + km * 4); break;
+      case 'stairs': add('hiking', 50); break;
+      case 'swim': add('swimming', 70 + km * 60); break;
+      case 'row': add('swimming', 40 + km * 10); break;
+      case 'sport': case 'snowboard': case 'xcski': case 'mobility': add('agility', 100); break;
+      case 'walk': add('hiking', km * 4); break;
+      case 'social': add('fellowship', 40); break;
+      case 'bible': add('devotion', 25 * (ev.count || 1)); break;
+      case 'book': add('lore', (ev.pages || 0) / 3 || 60); break;
+      case 'weight': add('discipline', 25); break;
+    }
+    if (ev.kind !== 'drink' && ev.kind !== 'weight' && ev.kind !== 'social' && ev.kind !== 'bible' && ev.kind !== 'book' && ev.kind !== 'movie' && ev.kind !== 'walk') add('discipline', 40);
+    if ((ev.friends || []).length) add('fellowship', 60 * ev.friends.length);
+    return g;
+  };
+  Town.prototype.gainXp = function (ev, delay) {
+    if (!ev || ev.projected || ev.planned) return;
+    var X = this.st.xp || (this.st.xp = {}), g = this.xpFor(ev), self = this, ups = [];
+    Object.keys(g).forEach(function (k) {
+      var before = levelForXp(X[k] || 0); X[k] = (X[k] || 0) + g[k]; var after = levelForXp(X[k]);
+      if (after > before) ups.push({ id: k, level: after });
+    });
+    if (this.instant) return;
+    var drops = Object.keys(g).map(function (k) { var d = SKILLS.filter(function (S) { return S.id === k; })[0]; return { id: k, name: d.name, icon: d.icon, col: d.col, xp: g[k] }; });
+    if (drops.length && this.onXp) this.onXp(drops, delay || 0);
+    if (ups.length) setTimeout(function () { self.levelUp(ups); }, (delay || 0) + 900);
+  };
+  Town.prototype.levelUp = function (ups) {
+    var self = this, pl = this.player;
+    ups.forEach(function (u, i) {
+      var d = SKILLS.filter(function (S) { return S.id === u.id; })[0];
+      setTimeout(function () {
+        if (self.onLevel) self.onLevel({ id: u.id, name: d.name, icon: d.icon, col: d.col, level: u.level });
+        self.sfx('found');
+        if (pl && pl.g.visible) {
+          self.say(d.name + ' level ' + u.level + '!', pl.g, 1.3, 3.2);
+          self.hearts(pl.g.position);
+          pl.proud = performance.now() + 2600; // up on its hind legs, chest out
+          if (self.dark && self.fireworks && !pl.inRoom) self.fireworks(u.level >= 50 ? 30 : 12);
+        }
+        // the mice nearby notice
+        var M = (self.st.folk || []).filter(function (m) { return m.g && pl && m.g.visible && m.g.position.distanceTo(pl.g.position) < 9; }).slice(0, 2);
+        M.forEach(function (m, j) { setTimeout(function () { self.say(pickOne(['gratz!', 'well done!!', 'look at those gains', 'level ' + u.level + '! wow', 'the society takes note...', 'ooh, ' + d.name.toLowerCase() + '!']), m.g, 0.9, 2.4); }, 600 + j * 500); });
+      }, i * 1800);
+    });
+    if (ups.some(function (u) { return u.level >= 99; })) this.dressPlayer();
+  };
+  Town.prototype.skills = function () {
+    var X = this.st.xp || {}, total = 0, totalXp = 0;
+    var list = SKILLS.map(function (S) {
+      var xp = X[S.id] || 0, L = levelForXp(xp), lo = xpForLevel(L), hi = xpForLevel(L + 1);
+      total += L; totalXp += xp;
+      return { id: S.id, name: S.name, icon: S.icon, col: S.col, what: S.what, xp: xp, level: L, next: L >= 99 ? 0 : hi - xp, pct: L >= 99 ? 1 : (xp - lo) / Math.max(1, hi - lo) };
+    });
+    return { list: list, total: total, totalXp: totalXp, max: SKILLS.length * 99 };
+  };
+
   // ---- public ---------------------------------------------------------
 
   Town.prototype.climbUnits = function (ev) {
@@ -16382,6 +16484,7 @@
     delay = delay || 0;
     var s = this.st, self = this;
     var mark = function (k) { s.last[k] = ev; };
+    this.gainXp(ev, delay);
     if (ev.date && (!s.lastDate || ev.date > s.lastDate)) s.lastDate = ev.date;
     // A diary of real days, so the townsfolk know what you've been up to.
     if (ev.date && !ev.projected && !ev.planned) {
@@ -17266,7 +17369,8 @@
     pc.hip0 = pc.legs.map(function (l) { return l.position.clone(); });
     // Little eyes that shine in the dark, like a raccoon's in torchlight.
     pc.eyeMat = new T.MeshBasicMaterial({ color: '#1a1a1a' });
-    [-0.06, 0.06].forEach(function (x) { var e = new T.Mesh(this.geo.box, pc.eyeMat); e.scale.set(0.045, 0.04, 0.02); e.position.set(x, 0.03, 0.13); pc.head.add(e); }, this);
+    pc.eyes = [];
+    [-0.06, 0.06].forEach(function (x) { var e = new T.Mesh(this.geo.box, pc.eyeMat); e.scale.set(0.045, 0.04, 0.02); e.userData.sy0 = 0.04; e.position.set(x, 0.03, 0.13); pc.head.add(e); pc.eyes.push(e); }, this);
     // And a mouth to carry things in.
     pc.mouth = new T.Group(); pc.mouth.position.set(0, -0.08, 0.27); pc.head.add(pc.mouth);
     if (this.crowned) this.crown(pc);
@@ -17276,6 +17380,7 @@
   Town.prototype.stepPlayer = function (dt, now) {
     var pl = this.player;
     if (!pl) return false;
+    this.unAlive(pl);
     if (!this.solids || now > this.solidAt) { this.buildSolids(); this.solidAt = now + (this.anims.length ? 1500 : 6000); }
     var roam = this.st.critters && this.st.critters.raccoon; if (roam && roam.g.visible) roam.g.visible = false; // you are the raccoon now
     if (this.brawl) { var bc = this.brawl.cloud; this.stepBrawl(dt, now); this.followCam(bc.position, dt); return true; }
@@ -18269,8 +18374,13 @@
   // The raccoon's body language: legs tucked mid-jump, a squash on landing, and when left alone
   // it sits, looks about, washes its paws if there's water close by, and in the end curls up asleep.
   Town.prototype.posePlayer = function (pl, dt, now, moving) {
+    this.unAlive(pl);
     var body = pl.body, head = pl.head, t = now / 1000, idle = pl.idle || 0, P = pl.g.position;
     var pose = null;
+    // Out of the water: a good shake, nose to tail, spraying drops everywhere.
+    if (pl.wasSwim && !pl.swim) { pl.shakeUntil = now + 950; if (!this.reduced) { this.puff(P.x, P.y + 0.35, P.z, 8, 'splash'); this.sfx('splash'); } }
+    pl.wasSwim = !!pl.swim;
+    if (moving || pl.vy !== 0) { pl.fid = null; if (now < (pl.shakeUntil || 0) && moving) pl.shakeUntil = 0; }
     if (pl.vy === 0) pl.wheee = false;
     if (pl.vy < 0 && (pl.fallFrom || 0) - P.y > 1.1) {
       // A long drop: spread out like a flying squirrel, tail streaming.
@@ -18283,6 +18393,11 @@
       pl.wheee = false;
       pose = this.sitPose(t, 'sit'); pose.hy = Math.sin(t * 3) * 0.8; pose.hx = 0.9; pose.legs = [-1.1 + Math.sin(t * 8) * 0.3, -1.1 - Math.sin(t * 8) * 0.3, 1.45, 1.45];
     }
+    else if (now < (pl.shakeUntil || 0) && !pl.swim) {
+      var sk = Math.sin(t * 38), su = 1 - ((pl.shakeUntil - now) / 950);
+      pose = { pitch: 0, by: 0.3, hx: 0.1, hy: sk * 0.5 * (1 - su), sway: sk * 0.35 * (1 - su * 0.7), tailX: 0.6, tailY: -sk * 0.9, legs: [0.15, -0.15, -0.15, 0.15] };
+    }
+    else if (!moving && !pl.swim && !pl.dig && !pl.seat && idle > 1.2 && idle < 25 && (pose = this.fidgetPose(pl, now, idle))) { /* a fidget */ }
     else if (pl.swim) {
       // Swimming: nose up, paws paddling under the surface, tail floating out behind.
       var pd = moving ? 14 : 5, wt = this.waterU ? this.waterU.uTime.value : t, sl = waveSlope(P.x, P.z, wt), fa = pl.g.rotation.y;
@@ -18310,6 +18425,95 @@
     if (pl.squash > 0) { pl.squash -= dt; sq = 1 - Math.sin(Math.max(0, pl.squash) / 0.18 * Math.PI) * 0.22; }
     else if (pl.vy !== 0) sq = 1.08;
     var PS = PLAYER_SCALE * (pl.size || 1); pl.g.scale.set(PS / Math.sqrt(sq), PS * sq, PS / Math.sqrt(sq));
+    this.alive(pl, dt, now, moving, { look: true, blink: pl.eyes });
+  };
+  // Little things it does when it's been still a moment: a big play-bow stretch, a sniff about,
+  // and once sat down, a scratch behind the ear with a back paw, a yawn, a lick of the paws.
+  Town.prototype.fidgetPose = function (pl, now, idle) {
+    var t = now / 1000, F = pl.fid, sitting = idle > 4;
+    if (this.reduced) return sitting ? null : null;
+    if (!F || (now > F.end && now > F.next)) {
+      var kinds = sitting ? ['scratch', 'yawn', 'groom', 'look'] : ['stretch', 'sniff', 'look', 'stretch'];
+      var k = kinds[Math.floor(Math.random() * kinds.length)];
+      if (!F && !sitting && Math.random() < 0.5) k = 'look';
+      var dur = { stretch: 1900, sniff: 1600, scratch: 1500, yawn: 1400, groom: 1800, look: 1400 }[k];
+      F = pl.fid = { k: k, t0: now, end: now + dur, next: now + dur + 2500 + Math.random() * 4000 };
+      if (k === 'yawn' && Math.random() < 0.6) this.say(pickOne(['*yaaawn*', 'mmmph', '*stretch*']), pl.g, 0.8, 1.4, true);
+    }
+    if (now > F.end) return sitting ? this.sitPose(t, 'sit') : null;
+    var u = (now - F.t0) / (F.end - F.t0), env = Math.sin(Math.min(1, u) * Math.PI); // eases in and out
+    var base = sitting ? this.sitPose(t, 'sit') : { pitch: 0, by: 0.3, hx: 0, tailX: 0.4, legs: [0, 0, 0, 0] };
+    var mix = function (a, b) { return a + (b - a) * env; };
+    if (F.k === 'stretch') return { pitch: mix(base.pitch, 0.42), by: mix(0.3, 0.25), bz: mix(0, 0.05), hx: mix(0, -0.55), tailX: mix(0.4, 1.3), tailY: Math.sin(t * 5) * 0.4 * env, legs: [mix(0, -1.15), mix(0, -1.15), mix(0, 0.25), mix(0, 0.25)] };
+    if (F.k === 'sniff') return { pitch: mix(0, 0.22), by: 0.29, hx: mix(0, 0.75) + Math.sin(t * 22) * 0.05 * env, hy: Math.sin(t * 2.2) * 0.6 * env, tailX: 0.5, tailY: Math.sin(t * 7) * 0.3, legs: [0.1, -0.05, 0, 0] };
+    if (F.k === 'look') return Object.assign({}, base, { hy: Math.sin(u * Math.PI * 2) * 0.9, hx: (base.hx || 0) - 0.15 * env });
+    var p = Object.assign({}, base);
+    if (F.k === 'scratch') { p.legs = base.legs.slice(); p.legs[3] = mix(1.45, -0.6) + Math.sin(t * 34) * 0.35 * env; p.hy = mix(0, 0.5); p.hx = mix(base.hx, 0.9); p.sway = mix(0, 0.22); }
+    if (F.k === 'yawn') { p.hx = mix(base.hx, 0.6); p.pitch = mix(base.pitch, -1.5); p.front = { y: 0.46, z: 0.02 }; }
+    if (F.k === 'groom') { p.legs = [-1.2 + Math.sin(t * 9) * 0.25 * env, -0.25, 1.45, 1.45]; p.hx = mix(base.hx, 1.75); p.hy = mix(0, -0.35); }
+    return p;
+  };
+  // ---- the layer of life on top of every pose: leaning into turns, a tail that swings on a spring,
+  // the head leading the turn (or turning to look at a friend), ears that twitch, blinks, breathing ----
+  Town.prototype.aliveInit = function (c) {
+    var ears = [];
+    c.head.children.forEach(function (o) { if (o.isMesh && o.geometry && o.geometry.type === 'ConeGeometry' && Math.abs(o.position.x) > 0.04 && o.position.y > 0.12) ears.push({ m: o, rz: o.rotation.z, rx: o.rotation.x, sd: Math.sign(o.position.x) }); });
+    return { lean: 0, look: 0, tx: 0, ty: 0, vx: 0, vy: 0, px: 0, py: 0, yaw: c.g.rotation.y, yawV: 0, ears: ears, twitch: 0, twitchSd: 1, twitchAt: 0, blinkAt: 0, applied: false, bodyY: c.body.scale.y };
+  };
+  Town.prototype.unAlive = function (c) {
+    var A = c.alive; if (!A || !A.applied) return;
+    c.body.rotation.z -= A.lean; c.head.rotation.y -= A.look; c.tail.rotation.y -= A.py; c.tail.rotation.x -= A.px;
+    A.applied = false;
+  };
+  Town.prototype.alive = function (c, dt, now, moving, o) {
+    if (!c || !c.body || !c.head || !c.tail || dt <= 0) return;
+    var A = c.alive || (c.alive = this.aliveInit(c)), t = now / 1000, g = c.g;
+    if (A.applied) this.unAlive(c);
+    if (this.reduced) return;
+    dt = Math.min(dt, 0.05);
+    // how fast it's turning
+    var dy = g.rotation.y - A.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+    A.yaw = g.rotation.y;
+    A.yawV += (Math.max(-12, Math.min(12, dy / dt)) - A.yawV) * Math.min(1, dt * 10);
+    var turn = A.yawV;
+    // lean into it, more at speed
+    var leanT = moving ? Math.max(-0.24, Math.min(0.24, -turn * 0.05)) : 0;
+    A.lean += (leanT - A.lean) * Math.min(1, dt * 8);
+    // the head leads the turn; standing about, it turns to look at a friend close by
+    var lookT = moving ? Math.max(-0.5, Math.min(0.5, turn * 0.1)) : 0;
+    if (!moving && o && o.look && o.look !== true) lookT = o.look;
+    else if (!moving && o && o.look === true && c === this.player) {
+      var fox = this.st.critters && this.st.critters.fox, P = g.position;
+      if (fox && fox.g.visible && Math.hypot(fox.g.position.x - P.x, fox.g.position.z - P.z) < 4 && (c.idle || 0) > 0.6 && Math.sin(t * 0.37) > 0.2) {
+        var ang = Math.atan2(fox.g.position.x - P.x, fox.g.position.z - P.z) - g.rotation.y;
+        while (ang > Math.PI) ang -= Math.PI * 2; while (ang < -Math.PI) ang += Math.PI * 2;
+        lookT = Math.max(-0.9, Math.min(0.9, ang));
+      }
+    }
+    A.look += (lookT - A.look) * Math.min(1, dt * 4);
+    // the tail on a springy hinge: swings out wide on turns, flicks up on landing, settles with a wobble
+    var w = 9, z = 0.28;
+    var tyT = Math.max(-0.8, Math.min(0.8, -turn * 0.16)), txT = 0;
+    if (c.vy) txT = Math.max(-0.5, Math.min(0.6, -c.vy * 0.06));
+    if (c.squash > 0.12 && !A.kicked) { A.vx += 6; A.kicked = true; } else if (!(c.squash > 0)) A.kicked = false;
+    A.vy += (-w * w * (A.ty - tyT) - 2 * z * w * A.vy) * dt; A.ty += A.vy * dt;
+    A.vx += (-w * w * (A.tx - txT) - 2 * z * w * A.vx) * dt; A.tx += A.vx * dt;
+    A.py = Math.max(-1, Math.min(1, A.ty)); A.px = Math.max(-0.8, Math.min(0.8, A.tx));
+    c.body.rotation.z += A.lean; c.head.rotation.y += A.look; c.tail.rotation.y += A.py; c.tail.rotation.x += A.px;
+    A.applied = true;
+    // ears: back when running flat out, a flick now and then, the odd swivel at a sound
+    if (now > A.twitchAt) { A.twitch = now; A.twitchSd = Math.random() < 0.5 ? -1 : 1; A.twitchAt = now + 1800 + Math.random() * 4500; }
+    var tw = now - A.twitch < 260 ? Math.sin((now - A.twitch) / 260 * Math.PI * 2) * 0.5 : 0, back = moving && c.running ? -0.45 : 0;
+    A.ears.forEach(function (e) { e.m.rotation.z = e.rz + (e.sd === A.twitchSd ? tw * e.sd : 0); e.m.rotation.x = e.rx + back; });
+    // blinking
+    if (o && o.blink) {
+      if (now > A.blinkAt) A.blinkAt = now + 2200 + Math.random() * 3800;
+      var bl = A.blinkAt - now < 130 ? 0.12 : 1;
+      o.blink.forEach(function (e) { e.scale.y = e.userData.sy0 * bl; });
+    }
+    // and breathing: quick panting after a run, slow when resting
+    var br = c.running || (c.tired) ? Math.sin(t * 14) * 0.03 : Math.sin(t * 2.1) * (moving ? 0.008 : 0.02);
+    c.body.scale.y = A.bodyY * (1 + br);
   };
   // How the raccoon walks, by the ground under it: stride (amp), cadence (rate), how far each pair
   // of legs reaches (front/back bias), speed, and whether it bounds (pairs together, for stairs).
