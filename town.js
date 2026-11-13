@@ -1489,7 +1489,11 @@
       cone: new T.ConeGeometry(1, 1, 12),
       cone4: new T.ConeGeometry(1, 1, 4),
       cone6: new T.ConeGeometry(1, 1, 6),
-      blob: new T.IcosahedronGeometry(1, 1),
+      blob: (function () { // a lumpy ball with soft shading (normals straight out from the middle), so bushes read as soft and round
+        var g = new T.IcosahedronGeometry(1, 1), P = g.attributes.position, N = g.attributes.normal, v = new T.Vector3();
+        for (var i = 0; i < P.count; i++) { v.set(P.getX(i), P.getY(i), P.getZ(i)).normalize(); N.setXYZ(i, v.x, v.y, v.z); }
+        N.needsUpdate = true; return g;
+      })(),
       ball: new T.SphereGeometry(1, 12, 8),
       torus: new T.TorusGeometry(1, 0.18, 6, 12),
       ring: new T.RingGeometry(6.0, 7.1, 48).rotateX(-Math.PI / 2),
@@ -1753,6 +1757,7 @@
       if (name === 'glasshouse') { m.transparent = true; m.opacity = 0.45; m.depthWrite = false; }
       if (name === 'flag' || name === 'banner') m.side = T.DoubleSide;
       m.userData = { name: name, idx: idx };
+      if (FOLIAGE[name]) foliage(m);
       this.mats[key] = m;
       this.paint(m);
     }
@@ -2029,7 +2034,7 @@
       spots.push([xx, zz + (rr() - 0.5) * 0.4]);
     }
     if (!this.soft) {
-      var hedge = new T.InstancedMesh(new T.IcosahedronGeometry(1, 0), this.mat('hedge'), spots.length);
+      var hedge = new T.InstancedMesh(this.lite ? this.geo.blob : this.bushGeo(), this.mat('hedge'), spots.length); // hedgerow bushes: little billowing clouds of leaves
       var m = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(), p = new T.Vector3();
       spots.forEach(function (s, i) {
         var k = 0.55 + rr() * 0.35;
@@ -2051,7 +2056,7 @@
       var tree = new T.Group(), s2 = 0.9 + rr() * 0.5;
       tree.position.set(ox, groundY(ox, oz), oz);
       var trunk = new T.Mesh(this.geo.cyl6, this.mat('trunk')); trunk.scale.set(0.2 * s2, 1.2 * s2, 0.2 * s2); trunk.position.y = 0.6 * s2;
-      var crown = new T.Mesh(this.geo.blob, this.mat('leaf', i)); crown.scale.set(1.2 * s2, 1.05 * s2, 1.2 * s2); crown.position.y = 1.75 * s2;
+      var crown = new T.Mesh(this.canopyGeo(i), this.mat('leaf', i)); crown.scale.set(1.45 * s2, 1.25 * s2, 1.45 * s2); crown.position.y = 1.85 * s2;
       [trunk, crown].forEach(function (o) { o.castShadow = o.receiveShadow = true; tree.add(o); });
       base.add(tree);
       (this.oaks = this.oaks || []).push(tree);
@@ -2087,7 +2092,7 @@
     var wr = new T.Mesh(this.geo.cone4, this.mat('roofJo')); wr.scale.set(0.65, 0.45, 0.65); wr.position.set(1.2, 1.25, 0.6); wr.rotation.y = Math.PI / 4; sq.add(wr);
     [-0.4, 0.4].forEach(function (x) { var p = new T.Mesh(self.geo.box, self.mat('wood')); p.scale.set(0.06, 0.9, 0.06); p.position.set(1.2 + x, 0.75, 0.6); sq.add(p); });
     var oakT = new T.Mesh(this.geo.cyl6, this.mat('trunk')); oakT.scale.set(0.28, 1.4, 0.28); oakT.position.set(-1.1, 0.7, -0.6); sq.add(oakT);
-    var oakC = new T.Mesh(this.geo.blob, this.mat('leaf', 0)); oakC.scale.set(1.6, 1.3, 1.6); oakC.position.set(-1.1, 2.2, -0.6); sq.add(oakC);
+    var oakC = new T.Mesh(this.canopyGeo(2), this.mat('leaf', 0)); oakC.scale.set(1.95, 1.6, 1.95); oakC.position.set(-1.1, 2.35, -0.6); sq.add(oakC);
     [-1, 1].forEach(function (s2) { var b = new T.Mesh(self.geo.box, self.mat('wood')); b.scale.set(1.0, 0.12, 0.3); b.position.set(-1.1 + s2 * 1.7, 0.35, -0.6); b.rotation.y = Math.PI / 2; sq.add(b); });
     sq.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     base.add(sq);
@@ -2985,10 +2990,10 @@
       trees.push(tq);
       var tg = spot(tq, rt() * 6), kind = rt(), sz = 0.6 + rt() * 0.35; tg.scale.setScalar(sz);
       if (kind < 0.45) { // an apple tree
-        this.part(tg, this.geo.cyl6, this.mat('trunk'), 0.08, 0.7, 0.08, 0, 0.35, 0); this.part(tg, this.geo.blob, this.mat('leaf', Math.floor(rt() * 3)), 0.55, 0.45, 0.55, 0, 0.95, 0);
+        this.part(tg, this.geo.cyl6, this.mat('trunk'), 0.08, 0.7, 0.08, 0, 0.35, 0); this.part(tg, this.canopyGeo(Math.floor(rt() * 6)), this.mat('leaf', Math.floor(rt() * 3)), 0.7, 0.58, 0.7, 0, 1.0, 0);
         for (var ap = 0; ap < 4; ap++) this.part(tg, this.geo.ball, this.mat('flag', 0), 0.06, 0.06, 0.06, Math.cos(ap * 1.7) * 0.42, 0.85 + (ap % 2) * 0.2, Math.sin(ap * 1.7) * 0.42);
       } else if (kind < 0.75) { // a birch
-        this.part(tg, this.geo.cyl6, this.mat('birch'), 0.06, 1.2, 0.06, 0, 0.6, 0); this.part(tg, this.geo.blob, this.mat('birchleaf'), 0.38, 0.55, 0.38, 0, 1.35, 0);
+        this.part(tg, this.geo.cyl6, this.mat('birch'), 0.06, 1.2, 0.06, 0, 0.6, 0); this.part(tg, this.canopyGeo(Math.floor(rt() * 6), true), this.mat('birchleaf'), 0.55, 0.62, 0.55, 0, 1.35, 0);
       } else { // a spruce
         this.part(tg, this.geo.cyl6, this.mat('trunk'), 0.07, 0.4, 0.07, 0, 0.2, 0);
         [[0.45, 0.6, 0.55], [0.33, 0.55, 0.95], [0.2, 0.45, 1.3]].forEach(function (c) { self.part(tg, self.geo.cone, self.mat('pine', 0), c[0], c[1], c[0], 0, c[2], 0); });
@@ -3083,7 +3088,7 @@
         this.retire(pg); var OAK = C.oak; if (!OAK) return;
         pg = at(OAK);
         P(pg, this.geo.cyl6, this.mat('trunk'), 0.2, 1.3, 0.2, 0, 0.65, 0, 'green');
-        [[0, 1.75, 0, 1.15], [0.6, 1.5, 0.3, 0.75], [-0.55, 1.55, -0.25, 0.8], [0.1, 2.2, -0.2, 0.7]].forEach(function (c, i) { P(pg, self.geo.blob, self.mat('leaf', i % 3), c[3], c[3] * 0.8, c[3], c[0], c[1], c[2], 'green'); });
+        P(pg, this.canopyGeo(4), this.mat('leaf', 0), 1.7, 1.4, 1.7, 0, 1.95, 0, 'green');
         P(pg, this.geo.cyl6, this.mat('wood'), 0.55, 0.06, 0.55, 0, 0.3, 0, 'green');
         break;
       }
@@ -12478,6 +12483,54 @@
       if (small && small.size < 2) { small.size = Math.min(2, small.size + 0.15); this.animScale(small.g, small.size, delay); }
     }
   };
+  // A billowing crown: one merged cloud of round puffs, a few shapes to choose from, shared by every
+  // tree that uses it (so a forest of them still draws quickly). About a unit across.
+  // A small bush: five low puffs, light enough to draw thousands of.
+  Town.prototype.bushGeo = function () {
+    if (this.bushG) return this.bushG;
+    var ball = new T.SphereGeometry(1, 7, 5), m4 = new T.Matrix4(), pos = [], nor = [], idx = [], off = 0;
+    [[0, 0.05, 0, 0.7], [0.5, -0.15, 0.2, 0.5], [-0.45, -0.12, 0.25, 0.48], [0.1, -0.15, -0.5, 0.5], [0.05, 0.45, 0.05, 0.42]].forEach(function (c) {
+      var g = ball.clone(); m4.makeScale(c[3], c[3] * 0.85, c[3]); m4.setPosition(c[0], c[1], c[2]); g.applyMatrix4(m4);
+      var P = g.attributes.position.array, N = g.attributes.normal.array, I = g.index.array;
+      for (var a = 0; a < P.length; a++) { pos.push(P[a]); nor.push(N[a]); }
+      for (var b = 0; b < I.length; b++) idx.push(I[b] + off);
+      off += P.length / 3;
+    });
+    var geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+    geo.setIndex(idx); geo.computeBoundingSphere();
+    return (this.bushG = geo);
+  };
+  Town.prototype.canopyGeo = function (v, tall) {
+    var C = this.canopyC || (this.canopyC = {}), key = (tall ? 't' : 'r') + (v % 6);
+    if (C[key]) return C[key];
+    var ball = new T.SphereGeometry(1, 12, 9), r = rng(9100 + (v % 6) * 31 + (tall ? 7 : 0)), parts = [], m4 = new T.Matrix4();
+    function add(x, y, z, sc, sy) { var g = ball.clone(); m4.makeScale(sc, sc * (sy || 0.86), sc); m4.setPosition(x, y, z); g.applyMatrix4(m4); parts.push(g); }
+    if (tall) {
+      add(0, -0.05, 0, 0.5, 1.15);
+      for (var i = 0; i < 7; i++) { var a = i * 2.4 + r() * 0.5, h = -0.6 + i / 6 * 1.15, rr = 0.3 * (1 - Math.abs(h) * 0.35); add(Math.cos(a) * rr, h, Math.sin(a) * rr, 0.3 + r() * 0.1); }
+      add((r() - 0.5) * 0.15, 0.75, (r() - 0.5) * 0.15, 0.24);
+    } else {
+      add(0, 0, 0, 0.72, 0.84);
+      var n = 8;
+      for (var j = 0; j < n; j++) { var b = j / n * Math.PI * 2 + r() * 0.45, ring = 0.58 + r() * 0.12, y = (j % 2 ? -0.2 : 0.08) + (r() - 0.5) * 0.12; add(Math.cos(b) * ring, y, Math.sin(b) * ring, 0.4 + r() * 0.12); }
+      for (var k = 0; k < 4; k++) { var c = k * 1.9 + r(); add(Math.cos(c) * 0.3 * r(), 0.42 + r() * 0.16, Math.sin(c) * 0.3 * r(), 0.34 + r() * 0.1); }
+      for (var q = 0; q < 3; q++) { var d = q * 2.1 + r(); add(Math.cos(d) * 0.75, -0.42, Math.sin(d) * 0.75, 0.24 + r() * 0.06, 0.7); } // a few drooping lower clumps
+    }
+    // merge them into one
+    var pos = [], nor = [], idx = [], off = 0;
+    parts.forEach(function (g) {
+      var P = g.attributes.position.array, N = g.attributes.normal.array, I = g.index.array;
+      for (var a2 = 0; a2 < P.length; a2++) { pos.push(P[a2]); nor.push(N[a2]); }
+      for (var b2 = 0; b2 < I.length; b2++) idx.push(I[b2] + off);
+      off += P.length / 3;
+    });
+    var geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+    geo.setIndex(idx); geo.computeBoundingSphere(); geo.userData.canopy = true;
+    return (C[key] = geo);
+  };
   Town.prototype.plantTree = function (p, kind, k, delay, pick, size) {
     var g = new T.Group(), r = rng(77 + k), s = 0.8 + r() * 0.35, self = this;
     pick = pick || 'run';
@@ -12486,9 +12539,11 @@
     function part(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
     if (kind === 'spruce') {
       part(this.geo.cyl6, this.mat('trunk'), 0.13 * s, 0.9 * s, 0.13 * s, 0, 0.45 * s, 0);
-      part(this.geo.cone6, this.mat('pine'), 0.85 * s, 1.2 * s, 0.85 * s, 0, 1.0 * s, 0);
-      part(this.geo.cone6, this.mat('pine'), 0.68 * s, 1.1 * s, 0.68 * s, 0, 1.6 * s, 0);
-      part(this.geo.cone6, this.mat('pine'), 0.48 * s, 1.0 * s, 0.48 * s, 0, 2.15 * s, 0);
+      // tiers of drooping boughs, each a little wider at its skirt, slightly askew
+      [[0.95, 0.75, 0.8], [0.8, 0.72, 1.22], [0.64, 0.68, 1.62], [0.48, 0.64, 2.0], [0.3, 0.6, 2.36]].forEach(function (c, ti) {
+        var tier = part(self.geo.cone, self.mat('pine', ti % 2), c[0] * s, c[1] * s, c[0] * s, (r() - 0.5) * 0.05, c[2] * s, (r() - 0.5) * 0.05);
+        tier.rotation.set((r() - 0.5) * 0.12, r() * 3, (r() - 0.5) * 0.12);
+      });
     } else if (kind === 'bigspruce') {
       part(this.geo.cyl6, this.mat('trunk'), 0.22, 1.0, 0.22, 0, 0.5, 0);
       [[1.4, 1.6, 1.2], [1.12, 1.5, 2.0], [0.82, 1.4, 2.75], [0.5, 1.2, 3.4]].forEach(function (c) { part(self.geo.cone6, self.mat('pine'), c[0], c[1], c[0], 0, c[2], 0); });
@@ -12496,17 +12551,16 @@
       // White trunk with dark marks, small airy crowns.
       part(this.geo.cyl6, this.mat('birch'), 0.09 * s, 1.7 * s, 0.09 * s, 0, 0.85 * s, 0);
       for (var m = 0; m < 3; m++) part(this.geo.box, this.mat('stoneDark'), 0.19 * s, 0.05, 0.05, 0, (0.4 + m * 0.4) * s, 0.05);
-      part(this.geo.blob, this.mat('birchleaf'), 0.5 * s, 0.6 * s, 0.5 * s, 0.1, 1.75 * s, 0);
-      part(this.geo.blob, this.mat('birchleaf'), 0.36 * s, 0.42 * s, 0.36 * s, -0.25, 1.4 * s, 0.15);
+      part(this.canopyGeo(k, true), this.mat('birchleaf'), 0.75 * s, 0.8 * s, 0.75 * s, 0.05, 1.7 * s, 0);
     } else if (kind === 'maple') {
       part(this.geo.cyl6, this.mat('trunk'), 0.15 * s, 0.9 * s, 0.15 * s, 0, 0.45 * s, 0);
-      part(this.geo.blob, this.mat('leaf', k), 0.8 * s, 0.75 * s, 0.8 * s, 0, 1.35 * s, 0);
-      part(this.geo.blob, this.mat('leaf', k + 1), 0.5 * s, 0.45 * s, 0.5 * s, 0.4 * s, 1.75 * s, 0.1);
+      part(this.geo.cyl6, this.mat('trunk'), 0.22 * s, 0.18 * s, 0.22 * s, 0, 0.09 * s, 0); // roots flaring out
+      part(this.canopyGeo(k), this.mat('leaf', k), 1.05 * s, 0.95 * s, 1.05 * s, 0, 1.45 * s, 0);
     } else if (kind === 'bigoak') {
       part(this.geo.cyl6, this.mat('trunk'), 0.24, 1.3, 0.24, 0, 0.65, 0);
-      part(this.geo.blob, this.mat('leaf', k), 1.35, 1.15, 1.35, 0, 1.95, 0);
-      part(this.geo.blob, this.mat('leaf', k + 1), 0.85, 0.8, 0.85, 0.65, 2.6, 0.2);
-      part(this.geo.blob, this.mat('leaf', k + 2), 0.8, 0.75, 0.8, -0.55, 2.5, -0.3);
+      part(this.geo.cyl6, this.mat('trunk'), 0.36, 0.26, 0.36, 0, 0.13, 0);
+      [-1, 1].forEach(function (sd) { var br = part(self.geo.cyl6, self.mat('trunk'), 0.09, 0.9, 0.09, sd * 0.32, 1.45, 0); br.rotation.z = -sd * 0.7; });
+      part(this.canopyGeo(k + 3), this.mat('leaf', k), 1.75, 1.45, 1.75, 0, 2.3, 0);
     } else {
       // Sequoia: tall red trunk, dark crown high up.
       // A giant: thick red trunk standing well clear of the rest of the forest, crown high up.
@@ -16437,7 +16491,7 @@
       var before = levelForXp(X[k] || 0); X[k] = (X[k] || 0) + g[k]; var after = levelForXp(X[k]);
       if (after > before) ups.push({ id: k, level: after });
     });
-    if (this.instant) return;
+    if (this.instant || this.replaying) return;
     var drops = Object.keys(g).map(function (k) { var d = SKILLS.filter(function (S) { return S.id === k; })[0]; return { id: k, name: d.name, icon: d.icon, col: d.col, xp: g[k] }; });
     if (drops.length && this.onXp) this.onXp(drops, delay || 0);
     if (ups.length) setTimeout(function () { self.levelUp(ups); }, (delay || 0) + 900);
@@ -17276,7 +17330,7 @@
         '  col += vec3(1.0, 0.97, 0.88) * glint * 0.85 * lit;',
         '  outgoingLight = mix(col, outgoingLight, uIce);',
         '}',
-        '#include <output_fragment>'].join('\n'));
+        'gl_FragColor = vec4( outgoingLight, diffuseColor.a );'].join('\n'));
     };
     m.customProgramCacheKey = function () { return 'flow-water'; };
   };
@@ -19248,11 +19302,50 @@
 
   // ---- wind: grass, flowers and trees lean together, and gusts roll across the land in waves ----
   var WIND_DIR = [0.83, -0.55];
+  // ---- leaves painted like a Ghibli background: warm sunlit tops, cool blue-green shade underneath,
+  // clumps of lighter and darker leaves across each crown, and a soft glow round the rim ----
+  var FOLIAGE = { leaf: 1, birchleaf: 1, pine: 1, hedge: 1 };
+  function foliageChunk(sh) {
+    sh.vertexShader = 'varying vec3 vFolW;\n' + sh.vertexShader.replace('#include <begin_vertex>', [
+      '#include <begin_vertex>',
+      '#ifdef USE_INSTANCING',
+      'vFolW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;',
+      '#else',
+      'vFolW = (modelMatrix * vec4(transformed, 1.0)).xyz;',
+      '#endif'].join('\n'));
+    sh.fragmentShader = ['varying vec3 vFolW;',
+      'float fHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }',
+      'float fNoise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);',
+      '  return mix(mix(mix(fHash(i), fHash(i + vec3(1,0,0)), f.x), mix(fHash(i + vec3(0,1,0)), fHash(i + vec3(1,1,0)), f.x), f.y),',
+      '             mix(mix(fHash(i + vec3(0,0,1)), fHash(i + vec3(1,0,1)), f.x), mix(fHash(i + vec3(0,1,1)), fHash(i + vec3(1,1,1)), f.x), f.y), f.z); }',
+      ''].join('\n') + sh.fragmentShader.replace('#include <color_fragment>', [
+      '#include <color_fragment>',
+      'vec3 fN = normalize(vNormal);',
+      'vec3 fUp = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);',
+      'float fUpD = dot(fN, fUp);',
+      'float fCl = fNoise(vFolW * 2.4) * 0.65 + fNoise(vFolW * 6.0) * 0.35;',
+      'float fLift = smoothstep(-0.7, 0.85, fUpD + (fCl - 0.5) * 0.7);',
+      'diffuseColor.rgb *= mix(vec3(0.6, 0.72, 0.86), vec3(1.13, 1.1, 0.84), fLift);',
+      'diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.08, 1.06, 0.8), smoothstep(0.72, 0.9, fCl) * 0.6);'
+    ].join('\n')).replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );', [
+      'float fRim = pow(1.0 - max(dot(normalize(vNormal), normalize(vViewPosition)), 0.0), 2.6);',
+      'outgoingLight += diffuseColor.rgb * vec3(1.0, 0.95, 0.72) * fRim * 0.55 * smoothstep(-0.4, 0.6, fUpD);',
+      'gl_FragColor = vec4( outgoingLight, diffuseColor.a );'].join('\n'));
+  }
+  function foliage(m) {
+    m.userData.foliage = true;
+    m.onBeforeCompile = function (sh) { foliageChunk(sh); };
+    m.customProgramCacheKey = function () { return 'foliage'; };
+    m.needsUpdate = true;
+    return m;
+  }
   Town.prototype.windU = null;
   Town.prototype.windMat = function (base, amp, push, tag) {
     var U = this.windU || (this.windU = { uTime: { value: 0 }, uPlayer: { value: new T.Vector3(1e4, 0, 1e4) }, uGust: { value: 1 } });
     var m = base.clone();
+    var fol = base.userData && base.userData.foliage;
     m.onBeforeCompile = function (sh) {
+      if (fol) foliageChunk(sh);
       sh.uniforms.uTime = U.uTime; sh.uniforms.uPlayer = U.uPlayer; sh.uniforms.uGust = U.uGust;
       sh.vertexShader = 'uniform float uTime; uniform vec3 uPlayer; uniform float uGust;\n' + sh.vertexShader.replace('#include <project_vertex>', [
         'vec4 wpos = vec4(transformed, 1.0);',
@@ -19271,7 +19364,7 @@
         'gl_Position = projectionMatrix * mvPosition;'
       ].join('\n'));
     };
-    m.customProgramCacheKey = function () { return 'wind-' + tag; };
+    m.customProgramCacheKey = function () { return 'wind-' + tag + (fol ? '-fol' : ''); };
     (this.windMats = this.windMats || []).push({ m: m, base: base });
     return m;
   };
@@ -19487,7 +19580,7 @@
     // the round crowns of the oaks, birches and orchard trees rock gently, more in the gusts
     var cache = this.crownWind || (this.crownWind = {});
     this.base.traverse(function (o) {
-      if (!o.isMesh || o.isInstancedMesh || o.geometry !== self.geo.blob) return;
+      if (!o.isMesh || o.isInstancedMesh || (o.geometry !== self.geo.blob && !(o.geometry.userData && o.geometry.userData.canopy))) return;
       var ud = o.material.userData || {}, nm = ud.name;
       if (nm !== 'leaf' && nm !== 'birchleaf') return;
       var key = nm + (ud.idx == null ? '' : ud.idx);

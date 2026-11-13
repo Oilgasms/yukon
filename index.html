@@ -600,7 +600,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v187';
+var BUILD = 'v188';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1333,11 +1333,13 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   }
   function stop() {
     if (playing) { clearTimeout(playing); playing = null; $('play').textContent = 'Replay'; }
+    town.replaying = false;
   }
   function playFrom(from, step) {
     stop();
     town.setPlanned([]);
     town.build(events, from);
+    town.replaying = true;
     if (mellonOpen) town.unlockSecret('mellon', true);
     shown = from;
     $('play').textContent = 'Pause';
