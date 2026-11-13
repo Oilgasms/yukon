@@ -64,12 +64,16 @@
   // (zoom, panning, fitting the view all work in its terms), but it draws through a gentle
   // perspective lens, the eye pulled back so the ground at the target is framed just the same.
   var CAM_FOV = 30;
+  // Walking about: a camera about 9 degrees off the ground through a wide 50 degree lens, looking
+  // at a point a little over the raccoon's head.
+  var CAM_LOW = 0.16, CAM_WIDE = 50, CAM_LIFT = 0.75;
   function perspectivise(cam, controls) {
-    var Tr = new T.Matrix4(), tf = Math.tan(CAM_FOV * Math.PI / 360);
+    var Tr = new T.Matrix4();
     cam.persp = { near: 1, far: 1000 };
     cam.updateProjectionMatrix = function () {
+      var tf = Math.tan((this.lensFov || CAM_FOV) * Math.PI / 360);
       var hh = (this.top - this.bottom) / 2 / this.zoom, asp = (this.right - this.left) / ((this.top - this.bottom) || 1);
-      var D = hh / tf, d0 = this.position.distanceTo(controls.target), n = Math.max(0.3, D * 0.1), f = D + 700;
+      var D = hh / tf, d0 = this.position.distanceTo(controls.target), n = Math.max(0.12, D * 0.06, this.nearPush || 0), f = D + 1300;
       this.projectionMatrix.makePerspective(-n * tf * asp, n * tf * asp, n * tf, -n * tf, n, f);
       this.projectionMatrix.multiply(Tr.makeTranslation(0, 0, d0 - D));
       this.projectionMatrixInverse.copy(this.projectionMatrix).invert();
@@ -1474,7 +1478,8 @@
     this.controls.autoRotateSpeed = 0.3;
     this.fit = { zoom: 1, y: 1.5, auto: true };
     var self = this;
-    this.controls.addEventListener('start', function () { self.controls.autoRotate = false; self.fit.auto = false; });
+    this.controls.addEventListener('start', function () { self.controls.autoRotate = false; self.fit.auto = false; self.camDrag = true; });
+    this.controls.addEventListener('end', function () { self.camDrag = false; });
 
     var steps = new T.DataTexture(new Uint8Array([90, 170, 255]), 3, 1, T.LuminanceFormat);
     steps.minFilter = steps.magFilter = T.NearestFilter;
@@ -7292,7 +7297,7 @@
       P(self.geo.box, dark, 0.045, 0.13, 0.045, 0, -0.235, 0, hip);         // dark stockings
       return hip;
     });
-    g.scale.setScalar(1.35);
+    g.scale.setScalar(1.0);
     this.world.add(g);
     return { g: g, body: body, head: head, legs: legs, tail: tail, kind: 'fox', cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: 3, speed: 1.1 };
   };
@@ -15445,7 +15450,7 @@
     P(ghost, this.geo.box, dark, 0.035, 0.02, 0.01, 0, 0.28, 0.095);
     if (job === 'hiker') { var stick = P(arms[1], this.geo.cyl6, this.mat('wood'), 0.01, 0.4, 0.01, 0, -0.1, 0.03); stick.rotation.x = 0.2; }
     if (job === 'barkeep') { var glass = new T.Group(); glass.position.set(0, -0.11, 0.04); arms[1].add(glass); P(glass, this.geo.cyl, this.mat('beer', 2), 0.03, 0.07, 0.03, 0, 0, 0); }
-    g.scale.setScalar(1.15);
+    g.scale.setScalar(0.88); // (small: the trees and houses tower over them)
     this.world.add(g);
     return { g: g, body: body, head: head, arms: arms, legs: legs, tail: tail, paper: paper, umbrella: umb, ghost: ghost, held: held, style: ST, name: name, phase: k, k: k, job: job };
   };
@@ -17094,7 +17099,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -17147,11 +17152,13 @@
       this.fit.auto = false; c.autoRotate = false; c.enablePan = false;
       c.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.DOLLY, RIGHT: T.MOUSE.ROTATE };
       c.touches = { ONE: T.TOUCH.ROTATE, TWO: T.TOUCH.DOLLY_ROTATE };
-      c.maxZoom = 7;
-      var off = new T.Vector3(1, 0.62, 1).normalize().multiplyScalar(40);
-      c.target.set(P.x, P.y + 0.6, P.z);
+      c.maxZoom = 9; c.maxPolarAngle = 1.54;
+      // Low over your shoulder with a wide lens: the trees tower, the ranges rise beyond the hills.
+      var ry0 = this.player.g.rotation.y, off = new T.Vector3(-Math.sin(ry0), 0, -Math.cos(ry0)).multiplyScalar(Math.cos(CAM_LOW)).setY(Math.sin(CAM_LOW)).multiplyScalar(40);
+      c.target.set(P.x, P.y + CAM_LIFT, P.z);
       this.camera.position.copy(c.target).add(off);
-      this.camera.zoom = 3.4; this.camera.updateProjectionMatrix();
+      this.camEl = CAM_LOW; this.camera.lensFov = CAM_WIDE;
+      this.camera.zoom = 4.6; this.camera.updateProjectionMatrix();
       this.solidAt = 0;
     } else {
       if (this.player) { var pq = this.player; pq.g.visible = false; pq.seat = null; pq.ride = null; if (pq.snow) this.endSnow(pq); if (pq.paddle) this.leavePaddle(pq, false); if (pq.fishing) this.stopFishing(pq); }
@@ -17160,7 +17167,7 @@
       sc3.left = -75; sc3.right = 75; sc3.top = 75; sc3.bottom = -75; sc3.updateProjectionMatrix();
       this.sun.target.position.set(0, 0, 0);
       if (this.sunBase) this.sun.position.copy(this.sunBase);
-      c.enablePan = true; c.maxZoom = 4;
+      c.enablePan = true; c.maxZoom = 4; c.maxPolarAngle = 1.48; this.camera.lensFov = 0; this.camera.nearPush = 0;
       c.mouseButtons = { LEFT: T.MOUSE.PAN, MIDDLE: T.MOUSE.DOLLY, RIGHT: T.MOUSE.ROTATE };
       c.touches = { ONE: T.TOUCH.PAN, TWO: T.TOUCH.DOLLY_ROTATE };
       this.recenter();
@@ -17412,7 +17419,7 @@
     }
     return true;
   };
-  var PLAYER_SCALE = 1.25, STEP_UP = 0.4, GRAVITY = 17;
+  var PLAYER_SCALE = 0.92, STEP_UP = 0.4, GRAVITY = 17;
   // The raccoon you walk around as.
   Town.prototype.makePlayer = function () {
     var pc = this.critter('raccoon');
@@ -17686,11 +17693,42 @@
     return this.floorAt(x, z, y + 0.55) > y + STEP_UP;
   };
   Town.prototype.followCam = function (P, dt) {
-    var c = this.controls, cam = this.camera, k = Math.min(1, dt * 6);
-    var mvx = (P.x - c.target.x) * k, mvy = (P.y + 0.5 - c.target.y) * k, mvz = (P.z - c.target.z) * k;
+    var c = this.controls, cam = this.camera, k = Math.min(1, dt * 6), pl = this.player, inRoom = pl && (pl.inRoom || pl.inDen || pl.mine);
+    var lift = inRoom ? 0.5 : CAM_LIFT;
+    var mvx = (P.x - c.target.x) * k, mvy = (P.y + lift - c.target.y) * k, mvz = (P.z - c.target.z) * k;
     c.target.x += mvx; c.target.y += mvy; c.target.z += mvz;
     cam.position.x += mvx; cam.position.y += mvy; cam.position.z += mvz;
-    return Math.abs(mvx) + Math.abs(mvy) + Math.abs(mvz) > 0.001;
+    var moved = Math.abs(mvx) + Math.abs(mvy) + Math.abs(mvz) > 0.001;
+    // The lens: wide outdoors, back to the gentle one in a room.
+    var fovT = inRoom ? CAM_FOV : CAM_WIDE;
+    if (Math.abs((cam.lensFov || CAM_FOV) - fovT) > 0.05) { cam.lensFov = (cam.lensFov || CAM_FOV) + (fovT - (cam.lensFov || CAM_FOV)) * Math.min(1, dt * 3); moved = true; }
+    // How high the camera sits: where you last left it (drag to change), but never in the ground.
+    var off = cam.position.clone().sub(c.target), R = off.length(), hz = Math.hypot(off.x, off.z), el = Math.atan2(off.y, hz);
+    if (this.camDrag) { this.camEl = el; return moved; }
+    var want = inRoom ? Math.max(this.camEl || CAM_LOW, 0.6) : (this.camEl == null ? CAM_LOW : this.camEl);
+    var D = cam.persp && cam.persp.dist || 10, self = this;
+    function eyeClear(e) {
+      var ex = c.target.x + off.x / hz * Math.cos(e) * D, ez = c.target.z + off.z / hz * Math.cos(e) * D, ey = c.target.y + Math.sin(e) * D;
+      if (inRoom) return true;
+      // the eye, and the line from it to the raccoon, must stay clear of the ground
+      for (var q = 0.35; q <= 1.0; q += 0.325) { var qx = c.target.x + (ex - c.target.x) * q, qz = c.target.z + (ez - c.target.z) * q, qy = c.target.y + (ey - c.target.y) * q; if (groundY(qx, qz) + 0.45 > qy) return false; }
+      return true;
+    }
+    var need = want; for (var tries = 0; tries < 14 && !eyeClear(need); tries++) need += 0.06;
+    // Cut through whatever stands close in front of the lens (a lamppost, a bench, a branch), but
+    // never so far that the ground at the foot of the picture goes missing.
+    if (!inRoom) {
+      var eyeY = c.target.y + Math.sin(el) * D, eyeG = groundY(c.target.x + off.x / hz * Math.cos(el) * D, c.target.z + off.z / hz * Math.cos(el) * D);
+      var h = Math.max(0.3, eyeY - eyeG), lowRay = el + (cam.lensFov || CAM_FOV) * Math.PI / 360;
+      var np = Math.min(D * 0.45, 0.8 * h / Math.sin(Math.max(0.2, lowRay)));
+      if (Math.abs((cam.nearPush || 0) - np) > 0.05) { cam.nearPush = np; moved = true; }
+    } else if (cam.nearPush) { cam.nearPush = 0; moved = true; }
+    var nel = el + (need - el) * Math.min(1, dt * (need > el ? 7 : 1.6));
+    if (Math.abs(nel - el) > 0.0005) {
+      off.set(off.x / hz * Math.cos(nel) * R, Math.sin(nel) * R, off.z / hz * Math.cos(nel) * R);
+      cam.position.copy(c.target).add(off); moved = true;
+    }
+    return moved;
   };
   Town.prototype.interact = function () {
     var pl = this.player, pub = this.st.pub;
@@ -19481,7 +19519,7 @@
     var tint = ph === 'golden' ? ['#fff3df', '#c99a6b'] : ph === 'dusk' || ph === 'dawn' ? ['#ffe3e6', '#a77c90'] : night ? ['#55607a', '#20263a'] : ['#ffffff', '#8f97a8'];
     if (this.cloudTint !== ph) { this.cloudTint = ph; this.cloudMats[0].color.set(tint[0]); this.cloudMats[0].emissive.set(tint[1]); this.cloudMats[1].color.set(tint[0]).multiplyScalar(0.9); this.cloudMats[1].emissive.set(tint[1]).multiplyScalar(0.9); }
     this.clouds.rotation.y += dt * 0.0025 * (this.reduced ? 0 : 1);
-    var op = smooth(0.42, 0.22, this.explore ? 9 : this.camera.zoom) * 0.88;
+    var op = this.explore && !(this.player && this.player.inRoom) ? 0.92 : smooth(0.42, 0.22, this.camera.zoom) * 0.88; // (walking about, the big clouds stand over the land)
     this.cloudMats.forEach(function (m) { m.opacity = op; });
     this.clouds.visible = op > 0.01;
     var wx = WIND_DIR[0], wz = WIND_DIR[1], vis = !night;
@@ -20735,6 +20773,101 @@
     var m = M.pts.material;
     if (night) { m.color.set('#d8ff6a'); m.size = 0.2; m.opacity = M.a * (0.5 + 0.5 * Math.sin(t * 2.3)); } // fireflies blink
     else { m.color.set(this.phase === 'golden' ? '#ffd38a' : '#fff4d6'); m.size = 0.14; m.opacity = M.a * 0.7; }
+    this.needsRender = true;
+  };
+  // ---- the far ranges: three rings of great snow-capped mountains round the edge of the world,
+  // each farther one paler and bluer in the haze, the nearest dark with forest at its feet.
+  // Only seen walking about, from down low, where they rise beyond the hills. ----
+  var RANGES = [
+    { R: 470, H: 70, base: [0.24, 0.31, 0.27], rock: [0.42, 0.45, 0.5], snow: [0.93, 0.95, 0.98], haze: 0.25, seed: 11, f: 1 },
+    { R: 640, H: 125, base: [0.38, 0.44, 0.52], rock: [0.52, 0.57, 0.66], snow: [0.95, 0.96, 1.0], haze: 0.5, seed: 23, f: 0.8 },
+    { R: 830, H: 200, base: [0.55, 0.61, 0.72], rock: [0.64, 0.69, 0.79], snow: [0.97, 0.98, 1.0], haze: 0.72, seed: 37, f: 0.6 }
+  ];
+  Town.prototype.buildRanges = function () {
+    var g = new T.Group(), self = this;
+    RANGES.forEach(function (L, li) {
+      var n = 540, pos = [], col = [], idx = [], r = rng(L.seed), ph = [];
+      for (var o = 0; o < 6; o++) ph.push(r() * 6.283);
+      function height(a) {
+        // sharp peaks: folded sines at several scales, a couple of great massifs, and saddles between
+        var h = 0, amp = 1, fr = 3 * L.f;
+        for (var o2 = 0; o2 < 5; o2++) { var v = 1 - Math.abs(Math.sin(a * fr + ph[o2])); h += v * v * amp; amp *= 0.52; fr *= 2.13; }
+        var massif = 0.55 + 0.45 * Math.pow(0.5 + 0.5 * Math.sin(a * 2 + ph[5]), 2);
+        return L.H * (0.18 + h * 0.62 * massif);
+      }
+      for (var i = 0; i <= n; i++) {
+        var a = i / n * Math.PI * 2, h = height(a), cx = Math.cos(a) * L.R, cz = Math.sin(a) * L.R, snowAt = L.H * 0.58;
+        // four rows up the face: the foot, the forest line, the rock, the summit
+        var rows = [[-30, L.base], [h * 0.32, L.base], [h * 0.7, L.rock], [h, h > snowAt ? L.snow : L.rock]];
+        rows.forEach(function (rw) {
+          var jit = (r() - 0.5) * 0.04;
+          pos.push(cx, rw[0], cz);
+          col.push(rw[1][0] + jit, rw[1][1] + jit, rw[1][2] + jit);
+        });
+        if (h > snowAt) { var k = (i * 4) + 2, sv = Math.min(1, (h - snowAt) / (L.H * 0.4)); col[k * 3] = L.rock[0] + (L.snow[0] - L.rock[0]) * sv * 0.6; col[k * 3 + 1] = L.rock[1] + (L.snow[1] - L.rock[1]) * sv * 0.6; col[k * 3 + 2] = L.rock[2] + (L.snow[2] - L.rock[2]) * sv * 0.6; }
+        if (i < n) for (var rr = 0; rr < 3; rr++) { var a0 = i * 4 + rr, b0 = (i + 1) * 4 + rr; idx.push(a0, b0, a0 + 1, b0, b0 + 1, a0 + 1); }
+      }
+      var geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+      geo.setIndex(idx);
+      var m = new T.MeshBasicMaterial({ vertexColors: true, side: T.DoubleSide, fog: false, transparent: false });
+      m.userData.haze = L.haze;
+      var mesh = new T.Mesh(geo, m); mesh.frustumCulled = false; mesh.renderOrder = -1 - li;
+      g.add(mesh);
+    });
+    g.visible = false;
+    this.scene.add(g);
+    this.ranges = g;
+  };
+  Town.prototype.stepRanges = function (dt, now) {
+    if (this.soft) return;
+    if (!this.ranges) this.buildRanges();
+    var pl = this.player, show = this.explore && pl && !pl.inRoom && !pl.inDen && !pl.mine;
+    this.ranges.visible = !!show;
+    if (!show) return;
+    var ph = this.phase || (this.dark ? 'dusk' : 'day');
+    if (this.rangeTint === ph + this.season) return;
+    this.rangeTint = ph + this.season;
+    // the light on them: blue noon haze, gold and rose at the ends of the day, deep blue at night
+    var TINT = { day: ['#ffffff', '#c9dcf0'], golden: ['#ffd8a8', '#f0c39a'], dawn: ['#f4c2c8', '#d6b0c8'], dusk: ['#b48fb0', '#8a7aa8'], night: ['#4a5478', '#2c3454'] }[ph] || ['#ffffff', '#c9dcf0'];
+    var a = new T.Color(TINT[0]), hz = new T.Color(TINT[1]);
+    this.ranges.children.forEach(function (m) { var k = m.material.userData.haze; m.material.color.copy(a).lerp(hz, k); m.material.needsUpdate = true; });
+    this.needsRender = true;
+  };
+  // ---- mist lying in the valleys and over the water, thickest at dawn and dusk, drifting ----
+  Town.prototype.stepMist = function (dt, now) {
+    if (this.soft || this.lite) return;
+    var M = this.mist;
+    if (!M) {
+      var cv = document.createElement('canvas'); cv.width = cv.height = 128; var x = cv.getContext('2d');
+      for (var b = 0; b < 26; b++) { var bx = 20 + Math.random() * 88, by = 20 + Math.random() * 88, br = 14 + Math.random() * 26, gr = x.createRadialGradient(bx, by, 0, bx, by, br); gr.addColorStop(0, 'rgba(255,255,255,0.32)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128); }
+      var tex = new T.CanvasTexture(cv), mat = new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0, fog: false, color: '#eef3f6' });
+      var geo = new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), r = rng(8181), spots = [];
+      // the low places: below their neighbours, or water
+      for (var t = 0; t < 900 && spots.length < 70; t++) {
+        var px = (r() - 0.5) * 2 * (WORLD_R - 20), pz = (r() - 0.5) * 2 * (WORLD_R - 20), gy = groundY(px, pz);
+        var around = (groundY(px + 12, pz) + groundY(px - 12, pz) + groundY(px, pz + 12) + groundY(px, pz - 12)) / 4;
+        if (around - gy > 0.9 || waterAt(px, pz) != null) spots.push({ x: px, z: pz, y: gy, s: 14 + r() * 16, ph: r() * 6.28, sp: 0.2 + r() * 0.3 });
+      }
+      var im = new T.InstancedMesh(geo, mat, spots.length); im.frustumCulled = false; im.renderOrder = 2;
+      this.scene.add(im);
+      M = this.mist = { im: im, spots: spots, a: 0, m4: new T.Matrix4() };
+    }
+    var ph = this.phase || 'day', pl = this.player;
+    var want = (pl && pl.inRoom) || /rain|storm/.test(this.weatherNow || '') && false ? 0 : { dawn: 0.95, day: 0.3, golden: 0.55, dusk: 0.75, night: 0.5 }[ph] || 0.3;
+    if (pl && (pl.inRoom || pl.inDen || pl.mine)) want = 0;
+    M.a += (want - M.a) * Math.min(1, dt * 0.5);
+    M.im.visible = M.a > 0.02; if (!M.im.visible) return;
+    M.im.material.opacity = M.a * 0.75;
+    M.im.material.color.set(ph === 'night' ? '#8a96b8' : ph === 'golden' ? '#fff0d8' : ph === 'dusk' ? '#e8d0dc' : '#eef3f6');
+    var t = this.reduced ? 0 : now / 1000, m4 = M.m4, q = new T.Quaternion(), sc = new T.Vector3(), p = new T.Vector3(), up = new T.Vector3(0, 1, 0);
+    M.spots.forEach(function (sp, i) {
+      p.set(sp.x + Math.sin(t * 0.02 * sp.sp + sp.ph) * 6 + WIND_DIR[0] * Math.sin(t * 0.01 + sp.ph) * 4, sp.y + 0.5 + Math.sin(t * 0.05 + sp.ph) * 0.15, sp.z + Math.cos(t * 0.017 * sp.sp + sp.ph) * 6);
+      q.setFromAxisAngle(up, sp.ph + t * 0.004); sc.set(sp.s, 1, sp.s * 0.7);
+      M.im.setMatrixAt(i, m4.compose(p, q, sc));
+    });
+    M.im.instanceMatrix.needsUpdate = true;
     this.needsRender = true;
   };
   // ---- a pair of bald eagles riding the thermals high over the hills ----
