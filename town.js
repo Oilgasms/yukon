@@ -1624,6 +1624,73 @@
     this.post = { rt: rt, mat: mat, scene: new T.Scene(), cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
     this.post.scene.add(quad);
   };
+  // The finishing pass, over the whole picture: a tilt-shift lens (sharp in the middle, softly out of
+  // focus top and bottom, so the town reads like a little model), slow shafts of light slanting in
+  // from the sun's side of the sky, a touch more colour and a gentle vignette.
+  Town.prototype.setupFinish = function () {
+    var sz = this.renderer.getDrawingBufferSize(new T.Vector2());
+    var rt = new T.WebGLRenderTarget(sz.x, sz.y, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat });
+    var mat = new T.ShaderMaterial({
+      uniforms: { tColor: { value: rt.texture }, res: { value: new T.Vector2(sz.x, sz.y) }, tilt: { value: 1 }, blurPx: { value: 3 }, focusY: { value: 0.47 }, sunUv: { value: new T.Vector2(1.2, 1.2) }, rayCol: { value: new T.Color('#ffe2b0') }, rayK: { value: 0 }, time: { value: 0 }, aspect: { value: 1.4 }, sat: { value: 1.08 }, vig: { value: 0.22 } },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: [
+        'uniform sampler2D tColor; uniform vec2 res; uniform float tilt; uniform float blurPx; uniform float focusY; uniform vec2 sunUv; uniform vec3 rayCol; uniform float rayK; uniform float time; uniform float aspect; uniform float sat; uniform float vig;',
+        'varying vec2 vUv;',
+        'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+        'float noise(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(hash(vec2(i, 0.0)), hash(vec2(i + 1.0, 0.0)), f); }',
+        'float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }',
+        'void main() {',
+        '  vec4 c0 = texture2D(tColor, vUv);',
+        // how far out of the band of focus this row is
+        '  float dy = abs(vUv.y - focusY);',
+        '  float bl = smoothstep(0.16, 0.5, dy) * tilt;',
+        '  vec3 col = c0.rgb * c0.a; float a = c0.a, w = 1.0;',
+        '  if (bl > 0.01) {',
+        '    float rot = hash(floor(vUv * res)) * 6.283;',
+        '    for (int k = 0; k < 12; k++) {',
+        '      float an = float(k) * 2.39996 + rot, rr = sqrt((float(k) + 0.5) / 12.0) * blurPx * bl;',
+        '      vec4 s = texture2D(tColor, vUv + vec2(cos(an), sin(an)) * rr / res);',
+        '      col += s.rgb * s.a; a += s.a; w += 1.0;',
+        '    }',
+        '  }',
+        '  col = a > 0.001 ? col / a : c0.rgb; a /= w;',
+        // shafts of light: bands running out from the sun, drifting slowly, fading with distance
+        '  if (rayK > 0.001) {',
+        '    vec2 d = (vUv - sunUv) * vec2(aspect, 1.0); float dist = length(d);',
+        '    float ang = atan(d.y, d.x);',
+        '    float band = noise(ang * 22.0 + time * 0.05) * 0.6 + noise(ang * 57.0 - time * 0.08) * 0.4;',
+        '    float shaft = smoothstep(0.45, 0.85, band) * exp(-dist * 0.9) * smoothstep(0.0, 0.25, dist);',
+        '    col += rayCol * shaft * rayK * (0.6 + 0.4 * smoothstep(0.2, 0.8, lum(col)));',
+        '  }',
+        // a little richer, and darker towards the corners
+        '  float l = lum(col); col = max(vec3(0.0), mix(vec3(l), col, sat));',
+        '  vec2 vc = (vUv - 0.5) * vec2(aspect, 1.0); col *= 1.0 - vig * smoothstep(0.35, 1.05, length(vc));',
+        '  gl_FragColor = vec4(col, a);',
+        '}'
+      ].join('\n'),
+      depthTest: false, depthWrite: false
+    });
+    var quad = new T.Mesh(new T.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+    this.finish = { rt: rt, mat: mat, scene: new T.Scene(), cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
+    this.finish.scene.add(quad);
+  };
+  Town.prototype.updateFinish = function (sz) {
+    var F = this.finish, U = F.mat.uniforms, pl = this.player, inRoom = pl && pl.inRoom;
+    if (F.rt.width !== sz.x || F.rt.height !== sz.y) { F.rt.setSize(sz.x, sz.y); U.res.value.set(sz.x, sz.y); }
+    // the lens: strongest walking about and close in, gone when zoomed right out over the whole map
+    var z = this.explore ? 1 : smooth(0.25, 0.7, this.camera.zoom);
+    U.tilt.value = (inRoom ? 0.55 : 1) * z * (this.tiltOff ? 0 : 1);
+    U.blurPx.value = 3.2 * this.renderer.getPixelRatio();
+    U.aspect.value = this.aspect || 1.4;
+    U.time.value = this.reduced ? 0 : performance.now() / 1000;
+    var ph = this.phase || (this.dark ? 'dusk' : 'day');
+    var RAY = { day: ['#fff3d6', 0.12], golden: ['#ffc77e', 0.42], dawn: ['#ffc0a8', 0.32], dusk: ['#ff9f7a', 0.12], night: ['#9fb4ff', 0.035] }[ph] || ['#fff3d6', 0.07];
+    U.rayCol.value.set(RAY[0]); U.rayK.value = inRoom ? 0 : RAY[1];
+    var sv = this.sun.position.clone().sub(this.sun.target.position).normalize().multiplyScalar(400).add(this.controls.target).project(this.camera);
+    U.sunUv.value.set(Math.max(-0.5, Math.min(1.5, sv.x * 0.5 + 0.5)), Math.max(0.6, Math.min(1.6, sv.y * 0.5 + 0.5)));
+    U.sat.value = ph === 'night' ? 1.0 : ph === 'golden' ? 1.12 : 1.08;
+    U.vig.value = ph === 'night' || ph === 'dusk' ? 0.3 : 0.2;
+  };
   // Speech bubbles live on their own layer, drawn last and straight onto the page.
   var OVERLAY_LAYER = 2;
   Town.prototype.drawOverlay = function () {
@@ -1636,8 +1703,14 @@
   Town.prototype.draw = function () {
     this.camera.updateProjectionMatrix(); // (the lens follows the camera's distance to its target)
     if (this.handmade && !this.post) this.setupHandmade();
-    if (!this.handmade || !this.post) { this.renderer.render(this.scene, this.camera); this.drawOverlay(); return; }
-    var P = this.post, sz = this.renderer.getDrawingBufferSize(new T.Vector2());
+    var useF = !this.lite && !this.soft && !this.pixel && !this.plainLook;
+    if (useF && !this.finish) this.setupFinish();
+    var szF = this.renderer.getDrawingBufferSize(new T.Vector2()), F = useF ? this.finish : null;
+    if (F) this.updateFinish(szF);
+    var out = F ? F.rt : null;
+    var finishUp = function (self) { if (!F) return; self.renderer.setRenderTarget(null); self.renderer.render(F.scene, F.cam); };
+    if (!this.handmade || !this.post) { this.renderer.setRenderTarget(out); if (out) this.renderer.clear(); this.renderer.render(this.scene, this.camera); finishUp(this); this.drawOverlay(); return; }
+    var P = this.post, sz = szF;
     if (P.rt.width !== sz.x || P.rt.height !== sz.y) { P.rt.setSize(sz.x, sz.y); P.mat.uniforms.res.value.set(sz.x, sz.y); }
     var CP = this.camera.persp, LG = this.lightGrade, U2 = P.mat.uniforms;
     if (LG) {
@@ -1657,8 +1730,10 @@
     this.renderer.setRenderTarget(P.rt);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
-    this.renderer.setRenderTarget(null);
+    this.renderer.setRenderTarget(out);
+    if (out) this.renderer.clear();
     this.renderer.render(P.scene, P.cam);
+    finishUp(this);
     this.drawOverlay();
   };
 
@@ -6697,7 +6772,7 @@
     g.rotation.y = facingSquare(CINEMA); // the doors face the town square
     this.world.add(g);
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
-    var glow = this.mat('lantern'), screen = this.screenMat || (this.screenMat = new T.MeshBasicMaterial({ color: '#f4f1e6' }));
+    var glow = this.mat('lantern'), screen = this.screenMat || (this.screenMat = new T.MeshLambertMaterial({ color: '#f4f1e6' })); // (lit by the sky like everything else, so it doesn't glow at night)
     if (n < 25) {
       // Movie night: a white sheet between two poles, a projector on a crate, benches and string lights;
       // more benches, a blanket, deck chairs and a snack crate as the films add up.
@@ -16862,7 +16937,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle'].concat(this.reduced ? [] : ['stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -19205,6 +19280,15 @@
       else if (o.geometry === self.geo.cone4 && /^leaf/.test(name || '')) o.material = self.windMat(o.material, 0.1, 0.12, 'lanetuft');
       else if (o.geometry === self.geo.ball && /^flag/.test(name || '')) o.material = self.windMat(o.material, 0.04, 0.04, 'laneflower' + name);
     });
+    // the round crowns of the oaks, birches and orchard trees rock gently, more in the gusts
+    var cache = this.crownWind || (this.crownWind = {});
+    this.base.traverse(function (o) {
+      if (!o.isMesh || o.isInstancedMesh || o.geometry !== self.geo.blob) return;
+      var ud = o.material.userData || {}, nm = ud.name;
+      if (nm !== 'leaf' && nm !== 'birchleaf') return;
+      var key = nm + (ud.idx == null ? '' : ud.idx);
+      o.material = cache[key] || (cache[key] = self.windMat(o.material, 0.13, 0, 'crown'));
+    });
   };
 
   // ---- travellers on the roads between towns once they're open ----
@@ -20311,9 +20395,11 @@
       K.poolTry = now + 5000;
       var lm = this.mats.lantern, spots = [], v = new T.Vector3();
       if (lm) this.scene.traverse(function (o) { if (o.isMesh && o.material === lm && spots.length < 400) { o.getWorldPosition(v); var gy = groundY(v.x, v.z); if (v.y - gy < 4 && v.y - gy > 0.4) spots.push([v.x, gy, v.z, v.y - gy]); } });
+      // (bulbs strung close together share one pool, so string lights don't pile up into a glare)
+      var cells = {}; spots = spots.filter(function (sp) { var ck = Math.round(sp[0] / 2.2) + ',' + Math.round(sp[2] / 2.2); if (cells[ck]) return false; cells[ck] = 1; return true; });
       if (spots.length > 10) {
         var cv2 = document.createElement('canvas'); cv2.width = cv2.height = 64; var x2 = cv2.getContext('2d'), gr = x2.createRadialGradient(32, 32, 0, 32, 32, 32);
-        gr.addColorStop(0, 'rgba(255,200,120,0.85)'); gr.addColorStop(0.5, 'rgba(255,170,90,0.3)'); gr.addColorStop(1, 'rgba(255,160,80,0)'); x2.fillStyle = gr; x2.fillRect(0, 0, 64, 64);
+        gr.addColorStop(0, 'rgba(255,200,120,0.6)'); gr.addColorStop(0.5, 'rgba(255,170,90,0.22)'); gr.addColorStop(1, 'rgba(255,160,80,0)'); x2.fillStyle = gr; x2.fillRect(0, 0, 64, 64);
         var pm = new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv2), transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false });
         var im = new T.InstancedMesh(new T.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), pm, spots.length), m4 = new T.Matrix4();
         spots.forEach(function (sp, i) { var sz = 1.6 + sp[3] * 0.9; m4.makeScale(sz, 1, sz); m4.setPosition(sp[0], sp[1] + 0.04, sp[2]); im.setMatrixAt(i, m4); });
@@ -20321,6 +20407,76 @@
       }
     }
     if (K.pools) { K.pools.visible = K.a > 0.05; K.pools.material.opacity = K.a; }
+  };
+  // ---- motes: pollen and dust drifting through the sunlight around you, fireflies on summer nights ----
+  Town.prototype.stepMotes = function (dt, now) {
+    var M = this.motes, pl = this.player;
+    if (!M) {
+      var n = 140, pos = new Float32Array(n * 3), seed = [], r = rng(4411);
+      for (var i = 0; i < n; i++) seed.push({ x: (r() - 0.5) * 22, y: 0.2 + r() * 3.2, z: (r() - 0.5) * 22, ph: r() * 6.283, sp: 0.4 + r() * 0.8 });
+      var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
+      var cv = document.createElement('canvas'); cv.width = cv.height = 32; var x = cv.getContext('2d'), gr = x.createRadialGradient(16, 16, 0, 16, 16, 16);
+      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32);
+      var m = new T.PointsMaterial({ size: 0.22, map: new T.CanvasTexture(cv), transparent: true, depthWrite: false, blending: T.AdditiveBlending, color: '#fff1c8', opacity: 0, fog: false });
+      var pts = new T.Points(g, m); pts.frustumCulled = false; this.scene.add(pts);
+      M = this.motes = { pts: pts, seed: seed, cx: 0, cz: 0, a: 0 };
+    }
+    var night = this.dark, summer = this.season === 'summer' || this.season === 'spring';
+    var want = !this.explore || !pl || pl.inRoom || /rain|storm|snow/.test(this.weatherNow || '') ? 0 : night ? (summer ? 1 : 0) : (this.phase === 'golden' ? 0.9 : 0.5);
+    M.a += (want - M.a) * Math.min(1, dt * 1.5);
+    M.pts.visible = M.a > 0.02; if (!M.pts.visible) return;
+    var c = pl.g.position; M.cx += (c.x - M.cx) * Math.min(1, dt * 2); M.cz += (c.z - M.cz) * Math.min(1, dt * 2);
+    var t = now / 1000, P = M.pts.geometry.attributes.position, gy = groundY(M.cx, M.cz);
+    for (var i = 0; i < M.seed.length; i++) {
+      var s = M.seed[i];
+      // drift with the wind, wrapping round a box that follows you
+      var wx = ((s.x + t * 0.35 * s.sp + Math.sin(t * 0.7 * s.sp + s.ph) * 0.6) % 22 + 33) % 22 - 11;
+      var wz = ((s.z - t * 0.22 * s.sp + Math.cos(t * 0.5 * s.sp + s.ph) * 0.6) % 22 + 33) % 22 - 11;
+      P.setXYZ(i, M.cx + wx, gy + s.y + Math.sin(t * 0.9 * s.sp + s.ph) * 0.35, M.cz + wz);
+    }
+    P.needsUpdate = true;
+    var m = M.pts.material;
+    if (night) { m.color.set('#d8ff6a'); m.size = 0.2; m.opacity = M.a * (0.5 + 0.5 * Math.sin(t * 2.3)); } // fireflies blink
+    else { m.color.set(this.phase === 'golden' ? '#ffd38a' : '#fff4d6'); m.size = 0.14; m.opacity = M.a * 0.7; }
+    this.needsRender = true;
+  };
+  // ---- a pair of bald eagles riding the thermals high over the hills ----
+  Town.prototype.stepEagles = function (dt, now) {
+    var E = this.eagles, self = this;
+    if (!E) {
+      E = this.eagles = [];
+      for (var i = 0; i < 2; i++) {
+        var g = new T.Group(), body = this.mat('wpBlack'), white = this.mat('whitewood'), beak = this.mat('gold');
+        var mk = function (par, geo, m, sx, sy, sz, x, y, z) { var o = new T.Mesh(geo, m); o.scale.set(sx, sy, sz); o.position.set(x, y, z); o.castShadow = true; par.add(o); return o; };
+        var trunk = this.mat('trunk');
+        mk(g, this.geo.ball, trunk, 0.16, 0.13, 0.42, 0, 0, 0);
+        mk(g, this.geo.ball, white, 0.11, 0.11, 0.13, 0, 0.04, 0.4);
+        mk(g, this.geo.cone4, beak, 0.04, 0.1, 0.04, 0, 0.02, 0.53).rotation.x = Math.PI / 2;
+        mk(g, this.geo.box, white, 0.2, 0.03, 0.18, 0, 0, -0.45);
+        var wings = [-1, 1].map(function (sd) {
+          var w = new T.Group(); w.position.set(sd * 0.12, 0.03, 0.02); g.add(w);
+          mk(w, self.geo.box, trunk, 0.75, 0.03, 0.3, sd * 0.38, 0, 0);
+          mk(w, self.geo.box, body, 0.35, 0.025, 0.24, sd * 0.9, 0, -0.03);
+          return w;
+        });
+        g.scale.setScalar(1.6);
+        this.scene.add(g);
+        E.push({ g: g, wings: wings, ph: i * 2.6, r: 16 + i * 5, h: 15 + i * 2.5, sp: 0.09 - i * 0.015, cx: 30 - i * 8, cz: -40 + i * 12 });
+      }
+    }
+    var t = now / 1000, show = !(this.player && this.player.inRoom);
+    E.forEach(function (e) {
+      e.g.visible = show; if (!show) return;
+      var a = t * e.sp + e.ph, wob = Math.sin(t * 0.13 + e.ph) * 4;
+      var x = e.cx + Math.cos(a) * (e.r + wob), z = e.cz + Math.sin(a) * (e.r + wob), y = groundY(e.cx, e.cz) + e.h + Math.sin(t * 0.21 + e.ph) * 2;
+      e.g.position.set(x, y, z);
+      e.g.rotation.set(0, -a, 0); e.g.rotation.order = 'YXZ';
+      e.g.rotation.z = 0.32; // banked into the turn
+      // long glides, then a few slow beats
+      var beat = Math.max(0, Math.sin(t * 0.25 + e.ph * 3)) > 0.85 ? Math.sin(t * 6) * 0.45 : 0.06 * Math.sin(t * 0.8);
+      e.wings[0].rotation.z = beat; e.wings[1].rotation.z = -beat;
+    });
+    this.needsRender = true;
   };
   // ---- a postcard view of each town ----
   var POSTCARD_VIEW = { 1: [-16, 9, 22], 2: [-20, 12, 18], 3: [24, 11, 16], 4: [-18, 14, 20], 5: [18, 10, 20], 6: [-18, 11, 22], 7: [20, 9, 20] };
