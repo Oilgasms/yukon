@@ -6,25 +6,26 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=EB+Garamond:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: the island fills the screen; parchment-and-wood panels float at the corners like a farm game's HUD. */
 :root {
   --sky-top: #7ec8ee; --sky-bottom: #d9f1fb;
-  --card: #f7e6bd; --card-2: #ecd49a; --edge: #6b3f1d; --ink: #3a220e; --muted: #7a5634; --line: rgba(107, 63, 29, 0.28);
-  --accent: #3f8f3a; --accent-ink: #fff8e6; --warn: #b8361f; --live: #3f8f3a;
-  --display: "Pixelify Sans", "Nunito", ui-rounded, system-ui, sans-serif;
-  --body: "Nunito", ui-rounded, system-ui, sans-serif;
+  --card: #f3e4bf; --card-2: #e8d3a1; --edge: #4a2f17; --ink: #2e1d0e; --muted: #6e5034; --line: rgba(74, 47, 23, 0.3);
+  --accent: #7a2318; --accent-ink: #f8ecc8; --warn: #a3301f; --live: #4f7a3a; --rubric: #8c2a1c; --gold: #a87b22;
+  --display: "IM Fell English", "EB Garamond", Georgia, serif;
+  --caps: "IM Fell English SC", "IM Fell English", Georgia, serif;
+  --body: "EB Garamond", Georgia, "Times New Roman", serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --sky-top: #1b1838; --sky-bottom: #4b3560;
   --card: #3b2716; --card-2: #4d341d; --edge: #d9a95a; --ink: #f6e6c0; --muted: #c9a77a; --line: rgba(217, 169, 90, 0.3);
-  --accent: #6fbf5a; --accent-ink: #1b1206; --warn: #ff9b7a; --live: #6fbf5a; color-scheme: dark;
+  --accent: #b8452f; --accent-ink: #fbefd0; --warn: #ff9b7a; --live: #8fbf6a; --rubric: #e7967a; --gold: #d9a95a; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --sky-top: #1b1838; --sky-bottom: #4b3560;
   --card: #3b2716; --card-2: #4d341d; --edge: #d9a95a; --ink: #f6e6c0; --muted: #c9a77a; --line: rgba(217, 169, 90, 0.3);
-  --accent: #6fbf5a; --accent-ink: #1b1206; --warn: #ff9b7a; --live: #6fbf5a; color-scheme: dark;
+  --accent: #b8452f; --accent-ink: #fbefd0; --warn: #ff9b7a; --live: #8fbf6a; --rubric: #e7967a; --gold: #d9a95a; color-scheme: dark;
 }
 /* The horizon tint follows the season of the latest log. */
 body[data-season="spring"] { --sky-bottom: #e6f6dc; }
@@ -309,20 +310,168 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .secrets li { color: var(--muted); }
 .secrets li b { color: var(--ink); font-weight: 600; }
 .secrets li button { font: inherit; color: var(--ink); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+
+/* ===== The medieval pass: parchment folios, an old-print face, ink icons, one tidy toolbar ===== */
+body { font-family: var(--body); font-size: 15px; }
+.card {
+  background: radial-gradient(120% 140% at 30% 20%, color-mix(in srgb, var(--card) 96%, #fff) 0%, var(--card) 55%, color-mix(in srgb, var(--card) 88%, var(--edge)) 100%);
+  border: 1.5px solid var(--edge); border-radius: 3px;
+  box-shadow: inset 0 0 0 3px var(--card), inset 0 0 0 4px color-mix(in srgb, var(--edge) 55%, transparent), 0 8px 18px rgba(30, 15, 5, 0.32);
+}
+.eyebrow { font-family: var(--caps); font-size: 12.5px; letter-spacing: 0.08em; text-transform: none; color: var(--rubric); }
+h1 { font-family: var(--display); font-weight: 400; font-size: 40px; letter-spacing: 0.01em; margin: 0 0 4px; }
+h2 { font-family: var(--display); font-weight: 400; }
+.btn, .sync button {
+  font: 500 14px var(--body); color: var(--ink); letter-spacing: 0.01em;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card-2) 70%, #fff), var(--card-2)); border: 1.5px solid var(--edge);
+  border-radius: 3px; padding: 3px 11px; box-shadow: 0 2px 0 var(--edge);
+}
+.btn.primary { background: linear-gradient(180deg, #943022, var(--accent)); color: var(--accent-ink); }
+.btn[aria-pressed="true"] { background: var(--edge); color: var(--card); }
+.min-btn { font: 400 18px var(--display); }
+.dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--edge) 60%, transparent); }
+/* the banner: name, season and weather, the hour, what's next, and one line for the records */
+.title { padding: 12px 34px 12px 16px; max-width: 330px; display: grid; gap: 4px; justify-items: start; }
+.title .season { margin: 0; font-size: 14px; flex-wrap: wrap; }
+.title .season b { font-family: var(--caps); font-weight: 400; font-size: 14px; background: none; border: 0; padding: 0; color: var(--rubric); }
+.title .clock { font: italic 400 14px var(--body); color: var(--muted); margin: 0; text-decoration: none; }
+.title .clock:hover { color: var(--ink); text-decoration: underline; }
+.title .nextup { background: none; border-top: 1px solid var(--line); border-radius: 0; padding: 6px 0 0; margin: 2px 0 0; font-size: 14px; width: 100%; }
+.title .nextup b { font-family: var(--caps); font-weight: 400; font-size: 12.5px; text-transform: none; letter-spacing: 0.06em; color: var(--rubric); }
+.title .nextup #nextup-all { font-size: 13px; font-style: italic; }
+.records-sum { display: flex; align-items: center; gap: 7px; font: italic 400 13.5px var(--body); color: var(--muted); background: none; border: 0; padding: 2px 0 0; cursor: pointer; text-align: left; }
+.records-sum:hover { color: var(--ink); text-decoration: underline; }
+.title.min > :not(h1):not(.min-btn):not(.eyebrow) { display: none; }
+/* folios: centred books, one open at a time */
+.folio { position: fixed; left: 50%; top: calc(50% - 40px); transform: translate(-50%, -50%); z-index: 8; width: min(560px, calc(100vw - 24px));
+  max-height: calc(100vh - 200px); overflow: auto; padding: 14px 18px 16px; box-sizing: border-box; animation: folio-in 0.22s ease-out; }
+.folio[hidden] { display: none; }
+@keyframes folio-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 10px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@media (prefers-reduced-motion: reduce) { .folio { animation: none; } }
+.folio-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 3px double color-mix(in srgb, var(--edge) 60%, transparent); padding-bottom: 6px; margin-bottom: 10px; position: sticky; top: -14px; background: inherit; z-index: 1; }
+.folio-h h2 { font-size: 30px; line-height: 1; margin: 2px 0 0; }
+.folio-x { font: 400 28px/1 var(--display); color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0 4px; }
+.folio-x:hover { color: var(--rubric); }
+.folio .sub { font-size: 14.5px; font-style: italic; color: var(--muted); margin: 0 0 10px; }
+/* the ledger as a folio */
+.ledger { width: min(520px, calc(100vw - 24px)); padding: 14px 18px 16px; max-height: calc(100vh - 200px); grid-column: auto; grid-row: auto; }
+.ledger .rows { padding: 0 0 10px; gap: 4px; }
+.ledger .row { font-size: 15px; border-bottom: 1px dotted var(--line); padding-bottom: 3px; }
+.ledger .row span:first-child { opacity: 1; color: var(--muted); }
+.ledger .row span:last-child { font-family: var(--body); font-weight: 600; font-variant-numeric: lining-nums tabular-nums; font-size: 15px; }
+.ledger .tonnage, .ledger .wildlife, .ledger .secrets { margin-left: 0; margin-right: 0; border-top: 3px double var(--line); }
+.ledger .tonnage strong { font-family: var(--display) !important; font-weight: 400; font-size: 28px; }
+.ledger .wildlife h3, .ledger .secrets h3 { font-family: var(--caps); font-weight: 400; font-size: 15px; color: var(--rubric); }
+.key-fold { border-top: 3px double var(--line); padding-top: 8px; }
+.key-fold summary { cursor: pointer; font-family: var(--caps); color: var(--rubric); font-size: 15px; }
+.key-fold .key { margin: 8px 0 0; border: 0; padding: 0; font-size: 14px; }
+/* quests */
+#questsF .quests { background: none; padding: 0; margin: 0; font-size: 15.5px; }
+#questsF .quests > b { display: none; }
+#questsF .quests ul { gap: 8px; }
+#questsF .quests li { padding: 6px 0 6px 22px; border-bottom: 1px dotted var(--line); position: relative; }
+#questsF .quests li::before { content: ""; position: absolute; left: 2px; top: 11px; width: 9px; height: 9px; border: 1.5px solid var(--rubric); transform: rotate(45deg); }
+#questsF .quests li.done::before { background: var(--rubric); }
+#questsF .empty { display: none; font-style: italic; color: var(--muted); margin: 6px 0 0; }
+#questsF .quests[hidden] ~ .empty { display: block; }
+/* records and settings */
+#records .sync { font-size: 14.5px; color: var(--ink); padding: 5px 0; border-bottom: 1px dotted var(--line); margin: 0; }
+#records .reading-panel { margin: 6px 0; }
+.set-list { display: grid; }
+.set { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px dotted var(--line); }
+.set b { display: block; font-weight: 600; font-size: 16px; }
+.set small { display: block; font-size: 13.5px; font-style: italic; color: var(--muted); }
+.set > span:last-child { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* skills */
+.skills { width: min(600px, calc(100vw - 24px)); }
+.sk { background: color-mix(in srgb, var(--card-2) 55%, transparent); border: 1px solid var(--line); border-radius: 3px; grid-template-columns: 30px 1fr auto; padding: 7px 9px; }
+.sk .ic { width: 26px; height: 26px; grid-row: span 2; }
+.sk .nm { font-weight: 600; font-size: 15px; }
+.sk .lv { font-family: var(--display); font-weight: 400; font-size: 24px; font-variant-numeric: lining-nums; }
+.sk .bar { height: 5px; border-radius: 0; background: color-mix(in srgb, var(--edge) 18%, transparent); }
+.sk .bar i { border-radius: 0; }
+.sk.maxed { border-color: var(--gold); }
+.sk-detail { font-size: 14.5px; font-style: italic; }
+.sk-total { font-family: var(--display); font-weight: 400; font-size: 18px; border-top: 3px double var(--line); padding-top: 8px; }
+.xpdrop { font-family: var(--display); font-weight: 400; font-size: 20px; color: #fff4d6; text-shadow: 0 1px 0 #2e1d0e, 0 0 6px rgba(20,10,0,0.75), 0 0 2px #000; }
+.xpdrop .ic { width: 20px; height: 20px; color: #f2d27a; filter: drop-shadow(0 1px 1px #000); }
+.lvlup { padding: 14px 26px 12px; }
+.lvlup .ic { width: 40px; height: 40px; display: block; margin: 0 auto 2px; }
+.lvlup .big { font-family: var(--display); font-weight: 400; font-size: 32px; color: var(--rubric); }
+.lvlup .small { font-style: italic; font-size: 14.5px; color: var(--muted); }
+/* the toolbar: ink icons with a word under each */
+.timeline { padding: 6px 8px; }
+.timeline .tl-top { gap: 2px; padding-right: 0; flex-wrap: nowrap; }
+.timeline-card-min, #timeline-min { display: none; }
+.tb { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 58px; padding: 5px 6px 4px; background: none; border: 1px solid transparent; border-radius: 3px; color: var(--ink); cursor: pointer; font: 500 13px var(--body); }
+.tb .ico { width: 24px; height: 24px; }
+.tb:hover { background: color-mix(in srgb, var(--card-2) 70%, transparent); border-color: var(--line); }
+.tb.on { background: var(--edge); color: var(--card); }
+.tb:active { transform: translateY(1px); }
+.tb + .tb { position: relative; }
+@media (max-width: 560px) {
+  .timeline .tl-top { flex-wrap: wrap; justify-content: center; }
+  .tb { min-width: 0; flex: 1 0 22%; padding: 4px 2px 3px; font-size: 12px; }
+  .tb .ico { width: 21px; height: 21px; }
+  .title { max-width: calc(100vw - 32px); }
+  h1 { font-size: 32px; }
+  .folio { max-height: calc(100vh - 230px); top: calc(50% - 60px); }
+}
+/* little things that still show in the world */
+.near { font-family: var(--body); font-weight: 600; font-size: 15px; }
+.near kbd { font-family: var(--display); }
+.toast { font-family: var(--display); font-weight: 400; font-size: 17px; }
+.tip h2 { font-family: var(--display); font-weight: 400; font-size: 19px; }
+.secret-card .eyebrow { color: var(--rubric); }
+.secret-card h2 { font-weight: 400; font-size: 25px; }
+.secret-card { border-color: var(--edge); box-shadow: inset 0 0 0 3px var(--card), inset 0 0 0 4px var(--gold), 0 8px 18px rgba(30, 15, 5, 0.32); }
 </style>
 
 <canvas id="scene" aria-label="Your town, built from your workouts. Walk around as the raccoon with WASD or the arrow keys (Shift runs, E looks, M for the map), or drag to look around and scroll or pinch to zoom."></canvas>
 <div id="vignette" aria-hidden="true"></div>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-tower" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V9h14v12M5 9V5h2.5v2h2V5h2.5v2h2V5H19v4M10 21v-4a2 2 0 0 1 4 0v4"/></symbol><symbol id="i-paw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15.5" r="3.6"/><circle cx="6" cy="10.5" r="1.7"/><circle cx="9.4" cy="6.6" r="1.7"/><circle cx="14.6" cy="6.6" r="1.7"/><circle cx="18" cy="10.5" r="1.7"/></symbol><symbol id="i-sword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5H20.5V9.5L9.5 20.5 6.5 17.5z"/><path d="M4.5 14.5l5 5M3 21l2.5-2.5M12 12l3-3"/></symbol><symbol id="i-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4h10.5a2 2 0 0 1 0 4H17v10a2 2 0 0 1-2 2H5a2 2 0 0 1 0-4h1.5V6A2 2 0 0 1 7.5 4z"/><path d="M9.5 9.5h5M9.5 12.5h5M9.5 15.5h3"/></symbol><symbol id="i-ledger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h12.5a1.5 1.5 0 0 1 1.5 1.5v14.5H7a2 2 0 0 1-2-2z"/><path d="M5 18.5a2 2 0 0 1 2-2h12M9 8.5h6M9 11.5h4"/></symbol><symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/><path d="M5.5 11.5l1.5 1.5M7 11.5l-1.5 1.5"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5c1-1.2 1.2-3.2 1.2-6.2a4.8 4.8 0 0 1 9.6 0c0 3 .2 5 1.2 6.2z"/><path d="M4.5 16.5h15M10 19.5a2 2 0 0 0 4 0M12 3.5v2"/></symbol><symbol id="i-candle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10.5h6V20H9zM6.5 20h11"/><path d="M12 10.5V8.5"/><path d="M12 3c1.8 1.8 1.8 3.6 0 4.6-1.8-1-1.8-2.8 0-4.6z"/></symbol><symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="3.6"/><path d="M10.6 12H21M17.5 12v3M20.5 12v2.2"/></symbol><symbol id="i-quill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 3.5C12.5 4.5 8 9.5 6 16.5"/><path d="M20 3.5c-1 6-5 10-11 11M4 21l2-4.5M10.5 11l3 .5"/></symbol><symbol id="i-strength" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h9v5.5h-9z"/><path d="M12.5 7.2h3.5M8 11v10M6 21h4"/></symbol><symbol id="i-running" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h5v8.5l6 2.8V19h-12l1-7.5z"/><path d="M5.5 16.5h12"/><path d="M12 7c2.2-2 5.3-2.2 7.5-1.2-2 0-3.2.8-4 1.8 2 0 3.2.8 3.5 2-2-.8-4.2-.8-6.5 0"/></symbol><symbol id="i-endurance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8c3.8 3.6 4.8 6.8 2.8 9.6a3.6 3.6 0 0 1-5.6 0c-1-1.8-.2-3.6 1.6-4.6.2 1.6 1 2.4 1.8 2 .9-1.9.4-4.2-.6-7z"/><path d="M10 14.5h4l-1 6.5h-2z"/></symbol><symbol id="i-hiking" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 20l6.3-10.5 3 4 3.4-6.5L21.5 20z"/><path d="M13.6 10.6l1.6 1.2 1.2-1"/></symbol><symbol id="i-cycling" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6"/><path d="M12 3.5v6.9M12 13.6v6.9M3.5 12h6.9M13.6 12h6.9M6 6l4.9 4.9M13.1 13.1L18 18M18 6l-4.9 4.9M10.9 13.1L6 18"/></symbol><symbol id="i-swimming" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2.5 13.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2.5 18.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></symbol><symbol id="i-agility" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 3.5C11.5 5 6.5 10 5 20"/><path d="M19.5 3.5c0 7-4 11.2-11.5 12.4M9.3 15.6l-3.4.8M12.2 12.4l-4.2 1M15.2 9.2l-4.4 1.1M17.6 6.2l-4.2 1.3"/></symbol><symbol id="i-discipline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3h13M5.5 21h13M7 3c0 5.2 5 6.2 5 9s-5 3.8-5 9M17 3c0 5.2-5 6.2-5 9s5 3.8 5 9"/><path d="M9.5 18.5h5"/></symbol><symbol id="i-fellowship" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h6.5l-1 5.2a2.2 2.2 0 0 1-4.4 0zM6.3 11.9v6.6M4 19h4.6"/><path d="M14.5 4.5H21l-1 5.2a2.2 2.2 0 0 1-4.4 0zM17.8 11.9v6.6M15.5 19h4.6"/><path d="M10.5 3l1.5-1.5L13.5 3"/></symbol><symbol id="i-devotion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v19M6.5 8h11"/></symbol><symbol id="i-lore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6c3.2-1.2 6.4-1 9.5 1 3.1-2 6.3-2.2 9.5-1v13c-3.2-1.2-6.4-1-9.5 1-3.1-2-6.3-2.2-9.5-1z"/><path d="M12 7v13M5 9.5c1.5-.4 3-.3 4.5.3M14.5 9.8c1.5-.6 3-.7 4.5-.3"/></symbol></svg>
 <div class="hud">
   <section class="card title" id="title-card">
     <button class="min-btn" type="button" id="title-min" aria-expanded="true" aria-label="Minimize this panel">&ndash;</button>
-    <div class="eyebrow">Fit(ter) by 30</div>
+    <div class="eyebrow">Fit(ter) by thirty</div>
     <h1>Yukon</h1>
-    <div class="quests" id="quests" hidden><b>Today’s favours</b><ul id="quest-list"></ul></div>
-    <div class="nextup" id="nextup" hidden><b>Next up</b><span id="nextup-what"></span><span id="nextup-all"></span></div>
     <div class="season" id="season" hidden><b id="season-name">Fall</b><span id="season-why"></span><span id="weather-now"></span></div>
     <div><button class="clock" id="clock" type="button" title="Tap to preview dawn, day, golden hour, dusk and night">&#9728; Day</button> <button class="clock" id="refresh-all" type="button" title="Reload your workouts, Strava, Bible log, reading log and films">&#10227; Refresh everything</button></div>
+    <div class="nextup" id="nextup" hidden><b>Next up</b><span id="nextup-what"></span><span id="nextup-all"></span></div>
+    <button class="records-sum" id="records-sum" type="button" title="Your records: the sheet, Strava, reading, films and more"><span class="dot" id="sumdot"></span><span id="records-text">Reading the records…</span></button>
+    <div class="notice" id="notice" hidden></div>
+  </section>
+
+  <section class="card folio ledger" id="ledger" role="dialog" aria-label="The town ledger" hidden>
+    <header class="folio-h"><div><div class="eyebrow">Kept by the town clerk</div><h2>The Ledger</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
+    <div class="rows" id="rows"></div>
+    <div class="tonnage" id="tonnage"></div>
+    <div class="wildlife" id="wildlife"></div>
+    <div class="secrets" id="secrets"></div>
+    <details class="key-fold"><summary>How the town grows</summary><div class="key">
+      <b>Your sheet's colours:</b> a workout counts once its cell is green; yellow (rest) and red (missed) don't count. This week's uncoloured workouts float as pale ghosts of what they'll build (hover one for the plan) until you turn them green; uncoloured extras in earlier weeks still count. A <b>PR</b> is any lift that beats your best for that exercise (more weight, or the same weight for more reps),. The town works this out itself from your exercise lines; "+" notes don't count. Runs and rides set PRs too (longest, fastest pace or speed, most climbing): the run's tree gets a gold star and pennant, the ride's crop a pennant.
+      <br><br>      <b>Lifts</b> build <b>Whitehorse</b>: each muscle group is a street running out from the plaza (Main Street for full-body days, then Lambert Street with the log skyscrapers and the Old Log Church, Front Street with the waterfront trolley, Government Square, Airport Hill with the DC-3 weathervane, Takhini and Marwell), a building every three sessions. A street can only get so far ahead of the rest of town; extra sessions add street life (lamps, benches, planters, fire hydrants). As sessions add up the city gains the Yukon flag, the Welcome to Whitehorse sign, fireweed, bunting, the airport (with Alkan Air’s King Air 350 flying circuits over town), the S.S. Klondike, the Alaska Highway milepost, ravens, the Yukon Arts Centre, the Miles Canyon footbridge and lights along every street, plus the Yukon Quest and Sourdough Rendezvous each February. Once a street is fully built, that group’s sessions build the towns up the line (each street on its own, so one slow street never holds the others back): Dawson City, then Atlin, Haines Junction, Skagway and Haines, each growing from a few cabins along a dirt street into the real thing, landmarks and all, then spreading out into homesteads (hover a town to see what’s next). Pennants fly for PRs: on each street’s flagpole, and across each town’s street.
+      <b>Runs</b> plant a tree each, plus one more for every 5 km, in groves by kind (trail runs spruce, short runs birch, 5–10 km road runs maples, 10 km+ giant oaks, half marathons sequoias; longer runs grow bigger trees), <b>bike rides</b> plough farmland and sow a crop per 5 km (rides of 30 km+ launch <b>balloons</b>, and every Strava ride over 100 km adds a <b>sheep</b> to the pasture), <b>commutes</b> lay the cobbled lane through the forest and over the river to the office (commute every weekday and Friday's cobble is gold), and <b>hikes</b> raise the mountain range, with a <b>cairn</b> on every peak you finish. Runs, rides and commutes come from Strava.
+      <b>Snowboard days</b> first build the chairlift, then cut green, blue and black runs on the snowboard mountain.
+      <b>Hockey</b> floods the rink kept clear behind the castle (ice in winter). <b>Sports</b> build fields (and once a field has all 22 pennants, it slowly becomes a stadium), <b>pilates and stretching</b> plant the flower garden, <b>friends</b> get houses that keep growing, each with a road that grows out to it (couples share one), <b>Jo</b> gets an English cottage on the village green that keeps getting bigger (a porch, a two-storey wing, a side wing and rooms over it) while her garden fills with beds, a pond, an apple tree and more, <b>Minto, Blue and Millie</b> live in the dog pen, and <b>weigh-ins</b> tip the King’s Scales by the statue, and <b>drinks</b> stack barrels at the Slow Pour, then grow it into a cosy coaching inn. <b>Bible chapters</b> (from your reading log) build the church on Church Hill past the end of the south street: each finished book lights a stained-glass window. <b>Books you read</b> (from your Whitehorse Book Tracker) build the library on the town square: pages raise it, each book lights a window, books you rate 4.5 or higher plant roses in its courtyard. Click the library (or Bookshelf, top left) for your shelf of covers, ratings and reviews, and how tall your books would stand stacked up. <b>Films</b> (from your Letterboxd diary) grow the picture house across the square, from an outdoor movie night to a cinema with marquee lights; click it for your film list. A great horned owl comes at 10,000 pages, and something sleeps in a cave out past the river at 50,000. <b>Rowing and paddling</b> build the harbour on the coast; <b>swims</b> build a swimming dock, sauna and lido on the lake; <b>cross-country ski days</b> build a cozy log ski cabin and a little trail winding round the lake, with spruces, lanterns, a fire pit and more along it; <b>mountain bike rides</b> sow the farmland like any ride and also grow a little bike shop cottage behind the mountains, with a dirt lane out to it (through a tunnel) that gets longer with every ride; every full year of logging adds to the island in the bay; the finished castle and every finished town open stations on a White Pass &amp; Yukon Route style railway round the edge of the map, through three tunnels and over timber trestles, swinging out round the lighthouse. <b>Wildlife</b> moves in as you hit different goals: ravens follow your commutes, hares your runs, a moose your hikes, butterflies your mobility, fireflies a three-week streak, a grizzly your lifting, an Ent your first half marathon, and more. The ledger shows the closest one; hover over an animal to see what brought it. At night the chimneys smoke and the lighthouse sweeps the sea, holidays decorate the town, and the weather follows Whitehorse.
+      <br><br><b>Move around:</b> drag to slide across the map, right-drag to turn, scroll or pinch to zoom. WASD or the arrow keys move, Q and E turn.
+    </div></details>
+  </section>
+
+  <section class="card secret-card" id="ask" role="dialog" aria-label="A question" hidden>
+    <h2 id="ask-h">?</h2>
+    <p id="ask-p"></p>
+    <form id="ask-form" class="acts"><input id="ask-in" type="text" autocomplete="off" style="flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--line);font:inherit"><button class="btn primary" type="submit">Say it</button><button class="btn" type="button" id="ask-x">Never mind</button></form>
+  </section>
+
+  <section class="card folio" id="questsF" role="dialog" aria-label="Quests" hidden>
+    <header class="folio-h"><div><div class="eyebrow">Favours asked by the townsfolk</div><h2>Quests</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
+    <div class="quests" id="quests" hidden><b>Today’s favours</b><ul id="quest-list"></ul></div>
+    <p class="empty">No favours asked of you today. Walk about town; the mice will find you.</p>
+  </section>
+  <section class="card folio" id="records" role="dialog" aria-label="Records" hidden>
+    <header class="folio-h"><div><div class="eyebrow">Where the town gets its news</div><h2>Records</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
     <div class="sync" id="update-row" hidden><span style="font-size:12.5px;color:var(--muted)"><b id="data-time">Checking for saved data…</b> This page reads the copies saved twice a day and picks up new ones by itself. <a id="update-now" href="https://github.com/Oilgasms/yukon/actions/workflows/update.yml" target="_blank" rel="noopener">Fetch fresh data now</a> (press <b>Run workflow</b>), then refresh here in a minute or two.</span></div>
     <div class="sync"><span class="dot" id="dot"></span><span id="status">Connecting to your sheet…</span><button id="refresh" type="button" hidden>Refresh</button></div>
     <div class="sync"><span class="dot" id="sdot"></span><span id="sstatus">Strava not connected</span><button id="strava" type="button">Connect Strava</button></div>
@@ -348,37 +497,23 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <textarea id="reading-paste" rows="5" placeholder="| Title | Author | Pages | Rating | Date |"></textarea>
       <div class="acts"><button class="btn" type="button" id="reading-clear">Clear</button><button class="btn primary" type="button" id="reading-save">Save</button></div>
     </div>
-    <div class="notice" id="notice" hidden></div>
   </section>
-
-  <details class="card ledger" id="ledger" open>
-    <summary>Town ledger</summary>
-    <div class="rows" id="rows"></div>
-    <div class="tonnage" id="tonnage"></div>
-    <div class="wildlife" id="wildlife"></div>
-    <div class="secrets" id="secrets"></div>
-    <div class="key">
-      <b>Your sheet's colours:</b> a workout counts once its cell is green; yellow (rest) and red (missed) don't count. This week's uncoloured workouts float as pale ghosts of what they'll build (hover one for the plan) until you turn them green; uncoloured extras in earlier weeks still count. A <b>PR</b> is any lift that beats your best for that exercise (more weight, or the same weight for more reps),. The town works this out itself from your exercise lines; "+" notes don't count. Runs and rides set PRs too (longest, fastest pace or speed, most climbing): the run's tree gets a gold star and pennant, the ride's crop a pennant.
-      <br><br>      <b>Lifts</b> build <b>Whitehorse</b>: each muscle group is a street running out from the plaza (Main Street for full-body days, then Lambert Street with the log skyscrapers and the Old Log Church, Front Street with the waterfront trolley, Government Square, Airport Hill with the DC-3 weathervane, Takhini and Marwell), a building every three sessions. A street can only get so far ahead of the rest of town; extra sessions add street life (lamps, benches, planters, fire hydrants). As sessions add up the city gains the Yukon flag, the Welcome to Whitehorse sign, fireweed, bunting, the airport (with Alkan Air’s King Air 350 flying circuits over town), the S.S. Klondike, the Alaska Highway milepost, ravens, the Yukon Arts Centre, the Miles Canyon footbridge and lights along every street, plus the Yukon Quest and Sourdough Rendezvous each February. Once a street is fully built, that group’s sessions build the towns up the line (each street on its own, so one slow street never holds the others back): Dawson City, then Atlin, Haines Junction, Skagway and Haines, each growing from a few cabins along a dirt street into the real thing, landmarks and all, then spreading out into homesteads (hover a town to see what’s next). Pennants fly for PRs: on each street’s flagpole, and across each town’s street.
-      <b>Runs</b> plant a tree each, plus one more for every 5 km, in groves by kind (trail runs spruce, short runs birch, 5–10 km road runs maples, 10 km+ giant oaks, half marathons sequoias; longer runs grow bigger trees), <b>bike rides</b> plough farmland and sow a crop per 5 km (rides of 30 km+ launch <b>balloons</b>, and every Strava ride over 100 km adds a <b>sheep</b> to the pasture), <b>commutes</b> lay the cobbled lane through the forest and over the river to the office (commute every weekday and Friday's cobble is gold), and <b>hikes</b> raise the mountain range, with a <b>cairn</b> on every peak you finish. Runs, rides and commutes come from Strava.
-      <b>Snowboard days</b> first build the chairlift, then cut green, blue and black runs on the snowboard mountain.
-      <b>Hockey</b> floods the rink kept clear behind the castle (ice in winter). <b>Sports</b> build fields (and once a field has all 22 pennants, it slowly becomes a stadium), <b>pilates and stretching</b> plant the flower garden, <b>friends</b> get houses that keep growing, each with a road that grows out to it (couples share one), <b>Jo</b> gets an English cottage on the village green that keeps getting bigger (a porch, a two-storey wing, a side wing and rooms over it) while her garden fills with beds, a pond, an apple tree and more, <b>Minto, Blue and Millie</b> live in the dog pen, and <b>weigh-ins</b> tip the King’s Scales by the statue, and <b>drinks</b> stack barrels at the Slow Pour, then grow it into a cosy coaching inn. <b>Bible chapters</b> (from your reading log) build the church on Church Hill past the end of the south street: each finished book lights a stained-glass window. <b>Books you read</b> (from your Whitehorse Book Tracker) build the library on the town square: pages raise it, each book lights a window, books you rate 4.5 or higher plant roses in its courtyard. Click the library (or Bookshelf, top left) for your shelf of covers, ratings and reviews, and how tall your books would stand stacked up. <b>Films</b> (from your Letterboxd diary) grow the picture house across the square, from an outdoor movie night to a cinema with marquee lights; click it for your film list. A great horned owl comes at 10,000 pages, and something sleeps in a cave out past the river at 50,000. <b>Rowing and paddling</b> build the harbour on the coast; <b>swims</b> build a swimming dock, sauna and lido on the lake; <b>cross-country ski days</b> build a cozy log ski cabin and a little trail winding round the lake, with spruces, lanterns, a fire pit and more along it; <b>mountain bike rides</b> sow the farmland like any ride and also grow a little bike shop cottage behind the mountains, with a dirt lane out to it (through a tunnel) that gets longer with every ride; every full year of logging adds to the island in the bay; the finished castle and every finished town open stations on a White Pass &amp; Yukon Route style railway round the edge of the map, through three tunnels and over timber trestles, swinging out round the lighthouse. <b>Wildlife</b> moves in as you hit different goals: ravens follow your commutes, hares your runs, a moose your hikes, butterflies your mobility, fireflies a three-week streak, a grizzly your lifting, an Ent your first half marathon, and more. The ledger shows the closest one; hover over an animal to see what brought it. At night the chimneys smoke and the lighthouse sweeps the sea, holidays decorate the town, and the weather follows Whitehorse.
-      <br><br><b>Move around:</b> drag to slide across the map, right-drag to turn, scroll or pinch to zoom. WASD or the arrow keys move, Q and E turn.
+  <section class="card folio" id="settings" role="dialog" aria-label="Settings" hidden>
+    <header class="folio-h"><div><div class="eyebrow">How you see the town</div><h2>Settings</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
+    <div class="set-list">
+      <div class="set"><span><b>Art style</b><small>Handmade ink and wash, smooth, or pixel</small></span><span id="slot-pixel"><button class="btn" id="pixel" type="button" aria-pressed="true">Style: Handmade</button></span></div>
+      <div class="set"><span><b>Motion</b><small>Animals, weather and the camera drifting</small></span><span id="slot-motion"><button class="btn" id="motion" type="button" aria-pressed="true">Motion</button></span></div>
+      <div class="set"><span><b>Sound</b><small>Footsteps, birds, bells and the wind</small></span><span id="slot-sound"><button class="btn" id="sound" type="button" aria-pressed="false">Sound: off</button></span></div>
+      <div class="set"><span><b>Camera</b><small>Back to the town, or a postcard of each town in turn</small></span><span id="slot-cam"><button class="btn" id="recenter" type="button">Recenter</button> <button class="btn" id="postcard" type="button" title="Jump to a postcard view of each town in turn">Postcard</button></span></div>
+      <div class="set"><span><b>Records</b><small>Your sheet, Strava, reading log, films and food</small></span><span><button class="btn" type="button" id="open-records">Open</button></span></div>
     </div>
-  </details>
-
-  <section class="card secret-card" id="ask" role="dialog" aria-label="A question" hidden>
-    <h2 id="ask-h">?</h2>
-    <p id="ask-p"></p>
-    <form id="ask-form" class="acts"><input id="ask-in" type="text" autocomplete="off" style="flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--line);font:inherit"><button class="btn primary" type="submit">Say it</button><button class="btn" type="button" id="ask-x">Never mind</button></form>
   </section>
-  <section class="card skills" id="skills" role="dialog" aria-label="Skills" hidden>
-    <div class="eyebrow">The raccoon's</div>
-    <h2>Skills</h2>
-    <p class="sub">Every workout you log earns experience. Levels run from 1 to 99; 99 takes years and earns a mastery cloak.</p>
+  <section class="card folio skills" id="skills" role="dialog" aria-label="Skills" hidden>
+    <header class="folio-h"><div><div class="eyebrow">Every workout earns experience</div><h2>Skills</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
+    <p class="sub">Levels run from one to ninety-nine. Ninety-nine takes years, and earns a mastery cloak.</p>
     <div class="sk-grid" id="sk-grid"></div>
     <div class="sk-detail" id="sk-detail">Tap a skill to see how it's trained.</div>
-    <div class="sk-total"><span id="sk-total">Total level</span><button class="btn" type="button" id="skills-close">Close</button></div>
+    <div class="sk-total"><span id="sk-total">Total level</span></div>
   </section>
   <div class="xpdrops" id="xpdrops" aria-live="polite"></div>
   <section class="inkmap" id="inkmap" role="dialog" aria-label="The inked map" hidden>
@@ -408,16 +543,14 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button class="btn primary" id="play" type="button">Replay</button>
       <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Scrub through your workouts">
       <button class="btn" id="future5" type="button" aria-pressed="false">+5 years</button>
-      <button class="btn" id="explore" type="button" aria-pressed="true">Map view</button>
-      <button class="btn" id="recenter" type="button">Recenter</button>
-      <button class="btn" id="postcard" type="button" title="Jump to a postcard view of each town in turn">Postcard</button>
-      <button class="btn" id="skills-btn" type="button" title="Your skills and levels (K)">Skills</button>
-      <button class="btn" id="inkmap-btn" type="button" title="The inked map of everywhere you've walked (N)">Inked map</button>
-      <button class="btn" id="recentbtn" type="button" title="The last 25 things logged into the town">Latest</button>
-      <button class="btn" id="crierbtn" type="button" title="This week's Town Crier">Paper</button>
-      <button class="btn" id="pixel" type="button" aria-pressed="true">Style: Handmade</button>
-      <button class="btn" id="motion" type="button" aria-pressed="true">Motion</button>
-      <button class="btn" id="sound" type="button" aria-pressed="false">Sound: off</button>
+      <button class="tb" id="explore" type="button" title="Switch between walking about and the map view (M)" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-tower"/></svg><span class="lbl">Overview</span></button>
+      <button class="tb" id="skills-btn" type="button" title="Your skills and levels (K)"><svg class="ico" aria-hidden="true"><use href="#i-sword"/></svg><span class="lbl">Skills</span></button>
+      <button class="tb" id="quests-btn" type="button" title="Favours asked by the townsfolk (J)"><svg class="ico" aria-hidden="true"><use href="#i-scroll"/></svg><span class="lbl">Quests</span></button>
+      <button class="tb" id="ledger-btn" type="button" title="The town ledger: everything you’ve built (L)"><svg class="ico" aria-hidden="true"><use href="#i-ledger"/></svg><span class="lbl">Ledger</span></button>
+      <button class="tb" id="inkmap-btn" type="button" title="The inked map of everywhere you’ve walked (N)"><svg class="ico" aria-hidden="true"><use href="#i-map"/></svg><span class="lbl">Map</span></button>
+      <button class="tb" id="crierbtn" type="button" title="This week’s Town Crier"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg><span class="lbl">Crier</span></button>
+      <button class="tb" id="recentbtn" type="button" title="The last 25 things logged"><svg class="ico" aria-hidden="true"><use href="#i-candle"/></svg><span class="lbl">Latest</span></button>
+      <button class="tb" id="settings-btn" type="button" title="Art style, motion, sound and your records"><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg><span class="lbl">Settings</span></button>
     </div>
     <div class="caption" id="caption">&nbsp;</div>
     <div class="phases" id="phases"></div>
@@ -467,7 +600,7 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v186';
+var BUILD = 'v187';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -681,7 +814,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   // Today's favours for the mice, in the corner card.
   town.onQuests = function (list) {
     var ul = $('quest-list'); ul.innerHTML = '';
-    list.forEach(function (q) { var li = document.createElement('li'); if (q.done) li.className = 'done'; li.innerHTML = (q.done ? '\u2713 ' : '\u2022 ') + esc(q.text) + (q.done ? '' : ' <span>(' + esc(q.step) + ')</span>'); ul.append(li); });
+    list.forEach(function (q) { var li = document.createElement('li'); if (q.done) li.className = 'done'; li.innerHTML = esc(q.text) + (q.done ? '' : ' <span>(' + esc(q.step) + ')</span>'); ul.append(li); });
     $('quests').hidden = !list.length;
   };
   town.onInteract = function (key) {
@@ -704,7 +837,8 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   $('jump').addEventListener('pointerdown', function (e) { e.preventDefault(); town.jump(); });
   function syncExplore() {
     var on = !!town.explore;
-    $('explore').textContent = on ? 'Map view' : 'Walk around';
+    $('explore').querySelector('.lbl').textContent = on ? 'Overview' : 'Walk';
+    $('explore').querySelector('use').setAttribute('href', on ? '#i-tower' : '#i-paw');
     $('explore').setAttribute('aria-pressed', String(on));
     $('stick').hidden = $('act').hidden = $('jump').hidden = !(on && coarse);
     if (!on) { $('near').hidden = true; $('tip').hidden = true; }
@@ -829,8 +963,8 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     var S = town.skills(), grid = $('sk-grid'); grid.innerHTML = '';
     S.list.forEach(function (k) {
       var d = document.createElement('div'); d.className = 'sk' + (k.level >= 99 ? ' maxed' : ''); d.tabIndex = 0;
-      d.innerHTML = '<span class="ic"></span><span class="nm"></span><span class="lv"></span><span class="bar"><i></i></span>';
-      d.querySelector('.ic').textContent = k.icon; d.querySelector('.nm').textContent = k.name; d.querySelector('.lv').textContent = k.level;
+      d.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-' + k.icon + '"/></svg><span class="nm"></span><span class="lv"></span><span class="bar"><i></i></span>';
+      d.querySelector('.ic').style.color = k.col; d.querySelector('.nm').textContent = k.name; d.querySelector('.lv').textContent = k.level;
       var b = d.querySelector('.bar i'); b.style.width = Math.round(k.pct * 100) + '%'; b.style.background = k.col;
       var info = function () { $('sk-detail').textContent = k.name + ' ' + k.level + ' \u00b7 ' + fmt(k.xp) + ' xp' + (k.level < 99 ? ' \u00b7 ' + fmt(k.next) + ' to level ' + (k.level + 1) : ' \u00b7 mastered!') + '. ' + k.what + '.'; };
       d.addEventListener('mouseenter', info); d.addEventListener('focus', info); d.addEventListener('click', info);
@@ -840,20 +974,46 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     $('sk-detail').textContent = 'Tap a skill to see how it\u2019s trained.';
     $('skills').hidden = false;
   }
-  $('skills-btn').addEventListener('click', function () { if ($('skills').hidden) openSkills(); else $('skills').hidden = true; });
-  $('skills-close').addEventListener('click', function () { $('skills').hidden = true; });
+  // ---- folios: one book open at a time, from the toolbar ----
+  var FOLIOS = ['skills', 'questsF', 'ledger', 'records', 'settings'];
+  function closeFolios(except) { FOLIOS.forEach(function (id) { if (id !== except) $(id).hidden = true; }); ['recent', 'crier', 'shelf'].forEach(function (id) { if (id !== except && $(id)) $(id).hidden = true; }); syncBar(); }
+  function openFolio(id) {
+    var was = !$(id).hidden; closeFolios(id);
+    if (was) { $(id).hidden = true; syncBar(); return; }
+    if (id === 'skills') openSkills(); else $(id).hidden = false;
+    if (id === 'ledger') renderLedger();
+    syncBar();
+  }
+  function syncBar() { [['skills-btn', 'skills'], ['quests-btn', 'questsF'], ['ledger-btn', 'ledger'], ['settings-btn', 'settings']].forEach(function (b) { $(b[0]).classList.toggle('on', !$(b[1]).hidden || (b[1] === 'settings' && !$('records').hidden)); }); }
+  $('skills-btn').addEventListener('click', function () { openFolio('skills'); });
+  $('quests-btn').addEventListener('click', function () { openFolio('questsF'); });
+  $('ledger-btn').addEventListener('click', function () { openFolio('ledger'); });
+  $('settings-btn').addEventListener('click', function () { openFolio('settings'); });
+  $('open-records').addEventListener('click', function () { openFolio('records'); });
+  $('records-sum').addEventListener('click', function () { openFolio('records'); });
+  Array.prototype.forEach.call(document.querySelectorAll('.folio-x'), function (x) { x.addEventListener('click', function () { closeFolios(); }); });
   document.addEventListener('keydown', function (e) {
     if (/input|textarea|select/i.test((e.target && e.target.tagName) || '')) return;
-    if (e.key === 'k' || e.key === 'K') { if ($('skills').hidden) openSkills(); else $('skills').hidden = true; }
-    if (e.key === 'Escape') $('skills').hidden = true;
+    if (e.key === 'k' || e.key === 'K') openFolio('skills');
+    if (e.key === 'j' || e.key === 'J') openFolio('questsF');
+    if (e.key === 'l' || e.key === 'L') openFolio('ledger');
+    if (e.key === 'Escape') closeFolios();
   });
+  // One line in the banner for all the records: fine, or which need a look.
+  function syncRecords() {
+    var dots = ['dot', 'sdot', 'bdot', 'rdot', 'mdot', 'cdot'].map($).filter(Boolean), bad = dots.filter(function (d) { return d.classList.contains('err'); }).length, live = dots.filter(function (d) { return d.classList.contains('live'); }).length;
+    var st = ($('status').textContent || '').trim();
+    $('sumdot').className = 'dot' + (bad ? ' err' : live ? ' live' : '');
+    $('records-text').textContent = bad ? bad + ' record' + (bad > 1 ? 's need' : ' needs') + ' a look' : /synced/i.test(st) ? 'Records in order \u00b7 ' + st.replace(/^Synced with your sheet\s*\u00b7?\s*/i, 'synced ') : st || 'Reading the records\u2026';
+  }
+  setInterval(syncRecords, 1500); syncRecords();
   town.onXp = function (drops, delay) {
     if (playing) return;
     setTimeout(function () {
       drops.forEach(function (d, i) {
         setTimeout(function () {
           var el = document.createElement('div'); el.className = 'xpdrop';
-          el.innerHTML = '<span class="ic"></span><span></span>'; el.firstChild.textContent = d.icon; el.lastChild.textContent = '+' + fmt(d.xp) + ' ' + d.name;
+          el.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-' + d.icon + '"/></svg><span></span>'; el.lastChild.textContent = '+' + fmt(d.xp) + ' ' + d.name;
           $('xpdrops').appendChild(el); setTimeout(function () { el.remove(); }, 2500);
         }, i * 280);
       });
@@ -863,8 +1023,8 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   town.onLevel = function (u) {
     if (playing) return;
     var el = document.createElement('div'); el.className = 'card lvlup'; el.setAttribute('role', 'status');
-    el.innerHTML = '<span class="ic"></span><div class="eyebrow">Level up!</div><div class="big"></div><div class="small"></div>';
-    el.querySelector('.ic').textContent = u.icon; el.querySelector('.big').textContent = u.name + ' ' + u.level;
+    el.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-' + u.icon + '"/></svg><div class="eyebrow">A new level</div><div class="big"></div><div class="small"></div>';
+    el.querySelector('.ic').style.color = u.col; el.querySelector('.big').textContent = u.name + ' ' + u.level;
     el.querySelector('.small').textContent = u.level >= 99 ? 'Mastered! The raccoon wears the cloak.' : 'You\u2019ve just reached level ' + u.level + ' ' + u.name + '.';
     document.body.appendChild(el); setTimeout(function () { el.remove(); }, 4100);
     if (!$('skills').hidden) openSkills();

@@ -16394,17 +16394,17 @@
   // The curve steepens as you go: the first levels come in a week, the thirties in a season, and
   // 99 takes years of showing up (about 80,000 xp; a 10 km run is 120).
   var SKILLS = [
-    { id: 'strength', name: 'Strength', icon: '\u{1F4AA}', col: '#c8442a', what: 'Lifting sessions, more for PRs' },
-    { id: 'running', name: 'Running', icon: '\u{1F3C3}', col: '#e07a2a', what: '12 xp a kilometre run' },
-    { id: 'endurance', name: 'Endurance', icon: '\u{1F525}', col: '#d4a017', what: 'The long ones: runs of 10 km or more, long rides, big hikes' },
-    { id: 'hiking', name: 'Hiking', icon: '\u{26F0}\u{FE0F}', col: '#6b8e4e', what: 'Hikes by distance and climb, and stair sessions' },
-    { id: 'cycling', name: 'Cycling', icon: '\u{1F6B4}', col: '#3a7ca5', what: 'Rides, mountain biking and bike commutes' },
-    { id: 'swimming', name: 'Swimming', icon: '\u{1F3CA}', col: '#2a9db0', what: 'Swims and rowing' },
-    { id: 'agility', name: 'Agility', icon: '\u{26BD}', col: '#8a5cc2', what: 'Futsal and other sports, snowboarding, skiing, mobility' },
-    { id: 'discipline', name: 'Discipline', icon: '\u{1F4C5}', col: '#5a6a7a', what: 'Every workout logged, every weigh-in' },
-    { id: 'fellowship', name: 'Fellowship', icon: '\u{1F91D}', col: '#d0607a', what: 'Workouts with friends (and Jo), and nights out' },
-    { id: 'devotion', name: 'Devotion', icon: '\u{271D}\u{FE0F}', col: '#b08a3a', what: 'Bible chapters read' },
-    { id: 'lore', name: 'Lore', icon: '\u{1F4D6}', col: '#7a5230', what: 'Pages read' }
+    { id: 'strength', name: 'Strength', icon: 'strength', col: '#c8442a', what: 'Lifting sessions, more for PRs' },
+    { id: 'running', name: 'Running', icon: 'running', col: '#e07a2a', what: '12 xp a kilometre run' },
+    { id: 'endurance', name: 'Endurance', icon: 'endurance', col: '#d4a017', what: 'The long ones: runs of 10 km or more, long rides, big hikes' },
+    { id: 'hiking', name: 'Hiking', icon: 'hiking', col: '#6b8e4e', what: 'Hikes by distance and climb, and stair sessions' },
+    { id: 'cycling', name: 'Cycling', icon: 'cycling', col: '#3a7ca5', what: 'Rides, mountain biking and bike commutes' },
+    { id: 'swimming', name: 'Swimming', icon: 'swimming', col: '#2a9db0', what: 'Swims and rowing' },
+    { id: 'agility', name: 'Agility', icon: 'agility', col: '#8a5cc2', what: 'Futsal and other sports, snowboarding, skiing, mobility' },
+    { id: 'discipline', name: 'Discipline', icon: 'discipline', col: '#5a6a7a', what: 'Every workout logged, every weigh-in' },
+    { id: 'fellowship', name: 'Fellowship', icon: 'fellowship', col: '#d0607a', what: 'Workouts with friends (and Jo), and nights out' },
+    { id: 'devotion', name: 'Devotion', icon: 'devotion', col: '#b08a3a', what: 'Bible chapters read' },
+    { id: 'lore', name: 'Lore', icon: 'lore', col: '#7a5230', what: 'Pages read' }
   ];
   function xpForLevel(L) { return L <= 1 ? 0 : Math.round(3.3 * Math.pow(L - 1, 2.2)); }
   function levelForXp(x) { var L = 1; while (L < 99 && x >= xpForLevel(L + 1)) L++; return L; }
