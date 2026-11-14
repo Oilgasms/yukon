@@ -976,7 +976,23 @@
   }
   var DAWSON_PAD = null;
   function DAWSON_PAD_H() { if (DAWSON_PAD == null) { var c = CASTLE_SITES[DAWSON]; DAWSON_PAD = Math.max(rawHeight(c.x, c.z), SEA_Y + 0.5) + c.lift; } return DAWSON_PAD; }
+  // The ground as it's actually drawn: once the terrain mesh exists, heights come from its own
+  // triangles (the same corners and the same diagonal split), so whatever stands on the ground
+  // stands exactly on what you see, not on the smooth curve the mesh only approximates.
+  var GROUND_MESH = null;
   function groundY(x, z) {
+    var G = GROUND_MESH;
+    if (G) {
+      var fx = (x + G.half) / G.cell, fz = (z + G.half) / G.cell, ix = Math.floor(fx), iz = Math.floor(fz);
+      if (ix >= 0 && iz >= 0 && ix < G.seg && iz < G.seg) {
+        fx -= ix; fz -= iz;
+        var n = G.seg + 1, H = G.h, A = H[iz * n + ix], D = H[iz * n + ix + 1], B = H[(iz + 1) * n + ix], C = H[(iz + 1) * n + ix + 1];
+        return fx + fz <= 1 ? A + (D - A) * fx + (B - A) * fz : C + (B - C) * (1 - fx) + (D - C) * (1 - fz);
+      }
+    }
+    return groundYSmooth(x, z);
+  }
+  function groundYSmooth(x, z) {
     var h = landY(x, z), rd = riverDist(x, z);
     if (rd < RIVER_HALF + 30) {
       // Carve the bed below the water, with valley sides that widen the higher the land is.
@@ -1958,6 +1974,10 @@
     }
     g.setAttribute('color', new T.BufferAttribute(cols, 3));
     g.computeVertexNormals();
+    // From here on, heights come from these very triangles (see groundY).
+    var hs = new Float32Array(pos.count); for (var hi = 0; hi < pos.count; hi++) hs[hi] = pos.getY(hi);
+    GROUND_MESH = { half: size / 2, cell: size / seg, seg: seg, h: hs };
+    Town.groundCheck = function (x, z) { return [groundY(x, z), groundYSmooth(x, z)]; };
     var ground = new T.Mesh(g, this.mat('fields'));
     ground.receiveShadow = true; ground.userData.ground = true;
     base.add(ground);
