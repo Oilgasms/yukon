@@ -1445,6 +1445,10 @@
     this.season = 'summer';
     this.dark = false;
     this.lite = !!opts.lite;
+    // Phones, tablets and low-memory machines: a smaller shadow map and thinner grass, so the
+    // browser doesn't run out of graphics memory and drop the 3D view.
+    var nav = root.navigator || {};
+    this.small = !!((root.matchMedia && root.matchMedia('(pointer: coarse)').matches) || (nav.deviceMemory && nav.deviceMemory <= 4) || Math.min(root.screen ? root.screen.width : 1e4, root.screen ? root.screen.height : 1e4) < 700);
     this.soft = !!opts.software;
     this.pixel = opts.pixel !== false;
     this.handmade = !!opts.handmade && !this.pixel;
@@ -1760,6 +1764,7 @@
   };
   Town.prototype.draw = function () {
     this.camera.updateProjectionMatrix(); // (the lens follows the camera's distance to its target)
+    if (this.soft) { this.renderer.render(this.scene, this.camera); return; } // (the software fallback: no post passes)
     if (this.handmade && !this.post) this.setupHandmade();
     var useF = !this.lite && !this.soft && !this.pixel && !this.plainLook;
     if (useF && !this.finish) this.setupFinish();
@@ -1946,7 +1951,7 @@
     this.scene.add(this.hemi);
     this.sun = new T.DirectionalLight('#fff', 1);
     this.sun.castShadow = true;
-    var size = this.lite ? 2048 : 4096;
+    var size = this.lite || this.small ? 2048 : 4096;
     this.sun.shadow.mapSize.set(size, size);
     var c = this.sun.shadow.camera;
     c.left = -75; c.right = 75; c.top = 75; c.bottom = -75; c.near = 1; c.far = 260;
@@ -7334,11 +7339,12 @@
   Town.prototype.raccoonCritter = function (g, P, m, dark, light) {
     var self = this, B = this.geo.ball, ink = this.mat('swan', 2);
     var body = new T.Group(); body.position.y = 0.3; g.add(body);
-    P(B, m, 0.15, 0.135, 0.24, 0, 0, 0.02, body);                    // chest and middle
-    P(B, m, 0.165, 0.155, 0.17, 0, 0.025, -0.14, body);              // the high, round rump
-    P(B, dark, 0.07, 0.03, 0.22, 0, 0.098, -0.05, body);             // darker fur down the spine (tucked into the coat)
-    P(B, light, 0.11, 0.07, 0.22, 0, -0.085, 0.0, body);             // pale belly
-    [-1, 1].forEach(function (sd) { var tf = P(B, m, 0.05, 0.06, 0.09, sd * 0.13, 0.0, -0.06, body); tf.rotation.z = sd * 0.5; }); // shaggy flanks
+    var Bx = this.geo.box;
+    P(Bx, m, 0.22, 0.19, 0.46, 0, 0, 0, body);                       // a neat, squared-off body
+    P(Bx, m, 0.23, 0.2, 0.15, 0, 0.012, -0.15, body);                 // a little higher at the rump
+    P(Bx, dark, 0.11, 0.025, 0.32, 0, 0.1, -0.04, body);             // darker fur down the spine
+    P(Bx, light, 0.16, 0.04, 0.3, 0, -0.085, 0.03, body);            // pale belly
+    [-1, 1].forEach(function (sd) { var tf = P(Bx, m, 0.04, 0.06, 0.08, sd * 0.11, 0.0, -0.06, body); tf.rotation.z = sd * 0.45; }); // a scruffy tuft each side
     var head = new T.Group(); head.position.set(0, 0.12, 0.3); body.add(head);
     P(B, m, 0.125, 0.105, 0.115, 0, 0, 0, head);                     // the round skull
     [-1, 1].forEach(function (sd) {
@@ -7360,11 +7366,11 @@
     for (var r = 0; r < 7; r++) { var rs = 0.075 - Math.abs(r - 2) * 0.008 - (r > 4 ? 0.008 : 0); P(B, r % 2 || r === 6 ? dark : m, rs, rs, 0.06, 0, 0.012 + r * 0.006, -0.03 - r * 0.068, tail); }
     tail.rotation.x = 0.4;
     // legs: grey up top, dark below, with small dark hands and feet
-    var legs = [[-0.085, 0.16], [0.085, 0.16], [-0.09, -0.17], [0.09, -0.17]].map(function (l, i) {
+    var legs = [[-0.075, 0.16], [0.075, 0.16], [-0.08, -0.16], [0.08, -0.16]].map(function (l, i) {
       var hip = new T.Group(); hip.position.set(l[0], 0.2, l[1]); g.add(hip);
-      P(B, m, 0.048, 0.07, 0.05, 0, -0.04, 0, hip);
-      P(self.geo.cyl6, dark, 0.032, 0.13, 0.032, 0, -0.12, 0, hip);
-      P(B, dark, 0.04, 0.022, 0.05, 0, -0.19, 0.015, hip);             // paw
+      P(self.geo.box, m, 0.06, 0.07, 0.06, 0, -0.035, 0, hip);
+      P(self.geo.box, dark, 0.05, 0.14, 0.05, 0, -0.12, 0, hip);
+      P(self.geo.box, dark, 0.055, 0.025, 0.07, 0, -0.19, 0.012, hip); // paw
       return hip;
     });
     g.scale.setScalar(1.3);
@@ -7374,7 +7380,6 @@
   // Jo the fox: slim and long-legged, a fine pointed snout, tall ears, lashes, a daisy tucked
   // behind one ear and a big plume of a tail.
   Town.prototype.foxCritter = function (g, P, m, dark, light) {
-    if (!this.soft) return this.foxCritter2(g, P, m, dark, light);
     var self = this, body = new T.Group(); body.position.y = 0.37; g.add(body);
     P(this.geo.box, m, 0.17, 0.17, 0.48, 0, 0, 0, body);
     P(this.geo.box, light, 0.12, 0.1, 0.16, 0, -0.06, 0.17, body);            // cream chest
@@ -7402,50 +7407,6 @@
       var hip = new T.Group(); hip.position.set(l[0], 0.3, l[1]); g.add(hip);
       P(self.geo.box, m, 0.042, 0.18, 0.042, 0, -0.09, 0, hip);
       P(self.geo.box, dark, 0.045, 0.13, 0.045, 0, -0.235, 0, hip);         // dark stockings
-      return hip;
-    });
-    g.scale.setScalar(1.0);
-    this.world.add(g);
-    return { g: g, body: body, head: head, legs: legs, tail: tail, kind: 'fox', cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: 3, speed: 1.1 };
-  };
-  // Jo, modelled with care: a slender body, white chest and throat, a long tapered snout with a
-  // white jaw, tall ears with black backs, black stockings, lashes, her daisy, and a huge plume
-  // of a tail with a white tip.
-  Town.prototype.foxCritter2 = function (g, P, m, dark, light) {
-    var self = this, B = this.geo.ball, ink = this.mat('swan', 2);
-    var body = new T.Group(); body.position.y = 0.37; g.add(body);
-    P(B, m, 0.1, 0.1, 0.26, 0, 0, -0.01, body);                      // slim body
-    P(B, m, 0.105, 0.1, 0.12, 0, 0.01, -0.15, body);                  // haunch
-    P(B, light, 0.075, 0.08, 0.1, 0, -0.03, 0.16, body);             // white chest
-    P(B, light, 0.06, 0.04, 0.16, 0, -0.08, 0.04, body);             // pale belly
-    var neck = P(B, m, 0.07, 0.09, 0.08, 0, 0.07, 0.2, body); neck.rotation.x = -0.5;
-    var head = new T.Group(); head.position.set(0, 0.13, 0.27); body.add(head);
-    P(B, m, 0.085, 0.075, 0.08, 0, 0, 0, head);
-    [-1, 1].forEach(function (sd) {
-      P(B, light, 0.045, 0.045, 0.05, sd * 0.055, -0.03, 0.03, head);  // white cheeks
-      // tall ears (cones, so they twitch) with black backs
-      var ear = P(self.geo.cone, m, 0.042, 0.13, 0.025, sd * 0.05, 0.135, -0.02, head); ear.rotation.z = sd * -0.18;
-      var back = P(self.geo.cone, dark, 0.04, 0.08, 0.012, sd * 0.05, 0.165, -0.034, head); back.rotation.z = sd * -0.18;
-      P(B, ink, 0.016, 0.02, 0.012, sd * 0.04, 0.02, 0.07, head);      // eyes
-      var lash = P(self.geo.box, ink, 0.035, 0.007, 0.01, sd * 0.05, 0.04, 0.075, head); lash.rotation.z = sd * 0.5;
-    });
-    var snout = P(this.geo.cone, m, 0.045, 0.15, 0.04, 0, -0.01, 0.12, head); snout.rotation.x = Math.PI / 2;
-    var jaw = P(this.geo.cone, light, 0.035, 0.12, 0.025, 0, -0.035, 0.11, head); jaw.rotation.x = Math.PI / 2;
-    P(B, ink, 0.018, 0.016, 0.016, 0, -0.008, 0.195, head);           // nose
-    var fl = new T.Group(); fl.position.set(0.075, 0.1, -0.01); head.add(fl);
-    for (var pe = 0; pe < 5; pe++) { var a = pe / 5 * Math.PI * 2; P(B, self.mat('swan', 0), 0.022, 0.022, 0.014, Math.cos(a) * 0.026, Math.sin(a) * 0.026, 0, fl); }
-    P(B, this.mat('flag', 1), 0.017, 0.017, 0.016, 0, 0, 0.006, fl);
-    fl.rotation.y = Math.PI / 2;
-    // the tail: a great soft plume, fullest in the middle, white at the tip
-    var tail = new T.Group(); tail.position.set(0, 0.03, -0.24); body.add(tail);
-    [[0.045, -0.04], [0.07, -0.12], [0.088, -0.21], [0.09, -0.3], [0.08, -0.38], [0.06, -0.45]].forEach(function (seg, i) { P(B, i === 5 ? light : m, seg[0], seg[0], 0.07, 0, 0.02 + i * 0.012, seg[1], tail); });
-    tail.rotation.x = 0.55;
-    // long legs, orange above, black stockings below
-    var legs = [[-0.05, 0.16], [0.05, 0.16], [-0.055, -0.16], [0.055, -0.16]].map(function (l) {
-      var hip = new T.Group(); hip.position.set(l[0], 0.3, l[1]); g.add(hip);
-      P(B, m, 0.035, 0.08, 0.04, 0, -0.05, 0, hip);
-      P(self.geo.cyl6, dark, 0.022, 0.18, 0.022, 0, -0.19, 0, hip);
-      P(B, dark, 0.026, 0.016, 0.034, 0, -0.285, 0.01, hip);
       return hip;
     });
     g.scale.setScalar(1.0);
@@ -19968,13 +19929,13 @@
   Town.prototype.buildTallGrass = function () {
     if (this.soft) return;
     var r = rng(5151), self = this, blades = [], fl = { fireweed: [], lupine: [], daisy: [], arnica: [] }, seeds = [], centres = [];
-    for (var tries = 0; tries < 900 && centres.length < (this.lite ? 18 : 42); tries++) {
+    for (var tries = 0; tries < 900 && centres.length < (this.lite ? 14 : this.small ? 26 : 42); tries++) {
       var a = r() * Math.PI * 2, d = 14 + r() * 110, p = { x: Math.cos(a) * d, z: Math.sin(a) * d }, R = 3.5 + r() * 5;
       if (!groundClear(p, R * 0.8, false) || centres.some(function (c) { return Math.hypot(c.x - p.x, c.z - p.z) < c.R + R + 3; })) continue;
       p.R = R; centres.push(p);
     }
     centres.forEach(function (c) {
-      var n = Math.round(c.R * c.R * (self.lite ? 3.5 : 8)), stretch = 1 + r() * 0.6, rot = r() * 6.28;
+      var n = Math.round(c.R * c.R * (self.lite ? 3 : self.small ? 5 : 8)), stretch = 1 + r() * 0.6, rot = r() * 6.28;
       for (var k = 0; k < n; k++) {
         var aa = r() * Math.PI * 2, dd = Math.sqrt(r()) * c.R, lx = Math.cos(aa) * dd * stretch, lz = Math.sin(aa) * dd;
         var x = c.x + lx * Math.cos(rot) - lz * Math.sin(rot), z = c.z + lx * Math.sin(rot) + lz * Math.cos(rot);
