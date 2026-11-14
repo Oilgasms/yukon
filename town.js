@@ -1465,7 +1465,7 @@
     this.camera.position.set(34, CAM_RISE, 34);
     this.camera.lookAt(0, 0, 0);
     this.controls = new T.OrbitControls(this.camera, canvas);
-    perspectivise(this.camera, this.controls);
+    if (!this.soft) perspectivise(this.camera, this.controls); // (the basic drawing mode projects flat, so it keeps the plain camera)
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.minZoom = 0.1; // far enough out to see the whole map, out to Watson Lake
@@ -7380,33 +7380,52 @@
   // Jo the fox: slim and long-legged, a fine pointed snout, tall ears, lashes, a daisy tucked
   // behind one ear and a big plume of a tail.
   Town.prototype.foxCritter = function (g, P, m, dark, light) {
-    var self = this, body = new T.Group(); body.position.y = 0.37; g.add(body);
-    P(this.geo.box, m, 0.17, 0.17, 0.48, 0, 0, 0, body);
-    P(this.geo.box, light, 0.12, 0.1, 0.16, 0, -0.06, 0.17, body);            // cream chest
+    var self = this, Bx = this.geo.box, ink = this.mat('swan', 2), pink = this.mat('sakura', 0), white = this.mat('swan', 0);
+    var body = new T.Group(); body.position.y = 0.37; g.add(body);
+    P(Bx, m, 0.15, 0.15, 0.44, 0, 0, 0, body);                          // slim body
+    P(Bx, m, 0.165, 0.16, 0.14, 0, 0.008, -0.15, body);                 // a soft haunch
+    P(Bx, light, 0.1, 0.035, 0.28, 0, -0.07, 0.03, body);               // pale belly
+    // a fluffy white chest ruff, layered
+    P(Bx, light, 0.125, 0.12, 0.12, 0, -0.035, 0.18, body);
+    P(Bx, light, 0.085, 0.06, 0.05, 0, -0.06, 0.2, body);
+    var neck = P(Bx, m, 0.12, 0.12, 0.1, 0, 0.07, 0.2, body); neck.rotation.x = -0.4;
     var head = new T.Group(); head.position.set(0, 0.13, 0.29); body.add(head);
-    P(this.geo.box, m, 0.17, 0.15, 0.16, 0, 0, 0, head);
-    [-1, 1].forEach(function (sd) { P(self.geo.box, light, 0.05, 0.07, 0.1, sd * 0.065, -0.04, 0.04, head); }); // cheeks
-    P(this.geo.box, light, 0.07, 0.06, 0.17, 0, -0.035, 0.14, head);          // long slim snout
-    P(this.geo.box, dark, 0.035, 0.035, 0.03, 0, -0.025, 0.23, head);          // nose
+    P(Bx, m, 0.16, 0.14, 0.15, 0, 0, 0, head);
+    P(Bx, m, 0.12, 0.03, 0.1, 0, 0.075, -0.01, head);                   // a gentle brow
     [-1, 1].forEach(function (sd) {
-      P(self.geo.cone4, m, 0.045, 0.17, 0.035, sd * 0.055, 0.15, -0.02, head);   // tall ears
-      P(self.geo.cone4, dark, 0.025, 0.1, 0.02, sd * 0.055, 0.14, 0.0, head);
-      P(self.geo.box, self.mat('swan', 2), 0.03, 0.028, 0.02, sd * 0.048, 0.03, 0.085, head); // eyes
-      var lash = P(self.geo.box, self.mat('swan', 2), 0.04, 0.008, 0.012, sd * 0.06, 0.05, 0.09, head); lash.rotation.z = sd * 0.5;
+      var ch = P(Bx, light, 0.055, 0.07, 0.1, sd * 0.07, -0.04, 0.035, head); ch.rotation.y = sd * 0.35; // fluffy cheeks
+      var tuft = P(Bx, light, 0.035, 0.04, 0.05, sd * 0.1, -0.06, 0.0, head); tuft.rotation.z = sd * 0.6;
+      P(Bx, pink, 0.028, 0.014, 0.012, sd * 0.06, -0.02, 0.083, head);   // a little blush
+      // tall ears: orange, pink inside, black at the tips
+      P(self.geo.cone4, m, 0.045, 0.17, 0.035, sd * 0.055, 0.15, -0.02, head);
+      P(self.geo.cone4, pink, 0.026, 0.11, 0.012, sd * 0.055, 0.135, -0.002, head);
+      P(self.geo.cone4, ink, 0.022, 0.05, 0.022, sd * 0.055, 0.215, -0.02, head);
+      // almond eyes with a glint, and lashes that flick out
+      P(Bx, ink, 0.032, 0.03, 0.02, sd * 0.044, 0.028, 0.08, head);      // soft round eyes
+      P(Bx, white, 0.012, 0.012, 0.006, sd * 0.04 + 0.005, 0.034, 0.092, head);   // a bright glint
+      [0, 1].forEach(function (k) { var lash = P(Bx, ink, 0.018, 0.006, 0.01, sd * (0.064 + k * 0.004), 0.036 + k * 0.009, 0.084, head); lash.rotation.z = sd * (0.75 + k * 0.45); }); // lashes flicking out at the corners
     });
-    // A daisy behind her ear.
+    P(Bx, m, 0.065, 0.045, 0.15, 0, -0.02, 0.135, head);                // a fine snout
+    P(Bx, light, 0.055, 0.03, 0.13, 0, -0.05, 0.13, head);              // white chin
+    P(Bx, ink, 0.03, 0.026, 0.024, 0, -0.012, 0.215, head);             // nose
+    // A daisy behind her ear, with a leaf.
     var fl = new T.Group(); fl.position.set(0.085, 0.13, -0.01); head.add(fl);
-    for (var pe = 0; pe < 5; pe++) { var a = pe / 5 * Math.PI * 2; P(self.geo.ball, self.mat('swan', 0), 0.022, 0.022, 0.014, Math.cos(a) * 0.026, Math.sin(a) * 0.026, 0, fl); }
+    for (var pe = 0; pe < 5; pe++) { var a = pe / 5 * Math.PI * 2; P(self.geo.ball, white, 0.022, 0.022, 0.014, Math.cos(a) * 0.026, Math.sin(a) * 0.026, 0, fl); }
     P(this.geo.ball, this.mat('flag', 1), 0.017, 0.017, 0.016, 0, 0, 0.006, fl);
+    var lf = P(Bx, this.mat('leaf', 0), 0.012, 0.045, 0.025, 0, -0.04, -0.015, fl); lf.rotation.x = 0.4;
     fl.rotation.y = Math.PI / 2;
-    // The tail: a big soft plume, fuller in the middle, with a white tip.
-    var tail = new T.Group(); tail.position.set(0, 0.03, -0.24); body.add(tail);
-    [[0.08, -0.06], [0.12, -0.16], [0.15, -0.27], [0.14, -0.38], [0.1, -0.47]].forEach(function (seg, i) { P(self.geo.box, i === 4 ? light : m, seg[0], seg[0], 0.12, 0, 0.02 + i * 0.012, seg[1], tail); });
+    // The tail: a big soft plume, fullest in the middle, curving up, with a white tip.
+    var tail = new T.Group(); tail.position.set(0, 0.03, -0.23); body.add(tail);
+    [[0.07, -0.05, 0], [0.11, -0.13, 0.01], [0.145, -0.22, 0.025], [0.15, -0.31, 0.045], [0.13, -0.39, 0.07], [0.105, -0.46, 0.095], [0.075, -0.52, 0.12]].forEach(function (seg, i) {
+      P(Bx, i >= 5 ? light : m, seg[0], seg[0] * 0.95, 0.1, 0, seg[2], seg[1], tail).rotation.x = -i * 0.05;
+    });
     tail.rotation.x = 0.55;
-    var legs = [[-0.055, 0.17], [0.055, 0.17], [-0.055, -0.17], [0.055, -0.17]].map(function (l) {
+    // slender legs in black stockings, with neat little paws
+    var legs = [[-0.05, 0.16], [0.05, 0.16], [-0.052, -0.16], [0.052, -0.16]].map(function (l) {
       var hip = new T.Group(); hip.position.set(l[0], 0.3, l[1]); g.add(hip);
-      P(self.geo.box, m, 0.042, 0.18, 0.042, 0, -0.09, 0, hip);
-      P(self.geo.box, dark, 0.045, 0.13, 0.045, 0, -0.235, 0, hip);         // dark stockings
+      P(Bx, m, 0.04, 0.17, 0.042, 0, -0.085, 0, hip);
+      P(Bx, dark, 0.038, 0.12, 0.04, 0, -0.225, 0, hip);
+      P(Bx, dark, 0.042, 0.022, 0.055, 0, -0.29, 0.008, hip);
       return hip;
     });
     g.scale.setScalar(1.0);
@@ -17387,10 +17406,11 @@
       c.maxZoom = 9; c.maxPolarAngle = 1.54;
       // Low over your shoulder with a wide lens: the trees tower, the ranges rise beyond the hills.
       var ry0 = this.player.g.rotation.y, off = new T.Vector3(-Math.sin(ry0), 0, -Math.cos(ry0)).multiplyScalar(Math.cos(CAM_LOW)).setY(Math.sin(CAM_LOW)).multiplyScalar(40);
-      c.target.set(P.x, P.y + CAM_LIFT, P.z);
+      if (this.soft) off = new T.Vector3(1, 0.62, 1).normalize().multiplyScalar(40); // (the basic drawing mode has no lens: the old raised view)
+      c.target.set(P.x, P.y + (this.soft ? 0.6 : CAM_LIFT), P.z);
       this.camera.position.copy(c.target).add(off);
-      this.camEl = CAM_LOW; this.camera.lensFov = CAM_WIDE;
-      this.camera.zoom = 4.6; this.camera.updateProjectionMatrix();
+      this.camEl = this.soft ? null : CAM_LOW; this.camera.lensFov = this.soft ? 0 : CAM_WIDE;
+      this.camera.zoom = this.soft ? 3.4 : 4.6; this.camera.updateProjectionMatrix();
       this.solidAt = 0;
     } else {
       if (this.player) { var pq = this.player; pq.g.visible = false; pq.seat = null; pq.ride = null; if (pq.snow) this.endSnow(pq); if (pq.paddle) this.leavePaddle(pq, false); if (pq.fishing) this.stopFishing(pq); }
@@ -17935,10 +17955,12 @@
   Town.prototype.followCam = function (P, dt) {
     var c = this.controls, cam = this.camera, k = Math.min(1, dt * 6), pl = this.player, inRoom = pl && (pl.inRoom || pl.inDen || pl.mine);
     var lift = inRoom ? 0.5 : CAM_LIFT;
+    if (this.soft) lift = 0.5;
     var mvx = (P.x - c.target.x) * k, mvy = (P.y + lift - c.target.y) * k, mvz = (P.z - c.target.z) * k;
     c.target.x += mvx; c.target.y += mvy; c.target.z += mvz;
     cam.position.x += mvx; cam.position.y += mvy; cam.position.z += mvz;
     var moved = Math.abs(mvx) + Math.abs(mvy) + Math.abs(mvz) > 0.001;
+    if (this.soft) return moved; // (the basic drawing mode keeps the plain raised camera)
     // The lens: wide outdoors, back to the gentle one in a room.
     var fovT = inRoom ? CAM_FOV : CAM_WIDE;
     if (Math.abs((cam.lensFov || CAM_FOV) - fovT) > 0.05) { cam.lensFov = (cam.lensFov || CAM_FOV) + (fovT - (cam.lensFov || CAM_FOV)) * Math.min(1, dt * 3); moved = true; }
