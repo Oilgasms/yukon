@@ -1518,6 +1518,37 @@
       })(),
       ball: new T.SphereGeometry(1, 12, 8),
       ballLo: new T.SphereGeometry(1, 6, 4),
+      // A spruce tier: a skirt of drooping boughs. Twelve branch tips hang down at the rim with
+      // notches between them, the profile curves in a little, and the underside is hollow and
+      // shaded. Same footprint as a unit cone (apex at 0.5, rim at -0.5, radius 1).
+      bough: (function () {
+        var N = 12, pos = [0, 0.5, 0], idx = [], i, a, r = 0.618;
+        for (i = 0; i < N; i++) { a = i / N * Math.PI * 2; pos.push(Math.cos(a) * 0.4, 0.08, Math.sin(a) * 0.4); }            // 1..N: the upper ring
+        for (i = 0; i < 2 * N; i++) {                                                                                      // N+1..3N: tips and notches
+          a = i / (2 * N) * Math.PI * 2; r = (r * 7.31 + 0.137) % 1;
+          var tip = i % 2 === 0, rad = tip ? 1.0 + (r - 0.5) * 0.12 : 0.7, y = tip ? -0.5 - (r - 0.5) * 0.06 : -0.33;
+          pos.push(Math.cos(a) * rad, y, Math.sin(a) * rad);
+        }
+        pos.push(0, -0.28, 0);                                                                                             // 3N+1: up under the skirt
+        var U = function (k) { return 1 + ((k % N) + N) % N; }, Bt = function (k) { return 1 + N + ((k % (2 * N)) + 2 * N) % (2 * N); }, C = 1 + 3 * N;
+        for (i = 0; i < N; i++) {
+          idx.push(0, U(i + 1), U(i));
+          idx.push(U(i), U(i + 1), Bt(2 * i + 1)); idx.push(U(i), Bt(2 * i + 1), Bt(2 * i)); idx.push(U(i + 1), Bt(2 * i + 2), Bt(2 * i + 1));
+        }
+        for (i = 0; i < 2 * N; i++) idx.push(C, Bt(i), Bt(i + 1));
+        var g = new T.BufferGeometry();
+        g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+        // make every face point outward (or down, underneath)
+        var P = g.attributes.position, I = g.index.array, va = new T.Vector3(), vb = new T.Vector3(), vc = new T.Vector3(), nrm = new T.Vector3(), mid = new T.Vector3();
+        for (var f = 0; f < I.length; f += 3) {
+          va.fromBufferAttribute(P, I[f]); vb.fromBufferAttribute(P, I[f + 1]); vc.fromBufferAttribute(P, I[f + 2]);
+          nrm.subVectors(vb, va).cross(vc.clone().sub(va)); mid.copy(va).add(vb).add(vc).multiplyScalar(1 / 3);
+          var under = I[f] === C || I[f + 1] === C || I[f + 2] === C, want = under ? new T.Vector3(0, -1, 0) : new T.Vector3(mid.x, 0.35, mid.z);
+          if (nrm.dot(want) < 0) { var tmp = I[f + 1]; I[f + 1] = I[f + 2]; I[f + 2] = tmp; }
+        }
+        g.computeVertexNormals(); g.computeBoundingSphere();
+        return g;
+      })(),
       torus: new T.TorusGeometry(1, 0.18, 6, 12),
       ring: new T.RingGeometry(6.0, 7.1, 48).rotateX(-Math.PI / 2),
       flag: (function () {
@@ -7241,6 +7272,7 @@
     function P(geo, mat, sx, sy, sz, x, y, z, par) { return self.part(par || g, geo, mat, sx, sy, sz, x, y, z, pick); }
     var dark = this.mat(name, fox ? 2 : 1), light = this.mat(name, fox ? 1 : 2);
     if (fox) return this.foxCritter(g, P, m, dark, light);
+    if (!this.soft) return this.raccoonCritter(g, P, m, dark, light);
     var body = new T.Group(); body.position.y = 0.3; g.add(body);
     P(this.geo.box, m, 0.26, 0.24, 0.55, 0, 0, 0, body);
     var head = new T.Group(); head.position.set(0, 0.12, 0.34); body.add(head);
@@ -7296,9 +7328,53 @@
     if (c.tail) c.tail.rotation.x += ((0.3 + dn * 0.6 - up * 0.1) - c.tail.rotation.x) * Math.min(1, dt * 6);
     return 1 - up * 0.3 + dn * 0.12; // how fast to go: slower up, a touch quicker down
   };
+  // The raccoon, modelled with care: a chubby pear of a body with the high rump raccoons have and a
+  // pale belly, grizzled cheek ruffs, the black bandit mask with white brows and a white muzzle,
+  // round pale-rimmed ears, small dark hands, and a big bushy ringed tail.
+  Town.prototype.raccoonCritter = function (g, P, m, dark, light) {
+    var self = this, B = this.geo.ball, ink = this.mat('swan', 2);
+    var body = new T.Group(); body.position.y = 0.3; g.add(body);
+    P(B, m, 0.15, 0.135, 0.24, 0, 0, 0.02, body);                    // chest and middle
+    P(B, m, 0.165, 0.155, 0.17, 0, 0.025, -0.14, body);              // the high, round rump
+    P(B, dark, 0.07, 0.03, 0.22, 0, 0.098, -0.05, body);             // darker fur down the spine (tucked into the coat)
+    P(B, light, 0.11, 0.07, 0.22, 0, -0.085, 0.0, body);             // pale belly
+    [-1, 1].forEach(function (sd) { var tf = P(B, m, 0.05, 0.06, 0.09, sd * 0.13, 0.0, -0.06, body); tf.rotation.z = sd * 0.5; }); // shaggy flanks
+    var head = new T.Group(); head.position.set(0, 0.12, 0.3); body.add(head);
+    P(B, m, 0.125, 0.105, 0.115, 0, 0, 0, head);                     // the round skull
+    [-1, 1].forEach(function (sd) {
+      var ruff = P(B, light, 0.06, 0.065, 0.06, sd * 0.1, -0.035, 0.0, head); ruff.rotation.z = sd * 0.4; // cheek ruffs
+      P(B, m, 0.04, 0.05, 0.05, sd * 0.125, -0.02, -0.03, head);
+      var patch = P(B, ink, 0.055, 0.038, 0.03, sd * 0.05, 0.015, 0.088, head); patch.rotation.z = sd * -0.35; // the bandit mask
+      var brow = P(B, light, 0.05, 0.016, 0.022, sd * 0.05, 0.058, 0.09, head); brow.rotation.z = sd * -0.2;   // white brows
+      // round ears, pale-rimmed (cones, so they twitch)
+      var ear = P(self.geo.cone, m, 0.042, 0.065, 0.028, sd * 0.075, 0.125, -0.02, head); ear.rotation.z = sd * -0.25;
+      var rim = P(self.geo.cone, light, 0.03, 0.05, 0.012, sd * 0.075, 0.122, -0.006, head); rim.rotation.z = sd * -0.25;
+    });
+    P(B, ink, 0.03, 0.02, 0.06, 0, 0.012, 0.095, head);              // the mask's bridge
+    P(B, light, 0.015, 0.045, 0.02, 0, 0.05, 0.1, head);             // the white stripe between the eyes
+    P(B, light, 0.065, 0.05, 0.085, 0, -0.04, 0.1, head);            // white muzzle
+    P(B, ink, 0.024, 0.02, 0.02, 0, -0.022, 0.18, head);             // nose
+    var tuft = P(this.geo.cone4, m, 0.035, 0.06, 0.03, 0.015, 0.105, -0.03, head); tuft.rotation.z = -0.4;
+    // the tail: a thick bushy plume, ringed dark and grey, tapering to a dark tip
+    var tail = new T.Group(); tail.position.set(0, 0.06, -0.28); body.add(tail);
+    for (var r = 0; r < 7; r++) { var rs = 0.075 - Math.abs(r - 2) * 0.008 - (r > 4 ? 0.008 : 0); P(B, r % 2 || r === 6 ? dark : m, rs, rs, 0.06, 0, 0.012 + r * 0.006, -0.03 - r * 0.068, tail); }
+    tail.rotation.x = 0.4;
+    // legs: grey up top, dark below, with small dark hands and feet
+    var legs = [[-0.085, 0.16], [0.085, 0.16], [-0.09, -0.17], [0.09, -0.17]].map(function (l, i) {
+      var hip = new T.Group(); hip.position.set(l[0], 0.2, l[1]); g.add(hip);
+      P(B, m, 0.048, 0.07, 0.05, 0, -0.04, 0, hip);
+      P(self.geo.cyl6, dark, 0.032, 0.13, 0.032, 0, -0.12, 0, hip);
+      P(B, dark, 0.04, 0.022, 0.05, 0, -0.19, 0.015, hip);             // paw
+      return hip;
+    });
+    g.scale.setScalar(1.3);
+    this.world.add(g);
+    return { g: g, body: body, head: head, legs: legs, tail: tail, kind: 'raccoon', cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: 7, speed: 0.75 };
+  };
   // Jo the fox: slim and long-legged, a fine pointed snout, tall ears, lashes, a daisy tucked
   // behind one ear and a big plume of a tail.
   Town.prototype.foxCritter = function (g, P, m, dark, light) {
+    if (!this.soft) return this.foxCritter2(g, P, m, dark, light);
     var self = this, body = new T.Group(); body.position.y = 0.37; g.add(body);
     P(this.geo.box, m, 0.17, 0.17, 0.48, 0, 0, 0, body);
     P(this.geo.box, light, 0.12, 0.1, 0.16, 0, -0.06, 0.17, body);            // cream chest
@@ -7326,6 +7402,50 @@
       var hip = new T.Group(); hip.position.set(l[0], 0.3, l[1]); g.add(hip);
       P(self.geo.box, m, 0.042, 0.18, 0.042, 0, -0.09, 0, hip);
       P(self.geo.box, dark, 0.045, 0.13, 0.045, 0, -0.235, 0, hip);         // dark stockings
+      return hip;
+    });
+    g.scale.setScalar(1.0);
+    this.world.add(g);
+    return { g: g, body: body, head: head, legs: legs, tail: tail, kind: 'fox', cx: null, cz: null, rIn: 2, rOut: 4, tx: 0, tz: 0, wait: 0, phase: 0, seed: 3, speed: 1.1 };
+  };
+  // Jo, modelled with care: a slender body, white chest and throat, a long tapered snout with a
+  // white jaw, tall ears with black backs, black stockings, lashes, her daisy, and a huge plume
+  // of a tail with a white tip.
+  Town.prototype.foxCritter2 = function (g, P, m, dark, light) {
+    var self = this, B = this.geo.ball, ink = this.mat('swan', 2);
+    var body = new T.Group(); body.position.y = 0.37; g.add(body);
+    P(B, m, 0.1, 0.1, 0.26, 0, 0, -0.01, body);                      // slim body
+    P(B, m, 0.105, 0.1, 0.12, 0, 0.01, -0.15, body);                  // haunch
+    P(B, light, 0.075, 0.08, 0.1, 0, -0.03, 0.16, body);             // white chest
+    P(B, light, 0.06, 0.04, 0.16, 0, -0.08, 0.04, body);             // pale belly
+    var neck = P(B, m, 0.07, 0.09, 0.08, 0, 0.07, 0.2, body); neck.rotation.x = -0.5;
+    var head = new T.Group(); head.position.set(0, 0.13, 0.27); body.add(head);
+    P(B, m, 0.085, 0.075, 0.08, 0, 0, 0, head);
+    [-1, 1].forEach(function (sd) {
+      P(B, light, 0.045, 0.045, 0.05, sd * 0.055, -0.03, 0.03, head);  // white cheeks
+      // tall ears (cones, so they twitch) with black backs
+      var ear = P(self.geo.cone, m, 0.042, 0.13, 0.025, sd * 0.05, 0.135, -0.02, head); ear.rotation.z = sd * -0.18;
+      var back = P(self.geo.cone, dark, 0.04, 0.08, 0.012, sd * 0.05, 0.165, -0.034, head); back.rotation.z = sd * -0.18;
+      P(B, ink, 0.016, 0.02, 0.012, sd * 0.04, 0.02, 0.07, head);      // eyes
+      var lash = P(self.geo.box, ink, 0.035, 0.007, 0.01, sd * 0.05, 0.04, 0.075, head); lash.rotation.z = sd * 0.5;
+    });
+    var snout = P(this.geo.cone, m, 0.045, 0.15, 0.04, 0, -0.01, 0.12, head); snout.rotation.x = Math.PI / 2;
+    var jaw = P(this.geo.cone, light, 0.035, 0.12, 0.025, 0, -0.035, 0.11, head); jaw.rotation.x = Math.PI / 2;
+    P(B, ink, 0.018, 0.016, 0.016, 0, -0.008, 0.195, head);           // nose
+    var fl = new T.Group(); fl.position.set(0.075, 0.1, -0.01); head.add(fl);
+    for (var pe = 0; pe < 5; pe++) { var a = pe / 5 * Math.PI * 2; P(B, self.mat('swan', 0), 0.022, 0.022, 0.014, Math.cos(a) * 0.026, Math.sin(a) * 0.026, 0, fl); }
+    P(B, this.mat('flag', 1), 0.017, 0.017, 0.016, 0, 0, 0.006, fl);
+    fl.rotation.y = Math.PI / 2;
+    // the tail: a great soft plume, fullest in the middle, white at the tip
+    var tail = new T.Group(); tail.position.set(0, 0.03, -0.24); body.add(tail);
+    [[0.045, -0.04], [0.07, -0.12], [0.088, -0.21], [0.09, -0.3], [0.08, -0.38], [0.06, -0.45]].forEach(function (seg, i) { P(B, i === 5 ? light : m, seg[0], seg[0], 0.07, 0, 0.02 + i * 0.012, seg[1], tail); });
+    tail.rotation.x = 0.55;
+    // long legs, orange above, black stockings below
+    var legs = [[-0.05, 0.16], [0.05, 0.16], [-0.055, -0.16], [0.055, -0.16]].map(function (l) {
+      var hip = new T.Group(); hip.position.set(l[0], 0.3, l[1]); g.add(hip);
+      P(B, m, 0.035, 0.08, 0.04, 0, -0.05, 0, hip);
+      P(self.geo.cyl6, dark, 0.022, 0.18, 0.022, 0, -0.19, 0, hip);
+      P(B, dark, 0.026, 0.016, 0.034, 0, -0.285, 0.01, hip);
       return hip;
     });
     g.scale.setScalar(1.0);
@@ -12683,7 +12803,7 @@
     if (kind === 'spruce') {
       part(this.geo.cyl6, this.mat('trunk'), 0.13 * s, 0.9 * s, 0.13 * s, 0, 0.45 * s, 0);
       // tiers of drooping boughs, each a little wider at its skirt, slightly askew
-      [[0.95, 0.75, 0.8], [0.8, 0.72, 1.22], [0.64, 0.68, 1.62], [0.48, 0.64, 2.0], [0.3, 0.6, 2.36]].forEach(function (c, ti) {
+      [[1.0, 0.7, 0.78], [0.84, 0.66, 1.18], [0.68, 0.62, 1.56], [0.52, 0.58, 1.92], [0.36, 0.54, 2.24], [0.2, 0.5, 2.54]].forEach(function (c, ti) {
         var tier = part(self.geo.cone, self.mat('pine', ti % 2), c[0] * s, c[1] * s, c[0] * s, (r() - 0.5) * 0.05, c[2] * s, (r() - 0.5) * 0.05);
         tier.rotation.set((r() - 0.5) * 0.12, r() * 3, (r() - 0.5) * 0.12);
       });
@@ -12715,6 +12835,7 @@
       part(this.geo.cone6, this.mat('pine', 1), 0.45, 1.1, 0.45, 0, 8.4, 0);
     }
     this.world.add(g);
+    this.boughify(g);
     this.paintCrowns(g);
     // Remember where the crown is, so brushing past shakes a few leaves (or snow) loose.
     var crown = { spruce: 1.6 * s, bigspruce: 2.6, birch: 1.6 * s, maple: 1.4 * s, bigoak: 2.1 }[kind] || 5.6;
@@ -16756,7 +16877,17 @@
   // change marks the batch dirty and it's rebuilt once nothing is animating.
   var BATCH_PICKS = { bike: 1, run: 1, tower: 1, cbld: 1, commute: 1, walk: 1, sport: 1 };
   Town.prototype.markBatch = function () { this.batchDirty = true; this.batchMarked = performance.now(); };
+  // Spruces everywhere wear drooping bough skirts instead of plain cones.
+  Town.prototype.boughify = function (root) {
+    var G = this.geo;
+    (root || this.world).traverse(function (o) {
+      if (!o.isMesh || (o.geometry !== G.cone && o.geometry !== G.cone6)) return;
+      var nm = o.material && o.material.userData && o.material.userData.name;
+      if (nm === 'pine') o.geometry = G.bough;
+    });
+  };
   Town.prototype.rebatch = function () {
+    this.boughify();
     this.paintCrowns();
     this.batchDirty = false;
     var self = this, groups = {}, inv = new T.Matrix4(), nm = new T.Matrix3(), mw = new T.Matrix4(), v = new T.Vector3();
@@ -17571,9 +17702,13 @@
     // Little eyes that shine in the dark, like a raccoon's in torchlight.
     pc.eyeMat = new T.MeshBasicMaterial({ color: '#1a1a1a' });
     pc.eyes = [];
-    [-0.06, 0.06].forEach(function (x) { var e = new T.Mesh(this.geo.box, pc.eyeMat); e.scale.set(0.045, 0.04, 0.02); e.userData.sy0 = 0.04; e.position.set(x, 0.03, 0.13); pc.head.add(e); pc.eyes.push(e); }, this);
+    var glintM = new T.MeshBasicMaterial({ color: '#ffffff' });
+    [-0.05, 0.05].forEach(function (x) {
+      var e = new T.Mesh(this.geo.ball, pc.eyeMat); e.scale.set(0.022, 0.024, 0.014); e.userData.sy0 = 0.024; e.position.set(x, 0.018, 0.113); pc.head.add(e); pc.eyes.push(e);
+      var gl = new T.Mesh(this.geo.ball, glintM); gl.scale.set(0.35, 0.35, 0.4); gl.position.set(0.35 * Math.sign(x), 0.4, 0.75); e.add(gl); // a glint, so the eyes read against the mask
+    }, this);
     // And a mouth to carry things in.
-    pc.mouth = new T.Group(); pc.mouth.position.set(0, -0.08, 0.27); pc.head.add(pc.mouth);
+    pc.mouth = new T.Group(); pc.mouth.position.set(0, -0.06, 0.19); pc.head.add(pc.mouth);
     if (this.crowned) this.crown(pc);
     var self = this; setTimeout(function () { self.dressPlayer(); }, 0);
     return pc;
@@ -17690,8 +17825,12 @@
       }
       if (!moved) {
         if (tryMove(dx, dz)) { P.x += dx; P.z += dz; }
-        else if (tryMove(dx, 0)) P.x += dx;
-        else if (tryMove(0, dz)) P.z += dz;
+        else {
+          // Walking into a big step (a terrace edge, a low wall, a ledge): hop right up onto it.
+          var hopped = !pl.swim && !air && now > (pl.hopAt || 0) && this.autoHop(pl, dx, dz, now);
+          if (!hopped) { if (tryMove(dx, 0)) P.x += dx; else if (tryMove(0, dz)) P.z += dz; }
+          else return true;
+        }
       }
       var face = Math.atan2(dx, dz), d = face - g.rotation.y;
       while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
@@ -17997,9 +18136,61 @@
     pl.vy = 4.8;
   };
   // Up the wall in a scrabble of paws, then over the top.
+  // Is there a step ahead (taller than a stride, short enough to hop) with room to land on top?
+  Town.prototype.autoHop = function (pl, dx, dz, now) {
+    var P = pl.g.position, L = Math.hypot(dx, dz); if (L < 1e-5) return false;
+    var fx = dx / L, fz = dz / L;
+    for (var d = 0.3; d <= 0.75; d += 0.15) {
+      var px = P.x + fx * d, pz = P.z + fz * d, top = this.floorAt(px, pz, P.y + 1.45), h = top - P.y;
+      if (h <= STEP_UP - 0.05 || h > 1.35) continue;
+      // room above, and a landing a little further on at about the same height
+      if (this.floorAt(px, pz, top + 0.7) > top + 0.05) return false;
+      var lx = px + fx * 0.25, lz = pz + fz * 0.25, land = this.floorAt(lx, lz, top + 0.3);
+      if (Math.abs(land - top) > 0.25 || !this.clearOfSolids(lx, lz, top + 0.1)) { lx = px; lz = pz; land = top; }
+      pl.climb = { hop: true, x0: P.x, z0: P.z, y0: P.y, x1: lx, z1: lz, y1: land, t: 0, dur: 0.42 + h * 0.18, fx: fx, fz: fz, h: h };
+      pl.g.rotation.y = Math.atan2(fx, fz);
+      pl.hopAt = now + 350; pl.idle = 0;
+      return true;
+    }
+    return false;
+  };
+  // The hop: a crouch to wind up, a spring with the legs tucked and the tail streaming, an arc up
+  // and over the lip, then a squash on landing and a puff of dust.
+  Town.prototype.hopStep = function (pl, dt, now) {
+    var C = pl.climb, P = pl.g.position, t = Math.min(1, C.t / C.dur), k = Math.min(1, dt * 18);
+    var crouch = 0.22, PS = PLAYER_SCALE * (pl.size || 1);
+    if (t < crouch) {
+      var c = t / crouch;
+      pl.body.rotation.x += (-0.25 * c - pl.body.rotation.x) * k;
+      pl.body.position.y += (0.3 - 0.08 * c - pl.body.position.y) * k;
+      pl.legs.forEach(function (l, i) { l.rotation.x += ((i < 2 ? 0.5 : -0.6) * c - l.rotation.x) * k; });
+      pl.tail.rotation.x += (0.9 * c - pl.tail.rotation.x) * k;
+      pl.g.scale.set(PS * (1 + 0.1 * c), PS * (1 - 0.14 * c), PS * (1 + 0.1 * c));
+      if (!C.sprung && c > 0.9) { C.sprung = true; this.puff(P.x, P.y + 0.02, P.z, 3, 'dust'); this.sfx('boing'); }
+      return;
+    }
+    var u = Math.min(1, (t - crouch) / (1 - crouch)), peak = Math.max(C.y0, C.y1) + 0.22 + C.h * 0.15;
+    P.x = C.x0 + (C.x1 - C.x0) * u; P.z = C.z0 + (C.z1 - C.z0) * u;
+    // a parabola through start, peak and landing
+    var a = C.y0, b = peak, e = C.y1;
+    P.y = (1 - u) * (1 - u) * a + 2 * (1 - u) * u * (2 * b - (a + e) / 2) + u * u * e;
+    var stretch = Math.sin(Math.min(1, u * 1.6) * Math.PI);
+    pl.body.rotation.x += ((u < 0.5 ? -0.45 : 0.2) - pl.body.rotation.x) * k;
+    pl.body.position.y += (0.3 - pl.body.position.y) * k;
+    pl.legs.forEach(function (l, i) { l.rotation.x += ((u < 0.45 ? (i < 2 ? -1.2 : 1.1) : (i < 2 ? -0.6 : 0.5)) - l.rotation.x) * k; });
+    pl.tail.rotation.x += (-0.25 - pl.tail.rotation.x) * k;
+    pl.g.scale.set(PS * (1 - 0.06 * stretch), PS * (1 + 0.1 * stretch), PS * (1 - 0.06 * stretch));
+    if (C.t >= C.dur) {
+      P.set(C.x1, this.floorAt(C.x1, C.z1, C.y1 + 0.3), C.z1);
+      pl.climb = null; pl.vy = 0; pl.squash = 0.18; pl.air = 0; pl.fallFrom = null;
+      pl.g.scale.setScalar(PS);
+      this.puff(P.x, P.y, P.z, 4, 'dust');
+    }
+  };
   Town.prototype.climbStep = function (pl, dt, now) {
     var C = pl.climb, P = pl.g.position, t, self = this;
     C.t += dt; t = Math.min(1, C.t / C.dur);
+    if (C.hop) { this.hopStep(pl, dt, now); return; }
     var wallX = C.x0 + C.fx * 0.12, wallZ = C.z0 + C.fz * 0.12, k = Math.min(1, dt * 14);
     if (C.fail) {
       // Up a little way, scrabbling, a wobble at the top, then a slow slide back down.
@@ -18689,7 +18880,7 @@
   // the head leading the turn (or turning to look at a friend), ears that twitch, blinks, breathing ----
   Town.prototype.aliveInit = function (c) {
     var ears = [];
-    c.head.children.forEach(function (o) { if (o.isMesh && o.geometry && o.geometry.type === 'ConeGeometry' && Math.abs(o.position.x) > 0.04 && o.position.y > 0.12) ears.push({ m: o, rz: o.rotation.z, rx: o.rotation.x, sd: Math.sign(o.position.x) }); });
+    c.head.children.forEach(function (o) { if (o.isMesh && o.geometry && o.geometry.type === 'ConeGeometry' && Math.abs(o.position.x) > 0.04 && o.position.y > 0.11 && Math.abs(o.rotation.x) < 0.5) ears.push({ m: o, rz: o.rotation.z, rx: o.rotation.x, sd: Math.sign(o.position.x) }); });
     return { lean: 0, look: 0, tx: 0, ty: 0, vx: 0, vy: 0, px: 0, py: 0, yaw: c.g.rotation.y, yawV: 0, ears: ears, twitch: 0, twitchSd: 1, twitchAt: 0, blinkAt: 0, applied: false, bodyY: c.body.scale.y };
   };
   Town.prototype.unAlive = function (c) {
@@ -19862,10 +20053,11 @@
   // ---- the forest and tufts lean in the wind too ----
   Town.prototype.windifyScenery = function () {
     var self = this;
+    this.boughify(this.base);
     this.base.children.forEach(function (o) {
       if (!o.isInstancedMesh || o.material.customProgramCacheKey && /wind/.test(o.material.customProgramCacheKey())) return;
       var name = o.material.userData && o.material.userData.name;
-      if (o.geometry === self.geo.cone6 && /^pine/.test(name || '')) o.material = self.windMat(o.material, 0.25, 0, 'pine');
+      if ((o.geometry === self.geo.cone6 || o.geometry === self.geo.cone) && /^pine/.test(name || '')) { o.geometry = self.geo.bough; o.material = self.windMat(o.material, 0.25, 0, 'pine'); }
       else if (o.geometry === self.geo.cone4 && /^leaf/.test(name || '')) o.material = self.windMat(o.material, 0.1, 0.12, 'lanetuft');
       else if (o.geometry === self.geo.ball && /^flag/.test(name || '')) o.material = self.windMat(o.material, 0.04, 0.04, 'laneflower' + name);
     });
