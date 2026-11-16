@@ -49,5 +49,29 @@ window.BOOK_LINES = {
     "Zweig finished it just before he died in Brazil. it’s heavier, knowing that",
     "a man whose only comfort is the thing driving him mad — you summed it up well",
     "all of it on an ocean liner to Buenos Aires. I’d have stayed in the bar"
+  ],
+  "of mice and men": [
+    "of mice and men! well, I had to read it, dear. the title, you understand",
+    "Lennie and his soft things… I'll admit I'd keep well clear of his pockets",
+    "“tell about the rabbits, George.” a little place of their own. don't we all want that",
+    "poor Candy and his old dog. that one stayed with me for days",
+    "Crooks out by the barn, all alone with his books. it broke my heart, love",
+    "the best laid schemes o' mice and men gang aft agley. Burns knew. still, we keep scheming"
+  ],
+  "roll your plow over the bones of the dead": [
+    "Janina and her horoscopes! I checked mine. Mars was up to something rude",
+    "translating Blake with Dizzy over supper… what a lovely friendship that was",
+    "she called her dogs her Little Girls. I cried at that, dear",
+    "deer tracks round every one of those hunters… the animals had their say, didn't they?",
+    "Big Foot choking on a bone in the very first chapter. what a way to open a book",
+    "all those hunters, so smug in their towers. I'll not pretend I was sorry, love"
+  ],
+  "drive your plow over the bones of the dead": [
+    "Janina and her horoscopes! I checked mine. Mars was up to something rude",
+    "translating Blake with Dizzy over supper… what a lovely friendship that was",
+    "she called her dogs her Little Girls. I cried at that, dear",
+    "deer tracks round every one of those hunters… the animals had their say, didn't they?",
+    "Big Foot choking on a bone in the very first chapter. what a way to open a book",
+    "all those hunters, so smug in their towers. I'll not pretend I was sorry, love"
   ]
 };

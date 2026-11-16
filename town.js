@@ -7,10 +7,10 @@
   // Warm, saturated farm-game colours. Day and dusk sets; seasons override a few keys.
   var PALETTES = {
     day: {
-      grass: '#6fb34a', grassDeep: '#5c9e3d', dirt: '#a8713f', soil: '#8a5a33', stone: ['#e7e3da', '#d9d4c8', '#cac4b6'],
+      grass: '#5f9d45', grassDeep: '#4c873a', dirt: '#a8713f', soil: '#8a5a33', stone: ['#e7e3da', '#d9d4c8', '#cac4b6'],
       stoneDark: '#9c8f7a', roof: ['#3f73b5', '#4f9a45', '#8a5cb0', '#2f8f8f', '#b5813f', '#5f6fbf'], roofJo: '#c8372d',
       plaster: ['#f4e6c8', '#ead6b0', '#f1dcc2'], wood: '#9a5f32', woodLight: '#e2c48e', path: '#d9b779', cobble: '#bdb3a2',
-      water: '#4fa8dc', sand: '#ecd59a', leaf: ['#4f9e3a', '#68b544', '#3f8a32'], trunk: '#7a4a26',
+      water: '#4fa8dc', sand: '#ecd59a', leaf: ['#3f8a3c', '#5c9f44', '#2f7536'], trunk: '#7a4a26',
       window: '#5b7fa8', windowGlow: '#000000', glasshouse: '#d4ece8', flag: ['#d8483a', '#f2c230', '#3f73b5', '#4f9e3a', '#e8823a'],
       court: '#d9824a', ice: '#e3f1f7', pitch: '#62ad48', line: '#ffffff', rock: '#9f9585', snow: '#f8fbfd', gold: '#e8b934',
       crop: ['#f08a2a', '#f4f0e0', '#c43a6a', '#e8d03a'], balloon: ['#d8483a', '#f2c230', '#3f73b5', '#8a5cb0', '#4f9e3a', '#e8823a'],
@@ -30,7 +30,7 @@
 
   var SEASONS = {
     spring: {
-      day: { grass: '#7cc251', grassDeep: '#66ab42', leaf: ['#7cc451', '#f3a9c4', '#5ea83f'], skigrass: '#86c45a', skirun: '#b7e08a' },
+      day: { grass: '#6cab4c', grassDeep: '#57943f', leaf: ['#6eb34e', '#f3a9c4', '#4f9a3e'], skigrass: '#78b452', skirun: '#a6d07e' },
       dusk: { grass: '#457a3c', grassDeep: '#3a6834', leaf: ['#4a7d3a', '#a8738a', '#3a6a2c'] },
       snowLine: 0.62, weather: { color: '#f6bcd0', size: 5, count: 160, fall: 1.4, sway: 1.2 }
     },
@@ -90,6 +90,8 @@
     keepStone: ['#87837d', '#77736d', '#68645f'], keepDark: '#4d4a46', keepRoof: ['#575b62', '#4b4f56'], keepAccent: '#e6a93a', keepBanner: ['#7a2a24', '#2a4a7a'],
     elfStone: ['#f2e8d2', '#e8dbc0', '#dccdae'], elfDark: '#bcae90', elfRoof: ['#4fa08c', '#62b29c'], elfAccent: '#d5ece2', elfBanner: ['#4f8f7c', '#f2e8d2'],
     houseplant: ['#4f9e3a', '#3f8a32', '#68b544', '#5aa83e'],
+    // Handmade trails: worn earth, flagstones in a few shades, and cobbles for the roads.
+    trail: ['#9e8866', '#937e5e', '#a8926f'], flag: ['#bfab83', '#ad9a74', '#c8b690', '#9e8b69'], cobS: ['#a99f8e', '#978e7f', '#b5ab99', '#8d8577'],
     // The towns up the line: Klondike paint, trim and tin roofs.
     tpaint: ['#e2b13c', '#3f8f8a', '#b8432f', '#a58cc4', '#9fd1b0', '#e8907a', '#f1e6c8', '#7fb2d8', '#f4f2ec', '#4f7a4a', '#e7a3b8', '#c9873a', '#9a9a94', '#3a4a72', '#7a5236', '#f2df8c'],
     ttrim: ['#f6f3ea', '#2f4f3a', '#6e2a2a', '#4a3322', '#d9a441', '#2a2a2a'],
@@ -1811,7 +1813,7 @@
       if (name === 'water') { m.transparent = true; m.opacity = 0.92; m.depthWrite = false; this.waterShader(m); } // (no depth from water: where sheets of it overlap, no inked seam) }
       // Water, paths and paving lie almost level with the ground: always draw them on top of it.
       // (gently: through the low perspective lens a big offset pulls them through the hills in front)
-      if (name === 'path' || name === 'cobble') { m.polygonOffset = true; m.polygonOffsetFactor = -0.6; m.polygonOffsetUnits = -2; }
+      if (name === 'path' || name === 'cobble' || name === 'trail') { m.polygonOffset = true; m.polygonOffsetFactor = -0.6; m.polygonOffsetUnits = -2; }
       // See-through panes for the glasshouse, with a faint warm glow at night.
       if (name === 'glasshouse') { m.transparent = true; m.opacity = 0.45; m.depthWrite = false; }
       if (name === 'flag' || name === 'banner') m.side = T.DoubleSide;
@@ -1830,6 +1832,7 @@
     if (Array.isArray(v)) v = v[(m.userData.idx || 0) % v.length];
     m.color.set(v);
     if (STYLE_COLORS[name] && this.dark) m.color.multiplyScalar(0.6);
+    if ((name === 'trail' || name === 'flag' || name === 'cobS') && this.season === 'winter') m.color.lerp(new T.Color(this.dark ? '#9aa3b4' : '#eef2f5'), 0.65); // (snow on the trails)
     // Outside winter the rink is paved for ball hockey.
     if (name === 'ice' && this.season !== 'winter') m.color.set(this.dark ? '#7d7f84' : '#c4c6c4');
     if (m.emissive) m.emissive.set(name === 'fire' ? '#ff6a1a' : '#000000');
@@ -2285,7 +2288,7 @@
   Town.prototype.layTiles = function (tiles, matName, w, parent) {
     if (!tiles.length) return null;
     var self = this, sets = {}, prevY = null, prev = null;
-    function add(key, x, y, z, rot, sx, sy, sz) { (sets[key] = sets[key] || []).push([x, y, z, rot, sx, sy, sz]); }
+    function add(key, x, y, z, rot, sx, sy, sz, geo) { (sets[key] = sets[key] || []).push([x, y, z, rot, sx, sy, sz, geo]); }
     tiles.forEach(function (t, i) {
       if (BRIDGE_SPANS.length && onBridge(t.x, t.z)) { prev = null; prevY = null; return; }
       var rd = riverDist(t.x, t.z), y = surfaceY(t.x, t.z), gap = prev ? Math.hypot(t.x - prev.x, t.z - prev.z) : 1;
@@ -2298,21 +2301,51 @@
       } else if (prevY != null && Math.abs(y - prevY) / Math.max(0.3, gap) > 0.3) {
         var q = Math.round(y / 0.2) * 0.2;
         add('stone1', t.x, q - 0.12, t.z, t.rot, 0.6, 0.34, w);
-      } else {
+      } else if (self.soft || (matName !== 'path' && matName !== 'cobble')) {
         add(matName, t.x, y + 0.03, t.z, t.rot, 0.62, 0.06, w + (i % 3) * 0.08);
+      } else {
+        // Laid by hand: a band of worn earth, then flagstones (cobbles on the roads) of different
+        // sizes and shades set at odd angles with earth between, grass creeping in at the edges,
+        // the odd pebble, and now and then a little wildflower.
+        var r = rng(Math.floor(t.x * 37.1) * 7 + Math.floor(t.z * 53.7) * 13 + i), cs = Math.cos(t.rot), sn = Math.sin(t.rot), road = matName === 'cobble';
+        var at = function (along, across) { return [t.x + cs * along + sn * across, t.z - sn * along + cs * across]; };
+        // the earth: two soft, rounded, overlapping patches per stretch, so the edge wanders
+        [-0.17, 0.17].forEach(function (al) { var e0 = at(al + (r() - 0.5) * 0.08, (r() - 0.5) * 0.1); add('trail', e0[0], surfaceY(e0[0], e0[1]) + 0.01, e0[1], r() * 6.28, w * (0.5 + r() * 0.12), 0.02, w * (0.42 + r() * 0.12), 'cyl'); });
+        var n = road ? (self.small ? 3 : 5) : (self.small ? 2 : 2 + (r() < 0.6 ? 1 : 0)), sz = road ? 0.15 : 0.24;
+        for (var k = 0; k < n; k++) {
+          var across = (k + 0.5) / n * w - w / 2 + (r() - 0.5) * 0.12, along = (r() - 0.5) * 0.22, q2 = at(along, across), sx = sz * (0.75 + r() * 0.45), sz2 = sz * (0.7 + r() * 0.45);
+          add((road ? 'c' : 'f') + Math.floor(r() * 4), q2[0], surfaceY(q2[0], q2[1]) + 0.03, q2[1], r() * 6.28, sx, 0.05 + r() * 0.02, sz2, 'cyl6');
+        }
+        if (!self.small && !self.lite) [-1, 1].forEach(function (sd) {
+          if (r() < 0.5) { var e = at((r() - 0.5) * 0.4, sd * (w / 2 + 0.04 + r() * 0.08)); add('tuft', e[0], surfaceY(e[0], e[1]) + 0.08, e[1], r() * 6.28, 0.26 + r() * 0.12, 0.15 + r() * 0.08, 0.26, 'clump'); }
+          if (r() < 0.18) { var pb = at((r() - 0.5) * 0.5, sd * (w / 2 - 0.02)); add('pebble', pb[0], surfaceY(pb[0], pb[1]) + 0.02, pb[1], r() * 6.28, 0.045 + r() * 0.03, 0.025, 0.04 + r() * 0.03, 'ballLo'); }
+          if (!road && r() < 0.07) { var fw = at((r() - 0.5) * 0.4, sd * (w / 2 + 0.1)); add('bloom' + Math.floor(r() * 4), fw[0], surfaceY(fw[0], fw[1]) + 0.16, fw[1], 0, 0.035, 0.03, 0.035, 'ballLo'); }
+        });
       }
       prevY = y; prev = t;
     });
     var group = new T.Group(), up = new T.Vector3(0, 1, 0);
     Object.keys(sets).forEach(function (key) {
       var list = sets[key], mat = key === 'stone1' ? self.mat('stone', 1) : key === 'stone2' ? self.mat('stone', 2) : self.mat(key);
+      if (/^f\d$/.test(key)) mat = self.mat('flag', +key[1]);
+      else if (/^c\d$/.test(key)) mat = self.mat('cobS', +key[1]);
+      else if (key === 'tuft') mat = self.pathTuftM || (self.pathTuftM = self.windMat(self.meadowMat(), 0.04, 0.15, 'pathtuft'));
+      else if (key === 'pebble') mat = self.mat('stone', 0);
+      else if (/^bloom\d$/.test(key)) mat = self.mat('flag', [0, 1, 3, 4][+key[5]]);
+      var geoName = list[0][7], geom = geoName === 'clump' ? self.grassClumpGeo() : geoName ? self.geo[geoName] : self.geo.box;
       if (self.soft) {
         list.forEach(function (v, i) { if (i % 2 && key === matName) return; var m = new T.Mesh(self.geo.box, mat); m.position.set(v[0], v[1], v[2]); m.rotation.y = v[3]; m.scale.set(key === matName ? 1.1 : v[4], v[5], v[6]); group.add(m); });
         return;
       }
-      var mesh = new T.InstancedMesh(self.geo.box, mat, list.length), m4 = new T.Matrix4(), qq = new T.Quaternion(), sc = new T.Vector3(), pp = new T.Vector3();
-      list.forEach(function (v, i) { pp.set(v[0], v[1], v[2]); qq.setFromAxisAngle(up, v[3]); sc.set(v[4], v[5], v[6]); mesh.setMatrixAt(i, m4.compose(pp, qq, sc)); });
-      mesh.receiveShadow = true; mesh.castShadow = key !== matName;
+      var mesh = new T.InstancedMesh(geom, mat, list.length), m4 = new T.Matrix4(), qq = new T.Quaternion(), sc = new T.Vector3(), pp = new T.Vector3();
+      var tq = new T.Quaternion(), nrm = new T.Vector3(), tilt = geoName === 'cyl' || geoName === 'cyl6' || geoName === 'ballLo';
+      list.forEach(function (v, i) {
+        pp.set(v[0], v[1], v[2]); qq.setFromAxisAngle(up, v[3]);
+        // lie along the ground on a slope, rather than stepping down it in flat terraces
+        if (tilt) { var e = 0.3; nrm.set(groundY(v[0] - e, v[2]) - groundY(v[0] + e, v[2]), 2 * e, groundY(v[0], v[2] - e) - groundY(v[0], v[2] + e)).normalize(); tq.setFromUnitVectors(up, nrm); qq.premultiply(tq); }
+        sc.set(v[4], v[5], v[6]); mesh.setMatrixAt(i, m4.compose(pp, qq, sc));
+      });
+      mesh.receiveShadow = true; mesh.castShadow = key !== matName && key !== 'trail' && key !== 'tuft' && !/^[fc]\d$/.test(key);
       group.add(mesh);
     });
     parent.add(group);
@@ -15112,14 +15145,14 @@
     var s = this.st, B = s.lastBook, t = this.today;
     if (!B || !B.title || !t) return null;
     var since = Math.round((Date.parse(t) - Date.parse(B.date)) / 864e5);
-    if (!(since >= 0 && since <= 7)) return null;
+    if (!(since >= 0 && since <= 21)) return null; // (the town talks about a book for three weeks after you finish it)
     var T0 = B.title, low = T0.toLowerCase(), lines = [];
     BOOK_TALK.forEach(function (b) { if (b[0].test(low)) lines = lines.concat(b[1]); });
     // Lines written for this very book (data/booklines.js): most of the time, those.
     var own = (window.BOOK_LINES || {})[low.trim()] || [];
     var S0 = this.keep(), seen0 = S0.theo || {}, t0 = Date.parse(t);
     var ownFresh = own.filter(function (x) { return !seen0[x] || t0 - seen0[x] > 14 * 864e5; });
-    if (ownFresh.length && Math.random() < 0.7) { var lo = pickOne(ownFresh); (S0.theo = seen0)[lo] = t0; this.saveStore(); return lo; }
+    if (ownFresh.length && Math.random() < 0.85) { var lo = pickOne(ownFresh); (S0.theo = seen0)[lo] = t0; this.saveStore(); return lo; }
     lines.push('finished ' + T0 + '? what did you make of the ending?', 'the library mice are still talking about ' + T0, 'have you lent ' + T0 + ' to anyone yet? I’m next', 'I keep thinking about ' + T0, 'what are you reading after ' + T0 + '?');
     if (B.author) lines.push('I’ve only read the one ' + B.author.split(/\s+/).pop() + '. was it good?', B.author + '! a fine choice, dear');
     if (B.stars >= 4.5) lines.push(B.stars + ' stars for ' + T0 + '! high praise');
@@ -15406,7 +15439,7 @@
     var liftedToday = day.some(function (e) { return e.kind === 'lift'; });
     var lf = Math.random() < (liftedToday ? 0.55 : 0.3) ? this.liftLine(m) : null;
     if (lf) return lf;
-    var bk = Math.random() < 0.4 ? this.bookLine() : null;
+    var bk = Math.random() < 0.55 ? this.bookLine() : null;
     if (bk) return bk;
     var fm = Math.random() < 0.4 ? this.filmLine() : null;
     if (fm) return fm;
@@ -20020,7 +20053,7 @@
     if (this.meadowM) this.meadowM.userData.key = null; // (pick the season's look on the next frame)
   };
   // Long grass: fresh green in spring, deep in summer, straw-gold in the fall, pale under winter's frost.
-  var MEADOW_COL = { spring: '#8fc95a', summer: '#79b347', fall: '#d6bd6c', winter: '#d9d3bd' };
+  var MEADOW_COL = { spring: '#7fb752', summer: '#6a9f42', fall: '#d6bd6c', winter: '#d9d3bd' };
   Town.prototype.meadowMat = function () {
     if (!this.meadowM) { this.meadowM = new T.MeshToonMaterial({ gradientMap: this.toonSteps, color: MEADOW_COL.summer, side: T.DoubleSide }); this.meadowM.userData.name = 'meadow'; }
     return this.meadowM;
