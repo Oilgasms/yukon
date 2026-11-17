@@ -21392,7 +21392,9 @@
   Town.seasonOf = function (iso) {
     if (!iso) return null;
     var m = +iso.slice(5, 7);
-    return m === 12 || m <= 2 ? 'winter' : m <= 5 ? 'spring' : m <= 8 ? 'summer' : 'fall';
+    // The Yukon's seasons: winter from November through February, spring March to May, summer
+    // June to August, and a short fall in September and October.
+    return m >= 11 || m <= 2 ? 'winter' : m <= 5 ? 'spring' : m <= 8 ? 'summer' : 'fall';
   };
 
   Town.houseSlots = HOUSE_SLOTS.length;
