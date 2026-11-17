@@ -365,6 +365,21 @@ h2 { font-family: var(--display); font-weight: 400; }
 .key-fold { border-top: 3px double var(--line); padding-top: 8px; }
 .key-fold summary { cursor: pointer; font-family: var(--caps); color: var(--rubric); font-size: 15px; }
 .key-fold .key { margin: 8px 0 0; border: 0; padding: 0; font-size: 14px; }
+/* great quests */
+.gq { display: grid; gap: 10px; margin-bottom: 14px; }
+.gq-card { border: 1px solid var(--line); border-radius: 3px; padding: 9px 11px; background: color-mix(in srgb, var(--card-2) 45%, transparent); }
+.gq-card.complete { border-color: var(--gold); background: linear-gradient(180deg, color-mix(in srgb, #fff3c4 60%, transparent), transparent); }
+.gq-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.gq-top b { font-family: var(--display); font-weight: 400; font-size: 19px; }
+.gq-n { font-family: var(--caps); color: var(--rubric); font-size: 14px; }
+.gq-what { font-style: italic; color: var(--muted); font-size: 14px; margin: 1px 0 6px; }
+.gq-bar { height: 6px; background: color-mix(in srgb, var(--edge) 15%, transparent); }
+.gq-bar i { display: block; height: 100%; background: var(--rubric); }
+.gq-card.complete .gq-bar i { background: var(--gold); }
+.gq-now { font-size: 14px; margin: 5px 0 4px; }
+.gq-steps { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); display: grid; gap: 1px; }
+.gq-steps li.done { color: var(--ink); text-decoration: line-through; text-decoration-color: var(--rubric); }
+.gq-h { font-family: var(--caps); font-weight: 400; color: var(--rubric); font-size: 16px; margin: 4px 0 6px; border-top: 3px double var(--line); padding-top: 10px; }
 /* quests */
 #questsF .quests { background: none; padding: 0; margin: 0; font-size: 15.5px; }
 #questsF .quests > b { display: none; }
@@ -466,7 +481,9 @@ h2 { font-family: var(--display); font-weight: 400; }
   </section>
 
   <section class="card folio" id="questsF" role="dialog" aria-label="Quests" hidden>
-    <header class="folio-h"><div><div class="eyebrow">Favours asked by the townsfolk</div><h2>Quests</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
+    <header class="folio-h"><div><div class="eyebrow">Great deeds, and small favours</div><h2>Quests</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
+    <div class="gq" id="gq"></div>
+    <h3 class="gq-h">Today’s favours</h3>
     <div class="quests" id="quests" hidden><b>Today’s favours</b><ul id="quest-list"></ul></div>
     <p class="empty">No favours asked of you today. Walk about town; the mice will find you.</p>
   </section>
@@ -599,10 +616,11 @@ h2 { font-family: var(--display); font-weight: 400; }
 </script>
 <script>// Always the latest saved Letterboxd diary, never a copy the browser remembers.
 document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
-document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');</script>
+document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');
+document.write('<script src="data/covers.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v198';
+var BUILD = 'v200';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -984,11 +1002,37 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     if (was) { $(id).hidden = true; syncBar(); return; }
     if (id === 'skills') openSkills(); else $(id).hidden = false;
     if (id === 'ledger') renderLedger();
+    if (id === 'questsF') { claimGreatQuests(); renderGreatQuests(); }
     syncBar();
   }
   function syncBar() { [['skills-btn', 'skills'], ['quests-btn', 'questsF'], ['ledger-btn', 'ledger'], ['settings-btn', 'settings']].forEach(function (b) { $(b[0]).classList.toggle('on', !$(b[1]).hidden || (b[1] === 'settings' && !$('records').hidden)); }); }
   $('skills-btn').addEventListener('click', function () { openFolio('skills'); });
   $('quests-btn').addEventListener('click', function () { openFolio('questsF'); });
+  // ---- great quests: your big goals, step by step ----
+  function renderGreatQuests() {
+    if (!town.greatQuests) return;
+    var box = $('gq'); box.innerHTML = '';
+    town.greatQuests().forEach(function (q) {
+      var d = document.createElement('div'); d.className = 'gq-card' + (q.complete ? ' complete' : '');
+      d.innerHTML = '<div class="gq-top"><b></b><span class="gq-n"></span></div><div class="gq-what"></div><div class="gq-bar"><i></i></div><div class="gq-now"></div><ol class="gq-steps"></ol>';
+      d.querySelector('b').textContent = q.name;
+      d.querySelector('.gq-n').textContent = q.done + ' / ' + q.of;
+      d.querySelector('.gq-what').textContent = q.what;
+      d.querySelector('.gq-bar i').style.width = Math.round((q.complete ? 1 : q.pct) * 100) + '%';
+      d.querySelector('.gq-now').textContent = q.complete ? 'Done! ' + q.end.charAt(0).toUpperCase() + q.end.slice(1) + '.' : 'Best so far: ' + q.value + ' \u00b7 next: ' + q.next;
+      var ol = d.querySelector('.gq-steps');
+      q.steps.forEach(function (st, i) { var li = document.createElement('li'); if (st.done) li.className = 'done'; li.textContent = st.label + ' \u00b7 ' + st.coins + ' coins' + (i === q.steps.length - 1 ? ' and ' + q.end : ''); ol.append(li); });
+      box.append(d);
+    });
+  }
+  function claimGreatQuests(quiet) {
+    if (!town.claimQuests) return;
+    var got = town.claimQuests();
+    if (!got.length || quiet) return;
+    var coins = got.reduce(function (a, g) { return a + g.coins; }, 0);
+    toast(got.length === 1 ? 'Quest step: ' + got[0].quest + ' \u2014 ' + got[0].step + ' (+' + coins + ' coins)' : got.length + ' quest steps reached (+' + coins + ' coins)');
+  }
+  $('quests-btn').addEventListener('click', function () { claimGreatQuests(); renderGreatQuests(); });
   $('ledger-btn').addEventListener('click', function () { openFolio('ledger'); });
   $('settings-btn').addEventListener('click', function () { openFolio('settings'); });
   $('open-records').addEventListener('click', function () { openFolio('records'); });

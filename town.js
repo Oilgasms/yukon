@@ -6912,9 +6912,12 @@
     P(this.geo.box, this.mat('roofJo'), 2.6, 0.22, 1.0, 0, 2.15, 1.75);
     P(this.geo.box, this.mat('trunk'), 1.1, 1.5, 0.06, 0, 0.95, 1.41);
     P(this.geo.box, this.mat('gold'), 0.04, 1.4, 0.07, 0, 0.95, 1.43);
+    var latestF = (this.st.cinema.films || []).filter(function (f) { return !f.projected; }).slice(-2).reverse();
     [-1.25, 1.25].forEach(function (x, i) {
       P(self.geo.box, self.mat('gold'), 0.62, 0.92, 0.05, x, 1.2, 1.41);
-      P(self.geo.box, self.mat('flag', i ? 2 : 0), 0.52, 0.8, 0.06, x, 1.2, 1.42);
+      var pf = latestF[i];
+      if (pf) { var pm = new T.Mesh(self.geo.plane || (self.geo.plane = new T.PlaneGeometry(1, 1)), self.coverMat('film', pf, self.paintCard(pf.title, pf.year), true)); pm.scale.set(0.52, 0.8, 1); pm.position.set(x, 1.2, 1.446); g.add(pm); }
+      else P(self.geo.box, self.mat('flag', i ? 2 : 0), 0.52, 0.8, 0.06, x, 1.2, 1.42);
     });
     if (n >= 40) {
       for (var m = 0; m < 12; m++) P(this.geo.ball, glow, 0.06, 0.06, 0.06, -1.25 + m * (2.5 / 11), 2.03, 2.26);
@@ -8976,6 +8979,28 @@
     D.spots.push({ k: 'shelf', x: c0.x, z: c0.z + 0.85, r: 1.1 });
     this.libraryGuestSpots(D, cases[cases.length > 2 ? 2 : 0]);
     D.light = t === 'cabin' ? { hemi: '#c99560', ground: '#2e1d10', i: 0.85 } : { hemi: '#d9a874', ground: '#3a2616', i: 0.95 };
+    // A "just read" stand by the door: your latest books, covers face out, on a slanted shelf.
+    (function () {
+      var recent = books.filter(function (b) { return !b.projected; }).slice(-3).reverse();
+      if (!recent.length) return;
+      var st = new T.Group(); st.position.set(R.hx - 1.05, F, R.hz - 1.05); st.rotation.y = -0.55; D.g.add(st);
+      P(self.geo.box, self.mat('wood'), 1.2, 0.06, 0.5, 0, 0.62, 0, st);
+      [[-0.55, -0.2], [0.55, -0.2], [-0.55, 0.2], [0.55, 0.2]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.05, 0.62, 0.05, l[0], 0.31, l[1], st); });
+      var board = new T.Group(); board.position.set(0, 0.66, -0.05); board.rotation.x = -0.45; st.add(board);
+      P(self.geo.box, self.mat('woodLight'), 1.16, 0.6, 0.04, 0, 0.3, 0, board);
+      P(self.geo.box, self.mat('wood'), 1.16, 0.05, 0.08, 0, 0.02, 0.05, board);
+      recent.forEach(function (b, k) {
+        var cm = new T.Mesh(self.geo.plane || (self.geo.plane = new T.PlaneGeometry(1, 1)), self.coverMat('book', b, self.paintCard(b.title, '', b.author), false, 200, 300));
+        cm.scale.set(0.3, 0.45, 1); cm.position.set(-0.38 + k * 0.38, 0.27, 0.025); board.add(cm);
+      });
+      var card = document.createElement('canvas'); card.width = 256; card.height = 96; var cx = card.getContext('2d');
+      cx.fillStyle = '#f4ead2'; cx.fillRect(0, 0, 256, 96); cx.strokeStyle = '#6b4a2a'; cx.lineWidth = 4; cx.strokeRect(4, 4, 248, 88);
+      cx.fillStyle = '#4a2f17'; cx.textAlign = 'center'; cx.font = 'italic bold 38px Georgia'; cx.fillText('Just read', 128, 60);
+      var sign = new T.Mesh(self.geo.plane || (self.geo.plane = new T.PlaneGeometry(1, 1)), new T.MeshBasicMaterial({ map: new T.CanvasTexture(card) }));
+      sign.scale.set(0.42, 0.16, 1); sign.position.set(0, 0.74, 0.27); sign.rotation.x = -0.3; st.add(sign);
+      T0.block(R.hx - 1.75, R.hx - 0.35, R.hz - 1.5, R.hz - 0.6);
+      D.spots.push({ k: 'justread', x: R.hx - 1.3, z: R.hz - 0.5, r: 0.8 });
+    })();
   };
   // The way into the Society: one book on the library shelves is upside down. Say the word and the
   // bookcase swings open.
@@ -9582,11 +9607,7 @@
       var recent = films.slice(-8).reverse();
       recent.forEach(function (fm, i) {
         var sd = i % 2 ? 1 : -1, k = Math.floor(i / 2), z = -R.hz + 1.6 + k * 1.3, wall = D.walls[sd < 0 ? 1 : 3].g;
-        var pc = document.createElement('canvas'); pc.width = 128; pc.height = 180; var x = pc.getContext('2d'), hue = (fm.title.length * 47) % 360;
-        x.fillStyle = 'hsl(' + hue + ',45%,28%)'; x.fillRect(0, 0, 128, 180); x.fillStyle = 'hsl(' + hue + ',60%,55%)'; x.beginPath(); x.arc(64, 70, 38, 0, Math.PI * 2); x.fill();
-        x.fillStyle = '#f5ecd6'; x.font = 'bold 15px Georgia'; x.textAlign = 'center'; self.wrapText(x, fm.title, 64, 128, 116, 17);
-        if (fm.year) { x.font = '12px Georgia'; x.fillText(String(fm.year), 64, 172); }
-        var pt = new T.Mesh(self.geo.box, new T.MeshBasicMaterial({ map: new T.CanvasTexture(pc) })); pt.scale.set(0.03, 0.9, 0.64); pt.position.set(sd * (R.hx - 0.03), F + 1.55, z); if (sd > 0) pt.rotation.y = Math.PI; wall.add(pt);
+        var pt = new T.Mesh(self.geo.box, self.coverMat('film', fm, self.paintCard(fm.title, fm.year))); pt.scale.set(0.03, 0.9, 0.64); pt.position.set(sd * (R.hx - 0.03), F + 1.55, z); if (sd > 0) pt.rotation.y = Math.PI; wall.add(pt);
         P(self.geo.box, MC('#c9a24a'), 0.025, 0.98, 0.72, sd * (R.hx - 0.015), F + 1.55, z, wall);
       });
       D.spots.push({ k: 'posters', x: -R.hx + 0.8, z: -R.hz + 1.6, r: 0.8 });
@@ -9798,6 +9819,7 @@
     if (D.kind === 'tangle') return this.tangleInfo(k);
     if (D.kind === 'society' && !/^guest/.test(k)) return { table: { title: 'The round table', lines: ['Press E to join the meeting.'] }, board: { title: 'The board', lines: ['Everything they know about you, joined up with red string. Press E to hear the theory.'] }, chronicle: { title: 'The Chronicle', lines: ['Their record of your every move. Press E to read the latest entry.'] } }[k] || null;
     if (D.kind === 'cafe' && !/^guest/.test(k)) { var MI = s.mtb; return { counter: { title: 'The counter', lines: ['Press E for a coffee.'] }, map: { title: 'The trail map', lines: [MI.rides + ' rides, ' + Math.round(MI.km) + ' km. Press E to look closer.'] }, bikes: { title: 'The bike wall', lines: ['A bike up on the wall for every five rides.'] }, stand: { title: 'The repair stand', lines: ['Press E to give it a tune-up.'] }, stove: { title: 'The stove', lines: ['Press E to warm your paws.'] }, table: { title: 'A table', lines: ['Press E to sit with your coffee. Move to get up.'] } }[k] || null; }
+    if (D.kind === 'library' && k === 'justread') { var lb = s.library.books.filter(function (b) { return !b.projected; }).slice(-1)[0]; return { title: 'Just read', lines: lb ? [lb.title + (lb.author ? ' by ' + lb.author : ''), 'Press E for your whole shelf.'] : ['Press E for your shelf.'] }; }
     if (D.kind === 'cinema' && !/^guest/.test(k)) { var fs = s.cinema.films, cur = D.screen && fs[D.screen.i]; if (k === 'screen') return { title: cur ? 'Now showing: ' + cur.title : 'The screen', lines: ['Press E to put another of your films on.'] }; if (k === 'seat') return { title: 'A seat', lines: ['Press E to sit and watch. Move to get up.'] }; if (k === 'posters') return { title: 'The posters', lines: ['Your latest films. Press E for the whole list (' + fs.length + ').'] }; if (k === 'popcorn') return { title: 'The popcorn machine', lines: ['Press E for a bag.'] }; return null; }
     if (/^guest/.test(k)) { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; return gq ? { title: gq.v.name, lines: [{ library: 'Reading.', church: 'Sitting quietly.', pub: 'Having a pint.', cinema: 'Watching the film.', cafe: 'Having a coffee.', society: 'A hooded member of the Society.' }[D.kind] + ' Press E to say hello.'] } : null; }
     if (D.kind === 'library') {
@@ -9835,6 +9857,7 @@
     if (D.kind === 'tangle' && this.tangleUse(pl, k)) return;
     if (D.kind === 'society') { var lead = D.guests && D.guests[2]; if (k === 'table') { this.say('we know what you\u2019re training for, raccoon.', lead.v.g, 1.4, 2.6); var self2 = this; setTimeout(function () { self2.say('...actually we don\u2019t. TELL US', lead.v.g, 1.4, 2.6); }, 2800); return; } if (k === 'board') { this.say(this.whisper(), pl.g, 1.1, 3); return; } if (k === 'chronicle') { var LL = this.st.last || {}, ks = Object.keys(LL).filter(function (q) { return LL[q] && LL[q].day; }).sort(function (a, b) { return String(LL[b].day).localeCompare(String(LL[a].day)); }); var e = ks.length ? LL[ks[0]] : null; this.say(e ? 'entry: "' + e.day + ': the raccoon did ' + String(e.label).slice(0, 40).toLowerCase() + '. we watched."' : 'the pages are blank. for now', pl.g, 1.1, 3.2); return; } }
     if (D.kind === 'cafe') { var MM = s.mtb; if (k === 'counter') { this.getCoffee(); if (D.barkeep) this.say(pickOne(['coming right up', 'here you go, speedy', 'that\u2019ll be one acorn']), D.barkeep.g, 0.75, 1.8); return; } if (k === 'map') { this.say(MM.rides + ' rides \u00b7 ' + Math.round(MM.km) + ' km on the trails', pl.g, 1.1, 2.6); return; } if (k === 'bikes') { this.say(pickOne(['ooh, that one\u2019s fast', 'one day I\u2019ll own them all', 'look at the tyres on that']), pl.g, 1.0, 2); return; } if (k === 'stand') { this.say('*tightens a bolt* good as new', pl.g, 1.0, 2); this.sfx('clang'); return; } if (k === 'stove') { this.say(pickOne(['ahh, toasty', '*warms paws*']), pl.g, 1.0, 1.6); return; } }
+    if (D.kind === 'library' && k === 'justread' && this.onInteract) { this.onInteract('library'); return; }
     if (D.kind === 'cinema') { if (k === 'screen') { var nf2 = this.showFilm(D); if (nf2) this.say(nf2.title + (nf2.year ? ' (' + nf2.year + ')' : ''), pl.g, 1.1, 2.6); this.sfx('wood'); return; } if (k === 'posters' && this.onInteract) { this.onInteract('cinema'); return; } if (k === 'popcorn') { this.say(pickOne(['*munch munch*', 'extra butter please', 'pop pop pop!']), pl.g, 1.0, 1.8); return; } }
     if (k === 'guest') { var gq = (D.guests || [])[+(this.near || '').split(':')[2]]; if (gq) this.guestTalk(gq); return; }
     var spot = D.spots.filter(function (q) { return q.k === k; })[0];
@@ -16804,6 +16827,73 @@
     return { list: list, total: total, totalXp: totalXp, max: SKILLS.length * 99 };
   };
 
+  // ---- great quests: your big goals as quests with steps along the way, a few coins for each
+  // step, and the town's thanks at the end ----
+  function paceTxt(spk) { var t = Math.round(spk * 5), m = Math.floor(t / 60), sec = t % 60; return m + ':' + (sec < 10 ? '0' : '') + sec; }
+  var GREAT_QUESTS = [
+    { id: 'swift', name: 'The Swift Messenger', what: 'Run 5 km in under twenty minutes. The king needs his messages fast.', stat: function (s) { return s.endBest && s.endBest.run5; }, lower: true, steps: [300, 270, 255, 240], fmt: function (v) { return '5 km in ' + paceTxt(v); }, end: 'a golden runner banner flies over the gate' },
+    { id: 'road', name: 'The Long Road to Dawson', what: 'Run a full marathon, step by step.', stat: function (s) { return s.endBest && s.endBest.runKm; }, steps: [10, 21.1, 30, 42.2], fmt: function (v) { return (Math.round(v * 10) / 10) + ' km'; }, names: ['10 km', 'the half', '30 km', 'the marathon'], end: 'the whole town lines the road with lanterns' },
+    { id: 'gate', name: 'Lift the Iron Gate', what: 'Deadlift what the castle gate weighs.', stat: function (s) { return s.best && s.best.deadlift; }, steps: [275, 315, 365, 405], fmt: function (v) { return v + ' lb'; }, end: 'the gate is named for you' },
+    { id: 'squat', name: 'The King’s Squat', what: 'Squat like royalty.', stat: function (s) { return s.best && s.best.squat; }, steps: [225, 255, 275, 315], fmt: function (v) { return v + ' lb'; }, end: 'a throne appears in the square' },
+    { id: 'bench', name: 'The Shieldbearer’s Press', what: 'Bench press the great shield.', stat: function (s) { return s.best && s.best.bench; }, steps: [185, 205, 225, 250], fmt: function (v) { return v + ' lb'; }, end: 'your shield hangs in the great hall' },
+    { id: 'ohp', name: 'The Tower Press', what: 'Press overhead like you’re raising the tower roof.', stat: function (s) { return s.best && s.best.ohp; }, steps: [115, 135, 155], fmt: function (v) { return v + ' lb'; }, end: 'the tower flies your colours' },
+    { id: 'thirty', name: 'Fit by Thirty', what: 'Show up, again and again, all the way to thirty.', stat: function (s) { return s.sessions; }, steps: [100, 200, 365, 500], fmt: function (v) { return v + ' workouts'; }, end: 'a feast in the square' },
+    { id: 'scholar', name: 'The Scholar’s Road', what: 'Read your way to ten thousand pages.', stat: function (s) { return s.library && s.library.pages; }, steps: [2000, 5000, 7500, 10000], fmt: function (v) { return Math.round(v).toLocaleString() + ' pages'; }, end: 'the owl comes to live in the library' },
+    { id: 'pilgrim', name: 'The Pilgrim’s Way', what: 'Read the whole Bible, cover to cover.', stat: function (s) { return s.bible && s.bible.chapters; }, steps: [150, 400, 800, 1189], fmt: function (v) { return v + ' chapters'; }, end: 'the church bells ring all day' }
+  ];
+  var QUEST_COINS = [3, 5, 8, 15];
+  Town.prototype.greatQuests = function () {
+    var s = this.st, K = this.keep(), claimed = K.gq || {};
+    return GREAT_QUESTS.map(function (q) {
+      var v = q.stat(s), has = v != null && v > 0, done = 0;
+      q.steps.forEach(function (st) { if (has && (q.lower ? v <= st : v >= st)) done++; });
+      var next = q.steps[done], prev = done ? q.steps[done - 1] : (q.lower ? q.steps[0] * 1.25 : 0), pct = 1;
+      if (next != null) pct = !has ? 0 : q.lower ? Math.max(0, Math.min(1, (prev - v) / (prev - next))) : Math.max(0, Math.min(1, (v - prev) / (next - prev)));
+      return { id: q.id, name: q.name, what: q.what, value: has ? q.fmt(v) : 'not started', done: done, of: q.steps.length, complete: done >= q.steps.length, pct: pct,
+        steps: q.steps.map(function (st, i) { return { label: q.names ? q.names[i] : q.fmt(st), done: i < done, coins: QUEST_COINS[i] || 5, claimed: !!claimed[q.id + i] }; }),
+        next: next != null ? (q.names ? q.names[done] : q.fmt(next)) : null, end: q.end };
+    });
+  };
+  // Pay out coins for quest steps reached since last time; say what was earned.
+  Town.prototype.claimQuests = function () {
+    var K = this.keep(), C = K.gq || (K.gq = {}), got = [];
+    this.greatQuests().forEach(function (q) { q.steps.forEach(function (st, i) { if (st.done && !C[q.id + i]) { C[q.id + i] = 1; K.coins += st.coins; got.push({ quest: q.name, step: st.label, coins: st.coins, last: i === q.steps.length - 1, end: q.end }); } }); });
+    if (got.length) this.saveStore();
+    return got;
+  };
+
+  // ---- book covers and film posters: drawn from the copies saved with the town (data/covers),
+  // or straight from the web where the site allows it, or else a hand-painted title card ----
+  Town.prototype.coverMat = function (kind, item, drawFallback, lit, w, h) {
+    var cv = document.createElement('canvas'); cv.width = w || 256; cv.height = h || 384;
+    var x = cv.getContext('2d'); drawFallback(x, cv.width, cv.height);
+    var tex = new T.CanvasTexture(cv), m = lit ? new T.MeshLambertMaterial({ map: tex }) : new T.MeshBasicMaterial({ map: tex }), self = this;
+    var key = kind + ':' + String(item.title || '').toLowerCase().trim() + (kind === 'film' ? '|' + (item.year || '') : '');
+    var local = (root.COVERS || {})[key], src = local || item.cover;
+    if (src) {
+      var img = new Image(); if (!local) img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          var r = Math.max(cv.width / img.width, cv.height / img.height), iw = img.width * r, ih = img.height * r;
+          x.drawImage(img, (cv.width - iw) / 2, (cv.height - ih) / 2, iw, ih);
+          tex.needsUpdate = true; self.needsRender = true;
+        } catch (e) { /* (a picture the site won't share: keep the painted card) */ }
+      };
+      img.src = src;
+    }
+    return m;
+  };
+  Town.prototype.paintCard = function (title, year, sub) {
+    var self = this;
+    return function (x, W, H) {
+      var hue = (String(title).length * 47) % 360;
+      x.fillStyle = 'hsl(' + hue + ',42%,28%)'; x.fillRect(0, 0, W, H);
+      x.fillStyle = 'hsl(' + hue + ',58%,55%)'; x.beginPath(); x.arc(W / 2, H * 0.38, W * 0.3, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#f5ecd6'; x.textAlign = 'center'; x.font = 'bold ' + Math.round(W * 0.12) + 'px Georgia'; self.wrapText(x, title, W / 2, H * 0.72, W * 0.9, W * 0.135);
+      if (year || sub) { x.font = Math.round(W * 0.09) + 'px Georgia'; x.fillText(String(year || sub), W / 2, H * 0.95); }
+    };
+  };
+
   // ---- public ---------------------------------------------------------
 
   Town.prototype.climbUnits = function (ev) {
@@ -16976,6 +17066,7 @@
   };
 
   Town.prototype.info = function (key) {
+    if (key === 'icehole') return { title: 'Fish through the ice', lines: ['A hole cut in the lake ice, a stool beside it. Press E to drop a line.'] };
     var s = this.st, p = key.split(':'), last = s.last[p[0] === 'balloon' ? 'bike' : key];
     var tail = last ? 'Last: ' + last.day + ' · ' + last.label : '';
     var km = function (v) { return Math.round(v) + ' km'; };
@@ -17383,7 +17474,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -17951,6 +18042,7 @@
       else if (this.camp && Math.hypot(CAMP.x - P.x, CAMP.z - P.z) < CAMP.R) best = 'camp';
       else if (this.tangle && Math.hypot(this.tangle.door.x - P.x, this.tangle.door.z - P.z) < 2.2) best = 'tangle';
       if (this.boatNear(P) && !this.player.boat) best = 'riverboat';
+      if (this.iceHoleNear(P)) best = 'icehole';
       if (this.noir && Math.hypot(this.noir.g.position.x - P.x, this.noir.g.position.z - P.z) < 2.2) best = 'detective';
       if (this.noir) this.noir.drifters.forEach(function (d) { if (d.g.visible && Math.hypot(d.g.position.x - P.x, d.g.position.z - P.z) < 1.6) { best = 'drifter'; self.nearDrifter = d; } });
       if (best !== this.near) { this.near = best; if (this.onNear) this.onNear(best); }
@@ -18064,6 +18156,7 @@
     if (pl && !pl.paddle && !pl.seat && this.near === 'society') { this.enterRoom(pl, 'society'); return; }
     if (pl && this.near === 'tradingpost') { this.coyoteTrade(); return; }
     if (pl && this.near === 'camp') { this.say(pickOne(['*does a push-up*', 'mind if I join?', '*flexes*']), pl.g, 1.0, 1.8); var cc = this.camp.cs[0]; this.say(pickOne(['THAT\u2019S THE SPIRIT', 'drop and give me twenty, raccoon', 'not bad, for a trash panda']), cc.g, 1.1, 2.2); return; }
+    if (pl && this.near === 'icehole' && !pl.fishing) { var ih = this.iceHoleNear(pl.g.position); if (ih) { pl.g.rotation.y = Math.atan2(ih.x - pl.g.position.x, ih.z - pl.g.position.z); this.startFishing(pl, { x: ih.x, z: ih.z, y: ih.y }); this.say(pickOne(['ice fishing! brr', 'let’s see what’s biting under there', 'cold paws, warm heart']), pl.g, 1.0, 1.6); return; } }
     if (pl && this.near === 'tangle') { if (this.tangleLevel() < 1) { this.say('the brambles are too thick. a long run might clear a way', pl.g, 1.0, 2.6); return; } this.enterRoom(pl, 'tangle'); return; }
     if (pl && !pl.paddle) { var lm = this.lunchNear(pl.g.position); if (lm) { this.stealLunch(pl, lm); return; } }
     // Winter: a snowball for the nearest mouse.
@@ -21237,6 +21330,137 @@
     if (night) { m.color.set('#d8ff6a'); m.size = 0.2; m.opacity = M.a * (0.5 + 0.5 * Math.sin(t * 2.3)); } // fireflies blink
     else { m.color.set(this.phase === 'golden' ? '#ffd38a' : '#fff4d6'); m.size = 0.14; m.opacity = M.a * 0.7; }
     this.needsRender = true;
+  };
+  // ---- the northern lights: on clear nights from fall through spring, curtains of green and violet
+  // ripple over the mountains to the north, rays shimmering along them ----
+  Town.prototype.stepAurora = function (dt, now) {
+    if (this.soft) return;
+    var A = this.aurora;
+    if (!A) {
+      var U = { uT: { value: 0 }, uA: { value: 0 } }, mats = [], g = new T.Group();
+      [[-0.95, 0.95, 620, 45, 230, 0], [-0.6, 0.8, 680, 70, 290, 2.1], [-0.25, 1.15, 580, 35, 180, 4.3]].forEach(function (b) {
+        var segs = 90, pos = [], uv = [], idx = [];
+        for (var i = 0; i <= segs; i++) {
+          var u = i / segs, a = b[0] + (b[1] - b[0]) * u, wig = Math.sin(u * 7 + b[5]) * 60 + Math.sin(u * 17 + b[5]) * 20, R = b[2] + wig;
+          var x = Math.sin(a) * R, z = -Math.cos(a) * R;
+          pos.push(x, b[3], z, x, b[4], z); uv.push(u, 0, u, 1);
+          if (i < segs) { var q = i * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+        }
+        var geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
+        var m = new T.ShaderMaterial({
+          uniforms: { uT: U.uT, uA: U.uA, uSeed: { value: b[5] } }, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, fog: false,
+          vertexShader: 'varying vec2 vUv; uniform float uT; uniform float uSeed; void main() { vUv = uv; vec3 p = position; float w = sin(uv.x * 23.0 + uT * 0.25 + uSeed) * 18.0 + sin(uv.x * 61.0 - uT * 0.4) * 6.0; p.x += w * uv.y; p.z += w * 0.6 * uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }',
+          fragmentShader: [
+            'varying vec2 vUv; uniform float uT; uniform float uA; uniform float uSeed;',
+            'float h(float x) { return fract(sin(x * 127.1 + uSeed) * 43758.5453); }',
+            'float n(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h(i), h(i + 1.0), f); }',
+            'void main() {',
+            '  float x = vUv.x * 60.0, y = vUv.y;',
+            '  float rays = n(x * 2.0 + uT * 0.5) * 0.55 + n(x * 7.0 - uT * 0.9) * 0.45;',
+            '  float fold = n(vUv.x * 5.0 + uT * 0.07), ends = smoothstep(0.0, 0.12, vUv.x) * (1.0 - smoothstep(0.88, 1.0, vUv.x));',
+            '  float body = smoothstep(0.0, 0.1, y) * (1.0 - smoothstep(0.3 + fold * 0.55, 1.0, y));',
+            '  vec3 col = mix(vec3(0.25, 1.0, 0.55), vec3(0.6, 0.35, 1.0), smoothstep(0.35, 0.95, y));',
+            '  col = mix(col, vec3(1.0, 0.35, 0.55), smoothstep(0.0, 0.08, y) * (1.0 - smoothstep(0.08, 0.2, y)) * 0.35);',
+            '  float a = min(1.0, body * ends * (0.35 + 1.1 * rays * rays) * uA * (0.8 + 0.5 * fold) * 1.5);',
+            '  gl_FragColor = vec4(col * a, a);',
+            '}'].join('\n')
+        });
+        var mesh = new T.Mesh(geo, m); mesh.frustumCulled = false; mesh.renderOrder = -3; g.add(mesh); mats.push(m);
+      });
+      this.scene.add(g);
+      A = this.aurora = { g: g, U: U, a: 0, saidAt: 0 };
+    }
+    var ph = this.phase || '', pl = this.player, clear = !/rain|storm|snow/.test(this.weatherNow || '');
+    var want = (ph === 'night' || ph === 'dusk') && this.season !== 'summer' && clear && !(pl && (pl.inRoom || pl.inDen || pl.mine)) ? (ph === 'night' ? 1 : 0.4) : 0;
+    A.a += (want - A.a) * Math.min(1, dt * 0.25);
+    A.g.visible = A.a > 0.01;
+    if (!A.g.visible) return;
+    A.g.position.copy(this.controls.target); A.g.position.y = 0;
+    A.U.uT.value = this.reduced ? 0 : now / 1000;
+    A.U.uA.value = A.a * (0.75 + 0.25 * Math.sin(now / 9000));
+    // now and then a mouse nearby looks up and says so
+    if (A.a > 0.6 && pl && pl.g.visible && now > A.saidAt) {
+      A.saidAt = now + 45000 + Math.random() * 40000;
+      var near = (this.st.folk || []).filter(function (m) { return m.g.visible && m.g.position.distanceTo(pl.g.position) < 8; })[0];
+      this.say(pickOne(['look up! the lights are out!', 'the northern lights… they’re dancing tonight', 'green and purple! make a wish, dear', 'my granny said they’re the spirits playing ball', 'stay up a bit. the sky’s putting on a show']), near ? near.g : pl.g, near ? 0.9 : 1.1, 3.2);
+    }
+    this.needsRender = true;
+  };
+  // ---- winter on the lake: ice-fishing huts with a hole to fish through, mice skating in circles,
+  // a dog team pulling a sled round the ice, and steam rising off the hot springs ----
+  Town.prototype.stepIceLake = function (dt, now) {
+    if (this.soft) return;
+    var winter = this.season === 'winter', W = this.iceLife, self = this;
+    if (!W && !winter) return;
+    if (!W) {
+      var g = new T.Group(), y = LAKE.y + 0.14, c = LAKE.c, R = LAKE.R, B = this.geo.box;
+      var at = function (deg, f) { var a = deg * D2R; return { x: c.x + Math.cos(a) * R * f, z: c.z + Math.sin(a) * R * f }; };
+      function P(par, geo, mat, sx, sy, sz, x, yy, z) { return self.part(par, geo, mat, sx, sy, sz, x, yy, z); }
+      var holes = [];
+      // two little huts, each with its hole, a stool and a stovepipe
+      [[30, 0.45, '#b8432f'], [150, 0.5, '#3f6e8a']].forEach(function (h, i) {
+        var p = at(h[0], h[1]), hut = new T.Group(); hut.position.set(p.x, y, p.z); hut.rotation.y = -h[0] * D2R + Math.PI / 2; g.add(hut);
+        P(hut, B, self.mcm(h[2]), 1.0, 0.9, 0.9, 0, 0.45, 0); P(hut, B, self.mcm('#5a4030'), 1.1, 0.08, 1.0, 0, 0.94, 0);
+        var roof = P(hut, self.geo.gable, self.mcm('#efeae0'), 0.62, 0.45, 0.62, 0, 0.98, 0); roof.rotation.y = Math.PI / 2;
+        P(hut, B, self.mcm('#3a2a1e'), 0.32, 0.55, 0.04, 0.2, 0.3, 0.46);
+        P(hut, self.geo.cyl6, self.mat('stoneDark'), 0.05, 0.4, 0.05, -0.3, 1.25, -0.2);
+        var hp = { x: p.x + Math.cos(h[0] * D2R + 0.9) * 1.2, z: p.z + Math.sin(h[0] * D2R + 0.9) * 1.2 };
+        P(g, self.geo.cyl, self.mcm('#1d3a4a'), 0.22, 0.02, 0.22, hp.x, y + 0.005, hp.z);
+        P(g, self.geo.cyl, self.mcm('#dfe9ef'), 0.3, 0.03, 0.3, hp.x, y - 0.005, hp.z);
+        P(g, self.geo.cyl6, self.mat('wood'), 0.08, 0.2, 0.08, hp.x + 0.35, y + 0.1, hp.z);
+        holes.push({ x: hp.x, z: hp.z, y: y, chimney: hut.localToWorld(new T.Vector3(-0.3, 1.5, -0.2)) });
+      });
+      // three skaters in scarves
+      var skaters = [0, 1, 2].map(function (i) { var m = self.makeMouse(30 + i, null, true); g.add(m.g); m.g.scale.setScalar(0.88); return { m: m, ph: i * 2.1, r: R * (0.35 + i * 0.12), sp: 0.35 + i * 0.07 }; });
+      // a dog team: four huskies on a line ahead of a sled, a musher mouse on the runners
+      var team = new T.Group(); g.add(team);
+      var sled = new T.Group(); team.add(sled);
+      [-0.16, 0.16].forEach(function (x) { P(sled, B, self.mat('wood'), 0.03, 0.03, 1.0, x, 0.04, 0); });
+      P(sled, B, self.mat('woodLight'), 0.36, 0.04, 0.7, 0, 0.12, 0.05); P(sled, B, self.mat('wood'), 0.36, 0.3, 0.04, 0, 0.27, -0.3);
+      P(sled, B, self.mcm('#8a3a2a'), 0.3, 0.12, 0.4, 0, 0.2, 0.1);
+      var musher = self.makeMouse(40, 'hiker', false); sled.add(musher.g); musher.g.position.set(0, 0.06, -0.38); musher.g.scale.setScalar(0.88);
+      var dogs = [0, 1, 2, 3].map(function (i) {
+        var d = new T.Group(), side = i % 2 ? 0.14 : -0.14, row = Math.floor(i / 2); d.position.set(side, 0, 0.75 + row * 0.5); team.add(d);
+        var fur = self.mcm(i === 1 ? '#c9c4bc' : i === 2 ? '#5a5048' : '#8d857c'), pale = self.mcm('#efeae2');
+        var body = new T.Group(); body.position.y = 0.17; d.add(body);
+        P(body, B, fur, 0.12, 0.11, 0.3, 0, 0, 0); P(body, B, pale, 0.1, 0.04, 0.24, 0, -0.05, 0.01);
+        var head = new T.Group(); head.position.set(0, 0.07, 0.17); body.add(head);
+        P(head, B, fur, 0.1, 0.09, 0.1, 0, 0, 0); P(head, B, pale, 0.06, 0.05, 0.08, 0, -0.02, 0.07); P(head, B, self.mat('swan', 2), 0.025, 0.02, 0.02, 0, -0.005, 0.11);
+        [-1, 1].forEach(function (sd) { P(head, self.geo.cone4, fur, 0.025, 0.06, 0.02, sd * 0.03, 0.07, -0.01); });
+        var tail = P(body, B, fur, 0.04, 0.04, 0.14, 0, 0.06, -0.17); tail.rotation.x = -0.9;
+        var legs = [[-0.04, 0.1], [0.04, 0.1], [-0.04, -0.1], [0.04, -0.1]].map(function (l) { var hip = new T.Group(); hip.position.set(l[0], 0.13, l[1]); d.add(hip); P(hip, B, fur, 0.03, 0.12, 0.03, 0, -0.06, 0); return hip; });
+        return { d: d, legs: legs, ph: i * 0.8 };
+      });
+      P(team, B, self.mat('trunk'), 0.01, 0.01, 1.1, 0, 0.15, 0.85); // the gangline
+      this.scene.add(g);
+      W = this.iceLife = { g: g, holes: holes, skaters: skaters, team: team, dogs: dogs, ang: 0, steamAt: 0, smokeAt: 0 };
+    }
+    W.g.visible = winter;
+    if (!winter) return;
+    var t = this.reduced ? 0 : now / 1000, c = LAKE.c, y = LAKE.y + 0.14;
+    W.skaters.forEach(function (s) {
+      var a = t * s.sp + s.ph, m = s.m;
+      m.g.position.set(c.x + Math.cos(a) * s.r, y, c.z + Math.sin(a) * s.r);
+      m.g.rotation.y = -a; m.g.rotation.z = -0.18;                       // leaning into the curve
+      var push = Math.sin(t * 4 + s.ph);
+      if (m.legs) m.legs.forEach(function (l, i) { l.rotation.x = (i % 2 ? push : -push) * 0.5; l.rotation.z = (i % 2 ? 1 : -1) * Math.max(0, i % 2 ? push : -push) * 0.4; });
+      if (m.arms) m.arms.forEach(function (ar, i) { ar.rotation.z = (i ? -1 : 1) * 0.9; });
+    });
+    // the sled team goes round the outside of the ice
+    W.ang += (this.reduced ? 0 : 0.11) * dt;
+    var Rt = LAKE.R * 0.82, a2 = W.ang;
+    W.team.position.set(c.x + Math.cos(a2) * Rt, y, c.z + Math.sin(a2) * Rt);
+    W.team.rotation.y = -a2 + Math.PI;
+    W.dogs.forEach(function (d) { var ph = t * 14 + d.ph; d.legs.forEach(function (l, i) { l.rotation.x = Math.sin(ph + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.8; }); d.d.position.y = Math.abs(Math.sin(ph)) * 0.02; });
+    // smoke from the hut stovepipes and steam off the hot springs
+    if (now > W.smokeAt) { W.smokeAt = now + 1600; W.holes.forEach(function (h) { self.puff(h.chimney.x, h.chimney.y, h.chimney.z, 1, 'smoke', 0.05); }); }
+    if (now > W.steamAt) { W.steamAt = now + 700; this.puff(HOTSPRINGS.x + (Math.random() - 0.5) * 3, groundY(HOTSPRINGS.x, HOTSPRINGS.z) + 0.3, HOTSPRINGS.z + (Math.random() - 0.5) * 3, 2, 'smoke', 0.06); }
+    this.needsRender = true;
+  };
+  Town.prototype.iceHoleNear = function (P) {
+    var W = this.iceLife; if (!W || this.season !== 'winter') return null;
+    for (var i = 0; i < W.holes.length; i++) if (Math.hypot(W.holes[i].x - P.x, W.holes[i].z - P.z) < 1.0) return W.holes[i];
+    return null;
   };
   // ---- the far ranges: three rings of great snow-capped mountains round the edge of the world,
   // each farther one paler and bluer in the haze, the nearest dark with forest at its feet.
