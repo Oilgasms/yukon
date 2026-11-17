@@ -314,6 +314,7 @@
           ev.label = text;
           ev.slot = slot[0];
           ev.friends = k === 0 ? friends : [];
+          if (k === 0 && /\b(everyone|everybody)\b/i.test(text)) ev.everyone = true; // the whole crew
           ev.dogs = k === 0 ? dogs : [];
           ev.phase = name;
           ev.day = dayLabel;

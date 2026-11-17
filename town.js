@@ -3101,7 +3101,7 @@
       this.buildBoreal();
       this.buildTufts();
       var self2 = this;
-      ['paintMaterials', 'buildClouds', 'buildMeadows', 'buildTallGrass', 'windifyScenery', 'buildNorthRiver', 'buildSkagScenery', 'buildNoir', 'buildCreeks'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
+      ['paintMaterials', 'buildClouds', 'buildMeadows', 'buildTallGrass', 'buildRoadForest', 'windifyScenery', 'buildNorthRiver', 'buildSkagScenery', 'buildNoir', 'buildCreeks'].forEach(function (fn) { self2.safe(fn, function () { self2[fn](); }); });
     }
     this.buildLetterbox();
     return C;
@@ -10341,7 +10341,11 @@
     if (!D.group.parent) this.scene.add(D.group);
     // Forget fountains that were rebuilt away.
     this.fountains = this.fountains.filter(function (f) { var o = f.spout; while (o.parent) o = o.parent; return o === self.scene; });
+    var frozen = this.season === 'winter';
     this.fountains.forEach(function (f, i) {
+      // Winter: frozen solid. The jet stands still as a spike of ice, and no water falls.
+      if (frozen) { if (f.jet && !f.iced) { f.iced = true; f.jet.scale.y = f.jetY * 1.5; f.jet.scale.x *= 0.75; f.jet.scale.z *= 0.75; self.needsRender = true; } return; }
+      if (f.iced) { f.iced = false; f.jet.scale.x /= 0.75; f.jet.scale.z /= 0.75; }
       if (f.jet) f.jet.scale.y = f.jetY * (1 + Math.sin(now / 85 + i * 1.7) * 0.18);
       f.spout.getWorldPosition(wp);
       if (self.reduced || Math.hypot(wp.x - tgt.x, wp.z - tgt.z) > 55) return;
@@ -11587,6 +11591,7 @@
     if (Object.keys(s.snow.seasons).some(function (k) { return s.snow.seasons[k].days >= 10; })) hit('yeti');
     // Party secrets: earned once, but only standing for a week after each big group workout.
     var nf = ev.friends ? ev.friends.length : 0;
+    if (ev.everyone) nf = Math.max(nf, PARTY.feast); // "w/ everyone" is the whole crew, however many are named
     Object.keys(PARTY).forEach(function (id) {
       if (nf < PARTY[id]) return;
       (s.party = s.party || {})[id] = ev.date || s.lastDate || null;
@@ -20036,6 +20041,50 @@
   // ---- tall grass: sweeps of it two and three times the raccoon's height that part as you push
   // through, with Yukon wildflowers standing up out of it: fireweed spires, blue lupines, white
   // daisies and yellow arnica. Gold with seed heads in the fall, gone under winter's snow. ----
+  // ---- the boreal forest along the roads between towns: dense spruce right up to the verges,
+  // stands of birch and aspen among them, thinning as it goes back from the road ----
+  Town.prototype.buildRoadForest = function () {
+    if (this.soft) return;
+    var r = rng(8282), sp = [], bi = [], self = this, keep = this.lite ? 0.35 : this.small ? 0.6 : 1;
+    var nearTown = function (x, z) { return CASTLE_SITES.some(function (c, ci) { return Math.hypot(c.x - x, c.z - z) < (ci ? 24 : 70); }); };
+    CASTLE_ROADS.forEach(function (rd) {
+      if (!rd) return;
+      for (var i = 1; i < rd.length - 1; i++) {
+        var q = rd[i], n = rd[i + 1], vx = n.x - q.x, vz = n.z - q.z, L = Math.hypot(vx, vz) || 1; vx /= L; vz /= L;
+        var per = Math.max(1, Math.round(L * 1.6 * keep));
+        for (var k = 0; k < per; k++) {
+          // a stand: a clump of three to six trees together, thickest by the verge
+          var along0 = r() * L, sd = r() < 0.5 ? -1 : 1, off0 = 2.4 + Math.pow(r(), 1.5) * 18, nc = 3 + Math.floor(r() * 4);
+          for (var cc = 0; cc < nc; cc++) {
+          var along = along0 + (r() - 0.5) * 2.4, off = Math.max(2.2, off0 + (r() - 0.5) * 2.4);
+          var x = q.x + vx * along - vz * off * sd + (r() - 0.5) * 0.8, z = q.z + vz * along + vx * off * sd + (r() - 0.5) * 0.8;
+          if (Math.hypot(x, z) > WORLD_R - 6 || nearTown(x, z) || nearPath(x, z, 1.9) || waterAt(x, z) != null || riverDist(x, z) < RIVER_HALF + 2 || coastSd(x, z) > -2 || townHill(x, z) > 1.2 || lakeDist(x, z) < 2) continue;
+          if (inAirport({ x: x, z: z }, 2)) continue;
+          var t = { x: x, z: z, y: groundY(x, z), s: 0.7 + r() * 0.75, a: r() * 6.28 };
+          (r() < 0.2 ? bi : sp).push(t);
+          }
+        }
+      }
+    });
+    var m4 = new T.Matrix4(), q4 = new T.Quaternion(), up = new T.Vector3(0, 1, 0), v3 = new T.Vector3(), s3 = new T.Vector3(), g = new T.Group();
+    function inst(geo, mat, list, fn, shadow) {
+      if (!list.length) return;
+      var im = new T.InstancedMesh(geo, mat, list.length);
+      list.forEach(function (t, i) { fn(t, i, im); });
+      im.castShadow = !!shadow; im.receiveShadow = true; g.add(im); return im;
+    }
+    var pine = [this.mat('pine', 0), this.mat('pine', 1)], trunk = this.mat('trunk');
+    // spruce: trunk plus four tiers of drooping boughs, tall and narrow like boreal black spruce
+    inst(this.geo.cyl6, trunk, sp, function (t, i, im) { q4.identity(); im.setMatrixAt(i, m4.compose(v3.set(t.x, t.y + 0.35 * t.s, t.z), q4, s3.set(0.09 * t.s, 0.7 * t.s, 0.09 * t.s))); });
+    [[0.62, 0.66, 0.66], [0.45, 0.62, 1.12], [0.27, 0.58, 1.55]].forEach(function (c, ti) {
+      inst(self.geo.bough, pine[ti % 2], sp, function (t, i, im) { q4.setFromAxisAngle(up, t.a + ti); im.setMatrixAt(i, m4.compose(v3.set(t.x, t.y + c[2] * t.s * 1.25, t.z), q4, s3.set(c[0] * t.s, c[1] * t.s * 1.25, c[0] * t.s))); }, ti === 0);
+    });
+    // birches: white trunks with a tall airy crown
+    inst(this.geo.cyl6, this.mat('birch'), bi, function (t, i, im) { q4.identity(); im.setMatrixAt(i, m4.compose(v3.set(t.x, t.y + 0.8 * t.s, t.z), q4, s3.set(0.06 * t.s, 1.6 * t.s, 0.06 * t.s))); });
+    inst(this.canopyGeo(2, true), this.mat('birchleaf'), bi, function (t, i, im) { q4.setFromAxisAngle(up, t.a); im.setMatrixAt(i, m4.compose(v3.set(t.x, t.y + 1.75 * t.s, t.z), q4, s3.set(0.6 * t.s, 0.75 * t.s, 0.6 * t.s))); }, true);
+    this.base.add(g);
+    this.roadForest = { g: g, n: sp.length + bi.length };
+  };
   // A clump of tall grass: eight curved, tapering blades fanned out from one root, darker at the
   // root and lighter at the tip, spanning y -0.5 to 0.5 (so the wind bends the tips, not the roots).
   Town.prototype.grassClumpGeo = function () {
