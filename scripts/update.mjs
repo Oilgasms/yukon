@@ -186,6 +186,55 @@ async function bookLines() {
 }
 
 
+// Covers: the book covers (from the reading log) and film posters (from Letterboxd), saved into
+// data/covers/ so the town can draw them in 3D (outside sites rarely allow that directly), with a
+// little index in data/covers.js. Images already saved are kept; new ones are fetched each run.
+async function covers() {
+  const dir = new URL('covers/', DATA);
+  await mkdir(dir, { recursive: true });
+  const idxPath = new URL('covers.js', DATA);
+  let index = {};
+  try { const t = await readFile(idxPath, 'utf8'); index = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch {}
+  const want = [];
+  // books: title and cover URL from the reading log
+  const csv = await fetch(`https://docs.google.com/spreadsheets/d/${SHEETS['books.xlsx']}/export?format=csv`).then((r) => r.ok ? r.text() : '');
+  const rows = [];
+  { let row = [], cell = '', q = false;
+    for (let i = 0; i < csv.length; i++) {
+      const c = csv[i];
+      if (q) { if (c === '"' && csv[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; }
+      else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && csv[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); } }
+  const head = (rows.shift() || []).map((h) => h.trim().toLowerCase());
+  const ti = head.findIndex((h) => /title/.test(h)), ci = head.findIndex((h) => /cover/.test(h));
+  if (ti >= 0 && ci >= 0) for (const r of rows) if (r[ti] && /^https?:/.test((r[ci] || '').trim())) want.push(['book:' + r[ti].trim().toLowerCase(), r[ci].trim()]);
+  // films: the 30 most recent with a poster
+  try {
+    const films = JSON.parse((await readFile(new URL('films.js', DATA), 'utf8')).replace(/^[^[]*/, '').replace(/;\s*$/, ''));
+    films.filter((f) => f[5]).slice(-30).forEach((f) => want.push(['film:' + f[0].toLowerCase() + '|' + (f[1] || ''), f[5]]));
+  } catch {}
+  let got = 0, failedN = 0;
+  for (const [key, url] of want) {
+    const name = createHash('sha1').update(url).digest('hex').slice(0, 16);
+    if (index[key] && index[key].startsWith('data/covers/' + name)) continue;
+    try {
+      const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (yukon-town updater)' } });
+      const type = (res.headers.get('content-type') || '').split(';')[0];
+      if (!res.ok || !/^image\//.test(type)) throw new Error(res.status + ' ' + type);
+      const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif', 'image/gif': 'gif' }[type] || 'jpg';
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > 1500000) throw new Error('too big');
+      await writeFile(new URL(name + '.' + ext, dir), buf);
+      index[key] = 'data/covers/' + name + '.' + ext; got++;
+    } catch (e) { failedN++; console.error(`covers: ${key}: ${e.message}`); }
+  }
+  await writeFile(idxPath, '// Saved book covers and film posters (scripts/update.mjs), keyed "book:<title>" or "film:<title>|<year>".\nwindow.COVERS = ' + JSON.stringify(index, null, 1) + ';\n');
+  return `${Object.keys(index).length} saved (${got} new${failedN ? ', ' + failedN + ' failed' : ''})`;
+}
+
 // Cronometer: there's no public API for personal accounts, so this signs in the way the web app
 // does (as the open-source gocronometer client does) and downloads the Daily Nutrition export,
 // the same file as Settings > Export Data. Needs CRONOMETER_USERNAME and CRONOMETER_PASSWORD
@@ -298,6 +347,7 @@ await step('Google Sheets', sheets);
 await step('Strava', strava);
 await step('Letterboxd', letterboxd);
 await step('Book lines', bookLines);
+await step('Covers', covers);
 await step('Cronometer', cronometer);
 await writeFile(new URL('status.json', DATA), JSON.stringify(status, null, 2) + '\n');
 if (['Google Sheets', 'Strava', 'Letterboxd'].every((k) => String(status[k]).startsWith('FAILED'))) process.exit(1);
