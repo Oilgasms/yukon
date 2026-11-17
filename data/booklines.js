@@ -56,7 +56,11 @@ window.BOOK_LINES = {
     "“tell about the rabbits, George.” a little place of their own. don't we all want that",
     "poor Candy and his old dog. that one stayed with me for days",
     "Crooks out by the barn, all alone with his books. it broke my heart, love",
-    "the best laid schemes o' mice and men gang aft agley. Burns knew. still, we keep scheming"
+    "the best laid schemes o' mice and men gang aft agley. Burns knew. still, we keep scheming",
+    "everyone on that ranch wanted something else, didn't they? a place, a friend, a bit of land. the wanting got me",
+    "Curley's wife just wanted someone to talk to. nobody ever listened to her, poor thing",
+    "George playing solitaire night after night… lonely even with Lennie right there beside him",
+    "Slim was the only one with any sense. I'd have him round for tea"
   ],
   "roll your plow over the bones of the dead": [
     "Janina and her horoscopes! I checked mine. Mars was up to something rude",
