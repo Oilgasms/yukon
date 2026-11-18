@@ -21,7 +21,7 @@
       stoneDark: '#6f665a', roof: ['#2c4f80', '#356b33', '#5e3f7a', '#226363', '#7d5a2c', '#424d85'], roofJo: '#8f2a23',
       plaster: ['#bfb096', '#b3a284', '#bba891'], wood: '#6a4224', woodLight: '#a38c64', path: '#8e7a54', cobble: '#7f786c',
       water: '#2c5f86', sand: '#9c8c64', leaf: ['#2f5f2a', '#3c6e30', '#294f24'], trunk: '#4f301a',
-      window: '#ffcf6a', windowGlow: '#ffb03a', glasshouse: '#8faaa6', flag: ['#a8382c', '#c49b26', '#2c4f80', '#3a7a2c', '#b8662c'],
+      window: '#ffcf6a', windowGlow: '#e89a3c', glasshouse: '#8faaa6', flag: ['#a8382c', '#c49b26', '#2c4f80', '#3a7a2c', '#b8662c'],
       court: '#9a5a34', ice: '#a9bccb', pitch: '#3f7a32', line: '#d2ccc2', rock: '#6a6258', snow: '#c4cfe0', gold: '#c99a2a',
       crop: ['#b8661f', '#c9c4b2', '#8f2a4f', '#b8a02a'], balloon: ['#a8382c', '#c49b26', '#2c4f80', '#5e3f7a', '#3a7a2c', '#b8662c'],
       roofTavern: '#3a2c22', skigrass: '#406b34', skirun: '#5f8a44', birch: '#bdb8ad', birchleaf: '#5f8a34', redwood: '#6e2f1f', skisnow: '#c9d4e4', groomed: '#dde6f2', run: ['#2c6e2a', '#22508c', '#1a1a1a'], pine: ['#1f4f30', '#285c38'], hedge: '#24482a', hemiSky: '#6a74a8', hemiGround: '#253222', sun: '#ffb070', sunI: 0.55, hemiI: 0.75
@@ -1752,8 +1752,8 @@
     U.rayCol.value.set(RAY[0]); U.rayK.value = inRoom ? 0 : RAY[1];
     var sv = this.sun.position.clone().sub(this.sun.target.position).normalize().multiplyScalar(400).add(this.controls.target).project(this.camera);
     U.sunUv.value.set(Math.max(-0.5, Math.min(1.5, sv.x * 0.5 + 0.5)), Math.max(0.6, Math.min(1.6, sv.y * 0.5 + 0.5)));
-    U.sat.value = ph === 'night' ? 1.0 : ph === 'golden' ? 1.12 : 1.08;
-    U.vig.value = ph === 'night' || ph === 'dusk' ? 0.3 : 0.2;
+    U.sat.value = ph === 'night' ? 0.88 : ph === 'dusk' ? 0.95 : ph === 'golden' ? 1.08 : 1.04;
+    U.vig.value = ph === 'night' || ph === 'dusk' ? 0.16 : 0.14;
   };
   // Speech bubbles live on their own layer, drawn last and straight onto the page.
   var OVERLAY_LAYER = 2;
@@ -1864,16 +1864,16 @@
     var ph = this.phase || (this.dark ? 'dusk' : 'day');
     if (ph === 'golden') { this.sun.color.set('#ffc47e'); this.sun.intensity = p.sunI * 0.9; this.sun.position.set(62, 22, -14); this.hemi.intensity = p.hemiI * 0.92; haze = '#f6c99c'; }
     else if (ph === 'dawn') { this.sun.color.set('#ffb3a0'); this.sun.position.set(-58, 20, 30); haze = '#c99aa8'; }
-    else if (ph === 'night') { this.sun.color.set('#9fb4ff'); this.sun.intensity = p.sunI * 0.4; this.hemi.intensity = p.hemiI * 0.62; this.hemi.color.set('#5a6aa8'); haze = '#1c2440'; }
+    else if (ph === 'night') { this.sun.color.set('#b4c8d8'); this.sun.intensity = p.sunI * 0.45; this.hemi.intensity = p.hemiI * 0.82; this.hemi.color.set('#6f8aa6'); this.hemi.groundColor.set('#2a3a48'); haze = '#24364a'; }
     if (this.scene && this.scene.fog) this.scene.fog.color.set(haze);
     // The fill light opposite the sun, and how the picture is graded for this time of day.
     var V3 = function (a, b, c) { return new T.Vector3(a, b, c); };
     var GR = {
-      day: { fill: '#b3c8ff', fi: 0.3, sh: V3(0.94, 0.98, 1.06), li: V3(1.04, 1.01, 0.96), bt: 0.92, bk: 0.4, ao: 0.32, sc: '#fff1d6', sk: 0.03 },
-      golden: { fill: '#a48cff', fi: 0.36, sh: V3(0.9, 0.9, 1.08), li: V3(1.13, 1.01, 0.82), bt: 0.8, bk: 0.6, ao: 0.35, sc: '#ffc27a', sk: 0.1 },
-      dawn: { fill: '#b7a8ff', fi: 0.32, sh: V3(0.92, 0.92, 1.07), li: V3(1.1, 0.99, 0.94), bt: 0.8, bk: 0.6, ao: 0.32, sc: '#ffb7a6', sk: 0.08 },
-      dusk: { fill: '#8a8ae0', fi: 0.3, sh: V3(0.92, 0.95, 1.14), li: V3(1.12, 0.98, 0.9), bt: 0.5, bk: 1.8, ao: 0.3, sc: '#ff9f7a', sk: 0.1 },
-      night: { fill: '#7385d6', fi: 0.36, sh: V3(0.98, 1.04, 1.24), li: V3(1.1, 1.0, 0.88), bt: 0.4, bk: 2.4, ao: 0.28, sc: '#9fb4ff', sk: 0.05 }
+      day: { fill: '#b3c8ff', fi: 0.3, sh: V3(0.94, 0.98, 1.06), li: V3(1.04, 1.01, 0.96), bt: 0.95, bk: 0.15, ao: 0.32, sc: '#fff1d6', sk: 0.02 },
+      golden: { fill: '#a48cff', fi: 0.36, sh: V3(0.9, 0.9, 1.08), li: V3(1.13, 1.01, 0.82), bt: 0.88, bk: 0.25, ao: 0.35, sc: '#ffc27a', sk: 0.06 },
+      dawn: { fill: '#b7a8ff', fi: 0.32, sh: V3(0.92, 0.92, 1.07), li: V3(1.1, 0.99, 0.94), bt: 0.88, bk: 0.25, ao: 0.32, sc: '#ffb7a6', sk: 0.05 },
+      dusk: { fill: '#7f8fc4', fi: 0.3, sh: V3(0.9, 0.96, 1.08), li: V3(1.06, 0.99, 0.92), bt: 0.85, bk: 0.3, ao: 0.22, sc: '#ff9f7a', sk: 0.05 },
+      night: { fill: '#5f7fa0', fi: 0.42, sh: V3(0.86, 0.98, 1.06), li: V3(1.0, 1.0, 0.96), bt: 0.9, bk: 0.3, ao: 0.18, sc: '#9fb4ff', sk: 0.0 }
     }[ph] || null;
     if (GR && this.fill) {
       this.fill.color.set(GR.fill); this.fill.intensity = GR.fi * (this.season === 'winter' ? 1.15 : 1); this.hemi.intensity *= 0.9;
@@ -6841,7 +6841,7 @@
         if (c.measureText(tryL).width > 280) { if (rows === 6) { line += '\u2026'; break; } c.fillText(line, 20, y); y += 21; rows++; line = words[i]; } else line = tryL;
       }
       if (rows < 7) c.fillText(line, 20, y);
-      var tex = new T.CanvasTexture(cv), mat = new T.MeshBasicMaterial({ map: tex }), picks = [];
+      var tex = new T.CanvasTexture(cv), mat = new T.MeshLambertMaterial({ map: tex }), picks = [];
       [[0.18, 0], [-0.18, Math.PI]].forEach(function (q) {
         var face = new T.Group(); face.position.set(0, 0.6, q[0] * 0.5); face.rotation.set(q[1] ? -0.18 : 0.18, q[1], 0); g.add(face);
         var pl = new T.Mesh(new T.PlaneGeometry(0.9, 0.68), mat); pl.position.set(0, 0, 0.02); face.add(pl); pl.userData.pick = pk; self.picks.push(pl); picks.push(pl);
@@ -7404,9 +7404,9 @@
     // legs: grey up top, dark below, with small dark hands and feet
     var legs = [[-0.075, 0.16], [0.075, 0.16], [-0.08, -0.16], [0.08, -0.16]].map(function (l, i) {
       var hip = new T.Group(); hip.position.set(l[0], 0.2, l[1]); g.add(hip);
-      P(self.geo.box, m, 0.06, 0.07, 0.06, 0, -0.035, 0, hip);
-      P(self.geo.box, dark, 0.05, 0.14, 0.05, 0, -0.12, 0, hip);
-      P(self.geo.box, dark, 0.055, 0.025, 0.07, 0, -0.19, 0.012, hip); // paw
+      P(self.geo.box, m, i < 2 ? 0.065 : 0.075, 0.17, i < 2 ? 0.07 : 0.09, 0, 0.0, 0, hip);   // shoulder / haunch, tucked up inside the body so it never shows a gap
+      P(self.geo.box, dark, 0.052, 0.14, 0.052, 0, -0.12, 0, hip);
+      P(self.geo.box, dark, 0.058, 0.026, 0.072, 0, -0.19, 0.012, hip); // paw
       return hip;
     });
     g.scale.setScalar(1.3);
@@ -8684,7 +8684,7 @@
     return this.glowM || (this.glowM = {
       flame: new T.MeshBasicMaterial({ color: '#ffb43a' }), core: new T.MeshBasicMaterial({ color: '#fff1b0' }), lamp: new T.MeshBasicMaterial({ color: '#ffd27a' }),
       ember: new T.MeshBasicMaterial({ color: '#ff6a2a' }),
-      halo: new T.MeshBasicMaterial({ color: '#ffb35a', transparent: true, opacity: 0.13, depthWrite: false, blending: T.AdditiveBlending })
+      halo: new T.MeshBasicMaterial({ color: '#ffb35a', transparent: true, opacity: 0.05, depthWrite: false, blending: T.AdditiveBlending })
     });
   };
   // A candle with a flickering flame and a soft halo; flames are kept in list to flicker.
@@ -8996,7 +8996,7 @@
       var card = document.createElement('canvas'); card.width = 256; card.height = 96; var cx = card.getContext('2d');
       cx.fillStyle = '#f4ead2'; cx.fillRect(0, 0, 256, 96); cx.strokeStyle = '#6b4a2a'; cx.lineWidth = 4; cx.strokeRect(4, 4, 248, 88);
       cx.fillStyle = '#4a2f17'; cx.textAlign = 'center'; cx.font = 'italic bold 38px Georgia'; cx.fillText('Just read', 128, 60);
-      var sign = new T.Mesh(self.geo.plane || (self.geo.plane = new T.PlaneGeometry(1, 1)), new T.MeshBasicMaterial({ map: new T.CanvasTexture(card) }));
+      var sign = new T.Mesh(self.geo.plane || (self.geo.plane = new T.PlaneGeometry(1, 1)), new T.MeshLambertMaterial({ map: new T.CanvasTexture(card) }));
       sign.scale.set(0.42, 0.16, 1); sign.position.set(0, 0.74, 0.27); sign.rotation.x = -0.3; st.add(sign);
       T0.block(R.hx - 1.75, R.hx - 0.35, R.hz - 1.5, R.hz - 0.6);
       D.spots.push({ k: 'justread', x: R.hx - 1.3, z: R.hz - 0.5, r: 0.8 });
@@ -16872,7 +16872,7 @@
   Town.prototype.coverMat = function (kind, item, drawFallback, lit, w, h) {
     var cv = document.createElement('canvas'); cv.width = w || 256; cv.height = h || 384;
     var x = cv.getContext('2d'); drawFallback(x, cv.width, cv.height);
-    var tex = new T.CanvasTexture(cv), m = lit ? new T.MeshLambertMaterial({ map: tex }) : new T.MeshBasicMaterial({ map: tex }), self = this;
+    var tex = new T.CanvasTexture(cv), m = new T.MeshLambertMaterial({ map: tex }), self = this; // (lit by the room or the sky: no glowing at night)
     var key = kind + ':' + String(item.title || '').toLowerCase().trim() + (kind === 'film' ? '|' + (item.year || '') : '');
     var local = (root.COVERS || {})[key], src = local || item.cover;
     if (src) {
@@ -17913,7 +17913,8 @@
       pl.runT = Math.max(0, (pl.runT || 0) + (run ? dt : -dt * 0.6));
       if (pl.runT > 7 && !pl.tired) { pl.tired = true; this.say(pickOne(['*pant pant*', 'phew…', 'need… a… sec']), pl.g, 1.0, 1.4); }
       if (pl.tired && pl.runT < 2) pl.tired = false;
-      var G0 = this.gaitOf(pl, now), sp = (run ? 6.4 : 3.3) * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1) * (wired ? 1.75 : 1) * (pl.swim ? 1 : G0.speed);
+      pl.ease = Math.min(1, (pl.ease == null ? 0.3 : pl.ease) + dt * 5.5); var ez = pl.ease * pl.ease * (3 - 2 * pl.ease);
+      var G0 = this.gaitOf(pl, now), sp = (run ? 6.4 : 3.3) * ez * dt * (pl.dig ? 0 : pl.swim ? 0.5 : 1) * (wired ? 1.75 : 1) * (pl.swim ? 1 : G0.speed);
       if (wired && !pl.swim && Math.random() < dt * 14) this.puff(P.x, P.y + 0.02, P.z, 1, 'dust');
       var dx = (right.x * mx + fwd.x * mz) * sp, dz = (right.z * mx + fwd.z * mz) * sp;
       if (pl.tipsy && now < pl.tipsy) { var wob = Math.sin(now / 380) * 0.55, cw = Math.cos(wob), sw = Math.sin(wob), ox = dx; dx = ox * cw - dz * sw; dz = ox * sw + dz * cw; }
@@ -17950,7 +17951,9 @@
       var fAh = this.floorAt(P.x + hfx * 0.4, P.z + hfz * 0.4, P.y + STEP_UP), fBh = this.floorAt(P.x - hfx * 0.4, P.z - hfz * 0.4, P.y + STEP_UP);
       pl.slope = (pl.slope || 0) + (Math.max(-1.2, Math.min(1.2, (fAh - fBh) / 0.8)) - (pl.slope || 0)) * Math.min(1, dt * 6);
       var G = this.gaitOf(pl, now);
-      pl.phase += dt * (run ? 21 : 14) * (wired ? 1.6 : 1) * G.rate;
+      pl.phase += dt * (run ? 21 : 14) * (wired ? 1.6 : 1) * G.rate * (0.5 + 0.5 * ez);
+      // where you're heading, smoothed (the camera leans a little ahead of you)
+      pl.mv = pl.mv || { x: 0, z: 0 }; var mk = Math.min(1, dt * 3); pl.mv.x += (dx / dt - pl.mv.x) * mk; pl.mv.z += (dz / dt - pl.mv.z) * mk;
       if (!air && !pl.swim) pl.legs.forEach(function (l, li) {
         var front = li < 2, ph = pl.phase + (G.bound ? (front ? 0 : Math.PI * 0.8) + (li % 2) * 0.25 : (li === 0 || li === 3 ? 0 : Math.PI));
         l.rotation.x = (front ? G.fb : G.bb) + Math.sin(ph) * G.amp * (front ? G.fa : 1);
@@ -17991,9 +17994,9 @@
     }
     pl.air = Math.max(0, P.y - floor);
     air = pl.vy !== 0 || pl.air > STEP_UP;
-    if (moving || air) pl.idle = 0; else pl.idle = (pl.idle || 0) + dt;
+    if (moving || air) pl.idle = 0; else { pl.idle = (pl.idle || 0) + dt; pl.ease = Math.max(0.3, (pl.ease || 0.3) - dt * 6); if (pl.mv) { pl.mv.x *= 1 - Math.min(1, dt * 3); pl.mv.z *= 1 - Math.min(1, dt * 3); } }
     // Footsteps, when the sound is on: one per paw that lands.
-    if (moving && !air) { var stepN = Math.floor(pl.phase / Math.PI); if (stepN !== pl.stepN) { pl.stepN = stepN;
+    if (moving && !air) { var stepN = Math.floor(pl.phase / Math.PI); if (stepN !== pl.stepN) { pl.stepN = stepN; if (pl.running && !pl.swim && !this.reduced && Math.random() < 0.6) this.puff(P.x - Math.sin(g.rotation.y) * 0.2, P.y + 0.02, P.z - Math.cos(g.rotation.y) * 0.2, 1, this.season === 'winter' ? 'snow' : 'dust');
       if (pl.wade) { this.puff(P.x + Math.sin(g.rotation.y) * 0.15, wHere + 0.02, P.z + Math.cos(g.rotation.y) * 0.15, 3, 'splash', 0.1); this.puff(P.x, wHere + 0.01, P.z, 1, 'ripple'); if (stepN % 2) this.sfx('paddle'); }
       else if (pl.snowy) this.puff(P.x + Math.sin(g.rotation.y) * 0.15, P.y + 0.05, P.z + Math.cos(g.rotation.y) * 0.15, 2, 'dust', 0.1);
       else this.footstep(P.x, P.z, aloft); } }
@@ -18086,7 +18089,8 @@
     var c = this.controls, cam = this.camera, k = Math.min(1, dt * 6), pl = this.player, inRoom = pl && (pl.inRoom || pl.inDen || pl.mine);
     var lift = inRoom ? 0.5 : CAM_LIFT;
     if (this.soft) lift = 0.5;
-    var mvx = (P.x - c.target.x) * k, mvy = (P.y + lift - c.target.y) * k, mvz = (P.z - c.target.z) * k;
+    var ahx = 0, ahz = 0; if (pl && pl.mv && !inRoom && !this.soft && P === pl.g.position) { ahx = Math.max(-0.9, Math.min(0.9, pl.mv.x * 0.14)); ahz = Math.max(-0.9, Math.min(0.9, pl.mv.z * 0.14)); }
+    var mvx = (P.x + ahx - c.target.x) * k, mvy = (P.y + lift - c.target.y) * k, mvz = (P.z + ahz - c.target.z) * k;
     c.target.x += mvx; c.target.y += mvy; c.target.z += mvz;
     cam.position.x += mvx; cam.position.y += mvy; cam.position.z += mvz;
     var moved = Math.abs(mvx) + Math.abs(mvy) + Math.abs(mvz) > 0.001;
@@ -19014,7 +19018,7 @@
     A.yawV += (Math.max(-12, Math.min(12, dy / dt)) - A.yawV) * Math.min(1, dt * 10);
     var turn = A.yawV;
     // lean into it, more at speed
-    var leanT = moving ? Math.max(-0.24, Math.min(0.24, -turn * 0.05)) : 0;
+    var leanT = moving ? Math.max(-0.13, Math.min(0.13, -turn * 0.03)) : 0;
     A.lean += (leanT - A.lean) * Math.min(1, dt * 8);
     // the head leads the turn; standing about, it turns to look at a friend close by
     var lookT = moving ? Math.max(-0.5, Math.min(0.5, turn * 0.1)) : 0;
@@ -21346,7 +21350,7 @@
         im.frustumCulled = false; this.scene.add(im); K.pools = im;
       }
     }
-    if (K.pools) { K.pools.visible = K.a > 0.05; K.pools.material.opacity = K.a; }
+    if (K.pools) { K.pools.visible = K.a > 0.05; K.pools.material.opacity = K.a * 0.45; }
   };
   // ---- motes: pollen and dust drifting through the sunlight around you, fireflies on summer nights ----
   Town.prototype.stepMotes = function (dt, now) {
@@ -21420,6 +21424,8 @@
       A = this.aurora = { g: g, U: U, a: 0, saidAt: 0 };
     }
     var ph = this.phase || '', pl = this.player, clear = !/rain|storm|snow/.test(this.weatherNow || '');
+    var dk = (this.today || '').replace(/-/g, '') | 0, lucky = ((Math.sin(dk * 12.9898) * 43758.5453) % 1 + 1) % 1 < 0.25; // (a quarter of nights)
+    if (!lucky && !A.forced) clear = false;
     var want = (ph === 'night' || ph === 'dusk') && this.season !== 'summer' && clear && !(pl && (pl.inRoom || pl.inDen || pl.mine)) ? (ph === 'night' ? 1 : 0.4) : 0;
     A.a += (want - A.a) * Math.min(1, dt * 0.25);
     A.g.visible = A.a > 0.01;
