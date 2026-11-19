@@ -17572,7 +17572,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake', 'stepRegion', 'stepBreath', 'stepSpindrift', 'stepCamDrift'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake', 'stepRegion', 'stepBreath', 'stepSpindrift', 'stepCamDrift', 'stepNeighbours'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -21708,6 +21708,47 @@
     var C = this.camDriftNow || (this.camDriftNow = { x: 0, y: 0 });
     cam.position.x += dx - C.x; cam.position.y += dy - C.y; C.x = dx; C.y = dy;
     if (idle) this.needsRender = true;
+  };
+  // ---- your friends out in their yards by day: splitting wood at the block, or rocking on the
+  // porch once there is one; they call out as you pass, and head in when it gets dark ----
+  Town.prototype.stepNeighbours = function (dt, now) {
+    if (this.soft || !this.explore) return;
+    var N = this.neigh || (this.neigh = {}), F = this.st.friends, self = this, pl = this.player, out = !this.dark && !/rain|storm/.test(this.weatherNow || '');
+    Object.keys(F).forEach(function (name, i) {
+      var f = F[name]; if (!f.group || f.jo || f.tent || !f.built || !f.built.base) return;
+      var n = N[name];
+      if (!n) {
+        var who = name.split(/\s*&\s*/)[0], m = self.makeMouse(20 + i * 3 + who.length, null, true);
+        if (m.g.parent) m.g.parent.remove(m.g); f.group.add(m.g); m.g.scale.setScalar(0.88);
+        n = N[name] = { m: m, who: who, saidAt: 0, ph: i * 1.3 };
+      }
+      var porch = !!f.built.porch, m = n.m;
+      m.g.visible = out && !(pl && pl.inRoom);
+      if (!m.g.visible) return;
+      var t = now / 1000 + n.ph;
+      if (porch) {
+        // rocking on the porch
+        m.g.position.set(0.45, 0.24, 1.0); m.g.rotation.y = Math.PI - 0.4 + Math.PI; m.g.rotation.y = -0.4;
+        m.body.position.y = 0.06; m.legs.forEach(function (l) { l.rotation.x = -1.4; });
+        m.g.rotation.x = Math.sin(t * 1.6) * 0.08;
+        if (m.arms) m.arms.forEach(function (a) { a.rotation.x = -0.6; });
+      } else {
+        // splitting wood: raise the axe, bring it down, a thunk and a puff of chips
+        m.g.position.set(-0.95, 0, 0.88); m.g.rotation.y = Math.PI;
+        var cyc = (t * 0.8) % 1, up = cyc < 0.6 ? cyc / 0.6 : 1 - (cyc - 0.6) / 0.12;
+        if (m.arms) m.arms.forEach(function (a) { a.rotation.x = -0.4 - Math.max(0, up) * 2.4; });
+        if (cyc > 0.7 && !n.hit) { n.hit = true; if (pl && pl.g.position.distanceTo(f.group.position) < 9) { var v = new T.Vector3(-0.95, 0.25, 0.55); f.group.localToWorld(v); self.puff(v.x, v.y, v.z, 2, 'trash', 0.06); if (pl.g.position.distanceTo(f.group.position) < 6) self.sfx('wood'); } }
+        if (cyc < 0.5) n.hit = false;
+      }
+      // a word as you go by
+      if (pl && now > n.saidAt && pl.g.position.distanceTo(f.group.position) < 3.2) {
+        n.saidAt = now + 40000;
+        var hl = ['hey raccoon!', 'morning!', 'good workout the other day', 'come knock, the kettle’s on', 'nice day for it', 'lovely out, eh?'];
+        if (self.season === 'winter') hl.push('cold enough for you?', 'the stove’s hungry today', 'minus twenty and sunny. perfect');
+        self.say(n.who + ': ' + pickOne(hl), m.g, 0.6, 2.8);
+      }
+      self.needsRender = true;
+    });
   };
   // ---- knock, knock: a friend comes to the door of their cabin ----
   Town.prototype.knock = function (name) {
