@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install the updater's dependencies
         if: github.event_name != 'push'
         run: npm install --prefix scripts --no-audit --no-fund
@@ -50,6 +50,8 @@ jobs:
           git add data state 2>/dev/null || git add data
           git diff --cached --quiet || git commit -m "Update town data"
           git push
+      - name: Leave the updater's tools out of the website
+        run: rm -rf scripts/node_modules
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
