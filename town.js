@@ -8738,13 +8738,14 @@
   // the building outside (a log cabin is a log cabin inside; the grand library has a gallery and a
   // dome) and shows what you've done: a spine on the shelves for every book, a stained-glass pane
   // for every book of the Bible you've finished, a mug on the rack for every training friend.
-  var ROOM_AT = { library: [-760, -700], church: [-820, -700], pub: [-880, -700], jo: [-940, -700], cinema: [-1000, -700], cafe: [-1060, -700], society: [-1120, -700], tangle: [-1200, -700] };
+  var ROOM_AT = { library: [-760, -700], church: [-820, -700], pub: [-880, -700], jo: [-940, -700], cinema: [-1000, -700], cafe: [-1060, -700], society: [-1120, -700], tangle: [-1200, -700], cabin: [-1280, -700] };
   Town.prototype.roomTier = function (kind) {
     var s = this.st;
     if (kind === 'library') { var p = s.library.pages; return p < 5000 ? 'cabin' : p < 8000 ? 'brick' : 'grand'; }
     if (kind === 'church') { var c = s.bible.chapters; return c < 100 ? 'chapel' : c < 400 ? 'brick' : 'stone'; }
     if (kind === 'jo') return s.friends.Jo && s.friends.Jo.n >= 75 ? 'big' : 'small';
     if (kind === 'society') return 'hall';
+    if (kind === 'cabin') { var cf = s.friends[this.cabinFor]; return cf && cf.n >= 14 ? 'big' : 'small'; }
     if (kind === 'tangle') { var tl = this.tangleLevel(); return tl < 3 ? 'edge' : tl < 8 ? 'deep' : 'heart'; }
     if (kind === 'cafe') { var nr = s.mtb.rides; return nr < 21 ? 'shop' : nr < 36 ? 'cafe' : 'lodge'; }
     if (kind === 'cinema') { var nf = s.cinema.films.length; return nf < 25 ? 'night' : nf < 200 ? 'house' : 'palace'; }
@@ -8758,6 +8759,7 @@
       pub: { tavern: [3.4, 2.8, 2.8, 'logwood', 'wood'], inn: [4.8, 3.5, 3.0, 'logwood', 'wood'] },
       jo: { small: [3.4, 2.8, 2.6, 'plaster', 'woodLight'], big: [4.6, 3.6, 2.8, 'plaster', 'woodLight'] },
       society: { hall: [3.4, 3.0, 2.6, 'logwood', 'stone'] },
+      cabin: { small: [3.0, 2.6, 2.4, 'logwood', 'wood'], big: [3.8, 3.0, 2.7, 'logwood', 'wood'] },
       tangle: { edge: [7, 7, 3.2, 'trees', 'moss'], deep: [8.5, 8.5, 3.2, 'trees', 'moss'], heart: [9.5, 9.5, 3.2, 'trees', 'moss'] },
       cafe: { shop: [3.4, 2.8, 2.8, 'logwood', 'wood'], cafe: [4.2, 3.2, 2.9, 'logwood', 'wood'], lodge: [5.0, 3.8, 4.4, 'logwood', 'woodLight'] },
       cinema: { night: [3.6, 3.4, 3.0, 'logwood', 'wood'], house: [4.2, 5.0, 3.8, 'brick', 'wood'], palace: [5.4, 6.4, 5.2, 'holdStone', 'wood'] }
@@ -8774,6 +8776,7 @@
     if (kind === 'cinema') return !!(s.cinema && s.cinema.group && s.cinema.films.length);
     if (kind === 'cafe') return !!(s.mtb && s.mtb.group);
     if (kind === 'society') return true;
+    if (kind === 'cabin') return !!(this.cabinFor && s.friends[this.cabinFor] && s.friends[this.cabinFor].group);
     if (kind === 'tangle') return this.tangleLevel() >= 1;
     return false;
   };
@@ -8856,7 +8859,8 @@
     if (kind === 'cafe') this.furnishCafe(D, T0);
     if (kind === 'society') this.furnishSociety(D, T0);
     if (kind === 'tangle') this.furnishTangle(D, T0);
-    if (kind !== 'jo' && kind !== 'society' && kind !== 'tangle') this.roomGuests(D);
+    if (kind === 'cabin') this.furnishCabin(D, T0);
+    if (kind !== 'jo' && kind !== 'society' && kind !== 'tangle' && kind !== 'cabin') this.roomGuests(D);
     return D;
   };
   // Bookcases: open fronts, a coloured spine for every book you've read (filled from the middle
@@ -9202,6 +9206,7 @@
       pub: { tavern: ['ahh, the Slow Pour', 'warm in here!'], inn: ['the Slow Pour Inn!', 'busy tonight'] },
       jo: { small: ['home sweet home', 'ahh, the cosiest place in Yukon'], big: ['home sweet home', 'the cottage looks lovely'] },
       society: { hall: ['...hello?', 'what IS this place'] },
+      cabin: { small: ['oh, it’s cosy in here', 'smells like woodsmoke and bannock'], big: ['what a place!', 'so warm in here'] },
       tangle: { edge: ['so quiet in here\u2026', 'it smells like moss and rain'], deep: ['the wood goes deeper', 'who lit those lanterns?'], heart: ['the heart of the wood', 'listen\u2026'] },
       cafe: { shop: ['smells like coffee and chain oil', 'Icycle Sport!'], cafe: ['the Icycle caf\u00e9!', 'mmm, coffee'], lodge: ['the trail lodge', 'look at this place'] },
       cinema: { night: ['movie night!', 'ooh, what’s on?'], house: ['the picture house', 'best seats in the house'], palace: ['the picture palace!', 'look at that screen'] }
@@ -9809,7 +9814,7 @@
     if (D.barkeep) { var bk = D.barkeep; bk.g.position.x = Math.sin(now / 2600) * D.barX; bk.g.rotation.y = Math.cos(now / 2600) > 0 ? Math.PI / 2 : -Math.PI / 2; if (Math.abs(Math.sin(now / 2600)) > 0.97) bk.g.rotation.y = 0; }
     this.hemi.color.set(D.light.hemi); this.hemi.groundColor.set(D.light.ground); this.sun.intensity = 0.05;
     // firelight: the whole room breathes a little with the flames
-    var fire = /library|jo|pub|cafe|society|church/.test(D.kind) && !this.reduced, ft = now / 1000;
+    var fire = /library|jo|pub|cafe|society|church|cabin/.test(D.kind) && !this.reduced, ft = now / 1000;
     this.hemi.intensity = D.light.i * (fire ? 1 + Math.sin(ft * 7.3) * 0.025 + Math.sin(ft * 13.1 + 1) * 0.018 + Math.sin(ft * 2.1) * 0.02 : 1);
     if (fire) this.needsRender = true;
     if (now > (this.nearAt || 0)) {
@@ -9822,6 +9827,11 @@
   };
   Town.prototype.roomInfo = function (k) {
     var D = this.st.room, s = this.st; if (!D) return null;
+    if (D.kind === 'cabin' && D.cabin) {
+      var CI = { photos: { title: 'The photo wall', lines: ['Snapshots of your workouts together (' + D.cabin.n + ' and counting).', 'Press E for a closer look.'] }, stove: { title: 'The woodstove', lines: ['Crackling away. Press E to warm your paws.'] }, kettle: { title: 'The kettle', lines: ['Press E for a cup of tea.'] }, table: { title: 'The table', lines: ['Bannock, jam and a pot of tea.'] } };
+      if (CI[k]) return CI[k];
+      if (/^host/.test(k)) { var hn = D.cabin.hosts[+k.slice(4)]; return hn ? { title: hn.name, lines: ['Press E to chat.'] } : null; }
+    }
     var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
     if (k === 'door') return { title: 'The door', lines: ['Back out into town.'] };
     if (D.kind === 'jo') return this.joInfo(k);
@@ -9864,6 +9874,7 @@
     if (k === 'door') { this.leaveRoom(pl); return; }
     if (D.kind === 'jo' && this.joUse(pl, k)) return;
     if (D.kind === 'tangle' && this.tangleUse(pl, k)) return;
+    if (D.kind === 'cabin' && this.cabinUse(pl, k)) return;
     if (D.kind === 'society') { var lead = D.guests && D.guests[2]; if (k === 'table') { this.say('we know what you\u2019re training for, raccoon.', lead.v.g, 1.4, 2.6); var self2 = this; setTimeout(function () { self2.say('...actually we don\u2019t. TELL US', lead.v.g, 1.4, 2.6); }, 2800); return; } if (k === 'board') { this.say(this.whisper(), pl.g, 1.1, 3); return; } if (k === 'chronicle') { var LL = this.st.last || {}, ks = Object.keys(LL).filter(function (q) { return LL[q] && LL[q].day; }).sort(function (a, b) { return String(LL[b].day).localeCompare(String(LL[a].day)); }); var e = ks.length ? LL[ks[0]] : null; this.say(e ? 'entry: "' + e.day + ': the raccoon did ' + String(e.label).slice(0, 40).toLowerCase() + '. we watched."' : 'the pages are blank. for now', pl.g, 1.1, 3.2); return; } }
     if (D.kind === 'cafe') { var MM = s.mtb; if (k === 'counter') { this.getCoffee(); if (D.barkeep) this.say(pickOne(['coming right up', 'here you go, speedy', 'that\u2019ll be one acorn']), D.barkeep.g, 0.75, 1.8); return; } if (k === 'map') { this.say(MM.rides + ' rides \u00b7 ' + Math.round(MM.km) + ' km on the trails', pl.g, 1.1, 2.6); return; } if (k === 'bikes') { this.say(pickOne(['ooh, that one\u2019s fast', 'one day I\u2019ll own them all', 'look at the tyres on that']), pl.g, 1.0, 2); return; } if (k === 'stand') { this.say('*tightens a bolt* good as new', pl.g, 1.0, 2); this.sfx('clang'); return; } if (k === 'stove') { this.say(pickOne(['ahh, toasty', '*warms paws*']), pl.g, 1.0, 1.6); return; } }
     if (D.kind === 'library' && k === 'justread' && this.onInteract) { this.onInteract('library'); return; }
@@ -21720,6 +21731,95 @@
       self.puff(dv.x, dv.y + 0.2, dv.z, 2, 'steam', 0.08); // warm air out the door
     }, 1100);
     setTimeout(function () { self.scene.remove(door); }, 5200);
+    // ...and they wave you in
+    setTimeout(function () { if (pl.inRoom || !self.explore || pl.g.position.distanceTo(dv) > 3.5) return; self.cabinFor = name; self.enterRoom(pl, 'cabin'); }, 3000);
+  };
+  // ---- inside a friend's cabin: their woodstove, their table, the two of them, and a wall of
+  // snapshots from your workouts together ----
+  Town.prototype.furnishCabin = function (D, T0) {
+    var self = this, R = D.R, F = R.y, P = T0.P, name = this.cabinFor, f = this.st.friends[name], big = R.tier === 'big', MC = function (h) { return self.mcm(h); };
+    var people = name.split(/\s*&\s*/);
+    D.cabin = { name: name, n: f.n, hosts: [] };
+    D.light = { hemi: '#e8b07a', ground: '#3a2414', i: 0.95 };
+    // the woodstove in the back corner, a stack of wood beside it
+    T0.fireplace(R.hx - 0.45, -R.hz + 0.5, -Math.PI / 4, true); T0.block(R.hx - 0.95, R.hx, -R.hz, -R.hz + 1.0);
+    for (var w = 0; w < 6; w++) { var lg = P(this.geo.cyl6, this.mat('logwood', w % 2), 0.06, 0.4, 0.06, R.hx - 1.25 + (w % 3) * 0.13, F + 0.07 + Math.floor(w / 3) * 0.12, -R.hz + 0.3); lg.rotation.z = Math.PI / 2; lg.rotation.y = Math.PI / 2; }
+    D.spots.push({ k: 'stove', x: R.hx - 1.0, z: -R.hz + 1.2, r: 0.7 });
+    // the kettle on the stove top
+    P(this.geo.cyl, this.mat('copper'), 0.08, 0.1, 0.08, R.hx - 0.5, F + 0.62, -R.hz + 0.5);
+    D.spots.push({ k: 'kettle', x: R.hx - 0.4, z: -R.hz + 1.3, r: 0.5 });
+    // a rag rug and the kitchen table, with bannock and mugs, the hosts sat round it
+    P(this.geo.cyl, this.mat('canvas', 1), 1.0, 0.02, 0.75, -0.2, F + 0.01, 0.2);
+    var tx = -0.5, tz = -0.1;
+    P(this.geo.box, this.mat('wood'), 1.1, 0.06, 0.7, tx, F + 0.62, tz);
+    [[-0.48, -0.28], [0.48, -0.28], [-0.48, 0.28], [0.48, 0.28]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.06, 0.6, 0.06, tx + l[0], F + 0.3, tz + l[1]); });
+    P(this.geo.box, this.mat('flag', 0), 0.5, 0.012, 0.5, tx, F + 0.655, tz); // a checked cloth
+    P(this.geo.cyl, this.mat('swan', 0), 0.14, 0.02, 0.14, tx, F + 0.67, tz);
+    for (var bn = 0; bn < 4; bn++) P(this.geo.blob, MC('#d9a860'), 0.05, 0.03, 0.05, tx - 0.04 + (bn % 2) * 0.08, F + 0.7, tz - 0.03 + Math.floor(bn / 2) * 0.06);
+    [-0.3, 0.3].forEach(function (x) { P(self.geo.cyl6, self.mat('canvas', 0), 0.035, 0.08, 0.035, tx + x, F + 0.7, tz + 0.15); });
+    T0.block(tx - 0.6, tx + 0.6, tz - 0.4, tz + 0.4);
+    D.spots.push({ k: 'table', x: tx, z: tz + 0.75, r: 0.6 });
+    people.forEach(function (who, i) {
+      var sx = tx + (i ? 0.62 : -0.62), m = self.makeMouse(17 + i * 5 + who.length, null, true);
+      if (m.g.parent) m.g.parent.remove(m.g);
+      m.g.position.set(R.x + sx, R.base + F + 0.25, R.z + tz); m.g.rotation.y = i ? -Math.PI / 2 : Math.PI / 2; m.g.scale.setScalar(1.15);
+      m.body.position.y = 0.06; m.legs.forEach(function (l) { l.rotation.x = -1.4; }); D.g.add(m.g);
+      // a stool under each
+      P(self.geo.cyl6, self.mat('logwood', i), 0.13, 0.3, 0.13, sx, F + 0.15, tz);
+      m.g.position.set(sx, F + 0.28, tz);
+      D.cabin.hosts.push({ name: who, m: m });
+      D.spots.push({ k: 'host' + i, x: sx + (i ? 0.45 : -0.45), z: tz + 0.35, r: 0.55 });
+    });
+    // the bed under a patchwork quilt
+    var bx = R.hx - 0.75, bz = R.hz - 1.1;
+    P(this.geo.box, this.mat('logwood', 0), 1.0, 0.3, 1.4, bx, F + 0.15, bz);
+    P(this.geo.box, this.mat('swan', 0), 0.9, 0.08, 0.35, bx, F + 0.34, bz - 0.5);
+    for (var q = 0; q < 6; q++) P(this.geo.box, this.mat('flag', q % 5), 0.45, 0.06, 0.32, bx - 0.22 + (q % 2) * 0.45, F + 0.33, bz - 0.12 + Math.floor(q / 2) * 0.32);
+    T0.block(bx - 0.55, bx + 0.55, bz - 0.75, bz + 0.75);
+    D.spots.push({ k: 'bed', x: bx - 0.8, z: bz, r: 0.6, seat: [bx, bz, -Math.PI / 2] });
+    // an armchair by the stove, a shelf of jars and mugs, snowshoes and a lantern on the wall
+    this.armchair(D, T0, R.hx - 1.3, -0.3, -Math.PI / 2 - 0.4, 2);
+    var bw = D.walls[0].g;
+    P(this.geo.box, this.mat('wood'), 1.3, 0.05, 0.25, -0.6, F + 1.55, -R.hz + 0.15, bw);
+    for (var j = 0; j < 7; j++) P(this.geo.cyl6, this.mat(j % 2 ? 'canvas' : 'glasshouse', j % 3), 0.05, 0.12 + (j % 3) * 0.03, 0.05, -1.15 + j * 0.18, F + 1.65, -R.hz + 0.15, bw);
+    T0.lamp(-R.hx + 0.25, F + 1.8, 0.4);
+    [-0.15, 0.15].forEach(function (rz) { var sh = P(self.geo.cyl, self.mat('wood'), 0.12, 0.02, 0.28, -R.hx + 0.05, F + 1.1, -0.9, D.walls[1].g); sh.rotation.z = Math.PI / 2; sh.rotation.x = rz * 3; });
+    // the photo wall: snapshots of your workouts together, pinned up
+    var mine = [], parts = people.map(function (pp) { return pp.toLowerCase(); }), bd = this.st.byDay || {};
+    Object.keys(bd).sort().forEach(function (d) { bd[d].forEach(function (ev) { if ((ev.friends || []).some(function (fr) { return parts.indexOf(fr.toLowerCase()) >= 0 || fr.toLowerCase() === name.toLowerCase(); })) mine.push(ev); }); });
+    mine = mine.slice(-8);
+    var cv = document.createElement('canvas'); cv.width = 512; cv.height = 320; var x = cv.getContext('2d'), rr = rng(name.length * 7);
+    x.fillStyle = '#b08a5a'; x.fillRect(0, 0, 512, 320); x.fillStyle = 'rgba(80,50,20,0.25)'; for (var c = 0; c < 400; c++) x.fillRect(rr() * 512, rr() * 320, 2, 2);
+    x.fillStyle = '#3a2410'; x.font = 'italic bold 26px Georgia'; x.textAlign = 'center'; x.fillText('with ' + name.replace(' & ', ' and '), 256, 32);
+    (mine.length ? mine : [{ label: 'the first of many', day: '' }]).forEach(function (ev, i) {
+      var px = 18 + (i % 4) * 124, py = 50 + Math.floor(i / 4) * 132, rot = (rr() - 0.5) * 0.12;
+      x.save(); x.translate(px + 56, py + 58); x.rotate(rot);
+      x.fillStyle = '#f7f1e3'; x.fillRect(-54, -56, 108, 118);
+      var hue = (String(ev.kind || 'x').length * 67 + i * 23) % 360; x.fillStyle = 'hsl(' + hue + ',35%,48%)'; x.fillRect(-46, -48, 92, 72);
+      x.fillStyle = 'hsl(' + hue + ',40%,70%)'; x.beginPath(); x.arc(-10, -14, 14, 0, Math.PI * 2); x.fill(); x.fillStyle = 'rgba(255,255,255,0.35)'; x.beginPath(); x.moveTo(-46, 24); x.lineTo(-10, -20); x.lineTo(20, 10); x.lineTo(46, -10); x.lineTo(46, 24); x.fill();
+      x.fillStyle = '#3a2410'; x.font = '12px Georgia'; var lab = String(ev.label || ev.kind || '').replace(/\s*(w\/|with).*$/i, '').slice(0, 18); x.fillText(lab, 0, 40); x.font = 'italic 11px Georgia'; x.fillText(ev.day || '', 0, 54);
+      x.fillStyle = '#b8432f'; x.beginPath(); x.arc(0, -52, 4, 0, Math.PI * 2); x.fill();
+      x.restore();
+    });
+    var board = new T.Mesh(this.geo.plane || (this.geo.plane = new T.PlaneGeometry(1, 1)), new T.MeshLambertMaterial({ map: new T.CanvasTexture(cv) }));
+    board.scale.set(1.5, 0.94, 1); board.position.set(-R.hx + 0.04, F + 1.25, 0.6); board.rotation.y = Math.PI / 2; D.walls[1].g.add(board);
+    P(this.geo.box, this.mat('wood'), 0.03, 1.0, 1.56, -R.hx + 0.02, F + 1.25, 0.6, D.walls[1].g);
+    D.spots.push({ k: 'photos', x: -R.hx + 0.8, z: 0.6, r: 0.7 });
+    D.cabin.mine = mine;
+  };
+  Town.prototype.cabinUse = function (pl, k) {
+    var D = this.st.room, C = D.cabin, self = this;
+    if (/^host/.test(k)) {
+      var h = C.hosts[+k.slice(4)]; if (!h) return true;
+      var last = C.mine[C.mine.length - 1], lines = ['more bannock? there’s plenty', C.n + ' workouts together! what’s next?', 'you’ve got snow on your tail, dear', 'stay for supper?', 'did you see the lights last night?'];
+      if (last && last.label) lines.push('that ' + String(last.label).replace(/\s*(w\/|with).*$/i, '').toLowerCase() + ' nearly finished me', 'same time next week, raccoon?');
+      this.say(h.name + ': ' + pickOne(lines), h.m.g, 0.7, 3.2); return true;
+    }
+    if (k === 'stove') { this.say(pickOne(['*warms paws*', 'ahh, toasty', 'nothing like a woodstove']), pl.g, 1.0, 1.6); return true; }
+    if (k === 'kettle') { var h2 = C.hosts[0]; this.say(h2.name + ': ' + pickOne(['milk? sugar?', 'Labrador tea, picked it myself', 'careful, it’s hot']), h2.m.g, 0.7, 2.6); if (this.carryItem) setTimeout(function () { self.carryItem(pl, 'coffee'); }, 900); return true; }
+    if (k === 'photos') { var ph = C.mine.slice(-3).map(function (e) { return (e.day ? e.day + ': ' : '') + String(e.label || e.kind).replace(/\s*(w\/|with).*$/i, ''); }); this.say(ph.length ? ph.join(' · ') : 'lots of empty pins, waiting for photos', pl.g, 1.1, 4); return true; }
+    if (k === 'table') { this.say(pickOne(['*nibbles some bannock*', 'mmm, saskatoon jam', '*steals a bannock*']), pl.g, 1.0, 1.6); return true; }
+    return false;
   };
   // ---- the far ranges: three rings of great snow-capped mountains round the edge of the world,
   // each farther one paler and bluer in the haze, the nearest dark with forest at its feet.
