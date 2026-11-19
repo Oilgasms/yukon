@@ -38,5 +38,6 @@ window.COVERS = {
  "film:coraline|2009": "data/covers/68d93549a6a7080b.jpg",
  "film:dunkirk|2017": "data/covers/feaa08374e776be2.jpg",
  "film:wildwood|2026": "data/covers/52449f6b609c3857.jpg",
- "film:missing link|2019": "data/covers/49bfd48362fcafc5.jpg"
+ "film:missing link|2019": "data/covers/49bfd48362fcafc5.jpg",
+ "film:dog day afternoon|1975": "data/covers/250fee4a3f590a8c.jpg"
 };
