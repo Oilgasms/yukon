@@ -365,6 +365,16 @@ h2 { font-family: var(--display); font-weight: 400; }
 .key-fold { border-top: 3px double var(--line); padding-top: 8px; }
 .key-fold summary { cursor: pointer; font-family: var(--caps); color: var(--rubric); font-size: 15px; }
 .key-fold .key { margin: 8px 0 0; border: 0; padding: 0; font-size: 14px; }
+/* the name of the place you've walked into, and the fade through doorways */
+.region { position: fixed; left: 50%; top: 17%; transform: translateX(-50%); z-index: 6; pointer-events: none; text-align: center; color: #fbf3dc;
+  text-shadow: 0 1px 2px rgba(20, 12, 4, 0.85), 0 0 18px rgba(20, 12, 4, 0.45); opacity: 0; transition: opacity 1.4s ease; width: min(90vw, 640px); }
+.region.on { opacity: 1; }
+.region .rn { font-family: var(--display); font-size: clamp(30px, 5vw, 48px); line-height: 1.05; letter-spacing: 0.01em; }
+.region .rs { font-family: var(--body); font-style: italic; font-size: clamp(14px, 1.8vw, 18px); margin-top: 4px; opacity: 0.92; }
+.region .rule { width: 180px; height: 1px; margin: 8px auto 6px; background: linear-gradient(90deg, transparent, rgba(251, 243, 220, 0.9), transparent); }
+.fade { position: fixed; inset: 0; background: #0d0a07; z-index: 5; pointer-events: none; opacity: 0; }
+.fade.cut { transition: none; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .region, .fade { transition: none; } }
 /* great quests */
 .gq { display: grid; gap: 10px; margin-bottom: 14px; }
 .gq-card { border: 1px solid var(--line); border-radius: 3px; padding: 9px 11px; background: color-mix(in srgb, var(--card-2) 45%, transparent); }
@@ -535,6 +545,8 @@ h2 { font-family: var(--display); font-weight: 400; }
     <div class="sk-total"><span id="sk-total">Total level</span></div>
   </section>
   <div class="xpdrops" id="xpdrops" aria-live="polite"></div>
+  <div class="region" id="region" aria-live="polite"><div class="rn" id="region-n"></div><div class="rule"></div><div class="rs" id="region-s"></div></div>
+  <div class="fade" id="fade"></div>
   <section class="inkmap" id="inkmap" role="dialog" aria-label="The inked map" hidden>
     <canvas id="inkmap-cv" width="1000" height="760"></canvas>
     <button class="btn" id="inkmap-close" type="button">Close</button>
@@ -620,7 +632,7 @@ document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>'
 document.write('<script src="data/covers.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v202';
+var BUILD = 'v203';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1062,6 +1074,19 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     $('records-text').textContent = bad ? bad + ' record' + (bad > 1 ? 's need' : ' needs') + ' a look' : /synced/i.test(st) ? 'Records in order \u00b7 ' + st.replace(/^Synced with your sheet\s*\u00b7?\s*/i, 'synced ') : st || 'Reading the records\u2026';
   }
   setInterval(syncRecords, 1500); syncRecords();
+  // the name of the place you walk into, and a fade through black at doorways
+  var regionT = null, fadeT = null;
+  town.onRegion = function (name, sub) {
+    if (!$('skills').hidden || !$('questsF').hidden || !$('ledger').hidden) return;
+    $('region-n').textContent = name; $('region-s').textContent = sub || '';
+    var el = $('region'); el.classList.add('on'); clearTimeout(regionT);
+    regionT = setTimeout(function () { el.classList.remove('on'); }, 3600);
+  };
+  town.onFade = function () {
+    var f = $('fade'), t0 = Date.now(); clearInterval(fadeT);
+    f.style.opacity = '1';
+    fadeT = setInterval(function () { var u = (Date.now() - t0 - 80) / 480; if (u >= 1) { f.style.opacity = '0'; clearInterval(fadeT); return; } if (u > 0) f.style.opacity = String(1 - u * u * (3 - 2 * u)); }, 30);
+  };
   town.onXp = function (drops, delay) {
     if (playing) return;
     setTimeout(function () {

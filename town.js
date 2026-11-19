@@ -91,7 +91,8 @@
     elfStone: ['#f2e8d2', '#e8dbc0', '#dccdae'], elfDark: '#bcae90', elfRoof: ['#4fa08c', '#62b29c'], elfAccent: '#d5ece2', elfBanner: ['#4f8f7c', '#f2e8d2'],
     houseplant: ['#4f9e3a', '#3f8a32', '#68b544', '#5aa83e'],
     // Handmade trails: worn earth, flagstones in a few shades, and cobbles for the roads.
-    trail: ['#9e8866', '#937e5e', '#a8926f'], flag: ['#bfab83', '#ad9a74', '#c8b690', '#9e8b69'], cobS: ['#a99f8e', '#978e7f', '#b5ab99', '#8d8577'],
+    cabinRoof: ['#4f6e4a', '#9a3e2e', '#4a5058', '#8a5a34', '#3f5a6e', '#6e4a5e'], chink: '#e4d9c0',
+    trail: ['#9e8866', '#937e5e', '#a8926f'], flagst: ['#bfab83', '#ad9a74', '#c8b690', '#9e8b69'], cobS: ['#a99f8e', '#978e7f', '#b5ab99', '#8d8577'],
     // The towns up the line: Klondike paint, trim and tin roofs.
     tpaint: ['#e2b13c', '#3f8f8a', '#b8432f', '#a58cc4', '#9fd1b0', '#e8907a', '#f1e6c8', '#7fb2d8', '#f4f2ec', '#4f7a4a', '#e7a3b8', '#c9873a', '#9a9a94', '#3a4a72', '#7a5236', '#f2df8c'],
     ttrim: ['#f6f3ea', '#2f4f3a', '#6e2a2a', '#4a3322', '#d9a441', '#2a2a2a'],
@@ -123,8 +124,8 @@
     [90, 'milepost', 'The Alaska Highway milepost'], [150, 'hotsprings', 'Takhini Hot Springs, and Bean North Coffee on the road out'], [110, 'ravens', 'Ravens about town'], [130, 'artscentre', 'The Yukon Arts Centre'], [145, 'bandshell', 'The Rotary Peace Park bandshell'], [160, 'canyon', 'The Miles Canyon footbridge'], [200, 'lights', 'Lights strung along every street']
   ];
   var HOUSE_STAGES = [
-    [1, 'Cottage'], [3, 'Window flower boxes'], [5, 'Second floor'], [8, 'Front porch'], [11, 'Fenced yard'],
-    [14, 'Back wing'], [18, 'Vegetable patch'], [22, 'Side wing'], [26, 'Climbing roses'], [30, 'Stone well'],
+    [1, 'Log cabin'], [3, 'Woodpile and window boxes'], [5, 'Sleeping loft'], [8, 'Covered porch'], [11, 'Split-rail fence'],
+    [14, 'Back lean-to'], [18, 'Raised garden beds'], [22, 'Side room'], [26, 'Antlers, snowshoes and a canoe'], [30, 'Food cache on stilts'],
     [36, 'Rose arbour over the gate'], [42, 'Stone garden wall'], [46, 'Third storey'], [50, 'Paved courtyard'], [58, 'Courtyard fountain'],
     [66, 'Clipped topiary'], [75, 'Garden statue'], [85, 'Fruit trees'], [96, 'Glass conservatory'], [108, 'Dovecote'],
     [120, 'Garden lanterns'], [135, 'Gilded weathervane']
@@ -1832,7 +1833,7 @@
     if (Array.isArray(v)) v = v[(m.userData.idx || 0) % v.length];
     m.color.set(v);
     if (STYLE_COLORS[name] && this.dark) m.color.multiplyScalar(0.6);
-    if ((name === 'trail' || name === 'flag' || name === 'cobS') && this.season === 'winter') m.color.lerp(new T.Color(this.dark ? '#9aa3b4' : '#eef2f5'), 0.65); // (snow on the trails)
+    if ((name === 'trail' || name === 'flagst' || name === 'cobS') && this.season === 'winter') m.color.lerp(new T.Color(this.dark ? '#9aa3b4' : '#eef2f5'), 0.65); // (snow on the trails)
     // Outside winter the rink is paved for ball hockey.
     if (name === 'ice' && this.season !== 'winter') m.color.set(this.dark ? '#7d7f84' : '#c4c6c4');
     if (m.emissive) m.emissive.set(name === 'fire' ? '#ff6a1a' : '#000000');
@@ -1881,6 +1882,7 @@
       this.lightGrade = { sh: GR.sh, li: GR.li, bt: GR.bt, bk: GR.bk, ao: GR.ao, sc: new T.Color(GR.sc), sk: GR.sk };
     }
     if (this.flowers) this.flowers.visible = this.season !== 'winter';
+    var wnt = this.season === 'winter'; (this.roofSnows || []).forEach(function (m) { m.visible = wnt; });
     this.sunBase = this.sun.position.clone();
     this.winState = null;
     if (this.st && this.st.hike) this.updateSnow();
@@ -2327,7 +2329,7 @@
     var group = new T.Group(), up = new T.Vector3(0, 1, 0);
     Object.keys(sets).forEach(function (key) {
       var list = sets[key], mat = key === 'stone1' ? self.mat('stone', 1) : key === 'stone2' ? self.mat('stone', 2) : self.mat(key);
-      if (/^f\d$/.test(key)) mat = self.mat('flag', +key[1]);
+      if (/^f\d$/.test(key)) mat = self.mat('flagst', +key[1]);
       else if (/^c\d$/.test(key)) mat = self.mat('cobS', +key[1]);
       else if (key === 'tuft') mat = self.pathTuftM || (self.pathTuftM = self.windMat(self.meadowMat(), 0.04, 0.15, 'pathtuft'));
       else if (key === 'pebble') mat = self.mat('stone', 0);
@@ -9177,6 +9179,7 @@
     D.light = inn ? { hemi: '#dba06a', ground: '#3a2214', i: 0.95 } : { hemi: '#d08e58', ground: '#331d10', i: 0.88 };
   };
   Town.prototype.enterRoom = function (pl, kind) {
+    if (this.onFade) this.onFade();
     if (!this.roomOK(kind)) return false;
     if (pl.seat) this.leaveSeat(pl);
     if (pl.cook) this.endCook(pl, true);
@@ -9207,6 +9210,7 @@
     return true;
   };
   Town.prototype.leaveRoom = function (pl) {
+    if (this.onFade) this.onFade();
     var D = this.st.room, b = pl.roomBack, P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
     pl.inRoom = null; pl.roomSit = null; pl.napping = 0;
     if (D) { this.world.remove(D.g); this.st.room = null; }
@@ -9802,7 +9806,11 @@
     if (D.screen) { var fk = 0.9 + Math.sin(now / 47) * 0.04 + Math.sin(now / 13) * 0.03; D.screen.mesh.material.color.setScalar(fk); if (D.beam) D.beam.material.opacity = 0.06 + Math.sin(now / 60) * 0.012; }
     if (D.neon) D.neon.color.setHSL(0.92, 1, Math.random() < 0.01 ? 0.3 : 0.68);
     if (D.barkeep) { var bk = D.barkeep; bk.g.position.x = Math.sin(now / 2600) * D.barX; bk.g.rotation.y = Math.cos(now / 2600) > 0 ? Math.PI / 2 : -Math.PI / 2; if (Math.abs(Math.sin(now / 2600)) > 0.97) bk.g.rotation.y = 0; }
-    this.hemi.color.set(D.light.hemi); this.hemi.groundColor.set(D.light.ground); this.hemi.intensity = D.light.i; this.sun.intensity = 0.05;
+    this.hemi.color.set(D.light.hemi); this.hemi.groundColor.set(D.light.ground); this.sun.intensity = 0.05;
+    // firelight: the whole room breathes a little with the flames
+    var fire = /library|jo|pub|cafe|society|church/.test(D.kind) && !this.reduced, ft = now / 1000;
+    this.hemi.intensity = D.light.i * (fire ? 1 + Math.sin(ft * 7.3) * 0.025 + Math.sin(ft * 13.1 + 1) * 0.018 + Math.sin(ft * 2.1) * 0.02 : 1);
+    if (fire) this.needsRender = true;
     if (now > (this.nearAt || 0)) {
       this.nearAt = now + 200;
       var best = null, bd = 9;
@@ -10045,6 +10053,7 @@
     D.coins.scale.y = Math.max(0.005, Math.min(0.26, S.coins * 0.004)); D.coins.position.y = D.coins.scale.y / 2 + 0.01;
   };
   Town.prototype.enterDen = function (pl) {
+    if (this.onFade) this.onFade();
     var D = this.st.den, R = DEN_ROOM, S = this.keep(), kinds = Object.keys(S.den);
     if (!D || !D.room) return;
     if (pl.seat) this.leaveSeat(pl);
@@ -10061,6 +10070,7 @@
     this.say(kinds.length ? 'home sweet home · ' + kinds.length + ' kinds of treasure' : 'home sweet (empty) home', pl.g, 1.0, 2.2);
   };
   Town.prototype.leaveDen = function (pl) {
+    if (this.onFade) this.onFade();
     var D = this.st.den, P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
     pl.inDen = false; pl.napping = 0;
     this.applyPalette();
@@ -10288,6 +10298,7 @@
     }
   };
   Town.prototype.enterMine = function (pl) {
+    if (this.onFade) this.onFade();
     var M = this.st.mine;
     if (!M) return;
     if (pl.seat) this.leaveSeat(pl);
@@ -13810,7 +13821,7 @@
       f.tent = noSpot; // a tent only if there's truly nowhere left
       if (jo && this.greenGazebo) this.greenGazebo.visible = false;
       if (!f.tent && p.si != null) { this.growStreet(p.si, p.ti + 5, delay); this.driveway(p, delay + 200); }
-      f.roofMat = /^jo$/i.test(name) ? this.mat('roofJo') : this.mat('roof', idx);
+      f.roofMat = /^jo$/i.test(name) ? this.mat('roofJo') : this.mat('cabinRoof', idx); // painted tin: forest green, barn red, charcoal, rust, slate
       if (jo) this.placeCritter('fox', p.x, p.z, 2.2, 4.4);
       this.decorDirty = true;
       if (f.tent) {
@@ -13845,19 +13856,37 @@
     var n = f.n, g = f.group, pick = 'friend:' + name, self = this, b = f.built;
     function once(key, at, fn) { if (n >= at && !b[key]) { b[key] = true; fn(); } }
     once('base', 1, function () {
+      // A Yukon log cabin: a painted tin roof, a stovepipe, a plank door with a lantern beside it,
+      // and snow on the roof in winter.
       var roof = new T.Group();
-      self.part(roof, self.geo.gable, f.roofMat, 1, 1, 1, 0, 0, 0, pick);
-      self.part(roof, self.geo.box, self.mat('stone', 2), 0.22, 0.6, 0.22, 0.4, 0.45, -0.3, pick);
+      self.part(roof, self.geo.gable, f.roofMat, 1.08, 1, 1.12, 0, 0, 0, pick);
+      self.roofSnow(roof, 1.08, 1, 1.12);
+      self.part(roof, self.geo.cyl6, self.mat('stoneDark'), 0.05, 0.62, 0.05, 0.4, 0.5, -0.3, pick);
+      self.part(roof, self.geo.cone6, self.mat('stoneDark'), 0.09, 0.07, 0.09, 0.4, 0.84, -0.3, pick);
       g.add(roof);
       f.roof = roof;
       self.addFloor(f, pick, delay, true);
+      var st = new T.Group(); g.add(st);
+      self.part(st, self.geo.box, self.mat('wood'), 0.5, 0.08, 0.28, 0, 0.04, 0.82, pick);            // a plank step
+      self.part(st, self.geo.box, self.mat('trunk'), 0.05, 0.12, 0.05, 0.3, 0.62, 0.72, pick);         // lantern hook
+      var ln = self.part(st, self.geo.box, self.mat('lantern'), 0.07, 0.09, 0.07, 0.3, 0.52, 0.74, pick);
+      // a chopping block with the axe in it
+      self.part(st, self.geo.cyl6, self.mat('logwood', 0), 0.14, 0.22, 0.14, -0.95, 0.11, 0.55, pick);
+      var ax = self.part(st, self.geo.box, self.mat('woodLight'), 0.025, 0.28, 0.025, -0.95, 0.32, 0.55, pick); ax.rotation.z = 0.5;
+      self.part(st, self.geo.box, self.mat('silver'), 0.1, 0.05, 0.015, -1.02, 0.42, 0.55, pick);
+      self.pop(st, delay);
     });
     once('boxes', 3, function () {
       var box = new T.Group();
       [-0.45, 0.45].forEach(function (x) {
-        self.part(box, self.geo.box, self.mat('wood'), 0.32, 0.1, 0.12, x, 0.3, 0.7, pick);
-        for (var i = 0; i < 3; i++) self.part(box, self.geo.ball, self.mat('flag', i + (x > 0 ? 1 : 0)), 0.06, 0.06, 0.06, x - 0.1 + i * 0.1, 0.38, 0.7, pick);
+        self.part(box, self.geo.box, self.mat('wood'), 0.32, 0.1, 0.12, x, 0.3, 0.72, pick);
+        for (var i = 0; i < 3; i++) self.part(box, self.geo.ball, self.mat('flag', i + (x > 0 ? 1 : 0)), 0.06, 0.06, 0.06, x - 0.1 + i * 0.1, 0.38, 0.72, pick);
       });
+      // a woodpile along the side wall under a little shed roof
+      var wp = new T.Group(); wp.position.set(0.98, 0, -0.1); wp.rotation.y = Math.PI / 2; box.add(wp);
+      for (var row = 0; row < 4; row++) for (var c = 0; c < 6 - (row % 2); c++) { var lg = self.part(wp, self.geo.cyl6, self.mat('logwood', (row + c) % 2), 0.065, 0.32, 0.065, -0.36 + c * 0.14 + (row % 2) * 0.07, 0.07 + row * 0.12, 0, pick); lg.rotation.x = Math.PI / 2; }
+      var sr = self.part(wp, self.geo.box, f.roofMat, 1.0, 0.04, 0.42, 0, 0.6, -0.02, pick); sr.rotation.x = -0.25;
+      [-0.45, 0.45].forEach(function (x) { self.part(wp, self.geo.box, self.mat('wood'), 0.04, 0.6, 0.04, x, 0.3, 0.16, pick); });
       g.add(box); self.pop(box, delay);
     });
     once('floor2', 5, function () { self.addFloor(f, pick, delay); });
@@ -13867,12 +13896,23 @@
       self.part(porch, self.geo.cyl6, self.mat('woodLight'), 0.04, 1.0, 0.04, -0.6, 0.5, 1.15, pick);
       self.part(porch, self.geo.cyl6, self.mat('woodLight'), 0.04, 1.0, 0.04, 0.6, 0.5, 1.15, pick);
       self.part(porch, self.geo.box, self.mat('wood'), 1.4, 0.06, 0.6, 0, 0.03, 0.95, pick);
+      // a log bench and a rocking chair with a blanket
+      self.part(porch, self.geo.box, self.mat('logwood', 1), 0.42, 0.05, 0.14, -0.45, 0.22, 0.95, pick);
+      [-0.6, -0.3].forEach(function (x) { self.part(porch, self.geo.box, self.mat('logwood', 0), 0.05, 0.2, 0.12, x, 0.1, 0.95, pick); });
+      var rc = new T.Group(); rc.position.set(0.45, 0.06, 1.0); rc.rotation.y = -0.4; porch.add(rc);
+      self.part(rc, self.geo.box, self.mat('wood'), 0.22, 0.03, 0.2, 0, 0.16, 0, pick); self.part(rc, self.geo.box, self.mat('wood'), 0.22, 0.26, 0.03, 0, 0.3, -0.1, pick);
+      self.part(rc, self.geo.box, self.mat('flag', f.idx % 5), 0.2, 0.02, 0.16, 0, 0.185, 0.01, pick);
+      [-0.1, 0.1].forEach(function (x) { var rk = self.part(rc, self.geo.box, self.mat('wood'), 0.02, 0.02, 0.28, x, 0.02, 0, pick); });
       g.add(porch); self.pop(porch, delay);
     });
     once('fence', 11, function () {
-      var fence = new T.Group(), mat = self.mat('woodLight');
+      // a split-rail fence: rough grey rails resting in the crooks of crossed posts
+      var fence = new T.Group(), mat = self.mat('cobS', 3);
       [[0, -1.6, 3.4, true], [-1.7, 0, 3.2, false], [1.7, 0, 3.2, false], [-1.15, 1.6, 1.1, true], [1.15, 1.6, 1.1, true]].forEach(function (r) {
-        [0.15, 0.3].forEach(function (y) { self.part(fence, self.geo.box, mat, r[3] ? r[2] : 0.05, 0.05, r[3] ? 0.05 : r[2], r[0], y, r[1], pick); });
+        var L = r[2], n = Math.max(1, Math.round(L / 1.1));
+        for (var k = 0; k <= n; k++) { var u = -L / 2 + k * L / n, px = r[3] ? r[0] + u : r[0], pz = r[3] ? r[1] : r[1] + u;
+          [-1, 1].forEach(function (sd) { var po = self.part(fence, self.geo.cyl6, mat, 0.025, 0.5, 0.025, px, 0.22, pz, pick); if (r[3]) po.rotation.x = sd * 0.35; else po.rotation.z = sd * 0.35; }); }
+        [0.16, 0.32].forEach(function (y, j) { var rl = self.part(fence, self.geo.cyl6, mat, 0.03, L, 0.03, r[0], y, r[1], pick); if (r[3]) rl.rotation.z = Math.PI / 2 + (j ? 0.02 : -0.02); else rl.rotation.x = Math.PI / 2; });
       });
       g.add(fence); self.pop(fence, delay);
       f.fence = fence;
@@ -13880,16 +13920,18 @@
     once('backwing', 14, function () {
       var w = new T.Group();
       w.position.set(0, 0, -1.1);
-      self.part(w, self.geo.box, self.mat('plaster', f.idx + 1), 1.1, 0.75, 0.9, 0, 0.375, 0, pick);
-      self.part(w, self.geo.gable, f.roofMat, 0.75, 0.7, 0.6, 0, 0.75, 0, pick).rotation.y = Math.PI / 2;
+      self.cabinWalls(w, 1.1, 0.72, 0.9, 0, 0, pick);
+      var lr = self.part(w, self.geo.box, f.roofMat, 1.25, 0.05, 1.05, 0, 0.8, 0, pick); lr.rotation.x = -0.2; // a lean-to roof
+      var lsn = self.part(w, self.geo.box, self.mat('swan', 0), 1.25, 0.03, 1.05, 0, 0.84, 0, pick); lsn.rotation.x = -0.2; (self.roofSnows = self.roofSnows || []).push(lsn); lsn.visible = self.season === 'winter';
       g.add(w); self.pop(w, delay);
     });
     once('patch', 18, function () {
       var patch = new T.Group();
       patch.position.set(1.15, 0, -0.6);
       for (var i = 0; i < 4; i++) {
-        self.part(patch, self.geo.box, self.mat('soil'), 0.36, 0.06, 0.36, (i % 2) * 0.4 - 0.2, 0.03, Math.floor(i / 2) * 0.4 - 0.2, pick);
-        self.part(patch, self.geo.ball, self.mat('crop', i), 0.1, 0.09, 0.1, (i % 2) * 0.4 - 0.2, 0.14, Math.floor(i / 2) * 0.4 - 0.2, pick);
+        self.part(patch, self.geo.box, self.mat('logwood', i % 2), 0.38, 0.14, 0.38, (i % 2) * 0.4 - 0.2, 0.07, Math.floor(i / 2) * 0.4 - 0.2, pick);
+        self.part(patch, self.geo.box, self.mat('soil'), 0.3, 0.02, 0.3, (i % 2) * 0.4 - 0.2, 0.145, Math.floor(i / 2) * 0.4 - 0.2, pick);
+        self.part(patch, self.geo.ball, self.mat('crop', i), 0.1, 0.09, 0.1, (i % 2) * 0.4 - 0.2, 0.22, Math.floor(i / 2) * 0.4 - 0.2, pick);
       }
       g.add(patch); self.pop(patch, delay);
       f.patch = patch;
@@ -13897,32 +13939,38 @@
     once('sidewing', 22, function () {
       var w = new T.Group();
       w.position.set(-1.15, 0, -0.1);
-      self.part(w, self.geo.box, self.mat('plaster', f.idx + 2), 0.8, 1.1, 1.0, 0, 0.55, 0, pick);
-      self.part(w, self.geo.gable, f.roofMat, 0.55, 0.8, 0.7, 0, 1.1, 0, pick);
+      self.cabinWalls(w, 0.8, 1.05, 1.0, 0, 0, pick);
+      self.part(w, self.geo.gable, f.roofMat, 0.6, 0.8, 0.72, 0, 1.08, 0, pick);
+      var gs = new T.Group(); gs.position.y = 1.08; w.add(gs); self.roofSnow(gs, 0.6, 0.8, 0.72);
       self.part(w, self.geo.box, self.mat('window'), 0.04, 0.26, 0.24, -0.41, 0.6, 0, pick);
       g.add(w); self.pop(w, delay);
     });
     once('roses', 26, function () {
-      // Climbing roses up the front wall and a row of rose bushes inside the front fence.
+      // Moose antlers over the door, snowshoes crossed on the wall, and a red canoe on sawhorses.
       var r = new T.Group();
-      [-0.62, 0.62].forEach(function (x, j) {
-        for (var i = 0; i < 6; i++) self.part(r, self.geo.blob, self.mat(i % 3 ? 'hedge' : 'flag', j * 2), 0.11, 0.11, 0.08, x + Math.sin(i * 2.1) * 0.06, 0.15 + i * 0.25, 0.68, pick);
+      [-1, 1].forEach(function (sd) {
+        var a = self.part(r, self.geo.box, self.mat('woodLight'), 0.22, 0.03, 0.12, sd * 0.13, 0.86, 0.7, pick); a.rotation.z = sd * 0.25;
+        for (var t = 0; t < 3; t++) self.part(r, self.geo.cone4, self.mat('woodLight'), 0.02, 0.09, 0.02, sd * (0.1 + t * 0.07), 0.93, 0.7, pick);
       });
-      [-1.35, -1.0, 1.0, 1.35].forEach(function (x, i) {
-        self.part(r, self.geo.blob, self.mat('hedge'), 0.17, 0.15, 0.17, x, 0.13, 1.4, pick);
-        self.part(r, self.geo.ball, self.mat('flag', i % 2 ? 0 : 4), 0.06, 0.06, 0.06, x + 0.05, 0.27, 1.45, pick);
-      });
+      [-0.15, 0.15].forEach(function (rz, k) { var sh = self.part(r, self.geo.cyl, self.mat('wood'), 0.09, 0.02, 0.2, 0.62, 0.5, 0.69, pick); sh.rotation.x = Math.PI / 2; sh.rotation.z = rz * 3; });
+      var cn = new T.Group(); cn.position.set(1.3, 0, 0.9); cn.rotation.y = Math.PI / 2 + 0.3; r.add(cn);
+      [-0.3, 0.3].forEach(function (z) { self.part(cn, self.geo.box, self.mat('wood'), 0.3, 0.24, 0.04, 0, 0.12, z, pick); }); // two sawhorses, the canoe lying across them
+      self.part(cn, self.geo.ball, self.mat('flag', 0), 0.13, 0.08, 0.5, 0, 0.3, 0, pick);
+      self.part(cn, self.geo.box, self.mat('woodLight'), 0.02, 0.02, 0.5, 0.06, 0.37, 0, pick);
       g.add(r); self.pop(r, delay);
     });
     once('well', 30, function () {
-      var well = new T.Group();
-      well.position.set(-1.2, 0, 1.1);
-      self.part(well, self.geo.cyl, self.mat('stone', 1), 0.28, 0.4, 0.28, 0, 0.2, 0, pick);
-      self.part(well, self.geo.cyl, self.mat('water'), 0.22, 0.02, 0.22, 0, 0.41, 0, pick);
-      self.part(well, self.geo.cone4, f.roofMat, 0.42, 0.3, 0.42, 0, 0.95, 0, pick).rotation.y = Math.PI / 4;
-      self.part(well, self.geo.box, self.mat('wood'), 0.04, 0.6, 0.04, -0.25, 0.6, 0, pick);
-      self.part(well, self.geo.box, self.mat('wood'), 0.04, 0.6, 0.04, 0.25, 0.6, 0, pick);
-      g.add(well); self.pop(well, delay);
+      // A food cache: a tiny log hut up on four tall posts, out of reach of bears, with a ladder.
+      var c = new T.Group(); c.position.set(-1.25, 0, 1.15);
+      [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(function (q) { self.part(c, self.geo.cyl6, self.mat('logwood', 1), 0.04, 1.1, 0.04, q[0], 0.55, q[1], pick); self.part(c, self.geo.cyl, self.mat('silver'), 0.06, 0.12, 0.06, q[0], 0.75, q[1], pick); });
+      var hut = new T.Group(); hut.position.y = 1.1; c.add(hut);
+      self.cabinWalls(hut, 0.5, 0.36, 0.5, 0, 0, pick);
+      self.part(hut, self.geo.gable, f.roofMat, 0.38, 0.42, 0.42, 0, 0.36, 0, pick);
+      var hs = new T.Group(); hs.position.y = 0.36; hut.add(hs); self.roofSnow(hs, 0.38, 0.42, 0.42);
+      var lad = new T.Group(); lad.position.set(0, 0, 0.42); lad.rotation.x = -0.35; c.add(lad);
+      [-0.1, 0.1].forEach(function (x) { self.part(lad, self.geo.box, self.mat('woodLight'), 0.03, 1.15, 0.03, x, 0.57, 0, pick); });
+      for (var rg = 0; rg < 4; rg++) self.part(lad, self.geo.box, self.mat('woodLight'), 0.22, 0.025, 0.025, 0, 0.2 + rg * 0.27, 0, pick);
+      g.add(c); self.pop(c, delay);
     });
     // A third storey at 46, then no taller: past 30 sessions the garden grows into a little estate.
     once('floor3', 46, function () { self.addFloor(f, pick, delay); });
@@ -14070,12 +14118,37 @@
       f.roof.add(v); self.pop(v, delay);
     }
   };
+  // Log walls: courses of round logs over pale chinking, the side logs a half-course up so the
+  // corners interlock, their ends sticking out past the corners.
+  Town.prototype.cabinWalls = function (par, w, h, d, x, z, pick) {
+    var n = Math.max(2, Math.round(h / 0.15)), lh = h / n, r = lh * 0.56, self = this;
+    this.part(par, this.geo.box, this.mat('chink'), w - 0.02, h, d - 0.02, x, h / 2, z, pick);
+    for (var i = 0; i < n; i++) {
+      var y = (i + 0.5) * lh, m = this.mat('logwood', i % 2);
+      [-1, 1].forEach(function (sd) {
+        var a = self.part(par, self.geo.cyl6, m, r, w + 0.18, r, x, y, z + sd * d / 2, pick); a.rotation.z = Math.PI / 2;
+        if (i < n - 1 || true) { var b = self.part(par, self.geo.cyl6, self.mat('logwood', (i + 1) % 2), r, d + 0.18, r, x + sd * w / 2, Math.min(h - r * 0.6, y + lh / 2), z, pick); b.rotation.x = Math.PI / 2; }
+      });
+    }
+  };
+  // A little snowy cap for a gable roof, seen only in winter.
+  Town.prototype.roofSnow = function (par, sx, sy, sz) {
+    var sn = this.part(par, this.geo.gable, this.mat('swan', 0), sx * 1.03, sy * 1.05, sz * 1.02, 0, 0.03, 0);
+    sn.castShadow = false; sn.visible = this.season === 'winter';
+    (this.roofSnows = this.roofSnows || []).push(sn);
+    return sn;
+  };
   Town.prototype.addFloor = function (f, pick, delay, first) {
-    var floor = new T.Group();
-    this.part(floor, this.geo.box, this.mat('plaster', f.idx), 1.5, FH, 1.3, 0, FH / 2, 0, pick);
-    this.part(floor, this.geo.box, this.mat('wood'), 1.56, 0.08, 1.36, 0, FH - 0.04, 0, pick);
-    for (var w = -1; w <= 1; w += 2) this.part(floor, this.geo.box, this.mat('window'), 0.24, 0.26, 0.04, w * 0.45, FH * 0.55, 0.66);
-    if (first) this.part(floor, this.geo.box, this.mat('wood'), 0.3, 0.5, 0.04, 0, 0.25, 0.66);
+    var floor = new T.Group(), self = this;
+    this.cabinWalls(floor, 1.5, FH, 1.3, 0, 0, pick);
+    for (var w = -1; w <= 1; w += 2) {
+      // six-pane windows with white trim and a sill
+      this.part(floor, this.geo.box, this.mat('whitewood'), 0.3, 0.32, 0.03, w * 0.45, FH * 0.55, 0.69, pick);
+      this.part(floor, this.geo.box, this.mat('window'), 0.24, 0.26, 0.04, w * 0.45, FH * 0.55, 0.7);
+      this.part(floor, this.geo.box, this.mat('whitewood'), 0.012, 0.26, 0.045, w * 0.45, FH * 0.55, 0.705, pick);
+      this.part(floor, this.geo.box, this.mat('whitewood'), 0.34, 0.03, 0.08, w * 0.45, FH * 0.55 - 0.17, 0.71, pick);
+    }
+    if (first) { this.part(floor, this.geo.box, this.mat('whitewood'), 0.36, 0.56, 0.03, 0, 0.28, 0.69, pick); this.part(floor, this.geo.box, this.mat('wood'), 0.3, 0.52, 0.05, 0, 0.26, 0.7, pick); this.part(floor, this.geo.ball, this.mat('gold'), 0.02, 0.02, 0.02, 0.09, 0.26, 0.73, pick); }
     f.group.add(floor);
     this.animDrop(floor, f.floors * FH, delay);
     f.floors++;
@@ -15828,6 +15901,10 @@
         return;
       }
       m.arms[1].rotation.z = 0;
+      // As you go by, they turn their heads to watch you.
+      if (P && m.head) { var wdx = P.x - g.position.x, wdz = P.z - g.position.z, wd = Math.hypot(wdx, wdz), want = 0;
+        if (wd < 4 && wd > 0.3) { want = Math.atan2(wdx, wdz) - g.rotation.y; while (want > Math.PI) want -= Math.PI * 2; while (want < -Math.PI) want += Math.PI * 2; want = Math.max(-1.1, Math.min(1.1, want)); }
+        m.head.rotation.y += (want - m.head.rotation.y) * Math.min(1, dt * 5); }
       if (m.state === 'build') {
         // Rolling and patting the snowman into shape.
         var sm = m.dest.sm;
@@ -17479,7 +17556,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake', 'stepRegion', 'stepBreath', 'stepSpindrift', 'stepCamDrift'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -21516,6 +21593,90 @@
     var W = this.iceLife; if (!W || this.season !== 'winter') return null;
     for (var i = 0; i < W.holes.length; i++) if (Math.hypot(W.holes[i].x - P.x, W.holes[i].z - P.z) < 1.0) return W.holes[i];
     return null;
+  };
+  // ---- where you are: walk into a new place and its name comes up, like a title card ----
+  Town.prototype.regions = function () {
+    if (this.regionList) return this.regionList;
+    var L = [], sq = TOWN_SQ;
+    L.push({ name: 'The Town Square', sub: 'Whitehorse', x: sq.x, z: sq.z, r: 7 });
+    if (JO_PLOT) L.push({ name: 'Jo’s Cottage', sub: 'on the village green', x: JO_PLOT.x, z: JO_PLOT.z, r: 6 });
+    L.push({ name: 'The Tangle', sub: 'a wood where the paths forget themselves', x: TANGLE.x, z: TANGLE.z, r: TANGLE.R + 3 });
+    L.push({ name: 'Coyote Camp', sub: 'mind your jerky', x: CAMP.x, z: CAMP.z, r: CAMP.R + 3 });
+    L.push({ name: 'Takhini Hot Springs', sub: 'steam on the cold air', x: HOTSPRINGS.x, z: HOTSPRINGS.z, r: 7 });
+    L.push({ name: 'The Lake', sub: 'still water under the hills', x: LAKE.c.x, z: LAKE.c.z, r: LAKE.R + 3 });
+    L.push({ name: 'Erik Nielsen Airport', sub: 'up on the escarpment', x: AIRPORT.x, z: AIRPORT.z, r: 13 });
+    L.push({ name: 'Mount Sima', sub: 'the snowboard mountain', x: SNOW.c.x, z: SNOW.c.z, r: SNOW.R });
+    if (MTB_HILL) L.push({ name: 'Icycle Sport', sub: 'bikes, coffee and chain oil', x: MTB_HILL.x, z: MTB_HILL.z, r: 6 });
+    var SUBS = { carcross: 'where Bennett Lake meets Nares Lake', skagway: 'the gateway to the Klondike', atlin: 'the little Switzerland of the north', dawson: 'city of gold', haines: 'on the Chilkat', hainesjct: 'at the foot of the St. Elias', watson: 'the sign post forest' };
+    TOWNS.forEach(function (t, ci) { if (t && CASTLE_SITES[ci]) L.push({ name: t.name, sub: SUBS[t.key] || 'up the road', x: CASTLE_SITES[ci].x, z: CASTLE_SITES[ci].z, r: 22, town: true }); });
+    L.push({ name: 'Whitehorse', sub: 'on the Yukon River', x: 0, z: 0, r: 46, town: true });
+    return (this.regionList = L);
+  };
+  Town.prototype.stepRegion = function (dt, now) {
+    var pl = this.player;
+    if (!this.explore || !pl || !pl.g.visible || pl.inRoom || pl.inDen || pl.mine || now < (this.regionAt || 0)) return;
+    this.regionAt = now + 600;
+    var P = pl.g.position, best = null, bs = 1e9;
+    this.regions().forEach(function (r) { var d = Math.hypot(P.x - r.x, P.z - r.z); if (d < r.r && d / r.r < bs) { bs = d / r.r; best = r; } });
+    var name = best ? best.name : 'The Wilds', R = this.regionSeen || (this.regionSeen = {});
+    if (name === this.regionNow) return;
+    this.regionNow = name;
+    if (now - (R[name] || -1e9) < 90000) return; // (not again for a minute and a half)
+    R[name] = now;
+    if (this.onRegion) this.onRegion(name, best ? best.sub : 'the boreal forest goes on and on');
+  };
+  // ---- breath in the cold: little clouds from the raccoon, Jo and the mice nearby ----
+  Town.prototype.stepBreath = function (dt, now) {
+    var pl = this.player, cold = this.season === 'winter' || (this.season === 'fall' && (this.dark || this.phase === 'dawn'));
+    if (!cold || this.reduced || !this.explore || !pl || pl.inRoom || pl.inDen || pl.swim) return;
+    var B = this.breath || (this.breath = { at: 0, i: 0 }), self = this;
+    if (now < B.at) return;
+    B.at = now + (pl.running || pl.tired ? 700 : 1500) + Math.random() * 300;
+    var who = [pl], fox = this.st.critters && this.st.critters.fox;
+    if (fox && fox.g.visible && fox.g.position.distanceTo(pl.g.position) < 6) who.push(fox);
+    (this.st.folk || []).forEach(function (m) { if (m.g.visible && m.state !== 'inside' && m.head && m.g.position.distanceTo(pl.g.position) < 7 && Math.random() < 0.35) who.push(m); });
+    var v = new T.Vector3();
+    who.forEach(function (c) {
+      if (!c.head) return;
+      c.head.getWorldPosition(v); var ry = c.g.rotation.y;
+      self.puff(v.x + Math.sin(ry) * 0.12, v.y + 0.0, v.z + Math.cos(ry) * 0.12, 1, 'steam', 0.03);
+    });
+  };
+  // ---- spindrift: in winter's gusts, snow blows low across the open ground ----
+  Town.prototype.stepSpindrift = function (dt, now) {
+    if (this.soft || this.lite) return;
+    var S = this.drift, pl = this.player;
+    if (!S) {
+      var n = 260, pos = new Float32Array(n * 3), seed = [], r = rng(611);
+      for (var i = 0; i < n; i++) seed.push({ x: (r() - 0.5) * 30, z: (r() - 0.5) * 30, y: Math.pow(r(), 2) * 0.45, sp: 0.6 + r() * 0.8, ph: r() * 6.28 });
+      var g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
+      var m = new T.PointsMaterial({ size: 0.09, color: '#cddbea', transparent: true, opacity: 0, depthWrite: false, fog: false });
+      var pts = new T.Points(g, m); pts.frustumCulled = false; this.scene.add(pts);
+      S = this.drift = { pts: pts, seed: seed, a: 0, off: 0 };
+    }
+    var want = this.season === 'winter' && this.explore && pl && !pl.inRoom && !pl.inDen && !this.reduced ? Math.max(0, ((this.gustNow || 0) - 0.85) * 1.6) : 0;
+    S.a += (Math.min(1, want) - S.a) * Math.min(1, dt * 1.2);
+    S.pts.visible = S.a > 0.02; if (!S.pts.visible) return;
+    S.off += dt * 7 * (0.6 + S.a);
+    var P = pl.g.position, A = S.pts.geometry.attributes.position;
+    for (var i = 0; i < S.seed.length; i++) {
+      var q = S.seed[i], u = ((q.x + S.off * q.sp) % 30 + 45) % 30 - 15;
+      var x = P.x + WIND_DIR[0] * u - WIND_DIR[1] * q.z, z = P.z + WIND_DIR[1] * u + WIND_DIR[0] * q.z;
+      A.setXYZ(i, x, groundY(x, z) + q.y + Math.sin(now / 300 + q.ph) * 0.05, z);
+    }
+    A.needsUpdate = true;
+    S.pts.material.opacity = S.a * 0.85;
+    this.needsRender = true;
+  };
+  // ---- standing still, the camera breathes: a slow, slight drift, like someone holding it ----
+  Town.prototype.stepCamDrift = function (dt, now) {
+    var pl = this.player;
+    if (this.reduced || !this.explore || !pl || this.camDrag || this.soft) return;
+    var idle = (pl.idle || 0) > 2 && !pl.inRoom ? Math.min(1, ((pl.idle || 0) - 2) / 3) : 0, t = now / 1000, cam = this.camera;
+    var dx = (Math.sin(t * 0.21) * 0.25 + Math.sin(t * 0.13 + 1) * 0.15) * idle, dy = Math.sin(t * 0.17 + 2) * 0.12 * idle;
+    var C = this.camDriftNow || (this.camDriftNow = { x: 0, y: 0 });
+    cam.position.x += dx - C.x; cam.position.y += dy - C.y; C.x = dx; C.y = dy;
+    if (idle) this.needsRender = true;
   };
   // ---- the far ranges: three rings of great snow-capped mountains round the edge of the world,
   // each farther one paler and bluer in the haze, the nearest dark with forest at its feet.
