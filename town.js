@@ -7524,6 +7524,7 @@
           else g.position.y = Math.max(fy, g.position.y - dt * 6);
           this.unAlive(c);
           c.tail.rotation.y = fd > 0.12 ? Math.sin(c.phase * 0.5) * 0.3 : Math.sin(now / 160) * 0.5; // wag
+          if (fd > 0.12 && this.season === 'winter' && !this.reduced) this.pawprint(c, g.position, g.rotation.y);
           // looks up at you while sitting by your side
           var lk = 0; if (fd <= 0.12) { var la = Math.atan2(pp.x - g.position.x, pp.z - g.position.z) - g.rotation.y; while (la > Math.PI) la -= Math.PI * 2; while (la < -Math.PI) la += Math.PI * 2; lk = Math.max(-0.8, Math.min(0.8, la)) * (Math.sin(now / 2300) > -0.3 ? 1 : 0); }
           this.alive(c, dt, now, fd > 0.12, { look: lk || 0.0001 });
@@ -11233,7 +11234,7 @@
     S.clock -= dt;
     if (S.clock <= 0) {
       S.clock = 0.18;
-      var src = night ? S.list.slice() : S.list.filter(function (p, i) { return i % 3 === 0 && Math.random() < 0.4; }); // supper on the stove: a thin wisp from some chimneys by day
+      var src = night || this.season === 'winter' ? S.list.slice() : S.list.filter(function (p, i) { return i % 3 === 0 && Math.random() < 0.4; }); // supper on the stove: a thin wisp from some chimneys by day (and every woodstove going all day in winter)
       if (this.st.rail && this.st.rail.chimney) { var cv = new T.Vector3(); this.st.rail.chimney.getWorldPosition(cv); src.push(cv, cv); }
       src.forEach(function (p) { if (Math.random() < 0.6) self.puff(p); });
     }
@@ -14136,6 +14137,10 @@
     var sn = this.part(par, this.geo.gable, this.mat('swan', 0), sx * 1.03, sy * 1.05, sz * 1.02, 0, 0.03, 0);
     sn.castShadow = false; sn.visible = this.season === 'winter';
     (this.roofSnows = this.roofSnows || []).push(sn);
+    // icicles hanging from both eaves (the gable's eaves run along its depth at either side)
+    var ic = new T.Group(), icem = this.icicleM || (this.icicleM = new T.MeshLambertMaterial({ color: '#dff0fb', transparent: true, opacity: 0.85 })), r = rng(Math.floor(sx * 97 + sz * 31));
+    [-1, 1].forEach(function (sd) { for (var k = 0; k < 7; k++) { if (r() < 0.3) continue; var L = 0.06 + r() * 0.1, m = new T.Mesh(this.geo.cone4, icem); m.scale.set(0.022, L, 0.022); m.rotation.x = Math.PI; m.position.set(sd * 0.85 * sx, -L / 2 + 0.01, (k / 6 - 0.5) * 1.4 * sz); m.castShadow = false; ic.add(m); } }, this);
+    par.add(ic); ic.visible = sn.visible; this.roofSnows.push(ic);
     return sn;
   };
   Town.prototype.addFloor = function (f, pick, delay, first) {
@@ -17420,8 +17425,8 @@
         if (fr.tent) return { title: p[1] + '’s tent', lines: [plural(fr.n, 'workout') + ' together', 'The village is full, so newer friends camp at the edge.'] };
         var have = HOUSE_STAGES.filter(function (st) { return fr.n >= st[0]; }).map(function (st) { return st[1].toLowerCase(); });
         var nextS = HOUSE_STAGES.filter(function (st) { return fr.n < st[0]; })[0];
-        return { title: p[1] + '’s house', lines: [plural(fr.n, 'workout') + ' together', 'Has: ' + have.join(', ') + '.',
-          nextS ? 'Next: ' + nextS[1].toLowerCase() + ' at ' + nextS[0] + ' workouts.' : 'The estate is complete.', tail] };
+        return { title: p[1] + '’s cabin', lines: [plural(fr.n, 'workout') + ' together', 'Has: ' + have.join(', ') + '.',
+          nextS ? 'Next: ' + nextS[1].toLowerCase() + ' at ' + nextS[0] + ' workouts.' : 'The estate is complete.', this.explore ? 'Press E to knock.' : tail] };
       case 'dogs':
       case 'dog':
         var D = s.dogs, who = p[0] === 'dog' ? [p[1]] : D.order;
@@ -18114,6 +18119,12 @@
       if (!this.st.stall && this.solids) this.buildStall();
       this.markVisited(P, now);
       var wa = this.wildNear(P);
+      // Come charging at a hare, a deer or a caribou and it bolts, the herd with it.
+      if (this.player.running && wa && /^(hares|deer|caribou)$/.test(wa.key) && now > (wa.boltAt || 0)) {
+        var self9 = this, bolt = function (a) { var ax = a.g.position.x - P.x, az = a.g.position.z - P.z, l = Math.hypot(ax, az) || 1; a.tx = a.g.position.x + ax / l * 9; a.tz = a.g.position.z + az / l * 9; a.wait = 0; a.fast = now + 2800; a.hop = true; a.react = null; a.boltAt = now + 5000; setTimeout(function () { a.hop = false; }, 2600); };
+        bolt(wa); if (wa.key !== 'hares') this.st.wild.list.forEach(function (c) { if (c !== wa && c.key === wa.key && c.g && c.g.position.distanceTo(wa.g.position) < 10) bolt(c); });
+        this.say(wa.key === 'hares' ? pickOne(['!', 'eep!', '*thump thump*']) : '!', wa.g, 1.4, 0.9); this.sfx('rustle');
+      }
       this.nearWild = wa;
       if (wa) best = 'wild:' + wa.key;
       if (this.fireNear(P, 2.4)) best = 'campfire';
@@ -18235,6 +18246,7 @@
     if (pl && pl.inRoom) { this.roomUse(pl); return; }
     if (pl && !pl.paddle && !pl.seat && (this.near === 'library' || this.near === 'church' || this.near === 'pub') && this.roomOK(this.near)) { this.enterRoom(pl, this.near); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'friend:Jo' && this.roomOK('jo')) { this.enterRoom(pl, 'jo'); return; }
+    if (pl && !pl.paddle && !pl.seat && this.near && /^friend:/.test(this.near) && this.near !== 'friend:Jo') { this.knock(this.near.slice(7)); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'cinema' && this.roomOK('cinema')) { this.enterRoom(pl, 'cinema'); return; }
     if (pl && !pl.paddle && !pl.seat && this.near === 'mtb' && this.roomOK('cafe')) { this.enterRoom(pl, 'cafe'); return; }
     if (pl && !pl.paddle && this.near === 'den') { this.enterDen(pl); return; }
@@ -18995,6 +19007,14 @@
     this.unAlive(pl);
     var body = pl.body, head = pl.head, t = now / 1000, idle = pl.idle || 0, P = pl.g.position;
     var pose = null;
+    // Snow settles on your back when you stand about in it; set off again and you shake it off.
+    if (!pl.snowCoat) { pl.snowCoat = new T.Mesh(this.geo.box, this.mat('swan', 0)); pl.snowCoat.position.set(0, 0.105, -0.02); pl.snowCoat.scale.set(0.2, 0.001, 0.42); pl.snowCoat.castShadow = false; body.add(pl.snowCoat); pl.snowAmt = 0; }
+    var snowing = /snow|storm/.test(this.weatherNow || '') && this.season === 'winter' && !pl.inRoom && !pl.inDen && !pl.swim;
+    if (!moving && snowing) pl.snowAmt = Math.min(1, pl.snowAmt + dt / 14);
+    else if (pl.inRoom || pl.inDen || pl.swim) pl.snowAmt = Math.max(0, pl.snowAmt - dt / 3);
+    if (moving && pl.snowAmt > 0.3 && !(now < (pl.shakeUntil || 0))) { pl.shakeUntil = now + 900; if (!this.reduced) this.puff(P.x, P.y + 0.4, P.z, 8, 'snow', 0.2); pl.snowAmt = 0; }
+    else if (moving && pl.snowAmt > 0) pl.snowAmt = Math.max(0, pl.snowAmt - dt / 2);
+    pl.snowCoat.visible = pl.snowAmt > 0.02; pl.snowCoat.scale.y = 0.004 + pl.snowAmt * 0.03; pl.snowCoat.scale.x = 0.14 + pl.snowAmt * 0.08;
     // Out of the water: a good shake, nose to tail, spraying drops everywhere.
     if (pl.wasSwim && !pl.swim) { pl.shakeUntil = now + 950; if (!this.reduced) { this.puff(P.x, P.y + 0.35, P.z, 8, 'splash'); this.sfx('splash'); } }
     pl.wasSwim = !!pl.swim;
@@ -21677,6 +21697,29 @@
     var C = this.camDriftNow || (this.camDriftNow = { x: 0, y: 0 });
     cam.position.x += dx - C.x; cam.position.y += dy - C.y; C.x = dx; C.y = dy;
     if (idle) this.needsRender = true;
+  };
+  // ---- knock, knock: a friend comes to the door of their cabin ----
+  Town.prototype.knock = function (name) {
+    var f = this.st.friends[name], pl = this.player, self = this, now = performance.now();
+    if (!f || !f.group || now < (f.knockAt || 0)) return;
+    f.knockAt = now + 4000;
+    this.say('*knock knock*', pl.g, 1.0, 1.2); this.sfx('wood'); setTimeout(function () { self.sfx('wood'); }, 260);
+    var dv = new T.Vector3(0, 0.7, 0.85); f.group.localToWorld(dv);
+    var door = new T.Object3D(); door.position.copy(dv); this.scene.add(door);
+    var who = name.split(/\s*&\s*/), one = who[Math.floor(Math.random() * who.length)], last = this.st.last['friend:' + name], h = this.phase;
+    var lines = [
+      'come in, come in! kettle’s just boiled', 'oh hey! ' + f.n + ' workouts together and counting', 'the woodstove’s going, warm your paws',
+      'we were just talking about you', 'mind the boots by the door', 'cinnamon buns in the oven. stay a bit?'
+    ];
+    if (last && last.label) lines.push('still sore from ' + String(last.label).replace(/\s*(w\/|with).*$/i, '').toLowerCase() + '. thanks for that', 'same time next week?');
+    if (h === 'night' || h === 'dusk') lines = ['it’s late, raccoon! …fine, one cup of tea', 'we’re in our pyjamas!', 'shh, the dog’s asleep', 'saw the lights were out? come see, they’re back!'];
+    if (this.season === 'winter') lines.push('shut the door, you’re letting the cold in!', 'brr! get in here');
+    setTimeout(function () {
+      (self.fx && self.fx.bubbles || []).forEach(function (bb) { if (bb.obj !== pl.g && bb.t < bb.dur - 0.3) bb.t = bb.dur - 0.3; }); // (everyone else hushes)
+      self.say(one + ': ' + pickOne(lines), door, 0.6, 3.4);
+      self.puff(dv.x, dv.y + 0.2, dv.z, 2, 'steam', 0.08); // warm air out the door
+    }, 1100);
+    setTimeout(function () { self.scene.remove(door); }, 5200);
   };
   // ---- the far ranges: three rings of great snow-capped mountains round the edge of the world,
   // each farther one paler and bluer in the haze, the nearest dark with forest at its feet.
