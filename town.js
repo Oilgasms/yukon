@@ -13887,6 +13887,15 @@
       var ax = self.part(st, self.geo.box, self.mat('woodLight'), 0.025, 0.28, 0.025, -0.95, 0.32, 0.55, pick); ax.rotation.z = 0.5;
       self.part(st, self.geo.box, self.mat('silver'), 0.1, 0.05, 0.015, -1.02, 0.42, 0.55, pick);
       self.pop(st, delay);
+      // Christmas: lights along the eaves and a wreath on the door (December to Epiphany)
+      var xm = new T.Group(); xm.userData.xmas = true; g.add(xm);
+      var cols = ['#ff5a4a', '#ffd23a', '#4ac06a', '#4a8aff', '#ffffff'], bulbM = cols.map(function (c) { return new T.MeshBasicMaterial({ color: c }); });
+      // the bulbs follow the two sloping edges of the front gable (they ride up with the roof)
+      var xr = new T.Group(); f.roof.add(xr);
+      for (var bl = 0; bl <= 16; bl++) { var tt = bl / 16, side = tt < 0.5 ? -1 : 1, u = tt < 0.5 ? tt * 2 : (1 - tt) * 2, bb = new T.Mesh(self.geo.ballLo, bulbM[bl % cols.length]); bb.scale.setScalar(0.038); bb.position.set(side * 0.92 * (1 - u), 0.75 * u + 0.02, 0.86); bb.castShadow = false; xr.add(bb); }
+      var wr = self.part(xm, self.geo.torus, self.mat('pine', 0), 0.1, 0.1, 0.1, 0, 0.42, 0.74, pick); 
+      self.part(xm, self.geo.box, self.mat('flag', 0), 0.05, 0.05, 0.02, 0, 0.34, 0.745, pick);
+      f.xmas = xm; f.xmasRoof = xr; xm.visible = xr.visible = self.isXmas();
     });
     once('boxes', 3, function () {
       var box = new T.Group();
@@ -21709,11 +21718,13 @@
     cam.position.x += dx - C.x; cam.position.y += dy - C.y; C.x = dx; C.y = dy;
     if (idle) this.needsRender = true;
   };
+  Town.prototype.isXmas = function () { var t = this.today || ''; var m = +t.slice(5, 7), d = +t.slice(8, 10); return m === 12 || (m === 1 && d <= 6); };
   // ---- your friends out in their yards by day: splitting wood at the block, or rocking on the
   // porch once there is one; they call out as you pass, and head in when it gets dark ----
   Town.prototype.stepNeighbours = function (dt, now) {
     if (this.soft || !this.explore) return;
-    var N = this.neigh || (this.neigh = {}), F = this.st.friends, self = this, pl = this.player, out = !this.dark && !/rain|storm/.test(this.weatherNow || '');
+    var N = this.neigh || (this.neigh = {}), F = this.st.friends, self = this, pl = this.player, out = !this.dark && !/rain|storm/.test(this.weatherNow || ''), xmas = this.isXmas();
+    Object.keys(F).forEach(function (k) { var f = F[k]; if (f.xmas) { f.xmas.visible = xmas; f.xmasRoof.visible = xmas; if (xmas && !self.reduced) f.xmasRoof.children.forEach(function (b, i) { b.visible = Math.sin(now / 700 + i * 1.7) > -0.85; }); } }); // (a few twinkle)
     Object.keys(F).forEach(function (name, i) {
       var f = F[name]; if (!f.group || f.jo || f.tent || !f.built || !f.built.base) return;
       var n = N[name];
