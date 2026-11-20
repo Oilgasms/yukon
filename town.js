@@ -9133,7 +9133,7 @@
     }
     // (she stands on a step behind the bar, so she can see over it)
     P(this.geo.box, this.mat('wood', 1), bw - 0.3, 0.22, 0.5, 0, F + 0.11, -R.hz + 0.72);
-    var bk = this.makeMouse(0, 'barkeep'); bk.g.position.set(0.6, F + 0.22, -R.hz + 0.72); bk.g.scale.setScalar(1.5); D.g.add(bk.g); D.barkeep = bk; D.barX = bw / 2 - 0.8;
+    var bk = this.makeMouse(0, 'barkeep'); bk.g.position.set(0.6, F + 0.42, -R.hz + 0.72); bk.g.scale.setScalar(0.88); D.g.add(bk.g); D.barkeep = bk; D.barX = bw / 2 - 0.8; // (the same size as out in town, stood on a crate behind the bar)
     // The mug rack: a tankard for every friend you've trained with.
     P(this.geo.box, this.mat('logwood', 0), bw - 0.8, 0.08, 0.1, 0, F + 2.55, -R.hz + 0.1, bwall);
     friends.slice(0, Math.floor((bw - 1) / 0.22)).forEach(function (nm, i) {
@@ -9272,7 +9272,7 @@
     D.guests = [];
     here.slice(0, spots.length).forEach(function (m, i) {
       var sp = spots[i], v = self.makeMouse(m.k);
-      v.g.scale.setScalar(1.5); v.g.position.set(sp.x, F + (sp.sit ? sp.sit : 0), sp.z); v.g.rotation.y = sp.ry;
+      v.g.scale.setScalar(0.88); v.g.position.set(sp.x, F + (sp.sit ? sp.sit : 0), sp.z); v.g.rotation.y = sp.ry;
       if (sp.sit) { v.body.position.y = 0.06; v.legs.forEach(function (l) { l.rotation.x = -1.4; }); }
       if (kind === 'library') { var bk = new T.Group(); bk.position.set(0, 0.17, 0.09); v.body.add(bk); self.part(bk, self.geo.box, self.mat('flag', i + 2), 0.12, 0.08, 0.012, 0, 0, 0).rotation.x = -0.5; self.part(bk, self.geo.box, self.mat('plaster', 0), 0.11, 0.075, 0.014, 0, 0.004, 0.003).rotation.x = -0.5; v.arms.forEach(function (a) { a.rotation.x = -1.1; }); }
       if (kind === 'pub') { var pt = new T.Group(); pt.position.set(0, -0.12, 0.03); v.arms[1].add(pt); self.part(pt, self.geo.cyl6, self.mat('gold'), 0.03, 0.06, 0.03, 0, 0, 0); self.part(pt, self.geo.cyl6, self.mat('swan', 0), 0.031, 0.015, 0.031, 0, 0.035, 0); }
@@ -9691,7 +9691,7 @@
     D.spots.push({ k: 'counter', x: 0.4, z: cz + 0.8, r: 0.8 });
     // the barista, on a step behind the counter
     P(this.geo.box, MC('#5a3a22'), cw - 0.2, 0.22, 0.45, 0.4, F + 0.11, cz - 0.55);
-    var ba = this.makeMouse(7, null, true); ba.g.position.set(0.4, F + 0.22, cz - 0.55); ba.g.scale.setScalar(1.5); D.g.add(ba.g); D.barkeep = ba; D.barX = cw / 2 - 0.5;
+    var ba = this.makeMouse(7, null, true); ba.g.position.set(0.4, F + 0.4, cz - 0.55); ba.g.scale.setScalar(0.88); D.g.add(ba.g); D.barkeep = ba; D.barX = cw / 2 - 0.5;
     P(this.geo.box, MC('#2f7f7a'), 0.14, 0.14, 0.03, 0, 0.06, 0.055, ba.body); // her apron
     // the menu board above
     var mc = document.createElement('canvas'); mc.width = 256; mc.height = 128; var x = mc.getContext('2d');
@@ -14445,7 +14445,7 @@
     D.guests = [];
     for (var i = 0; i < 5; i++) {
       var a = -Math.PI / 2 + (i - 2) * 0.95, mx = Math.cos(a) * 1.2, mz = -0.3 - Math.sin(a) * 1.2;
-      var v = this.makeMouse(i + 3, null, true); v.g.scale.setScalar(1.9); v.g.position.set(mx, F + 0.1, mz); v.g.rotation.y = Math.atan2(-mx, -0.3 - mz); D.g.add(v.g);
+      var v = this.makeMouse(i + 3, null, true); v.g.scale.setScalar(0.88); v.g.position.set(mx, F + 0.1, mz); v.g.rotation.y = Math.atan2(-mx, -0.3 - mz); D.g.add(v.g);
       // a dark hooded cloak
       var cl = new T.Group(); cl.position.set(0, 0.04, 0); v.body.add(cl);
       self.part(cl, this.geo.cone, this.mcm('#2a2232'), 0.14, 0.32, 0.14, 0, 0.08, 0);
@@ -21814,7 +21814,7 @@
     people.forEach(function (who, i) {
       var sx = tx + (i ? 0.62 : -0.62), m = self.makeMouse(17 + i * 5 + who.length, null, true);
       if (m.g.parent) m.g.parent.remove(m.g);
-      m.g.position.set(R.x + sx, R.base + F + 0.25, R.z + tz); m.g.rotation.y = i ? -Math.PI / 2 : Math.PI / 2; m.g.scale.setScalar(1.15);
+      m.g.position.set(R.x + sx, R.base + F + 0.25, R.z + tz); m.g.rotation.y = i ? -Math.PI / 2 : Math.PI / 2; m.g.scale.setScalar(0.88);
       m.body.position.y = 0.06; m.legs.forEach(function (l) { l.rotation.x = -1.4; }); D.g.add(m.g);
       // a stool under each
       P(self.geo.cyl6, self.mat('logwood', i), 0.13, 0.3, 0.13, sx, F + 0.15, tz);
