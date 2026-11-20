@@ -15853,6 +15853,194 @@
     this.world.add(g);
     return { g: g, body: body, head: head, arms: arms, legs: legs, tail: tail, paper: paper, umbrella: umb, ghost: ghost, held: held, style: ST, name: name, phase: k, k: k, job: job };
   };
+  // ---- little things: the small, sweet moments layered over the townsfolk's day ----
+  // Hearts when a mouse waves at you, notes when one hums along, a skip of joy on a sunny walk,
+  // babies toddling after their mums, butterflies in summer, tongues out for snowflakes,
+  // sneezes, and sleepy z's drifting out of the houses at night.
+  Town.prototype.cuteTex = function (kind) {
+    var C = this.cuteTexs || (this.cuteTexs = {});
+    if (C[kind]) return C[kind];
+    var cv = document.createElement('canvas'); cv.width = cv.height = 64; var x = cv.getContext('2d');
+    x.lineJoin = 'round'; x.lineWidth = 4; x.strokeStyle = '#3a2418';
+    if (kind === 'heart') { x.fillStyle = '#e8607a'; x.beginPath(); x.moveTo(32, 54); x.bezierCurveTo(4, 34, 10, 8, 32, 22); x.bezierCurveTo(54, 8, 60, 34, 32, 54); x.fill(); x.stroke(); x.fillStyle = 'rgba(255,255,255,0.6)'; x.beginPath(); x.arc(21, 24, 5, 0, 7); x.fill(); }
+    else if (kind === 'note') { x.fillStyle = '#3a2418'; x.beginPath(); x.ellipse(22, 46, 10, 7, -0.4, 0, 7); x.fill(); x.fillRect(29, 12, 5, 34); x.beginPath(); x.moveTo(34, 12); x.quadraticCurveTo(50, 18, 46, 32); x.quadraticCurveTo(44, 22, 34, 22); x.fill(); }
+    else if (kind === 'z') { x.font = 'italic bold 44px Georgia'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#f4ead2'; x.strokeText('z', 32, 32); x.fillText('z', 32, 32); }
+    else if (kind === 'fly') { ['#f2a03a', '#f2c94c'].forEach(function (c, i) { x.fillStyle = c; x.beginPath(); x.ellipse(20, 24 + i * 16, 15 - i * 4, 11 - i * 3, i ? 0.5 : -0.3, 0, 7); x.fill(); x.stroke(); x.beginPath(); x.ellipse(44, 24 + i * 16, 15 - i * 4, 11 - i * 3, i ? -0.5 : 0.3, 0, 7); x.fill(); x.stroke(); }); x.fillStyle = '#3a2418'; x.fillRect(30, 18, 4, 30); }
+    else if (kind === 'flyb') { ['#7ab8e8', '#b8dcf4'].forEach(function (c, i) { x.fillStyle = c; x.beginPath(); x.ellipse(20, 24 + i * 16, 15 - i * 4, 11 - i * 3, i ? 0.5 : -0.3, 0, 7); x.fill(); x.stroke(); x.beginPath(); x.ellipse(44, 24 + i * 16, 15 - i * 4, 11 - i * 3, i ? -0.5 : 0.3, 0, 7); x.fill(); x.stroke(); }); x.fillStyle = '#3a2418'; x.fillRect(30, 18, 4, 30); }
+    var t = new T.CanvasTexture(cv); return (C[kind] = t);
+  };
+  Town.prototype.cuteCard = function (kind) {
+    var geo = this.cutePlane || (this.cutePlane = new T.PlaneGeometry(1, 1));
+    var m = new T.Mesh(geo, new T.MeshBasicMaterial({ map: this.cuteTex(kind), transparent: true, depthWrite: false, fog: false, side: T.DoubleSide, alphaTest: 0.05 }));
+    m.renderOrder = 5; m.frustumCulled = false; this.world.add(m); return m;
+  };
+  Town.prototype.floatUp = function (kind, x, y, z, o) {
+    o = o || {};
+    var F = this.floaties || (this.floaties = []);
+    if (F.length > 40) { var old = F.shift(); if (old.sp.parent) old.sp.parent.remove(old.sp); }
+    var sp = this.cuteCard(kind);
+    var s0 = o.size || 0.2; sp.scale.set(s0, s0, 1); sp.position.set(x, y, z);
+    F.push({ sp: sp, t: 0, life: o.life || 1.6, vy: o.vy || 0.35, sway: o.sway == null ? 0.08 : o.sway, ph: Math.random() * 6, s0: s0, x0: x, z0: z, grow: o.grow || 0.4 });
+  };
+  Town.prototype.stepCute = function (dt, now) {
+    if (this.soft || !this.world) return;
+    var self = this, s = this.st, folk = s.folk || [], day = !this.dark, wx = this.weatherNow, season = this.season;
+    var fine = day && !wx, P = this.explore && this.player && !this.player.inRoom ? this.player.g.position : null;
+    // the floaties themselves: rise, sway, swell a little, fade
+    var cq = this.camera.quaternion;
+    (this.floaties || []).slice().forEach(function (f) {
+      f.sp.quaternion.copy(cq); f.t += dt; var k = f.t / f.life;
+      if (k >= 1) { if (f.sp.parent) f.sp.parent.remove(f.sp); f.sp.material.dispose(); self.floaties.splice(self.floaties.indexOf(f), 1); return; }
+      f.sp.position.y += f.vy * dt; f.sp.position.x = f.x0 + Math.sin(f.t * 3 + f.ph) * f.sway;
+      var sc = f.s0 * (1 + k * f.grow) * Math.min(1, f.t * 6); f.sp.scale.set(sc, sc, 1);
+      f.sp.material.opacity = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+    });
+    folk.forEach(function (m, i) {
+      var g = m.g; if (!g || m.job) return;
+      var out = g.visible && m.state !== 'inside', p = g.position;
+      if (m.state === 'inside') m._in = true;
+      // a heart or two when one waves at you
+      if (m.greet > 2.3 && !m._hearted) { m._hearted = true; if (Math.random() < 0.45) { self.floatUp('heart', p.x, p.y + 0.55, p.z, { size: 0.2 }); setTimeout(function () { self.floatUp('heart', p.x + 0.1, p.y + 0.62, p.z, { size: 0.15 }); }, 250); } }
+      if (!(m.greet > 0)) m._hearted = false;
+      if (!out) { if (m.baby) m.baby.g.visible = false; return; }
+      // out the door in the morning: a quick sweep of the step first
+      if (m._in && (m.state === 'idle' || m.state === 'walk') && m.home && !m.char && day) { var hr = whitehorseClock().h; if (hr >= 7 && hr < 11 && Math.random() < 0.5) { m.choreNext = m.state; m.state = 'chore'; m.choreT = 6 + Math.random() * 3; } }
+      m._in = false;
+      if (m.state === 'chore') self.stepChore(m, dt, now);
+      // walking out together: the odd heart between them
+      if (m.state === 'pal' && m.lead && Math.random() < dt * 0.02) self.floatUp('heart', (p.x + m.lead.g.position.x) / 2, p.y + 0.6, (p.z + m.lead.g.position.z) / 2, { size: 0.16 });
+      // humming on a fine day
+      if (fine && m.state === 'walk' && !m.jogging && now > (m.humAt || 0) && Math.random() < dt * 0.012) {
+        m.humAt = now + 20000;
+        for (var n = 0; n < 3; n++) (function (n) { setTimeout(function () { if (g.visible) self.floatUp('note', g.position.x, g.position.y + 0.45, g.position.z, { size: 0.17, vy: 0.3, sway: 0.12 }); }, n * 450); })(n);
+      }
+      // a little skip of joy
+      if (fine && m.state === 'walk' && !m.jogging && !m.skip && now > (m.skipAt || 0) && Math.random() < dt * 0.01) { m.skipAt = now + 25000; m.skip = 0.001; }
+      if (m.skip) {
+        m.skip += dt; var sk = m.skip / 0.45;
+        if (sk >= 1 || m.state !== 'walk') m.skip = 0;
+        else { p.y += Math.sin(sk * Math.PI) * 0.1; m.arms.forEach(function (a) { a.rotation.x = -1.6 * Math.sin(sk * Math.PI); }); m.legs.forEach(function (l, j) { l.rotation.x = (j ? 0.5 : -0.5) * Math.sin(sk * Math.PI); }); }
+      }
+      // catching snowflakes while standing about
+      if (wx === 'snow' && (m.state === 'linger' || m.state === 'idle')) {
+        if (!m.flake && Math.random() < dt * 0.08) { m.flake = 1.8; if (Math.random() < 0.3) self.say(pickOne(['*catches a snowflake*', 'mm, tastes like winter', 'got one!']), g, 0.65, 1.5); }
+      }
+      if (m.flake) { m.flake -= dt; m.head.rotation.x = -0.55 * Math.min(1, m.flake, 1.8 - m.flake + 0.3); if (m.flake <= 0) { m.flake = 0; m.head.rotation.x = 0; } }
+      // a sneeze in the pollen or the cold
+      if ((season === 'spring' || season === 'winter') && now > (m.sneezeAt || 0) && Math.random() < dt * 0.003) {
+        m.sneezeAt = now + 60000; m.sneeze = 0.5; self.say(pickOne(['achoo!', '*achoo!*', 'a-a-achoo!']), g, 0.65, 1.2);
+      }
+      if (m.sneeze) { m.sneeze -= dt; m.body.rotation.x = m.sneeze > 0.3 ? -0.2 : 0.35 * (m.sneeze / 0.3); if (m.sneeze <= 0) { m.sneeze = 0; m.body.rotation.x = 0; } }
+      // the babies: two families have a little one toddling along behind
+      if ((i === 0 || i === 3) && !m.char && !self.reduced) self.stepBaby(m, dt, now, P);
+    });
+    // butterflies in spring and summer, fluttering round whoever's out
+    var bf = this.butterflies || (this.butterflies = []);
+    var wantB = fine && (season === 'summer' || season === 'spring') ? 4 : 0;
+    while (bf.length < wantB) { var spb = this.cuteCard(bf.length % 2 ? 'flyb' : 'fly'); spb.scale.set(0.16, 0.16, 1); this.world.add(spb); bf.push({ sp: spb, host: null, ph: Math.random() * 6 }); }
+    bf.forEach(function (b, j) {
+      if (j >= wantB) { b.sp.visible = false; return; }
+      if (!b.host || !b.host.g.visible || b.host.state === 'inside' || Math.random() < dt * 0.02) { var outF = folk.filter(function (m) { return m.g.visible && m.state !== 'inside' && !m.job; }); b.host = outF.length ? outF[Math.floor(Math.random() * outF.length)] : null; }
+      if (!b.host) { b.sp.visible = false; return; }
+      var hp = b.host.g.position, tt = now / 1000 + b.ph;
+      b.sp.visible = true; b.sp.quaternion.copy(cq);
+      b.sp.position.set(hp.x + Math.sin(tt * 1.3) * 0.35, hp.y + 0.55 + Math.sin(tt * 2.7) * 0.12, hp.z + Math.cos(tt * 1.1) * 0.35);
+      b.sp.scale.set(0.16 * (0.35 + 0.65 * Math.abs(Math.sin(tt * 14))), 0.16, 1); // wings beating
+    });
+    if (!this.reduced) this.stepChicks(dt, now, folk, P);
+    // sleepy z's drifting out of the houses at night
+    if ((this.dark || this.mouseNight()) && now > (this.zzzAt || 0)) {
+      this.zzzAt = now + 900;
+      var abed = folk.filter(function (m) { return m.state === 'inside' && m.home && !m.owl; });
+      if (abed.length) { var sl = abed[Math.floor(Math.random() * abed.length)], d0 = sl.home.door, gy0 = groundY(d0.x, d0.z);
+        if (!P || Math.hypot(P.x - d0.x, P.z - d0.z) < 40) [0, 1, 2].forEach(function (q) { setTimeout(function () { self.floatUp('z', d0.x + q * 0.06, gy0 + 1.3 + q * 0.05, d0.z, { size: 0.2 + q * 0.06, vy: 0.22, life: 2.4, sway: 0.15 }); }, q * 500); }); }
+    }
+  };
+  Town.prototype.stepChore = function (m, dt, now) {
+    var self = this;
+    if (!m.broom) {
+      var br = m.broom = new T.Group(); br.position.set(0, -0.12, 0.02); m.arms[1].add(br);
+      this.part(br, this.geo.cyl6, this.mat('logwood', 1), 0.012, 0.32, 0.012, 0, -0.02, 0);
+      this.part(br, this.geo.cone, this.mcm('#c9a85a'), 0.05, 0.09, 0.03, 0, -0.2, 0);
+    }
+    m.broom.visible = true; m.choreT -= dt;
+    var sw = Math.sin(now / 160);
+    m.arms[1].rotation.x = -0.5 + sw * 0.35; m.arms[1].rotation.z = sw * 0.3; m.arms[0].rotation.x = -0.6;
+    m.body.rotation.y = sw * 0.15; m.head.rotation.x = 0.3;
+    if (Math.random() < dt * 2) this.puff(m.g.position.x + Math.sin(m.g.rotation.y) * 0.2, m.g.position.y + 0.02, m.g.position.z + Math.cos(m.g.rotation.y) * 0.2, 1, 'dust', 0.1);
+    if (m.choreT <= 0 || m.greet > 0) {
+      m.broom.visible = false; m.arms.forEach(function (a) { a.rotation.x = 0; a.rotation.z = 0; }); m.body.rotation.y = 0; m.head.rotation.x = 0;
+      if (m.choreT <= 0 && Math.random() < 0.4) this.say(pickOne(['there, spick and span', 'lovely morning for it', 'the dust in this town!']), m.g, 0.65, 1.6);
+      m.state = m.choreNext || 'idle'; m.choreNext = null;
+    }
+  };
+  // chickadees hopping round anyone with a sandwich, pecking at the crumbs
+  Town.prototype.stepChicks = function (dt, now, folk, P) {
+    var self = this, C = this.chicks || (this.chicks = []);
+    if (!C.length) for (var i = 0; i < 3; i++) {
+      var g = new T.Group();
+      this.part(g, this.geo.blob, this.mcm('#e8e2d4'), 0.07, 0.06, 0.09, 0, 0.05, 0);
+      this.part(g, this.geo.blob, this.mcm('#2a2826'), 0.05, 0.045, 0.05, 0, 0.09, 0.04);
+      this.part(g, this.geo.ball, this.mcm('#f4f0e6'), 0.03, 0.025, 0.02, 0.022, 0.085, 0.05);
+      this.part(g, this.geo.ball, this.mcm('#f4f0e6'), 0.03, 0.025, 0.02, -0.022, 0.085, 0.05);
+      this.part(g, this.geo.cone, this.mcm('#3a3530'), 0.012, 0.03, 0.012, 0, 0.09, 0.085).rotation.x = Math.PI / 2;
+      this.part(g, this.geo.box, this.mcm('#5a5550'), 0.03, 0.01, 0.07, 0, 0.06, -0.08);
+      g.visible = false; this.world.add(g); C.push({ g: g, host: null, ph: i * 2.1, fly: 0 });
+    }
+    var eaters = this.dark || this.weatherNow ? [] : folk.filter(function (m) { return m.g.visible && (m.state === 'sit' || m.state === 'picnic') && m.hasLunch; });
+    C.forEach(function (c, i) {
+      if (!c.host || eaters.indexOf(c.host) < 0) { c.host = eaters[i % Math.max(1, eaters.length)] || null; c.fly = 0; }
+      if (!c.host) { c.g.visible = false; return; }
+      var hp = c.host.g.position, g = c.g;
+      if (!g.visible) { g.visible = true; c.x = hp.x + Math.cos(c.ph) * 0.5; c.z = hp.z + Math.sin(c.ph) * 0.5; }
+      // startled by a raccoon coming close: up and away for a bit
+      if (P && !c.fly && Math.hypot(P.x - c.x, P.z - c.z) < 0.8) c.fly = 2.5;
+      if (c.fly) { c.fly -= dt; g.position.y += dt * 2.5; g.rotation.y += dt * 4; if (c.fly <= 0) { c.fly = 0; g.visible = false; } return; }
+      // hop, hop, peck
+      var t = now / 1000 + c.ph, hopT = (t * 1.6) % 1;
+      if (Math.floor(t * 1.6) !== c.lastHop) { c.lastHop = Math.floor(t * 1.6); var a = c.ph + Math.sin(t * 0.7) * 2; c.tx = hp.x + Math.cos(a) * (0.35 + 0.2 * Math.sin(t)); c.tz = hp.z + Math.sin(a) * (0.35 + 0.2 * Math.sin(t)); }
+      c.x += (c.tx - c.x) * Math.min(1, dt * 6); c.z += (c.tz - c.z) * Math.min(1, dt * 6);
+      g.position.set(c.x, self.standY(c.x, c.z) + Math.max(0, Math.sin(hopT * Math.PI * 2)) * 0.04, c.z);
+      g.rotation.y = Math.atan2(hp.x - c.x, hp.z - c.z) + Math.sin(t * 3) * 0.6;
+      g.rotation.x = hopT > 0.6 ? 0.5 : 0; // pecking
+    });
+  };
+  Town.prototype.stepBaby = function (m, dt, now, P) {
+    var self = this, b = m.baby;
+    if (!b) {
+      b = m.baby = this.makeMouse(m.k + 40, null, true); b.g.scale.setScalar(0.5); b.hist = [];
+      b.g.position.copy(m.g.position); b.g.rotation.y = m.g.rotation.y;
+    }
+    var g = b.g, mp = m.g.position;
+    g.visible = true;
+    // follow a step behind and a little to the side, hurrying to keep up
+    var fwd = m.g.rotation.y, tx = mp.x - Math.sin(fwd) * 0.42 + Math.cos(fwd) * 0.14, tz = mp.z - Math.cos(fwd) * 0.42 - Math.sin(fwd) * 0.14;
+    if (m.state === 'sit' || m.state === 'picnic' || m.state === 'pub') { tx = mp.x + Math.cos(fwd) * 0.32; tz = mp.z - Math.sin(fwd) * 0.32; }
+    var dx = tx - g.position.x, dz = tz - g.position.z, d = Math.hypot(dx, dz);
+    if (d > 4) { g.position.set(tx, mp.y, tz); d = 0; }
+    var moving = d > 0.05;
+    if (moving) {
+      var sp = Math.min(d, dt * (0.9 + d * 2.2));
+      g.position.x += dx / d * sp; g.position.z += dz / d * sp;
+      var want = Math.atan2(dx, dz), dr = want - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 8);
+      b.phase += dt * 18;
+    }
+    g.position.y = this.standY ? this.standY(g.position.x, g.position.z) : groundY(g.position.x, g.position.z);
+    var sw = moving ? Math.sin(b.phase) : 0;
+    b.legs.forEach(function (l, i) { l.rotation.x = (i ? -sw : sw) * 0.8; });
+    b.body.position.y = 0.13 + Math.abs(sw) * 0.03;
+    // copying mum: when she waves, so does the little one; when she reads, it looks about
+    if (m.greet > 0) { b.arms[1].rotation.x = -2.6 + Math.sin(now / 70) * 0.5; b.arms[1].rotation.z = 0.3; if (P) g.rotation.y = Math.atan2(P.x - g.position.x, P.z - g.position.z); }
+    else { b.arms[1].rotation.z = 0; b.arms.forEach(function (a, i) { a.rotation.x = moving ? (i ? sw : -sw) * 0.6 : 0; }); }
+    if (!moving && b.head) b.head.rotation.y = Math.sin(now / 900 + m.k) * 0.7;
+    b.tail.rotation.y = Math.sin(now / 200) * 0.5;
+    // say hi if you come close
+    if (P && now > (b.hiAt || 0) && Math.hypot(P.x - g.position.x, P.z - g.position.z) < 1.0) {
+      b.hiAt = now + 25000;
+      this.say(pickOne(['hi raccoon!!', 'mum, look! a raccoon!', 'you’re SO big', 'can I pet your tail?', '*hides behind mum*', 'I found a pebble']), g, 0.45, 2.2);
+      if (Math.random() < 0.5) this.floatUp('heart', g.position.x, g.position.y + 0.35, g.position.z, { size: 0.15 });
+    }
+  };
   Town.prototype.stepMice = function (dt, now) {
     var s = this.st, self = this;
     if (this.soft) return;
@@ -17572,6 +17760,7 @@
       if (!this.reduced) {
         this.safe('dogs', function () { self.walkDogs(dt, now); });
         this.safe('mice', function () { self.stepMice(dt, now); });
+        this.safe('cute', function () { self.stepCute(dt, now); });
         this.safe('chairlift', function () { self.moveChairs(now); });
         this.safe('animals', function () { self.animateSecrets(dt, now); });
         this.safe('balloons', function () { self.st.bike.balloons.forEach(function (b) {
@@ -17581,7 +17770,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake', 'stepRegion', 'stepBreath', 'stepSpindrift', 'stepCamDrift', 'stepNeighbours'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake', 'stepRegion', 'stepBreath', 'stepSpindrift', 'stepCamDrift', 'stepNeighbours', 'stepQuest'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -19669,7 +19858,7 @@
   };
   // A little speech bubble over something: Woof!, z z Z, !
   Town.prototype.say = function (text, obj, yOff, dur, drift) {
-    if (this.soft) return;
+    if (this.soft || this.photo) return; // (no speech bubbles in photo mode)
     var F = this.fx || (this.fx = { bits: [], group: null }), bubbles = F.bubbles || (F.bubbles = []);
     // Not everyone talks at once: at most three others are chatting at a time, never two side by
     // side, though whoever you're right next to always gets their word in.
@@ -21650,6 +21839,7 @@
     var SUBS = { carcross: 'where Bennett Lake meets Nares Lake', skagway: 'the gateway to the Klondike', atlin: 'the little Switzerland of the north', dawson: 'city of gold', haines: 'on the Chilkat', hainesjct: 'at the foot of the St. Elias', watson: 'the sign post forest' };
     TOWNS.forEach(function (t, ci) { if (t && CASTLE_SITES[ci]) L.push({ name: t.name, sub: SUBS[t.key] || 'up the road', x: CASTLE_SITES[ci].x, z: CASTLE_SITES[ci].z, r: 22, town: true }); });
     L.push({ name: 'Whitehorse', sub: 'on the Yukon River', x: 0, z: 0, r: 46, town: true });
+    if (this.quest) { var q0 = this.quest.pts[3]; L.unshift({ name: 'The Yukon Quest', sub: 'a thousand miles to go', x: q0.x, z: q0.z, r: 9 }); }
     return (this.regionList = L);
   };
   Town.prototype.stepRegion = function (dt, now) {
@@ -21718,7 +21908,80 @@
     cam.position.x += dx - C.x; cam.position.y += dy - C.y; C.x = dx; C.y = dy;
     if (idle) this.needsRender = true;
   };
+  // A picture of what's on screen right now (drawn fresh, so the canvas still holds it).
+  Town.prototype.snapshot = function () { this.draw(); return this.canvas.toDataURL('image/png'); };
   Town.prototype.isXmas = function () { var t = this.today || ''; var m = +t.slice(5, 7), d = +t.slice(8, 10); return m === 12 || (m === 1 && d <= 6); };
+  // ---- the Yukon Quest: every February, dog teams race the road out of Whitehorse toward Dawson,
+  // bibs on the mushers, mice at the roadside cheering them off ----
+  Town.prototype.dogTeam = function (fur) {
+    var self = this, B = this.geo.box, team = new T.Group(), sled = new T.Group(); team.add(sled);
+    function P(par, geo, mat, sx, sy, sz, x, y, z) { return self.part(par, geo, mat, sx, sy, sz, x, y, z); }
+    [-0.16, 0.16].forEach(function (x) { P(sled, B, self.mat('wood'), 0.03, 0.03, 1.0, x, 0.04, 0); });
+    P(sled, B, self.mat('woodLight'), 0.36, 0.04, 0.7, 0, 0.12, 0.05); P(sled, B, self.mat('wood'), 0.36, 0.3, 0.04, 0, 0.27, -0.3);
+    P(sled, B, self.mcm(fur[0]), 0.3, 0.12, 0.4, 0, 0.2, 0.1);
+    var dogs = [0, 1, 2, 3, 4, 5].map(function (i) {
+      var d = new T.Group(), side = i % 2 ? 0.14 : -0.14, row = Math.floor(i / 2); d.position.set(side, 0, 0.75 + row * 0.5); team.add(d);
+      var f = self.mcm(fur[1 + (i % 3)]), pale = self.mcm('#efeae2'), body = new T.Group(); body.position.y = 0.17; d.add(body);
+      P(body, B, f, 0.12, 0.11, 0.3, 0, 0, 0); P(body, B, pale, 0.1, 0.04, 0.24, 0, -0.05, 0.01);
+      var head = new T.Group(); head.position.set(0, 0.07, 0.17); body.add(head);
+      P(head, B, f, 0.1, 0.09, 0.1, 0, 0, 0); P(head, B, pale, 0.06, 0.05, 0.08, 0, -0.02, 0.07); P(head, B, self.mat('swan', 2), 0.025, 0.02, 0.02, 0, -0.005, 0.11);
+      [-1, 1].forEach(function (sd) { P(head, self.geo.cone4, f, 0.025, 0.06, 0.02, sd * 0.03, 0.07, -0.01); });
+      var tl = P(body, B, f, 0.04, 0.04, 0.14, 0, 0.06, -0.17); tl.rotation.x = -0.9;
+      var legs = [[-0.04, 0.1], [0.04, 0.1], [-0.04, -0.1], [0.04, -0.1]].map(function (l) { var hip = new T.Group(); hip.position.set(l[0], 0.13, l[1]); d.add(hip); P(hip, B, f, 0.03, 0.12, 0.03, 0, -0.06, 0); return hip; });
+      return { d: d, legs: legs, ph: i * 0.8 };
+    });
+    P(team, B, self.mat('trunk'), 0.01, 0.01, 1.6, 0, 0.15, 1.1);
+    return { team: team, sled: sled, dogs: dogs };
+  };
+  Town.prototype.stepQuest = function (dt, now) {
+    if (this.soft || this.lite) return;
+    var t = this.today || '', on = +t.slice(5, 7) === 2 || this.questForce, Q = this.quest, self = this;
+    if (!on) { if (Q) Q.g.visible = false; return; }
+    if (!Q) {
+      var rd = CASTLE_ROADS[DAWSON]; if (!rd || rd.length < 4) return;
+      var pts = rd.slice(0, Math.min(rd.length, 160)), cum = [0];
+      for (var i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z));
+      var g = new T.Group(); this.scene.add(g);
+      var furs = [['#2f6fc0', '#8d857c', '#efeae2', '#5a5048'], ['#c8442a', '#c9c4bc', '#3a332e', '#a89a8a'], ['#e8b934', '#6f6a64', '#d9d2c8', '#4a4440']];
+      var teams = furs.map(function (fu, k) {
+        var T0 = self.dogTeam(fu); g.add(T0.team);
+        var musher = self.makeMouse(50 + k, 'hiker', false); if (musher.g.parent) musher.g.parent.remove(musher.g); T0.sled.add(musher.g); musher.g.position.set(0, 0.06, -0.38); musher.g.scale.setScalar(0.88);
+        var bib = document.createElement('canvas'); bib.width = 64; bib.height = 64; var bx = bib.getContext('2d'); bx.fillStyle = '#fff'; bx.fillRect(0, 0, 64, 64); bx.fillStyle = '#111'; bx.font = 'bold 40px Georgia'; bx.textAlign = 'center'; bx.fillText(String(k + 1), 32, 46);
+        var bm = new T.Mesh(self.geo.plane || (self.geo.plane = new T.PlaneGeometry(1, 1)), new T.MeshLambertMaterial({ map: new T.CanvasTexture(bib) })); bm.scale.setScalar(0.09); bm.position.set(0, 0.24, -0.05); bm.rotation.y = Math.PI; musher.body.add(bm);
+        return { T: T0, d: k * 6, sp: 2.6 - k * 0.15 };
+      });
+      // a banner at the start and mice cheering along the first stretch
+      var a = pts[2], b = pts[3], ang = Math.atan2(b.x - a.x, b.z - a.z), ban = new T.Group(); ban.position.set(a.x, groundY(a.x, a.z), a.z); ban.rotation.y = ang; g.add(ban);
+      [-1.3, 1.3].forEach(function (x) { self.part(ban, self.geo.cyl6, self.mat('logwood', 0), 0.06, 2.0, 0.06, x, 1.0, 0); });
+      var bc = document.createElement('canvas'); bc.width = 256; bc.height = 48; var bcx = bc.getContext('2d'); bcx.fillStyle = '#1d3a6a'; bcx.fillRect(0, 0, 256, 48); bcx.fillStyle = '#f2d27a'; bcx.font = 'bold 28px Georgia'; bcx.textAlign = 'center'; bcx.fillText('YUKON QUEST', 128, 34);
+      var bnm = new T.Mesh(self.geo.plane, new T.MeshLambertMaterial({ map: new T.CanvasTexture(bc), side: T.DoubleSide })); bnm.scale.set(2.6, 0.5, 1); bnm.position.y = 1.8; ban.add(bnm);
+      var fans = [];
+      for (var f = 0; f < 8; f++) {
+        var q = pts[3 + f], n2 = pts[4 + f], ux = n2.x - q.x, uz = n2.z - q.z, L = Math.hypot(ux, uz) || 1, sd = f % 2 ? 1 : -1;
+        var fx = q.x - uz / L * 1.6 * sd, fz = q.z + ux / L * 1.6 * sd, m = self.makeMouse(60 + f, null, true);
+        if (m.g.parent) m.g.parent.remove(m.g); g.add(m.g); m.g.scale.setScalar(0.88); m.g.position.set(fx, groundY(fx, fz), fz); m.g.rotation.y = Math.atan2(q.x - fx, q.z - fz); fans.push(m);
+      }
+      this.regionList = null;
+      Q = this.quest = { g: g, pts: pts, cum: cum, len: cum[cum.length - 1], teams: teams, fans: fans, cheerAt: 0 };
+    }
+    Q.g.visible = !(this.player && this.player.inRoom);
+    if (!Q.g.visible) return;
+    var tt = this.reduced ? 0 : now / 1000;
+    function at(dd) {
+      dd = ((dd % Q.len) + Q.len) % Q.len; var i = 1; while (i < Q.cum.length - 1 && Q.cum[i] < dd) i++;
+      var a = Q.pts[i - 1], b = Q.pts[i], u = (dd - Q.cum[i - 1]) / Math.max(1e-3, Q.cum[i] - Q.cum[i - 1]);
+      return { x: a.x + (b.x - a.x) * u, z: a.z + (b.z - a.z) * u, ry: Math.atan2(b.x - a.x, b.z - a.z) };
+    }
+    Q.teams.forEach(function (tm) {
+      tm.d += dt * tm.sp * (this.reduced ? 0 : 1);
+      var p = at(tm.d); tm.T.team.position.set(p.x, groundY(p.x, p.z), p.z); tm.T.team.rotation.y = p.ry;
+      tm.T.dogs.forEach(function (d) { var ph = tt * 15 + d.ph; d.legs.forEach(function (l, i) { l.rotation.x = Math.sin(ph + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.85; }); d.d.position.y = Math.abs(Math.sin(ph)) * 0.025; });
+    }, this);
+    Q.fans.forEach(function (m, i) { var j = Math.max(0, Math.sin(tt * 6 + i)); if (m.arms) m.arms.forEach(function (a, k) { a.rotation.x = -2.4 - (k ? j : -j) * 0.4; }); m.body.position.y = 0.13 + j * 0.03; });
+    var pl = this.player;
+    if (pl && now > Q.cheerAt && Q.fans[0] && pl.g.position.distanceTo(Q.fans[0].g.position) < 14) { Q.cheerAt = now + 6000; this.say(pickOne(['GO GO GO!', 'mush! mush!', 'number two, you’ve got this!', 'see you in Dawson!', 'hike! hike!']), pickOne(Q.fans).g, 0.7, 2.4); }
+    this.needsRender = true;
+  };
   // ---- your friends out in their yards by day: splitting wood at the block, or rocking on the
   // porch once there is one; they call out as you pass, and head in when it gets dark ----
   Town.prototype.stepNeighbours = function (dt, now) {
@@ -21858,6 +22121,135 @@
     P(this.geo.box, this.mat('wood'), 0.03, 1.0, 1.56, -R.hx + 0.02, F + 1.25, 0.6, D.walls[1].g);
     D.spots.push({ k: 'photos', x: -R.hx + 0.8, z: 0.6, r: 0.7 });
     D.cabin.mine = mine;
+    this.cabinGrowth(D, T0, f.n);
+  };
+  // The inside grows with the outside: every stage of a friend's cabin brings something in too.
+  Town.prototype.cabinGrowth = function (D, T0, n) {
+    var self = this, R = D.R, F = R.y, H = R.H, P = T0.P, MC = function (h) { return self.mcm(h); };
+    var front = D.walls[2].g, right = D.walls[3].g, back = D.walls[0].g, fz = R.hz - 0.06;
+    D.cabin.extras = [];
+    var has = function (k) { D.cabin.extras.push(k); };
+    // 3: a window by the door, with a box of flowers on the sill
+    if (n >= 3) {
+      var wx = -1.6;
+      P(this.geo.box, this.mat('logwood', 1), 0.9, 0.7, 0.06, wx, F + 1.35, fz, front);
+      var pane = P(this.geo.box, this.mat('wood'), 0.72, 0.54, 0.02, wx, F + 1.35, fz - 0.04, front); pane.material = new T.MeshBasicMaterial({ color: this.season === 'winter' ? '#c9d6e2' : '#bcd6d0' });
+      P(this.geo.box, this.mat('wood'), 0.04, 0.54, 0.03, wx, F + 1.35, fz - 0.06, front); P(this.geo.box, this.mat('wood'), 0.72, 0.04, 0.03, wx, F + 1.35, fz - 0.06, front);
+      P(this.geo.box, this.mat('wood'), 1.0, 0.05, 0.22, wx, F + 0.98, fz - 0.11, front);
+      ['#d8507a', '#f2c94c', '#8a6fd1'].forEach(function (c, i) {
+        P(self.geo.cyl6, MC('#b0603a'), 0.07, 0.1, 0.07, wx - 0.28 + i * 0.28, F + 1.06, fz - 0.12, front);
+        P(self.geo.blob, MC('#4f8a3a'), 0.09, 0.07, 0.09, wx - 0.28 + i * 0.28, F + 1.15, fz - 0.12, front);
+        P(self.geo.ball, MC(n >= 96 ? '#e8708a' : c), 0.04, 0.04, 0.04, wx - 0.28 + i * 0.28 + 0.02, F + 1.2, fz - 0.14, front);
+      });
+      has('window');
+    }
+    // 5: the sleeping loft over the back corner, a ladder up to it
+    if (n >= 5) {
+      var lx0 = -R.hx, lx1 = -R.hx + 1.3, lz0 = -R.hz, lz1 = -R.hz + 1.4, ly = F + H - 0.5, lp = T0.wallOf(lx0 + 0.3, lz0 + 0.2);
+      P(this.geo.box, this.mat('wood'), lx1 - lx0, 0.08, lz1 - lz0, (lx0 + lx1) / 2, ly, (lz0 + lz1) / 2, lp);
+      P(this.geo.box, this.mat('logwood', 0), 0.08, ly - F, 0.08, lx1 - 0.04, F + (ly - F) / 2, lz1 - 0.04, lp);
+      P(this.geo.box, this.mat('swan', 0), 0.9, 0.08, 0.5, (lx0 + lx1) / 2 - 0.1, ly + 0.08, lz0 + 0.45, lp);
+      for (var q = 0; q < 3; q++) P(this.geo.box, this.mat('flag', (q + 2) % 5), 0.32, 0.06, 0.5, lx0 + 0.25 + q * 0.32, ly + 0.07, lz0 + 0.9, lp);
+      var lad = new T.Group(); lad.position.set(lx1 + 0.25, F, lz1 - 0.35); lad.rotation.z = 0.22; lp.add(lad);
+      [-0.16, 0.16].forEach(function (z) { P(self.geo.box, self.mat('logwood', 1), 0.05, ly - F + 0.15, 0.05, 0, (ly - F + 0.15) / 2, z, lad); });
+      for (var r = 0; r < 5; r++) P(this.geo.box, this.mat('wood'), 0.04, 0.03, 0.34, 0, 0.3 + r * (ly - F - 0.2) / 5, 0, lad);
+      T0.block(lx1, lx1 + 0.4, lz1 - 0.6, lz1 - 0.1);
+      D.spots.push({ k: 'loft', x: lx1 + 0.7, z: lz1 - 0.35, r: 0.5 });
+      has('loft');
+    }
+    // 8: coat pegs and boots by the door
+    if (n >= 8) {
+      var px = 0.95;
+      P(this.geo.box, this.mat('wood'), 0.8, 0.07, 0.04, px, F + 1.55, fz - 0.03, front);
+      [['#a8322a', 0.35], ['#2f5a7a', 0.65]].forEach(function (c, i) {
+        P(self.geo.box, MC(c[0]), 0.22, 0.55, 0.06, px - 0.3 + i * 0.4, F + 1.25, fz - 0.07, front);
+        P(self.geo.box, MC('#1c1a18'), 0.22, 0.02, 0.065, px - 0.3 + i * 0.4, F + 1.3, fz - 0.07, front);
+      });
+      P(this.geo.blob, MC('#c9402e'), 0.1, 0.08, 0.1, px + 0.3, F + 1.62, fz - 0.07, front);
+      P(this.geo.ball, MC('#f2ece0'), 0.035, 0.035, 0.035, px + 0.3, F + 1.71, fz - 0.07, front);
+      [0, 0.16, 0.42, 0.58].forEach(function (x, i) { P(self.geo.box, MC(i < 2 ? '#5a3a22' : '#3a3530'), 0.09, 0.14, 0.2, px - 0.25 + x, F + 0.07, fz - 0.2, front); });
+      has('boots');
+    }
+    // 14: a workbench from the lean-to, tools hung above it
+    if (n >= 14) {
+      var bx = -R.hx + 0.35, bz = R.hz - 1.0;
+      P(this.geo.box, this.mat('wood'), 0.55, 0.06, 0.9, bx, F + 0.75, bz);
+      [[-0.22, -0.38], [0.22, -0.38], [-0.22, 0.38], [0.22, 0.38]].forEach(function (l) { P(self.geo.box, self.mat('logwood', 0), 0.05, 0.75, 0.05, bx + l[0], F + 0.375, bz + l[1]); });
+      P(this.geo.box, MC('#7a6a58'), 0.1, 0.04, 0.3, bx, F + 0.8, bz - 0.1);
+      P(this.geo.cyl6, MC('#8b5a2b'), 0.03, 0.22, 0.03, bx + 0.05, F + 0.8, bz + 0.2).rotation.z = Math.PI / 2;
+      var lw = D.walls[1].g;
+      P(this.geo.box, this.mat('wood'), 0.04, 0.5, 0.6, -R.hx + 0.03, F + 1.35, bz + 0.15, lw);
+      [[-0.05, '#6a6a70'], [0.15, '#8b5a2b'], [0.35, '#6a6a70']].forEach(function (t) { P(self.geo.box, MC(t[1]), 0.03, 0.32, 0.05, -R.hx + 0.06, F + 1.35, bz + t[0], lw); });
+      T0.block(bx - 0.3, bx + 0.3, bz - 0.47, bz + 0.47);
+      D.spots.push({ k: 'bench', x: bx + 0.6, z: bz, r: 0.5 });
+      has('bench');
+    }
+    // 18: bundles of herbs drying from a rafter
+    if (n >= 18) {
+      var hz = -0.75, hy = F + H - 0.18;
+      P(this.geo.box, this.mat('logwood', 1), R.hx * 1.6, 0.1, 0.1, 0.2, hy, hz);
+      for (var hb = 0; hb < 7; hb++) {
+        var hxp = -R.hx * 0.6 + 0.3 + hb * 0.42;
+        P(this.geo.cyl6, MC('#c9b48a'), 0.006, 0.18, 0.006, hxp, hy - 0.12, hz);
+        P(this.geo.cone, MC(['#6f8f4a', '#8aa05a', '#a07ab0', '#7a9a5a'][hb % 4]), 0.07, 0.18, 0.07, hxp, hy - 0.3, hz).rotation.x = Math.PI;
+      }
+      D.spots.push({ k: 'herbs', x: -0.6, z: hz - 0.05, r: 0.45 });
+      has('herbs');
+    }
+    // 26: antlers over the door, a paddle on the wall
+    if (n >= 26) {
+      var ay = F + Math.min(H - 0.2, 2.2);
+      P(this.geo.box, this.mat('wood'), 0.3, 0.18, 0.04, 0, ay, fz - 0.03, front);
+      [-1, 1].forEach(function (s) {
+        var a = P(self.geo.cyl6, MC('#e8dcc0'), 0.03, 0.42, 0.03, s * 0.2, ay + 0.12, fz - 0.06, front); a.rotation.z = -s * 1.0;
+        for (var t = 0; t < 3; t++) { var tn = P(self.geo.cyl6, MC('#e8dcc0'), 0.02, 0.14, 0.02, s * (0.18 + t * 0.09), ay + 0.2 + t * 0.04, fz - 0.06, front); tn.rotation.z = s * 0.2; }
+      });
+      var pdl = P(this.geo.box, MC('#b07a42'), 0.04, 1.3, 0.05, R.hx - 0.04, F + 1.3, 0.25, right); pdl.rotation.x = 0.25;
+      P(this.geo.box, MC('#b07a42'), 0.04, 0.4, 0.17, R.hx - 0.04, F + 0.78, 0.4, right).rotation.x = 0.25;
+      has('antlers');
+    }
+    // 30: the pantry shelf: jam, dried fish and a jar of berries
+    if (n >= 30) {
+      P(this.geo.box, this.mat('wood'), 1.3, 0.05, 0.25, -0.6, F + 1.12, -R.hz + 0.15, back);
+      for (var j = 0; j < 6; j++) {
+        P(this.geo.cyl6, MC(['#8a1f2e', '#4a2a5a', '#c87a2a'][j % 3]), 0.055, 0.13, 0.055, -1.1 + j * 0.2, F + 1.21, -R.hz + 0.15, back);
+        P(this.geo.cyl6, MC('#e8dcc0'), 0.058, 0.02, 0.058, -1.1 + j * 0.2, F + 1.285, -R.hz + 0.15, back);
+      }
+      for (var fi = 0; fi < 3; fi++) P(this.geo.blob, MC('#c06a3a'), 0.05, 0.16, 0.025, 0.2 + fi * 0.13, F + 1.85, -R.hz + 0.12, back);
+      D.spots.push({ k: 'pantry', x: -0.6, z: -R.hz + 0.8, r: 0.5 });
+      has('pantry');
+    }
+    // 46: a bookshelf by the armchair
+    if (n >= 46) {
+      var sx = R.hx - 0.22, sz = 0.45;
+      P(this.geo.box, this.mat('wood'), 0.3, 0.9, 0.5, sx, F + 0.45, sz);
+      for (var sh = 0; sh < 2; sh++) for (var bk = 0; bk < 5; bk++) P(this.geo.box, MC(['#7a2a2a', '#2a4a6a', '#5a6a2a', '#8a6a2a', '#4a2a4a'][(bk + sh) % 5]), 0.22, 0.24, 0.07, sx - 0.02, F + 0.3 + sh * 0.4, sz - 0.18 + bk * 0.09);
+      T0.block(sx - 0.17, R.hx, sz - 0.27, sz + 0.27);
+      has('books');
+    }
+    // 96: plants everywhere (the conservatory's overflow)
+    if (n >= 96) {
+      [[-R.hx + 0.3, R.hz - 0.3], [R.hx - 0.3, -0.95]].forEach(function (p) {
+        P(self.geo.cyl6, MC('#b0603a'), 0.12, 0.25, 0.12, p[0], F + 0.125, p[1]);
+        P(self.geo.blob, MC('#3f7a34'), 0.22, 0.3, 0.22, p[0], F + 0.42, p[1]);
+        T0.block(p[0] - 0.15, p[0] + 0.15, p[1] - 0.15, p[1] + 0.15);
+      });
+      has('plants');
+    }
+    // 120: a string of lights along the ceiling
+    if (n >= 120) { T0.bulbs(F + H - 0.08, 0.8); has('lights'); }
+    // December: a little spruce by the door, hung with lights
+    if (this.isXmas && this.isXmas()) {
+      var tx = -0.95, tz = R.hz - 0.55;
+      P(this.geo.cyl6, MC('#5a3a22'), 0.05, 0.2, 0.05, tx, F + 0.1, tz);
+      [[0.32, 0.45, 0.4], [0.24, 0.4, 0.72], [0.15, 0.32, 1.0]].forEach(function (c) { P(self.geo.cone, MC('#2f5a3a'), c[0], c[1], c[0], tx, F + c[2], tz); });
+      P(this.geo.ball, this.mat('gold'), 0.05, 0.05, 0.05, tx, F + 1.2, tz);
+      var lr = rng(7);
+      for (var li = 0; li < 9; li++) { var a = li * 2.3, hh = 0.3 + lr() * 0.8, rad = 0.3 * (1.25 - hh / 1.1); var bl = new T.Mesh(this.geo.ball, new T.MeshBasicMaterial({ color: ['#ffcf5a', '#ff6a5a', '#7ad0ff'][li % 3] })); bl.scale.setScalar(0.03); bl.position.set(tx + Math.cos(a) * rad, F + hh, tz + Math.sin(a) * rad); D.g.add(bl); }
+      T0.block(tx - 0.3, tx + 0.3, tz - 0.3, tz + 0.3);
+      D.spots.push({ k: 'xmastree', x: tx, z: tz - 0.6, r: 0.45 });
+      has('xmas');
+    }
   };
   Town.prototype.cabinUse = function (pl, k) {
     var D = this.st.room, C = D.cabin, self = this;
@@ -21870,6 +22262,11 @@
     if (k === 'stove') { this.say(pickOne(['*warms paws*', 'ahh, toasty', 'nothing like a woodstove']), pl.g, 1.0, 1.6); return true; }
     if (k === 'kettle') { var h2 = C.hosts[0]; this.say(h2.name + ': ' + pickOne(['milk? sugar?', 'Labrador tea, picked it myself', 'careful, it’s hot']), h2.m.g, 0.7, 2.6); if (this.carryItem) setTimeout(function () { self.carryItem(pl, 'coffee'); }, 900); return true; }
     if (k === 'photos') { var ph = C.mine.slice(-3).map(function (e) { return (e.day ? e.day + ': ' : '') + String(e.label || e.kind).replace(/\s*(w\/|with).*$/i, ''); }); this.say(ph.length ? ph.join(' · ') : 'lots of empty pins, waiting for photos', pl.g, 1.1, 4); return true; }
+    if (k === 'loft') { this.say(pickOne(['the loft, where the guests sleep', '*peeks up the ladder*', 'that quilt looks very warm']), pl.g, 1.0, 2); return true; }
+    if (k === 'bench') { var h3 = C.hosts[C.hosts.length - 1]; this.say(h3.name + ': ' + pickOne(['fixing a snowshoe binding', 'mind the chisel', 'making a new paddle for spring']), h3.m.g, 0.7, 2.6); return true; }
+    if (k === 'herbs') { this.say(pickOne(['*sniffs* yarrow and sage', 'Labrador tea, drying for winter', 'smells like summer up here']), pl.g, 1.0, 2); return true; }
+    if (k === 'pantry') { this.say(pickOne(['cranberry jam, rhubarb jam, saskatoon jam', 'dried salmon from the summer run', '*eyes the jam*']), pl.g, 1.0, 2.2); return true; }
+    if (k === 'xmastree') { var h4 = C.hosts[0]; this.say(h4.name + ': ' + pickOne(['cut it ourselves, off the trail', 'merry Christmas, raccoon', 'there might be something under there for you']), h4.m.g, 0.7, 2.8); return true; }
     if (k === 'table') { this.say(pickOne(['*nibbles some bannock*', 'mmm, saskatoon jam', '*steals a bannock*']), pl.g, 1.0, 1.6); return true; }
     return false;
   };
