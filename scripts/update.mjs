@@ -343,11 +343,21 @@ function parseNutrition(csv) {
     .filter((d) => d.kcal != null && d.kcal > 0).sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
+// Weather: what it's doing in Whitehorse right now, saved for when the page itself can't ask.
+async function weather() {
+  const j = await fetch('https://api.open-meteo.com/v1/forecast?latitude=60.72&longitude=-135.05&current=weather_code,temperature_2m,wind_speed_10m&timezone=America%2FWhitehorse').then((r) => r.json());
+  const c = j.current || {};
+  const wx = { at: new Date().toISOString(), code: c.weather_code ?? null, temp: c.temperature_2m ?? null, wind: c.wind_speed_10m ?? null };
+  await writeFile(new URL('weather.js', DATA), 'window.WX_SAVED = ' + JSON.stringify(wx) + ';\n');
+  return `${wx.temp}°C, code ${wx.code}`;
+}
+
 await step('Google Sheets', sheets);
 await step('Strava', strava);
 await step('Letterboxd', letterboxd);
 await step('Book lines', bookLines);
 await step('Covers', covers);
+await step('Weather', weather);
 await step('Cronometer', cronometer);
 await writeFile(new URL('status.json', DATA), JSON.stringify(status, null, 2) + '\n');
 if (['Google Sheets', 'Strava', 'Letterboxd'].every((k) => String(status[k]).startsWith('FAILED'))) process.exit(1);

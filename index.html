@@ -377,6 +377,10 @@ h2 { font-family: var(--display); font-weight: 400; }
 @media (prefers-reduced-motion: reduce) { .region, .fade { transition: none; } }
 /* photo mode: the interface away, letterbox bars in */
 body.photo .hud, body.photo #near, body.photo #act, body.photo .xpdrops, body.photo .stick, body.photo #tip { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.4s; }
+.frost { position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0; transition: opacity 6s ease;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(225,238,248,0.35) 78%, rgba(240,248,255,0.8) 100%);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.045' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.6 -0.35'/></filter><rect width='160' height='160' filter='url(%23f)'/></svg>"); mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.045' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.6 -0.35'/></filter><rect width='160' height='160' filter='url(%23f)'/></svg>"); }
+body.photo .frost { display: none; }
 .letterbox { position: fixed; left: 0; right: 0; height: 0; background: #0d0a07; z-index: 7; transition: height 0.5s ease; pointer-events: none; }
 .letterbox.top { top: 0; } .letterbox.bot { bottom: 0; }
 body.photo .letterbox { height: 9vh; }
@@ -540,6 +544,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
       <div class="set"><span><b>Trees</b><small>How the leafy crowns are drawn (reloads the town)</small></span><span id="slot-trees"></span></div>
       <div class="set"><span><b>Motion</b><small>Animals, weather and the camera drifting</small></span><span id="slot-motion"><button class="btn" id="motion" type="button" aria-pressed="true">Motion</button></span></div>
       <div class="set"><span><b>Sound</b><small>Footsteps, birds, bells and the wind</small></span><span id="slot-sound"><button class="btn" id="sound" type="button" aria-pressed="false">Sound: off</button></span></div>
+      <div class="set"><span><b>Music</b><small>A quiet guitar and fiddle that follows the time of day (needs Sound on)</small></span><span><button class="btn" id="music" type="button" aria-pressed="false">Music: off</button></span></div>
       <div class="set"><span><b>Camera</b><small>Back to the town, or a postcard of each town in turn</small></span><span id="slot-cam"><button class="btn" id="recenter" type="button">Recenter</button> <button class="btn" id="postcard" type="button" title="Jump to a postcard view of each town in turn">Postcard</button></span></div>
       <div class="set"><span><b>Records</b><small>Your sheet, Strava, reading log, films and food</small></span><span><button class="btn" type="button" id="open-records">Open</button></span></div>
     </div>
@@ -599,6 +604,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
 <div class="vignette" aria-hidden="true"></div>
   <div class="letterbox top"></div><div class="letterbox bot"></div>
   <div class="photo-hint" id="photo-hint">Photo mode &middot; drag to frame the shot &middot; <button type="button" id="photo-save">Save picture</button><button type="button" id="photo-exit">Done</button></div>
+<div class="frost" id="frost" aria-hidden="true"></div>
 <div class="card tip" id="tip" hidden></div>
 <div class="card near" id="near" hidden></div>
 <div class="stick" id="stick" hidden><i></i></div>
@@ -640,10 +646,11 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
 <script>// Always the latest saved Letterboxd diary, never a copy the browser remembers.
 document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');
-document.write('<script src="data/covers.js?v=' + Date.now() + '"><\/script>');</script>
+document.write('<script src="data/covers.js?v=' + Date.now() + '"><\/script>');
+document.write('<script src="data/weather.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v215';
+var BUILD = 'v216';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -748,11 +755,12 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     return { rise: noon - w, set: noon + w };
   }
   function phaseNow() {
-    var n = whitehorseNow(), t = sunTimes(n.doy), h = n.h;
+    var n = whitehorseNow(), t = sunTimes(n.doy), h = n.h, white = n.doy >= 140 && n.doy <= 205; // late May to late July: the white nights
     if (h >= t.rise - 0.75 && h < t.rise + 0.25) return 'dawn';
     if (h >= t.rise + 0.25 && h < t.set - 2) return 'day';
     if (h >= t.set - 2 && h < t.set) return 'golden'; // a long, lingering golden hour
     if (h >= t.set && h < t.set + 0.75) return 'dusk';
+    if (white) return h > 12 ? 'golden' : 'dawn'; // the sun only dips below the hills
     return 'night';
   }
   var PHASES = ['dawn', 'day', 'golden', 'dusk', 'night'], phasePreview = null;
@@ -783,19 +791,26 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     var snow = [0.4, 0.35, 0.3, 0.2, 0.05, 0, 0, 0, 0.03, 0.2, 0.35, 0.4][m], rain = [0, 0, 0, 0.03, 0.15, 0.2, 0.25, 0.25, 0.22, 0.12, 0, 0][m];
     return seed < snow ? ['snow', 'snowing in Whitehorse'] : seed < snow + rain ? ['rain', 'raining in Whitehorse'] : [null, 'clear in Whitehorse'];
   }
+  function savedWeather() {
+    var W = window.WX_SAVED; if (!W || W.code == null || Date.now() - Date.parse(W.at) > 18 * 3600000) return null;
+    if (town.setRealWx && !town.realWx) town.setRealWx(W);
+    var c = W.code, t = W.temp != null ? Math.round(W.temp) : null, kind = (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'snow' : (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95 ? 'rain' : null;
+    return [kind, (kind === 'snow' ? 'snowing' : kind === 'rain' ? 'raining' : 'clear') + ' in Whitehorse' + (t != null ? ', ' + t + '°C' : '')];
+  }
   function applyWhitehorse() {
     if (future) return;
-    var w = whWeather || climateWeather();
+    var w = whWeather || savedWeather() || climateWeather();
     town.lockWeather(w[0], w[1]);
   }
   function fetchWhitehorse() {
     var done = false, timer = setTimeout(function () { if (!done) { done = true; applyWhitehorse(); } }, 6000);
     try {
-      fetch('https://api.open-meteo.com/v1/forecast?latitude=' + WHX.lat + '&longitude=' + WHX.lon + '&current=weather_code,temperature_2m')
+      fetch('https://api.open-meteo.com/v1/forecast?latitude=' + WHX.lat + '&longitude=' + WHX.lon + '&current=weather_code,temperature_2m,wind_speed_10m')
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (done) return; done = true; clearTimeout(timer);
           var c = j && j.current ? j.current.weather_code : null, t = j && j.current ? Math.round(j.current.temperature_2m) : null;
+          if (j && j.current && town.setRealWx) town.setRealWx({ code: c, temp: j.current.temperature_2m, wind: j.current.wind_speed_10m, at: new Date().toISOString() });
           var kind = c == null ? undefined : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'snow' : (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95 ? 'rain' : null;
           if (kind !== undefined) whWeather = [kind, (kind === 'snow' ? 'snowing' : kind === 'rain' ? 'raining' : 'clear') + ' in Whitehorse' + (t != null ? ', ' + t + '°C' : '')];
           applyWhitehorse();
@@ -1093,6 +1108,8 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     var el = $('region'); el.classList.add('on'); clearTimeout(regionT);
     regionT = setTimeout(function () { el.classList.remove('on'); }, 3600);
   };
+  // frost creeping in at the edges on a properly cold day
+  town.onCold = function (lvl) { $('frost').style.opacity = String(Math.min(0.9, lvl)); };
   town.onFade = function () {
     var f = $('fade'), t0 = Date.now(); clearInterval(fadeT);
     f.style.opacity = '1';
@@ -1234,6 +1251,10 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   syncSoundButton();
   $('sound').addEventListener('click', function () { soundOn = !soundOn; lsSet(SOUND_KEY, soundOn ? '1' : ''); town.setSound(soundOn); syncSoundButton(); });
   if (soundOn) ['pointerdown', 'keydown'].forEach(function (ev) { addEventListener(ev, function first() { removeEventListener(ev, first); if (soundOn) town.setSound(true); }); });
+  var MUSIC_KEY = 'fittertown:music', musicOn = lsGet(MUSIC_KEY) !== '0';
+  function syncMusicButton() { town.musicOn = musicOn; $('music').setAttribute('aria-pressed', String(musicOn)); $('music').textContent = musicOn ? 'Music: on' : 'Music: off'; }
+  syncMusicButton();
+  $('music').addEventListener('click', function () { musicOn = !musicOn; lsSet(MUSIC_KEY, musicOn ? '1' : '0'); syncMusicButton(); });
   if (innerWidth < 640) $('ledger').open = false;
 
   // ---- ledger ----
