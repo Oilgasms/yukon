@@ -1863,7 +1863,7 @@
     var haze = HAZE[this.dark ? 'dusk' : 'day'][this.season];
     // The time of day shifts the light: low warm sun at golden hour, cool moonlight at night.
     var ph = this.phase || (this.dark ? 'dusk' : 'day');
-    if (ph === 'golden') { this.sun.color.set('#ffc47e'); this.sun.intensity = p.sunI * 0.9; this.sun.position.set(62, 22, -14); this.hemi.intensity = p.hemiI * 0.92; haze = '#f6c99c'; }
+    if (ph === 'golden') { this.sun.color.set('#ffc47e'); this.sun.intensity = p.sunI * 0.9; this.sun.position.set(66, 14, -14); this.hemi.intensity = p.hemiI * 0.92; haze = '#f6c99c'; }
     else if (ph === 'dawn') { this.sun.color.set('#ffb3a0'); this.sun.position.set(-58, 20, 30); haze = '#c99aa8'; }
     else if (ph === 'night') { this.sun.color.set('#b4c8d8'); this.sun.intensity = p.sunI * 0.45; this.hemi.intensity = p.hemiI * 0.82; this.hemi.color.set('#6f8aa6'); this.hemi.groundColor.set('#2a3a48'); haze = '#24364a'; }
     if (this.scene && this.scene.fog) this.scene.fog.color.set(haze);
@@ -2572,6 +2572,7 @@
     this.anims = [];
     // the Lean Month Garden lives in the world too: build it again once the town's back
     this.garden = null; this.gardenSpot = null; if (this.nutri) this.nutriDirty = true;
+    this.zombies = null; this.life = null; this.floaties = null; this.butterflies = null; this.chicks = null; // (they belong to the old world)
     this.scales = null; this.scalesDirty = true; this.tangle = null; this.camp = null; this.tangleDirty = true; this.societyStump = null;
     this.world = new T.Group();
     this.scene.add(this.world);
@@ -9184,6 +9185,7 @@
     D.light = inn ? { hemi: '#dba06a', ground: '#3a2214', i: 0.95 } : { hemi: '#d08e58', ground: '#331d10', i: 0.88 };
   };
   Town.prototype.enterRoom = function (pl, kind) {
+    this.sfx('creak', 0.9);
     if (this.onFade) this.onFade();
     if (!this.roomOK(kind)) return false;
     if (pl.seat) this.leaveSeat(pl);
@@ -9216,6 +9218,7 @@
     return true;
   };
   Town.prototype.leaveRoom = function (pl) {
+    this.sfx('creak', 0.9);
     if (this.onFade) this.onFade();
     var D = this.st.room, b = pl.roomBack, P = pl.g.position, ox = P.x, oy = P.y, oz = P.z;
     pl.inRoom = null; pl.roomSit = null; pl.napping = 0;
@@ -15544,6 +15547,30 @@
       friend: fav ? fav + ' (' + hearts[fav] + ' ♥)' : null
     };
   };
+  // What the town saw you do yesterday (and this morning), and a cheer when you've had a big week.
+  var NOTICED = {
+    run: ['saw you run past the bakery yesterday! you were flying', 'was that you running by the river yesterday?', 'my cousin saw you out running. said you looked very determined'],
+    xcski: ['saw your ski tracks on the trail this morning', 'you were gliding along yesterday! like a heron on skis'],
+    snowboard: ['saw you up the ski hill yesterday! very cool, very cool', 'did you take that jump yesterday? everyone’s talking'],
+    swim: ['you smell a bit like the pool, dear', 'saw you swimming yesterday. brave!'],
+    bike: ['saw you whizz by on your bike yesterday!', 'you nearly knocked my hat off on your bike yesterday, ha!'],
+    mtb: ['saw you bombing down the trail yesterday! mud everywhere', 'heard you had a fine ride in the hills'],
+    row: ['saw you rowing yesterday. stroke, stroke!'],
+    lift: ['heard you lifting heavy things yesterday. the windows rattled!', 'you look strong today. stronger than yesterday!'],
+    mobility: ['saw you stretching yesterday. I can’t touch my toes anymore', 'ooh, nice and limber today'],
+    commute: ['saw you ride to work yesterday. good on you'],
+    sport: ['heard you played {sport} yesterday! who won?', 'saw you playing {sport}! you were very fast']
+  };
+  Town.prototype.noticeLine = function () {
+    var s = this.st, t = this.today; if (!t || !s.byDay) return null;
+    // a cheer when you've had a big week
+    var active = 0; for (var i = 0; i < 7; i++) { var dk = new Date(Date.parse(t) - i * 864e5).toISOString().slice(0, 10); if ((s.byDay[dk] || []).some(function (e) { return !NOT_WORKOUTS[e.kind]; })) active++; }
+    if (active >= 5 && Math.random() < 0.4) return pickOne([active + ' days this week! the whole town’s talking', 'there goes our champion!', 'three cheers for the raccoon! hip hip!', 'you’re an inspiration, you know. I did a push-up', 'the Vancouverites wouldn’t dare come back now']);
+    var yest = new Date(Date.parse(t) - 864e5).toISOString().slice(0, 10), evs = (s.byDay[t] || []).concat(s.byDay[yest] || []).filter(function (e) { return NOTICED[e.kind]; });
+    if (!evs.length) return null;
+    var ev = pickOne(evs), line = pickOne(NOTICED[ev.kind]);
+    return line.replace('{sport}', String(ev.sport || 'a game').toLowerCase());
+  };
   Town.prototype.mouseRemark = function (m) {
     var s = this.st, t = this.today, ms = m && m.style;
     // Now and then a mouse just talks about their own life.
@@ -15565,6 +15592,8 @@
     var liftedToday = day.some(function (e) { return e.kind === 'lift'; });
     var lf = Math.random() < (liftedToday ? 0.55 : 0.3) ? this.liftLine(m) : null;
     if (lf) return lf;
+    var nt = Math.random() < 0.35 ? this.noticeLine() : null;
+    if (nt) return nt;
     var bk = Math.random() < 0.55 ? this.bookLine() : null;
     if (bk) return bk;
     var fm = Math.random() < 0.4 ? this.filmLine() : null;
@@ -15865,6 +15894,7 @@
     if (kind === 'heart') { x.fillStyle = '#e8607a'; x.beginPath(); x.moveTo(32, 54); x.bezierCurveTo(4, 34, 10, 8, 32, 22); x.bezierCurveTo(54, 8, 60, 34, 32, 54); x.fill(); x.stroke(); x.fillStyle = 'rgba(255,255,255,0.6)'; x.beginPath(); x.arc(21, 24, 5, 0, 7); x.fill(); }
     else if (kind === 'note') { x.fillStyle = '#3a2418'; x.beginPath(); x.ellipse(22, 46, 10, 7, -0.4, 0, 7); x.fill(); x.fillRect(29, 12, 5, 34); x.beginPath(); x.moveTo(34, 12); x.quadraticCurveTo(50, 18, 46, 32); x.quadraticCurveTo(44, 22, 34, 22); x.fill(); }
     else if (kind === 'z') { x.font = 'italic bold 44px Georgia'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#f4ead2'; x.strokeText('z', 32, 32); x.fillText('z', 32, 32); }
+    else if (kind === 'wisp') { var gr = x.createRadialGradient(32, 32, 0, 32, 32, 30); gr.addColorStop(0, 'rgba(255,255,255,0.42)'); gr.addColorStop(0.45, 'rgba(250,252,255,0.16)'); gr.addColorStop(1, 'rgba(250,252,255,0)'); x.fillStyle = gr; x.beginPath(); x.ellipse(32, 32, 31, 22, 0, 0, 7); x.fill(); }
     else if (kind === 'fly') { ['#f2a03a', '#f2c94c'].forEach(function (c, i) { x.fillStyle = c; x.beginPath(); x.ellipse(20, 24 + i * 16, 15 - i * 4, 11 - i * 3, i ? 0.5 : -0.3, 0, 7); x.fill(); x.stroke(); x.beginPath(); x.ellipse(44, 24 + i * 16, 15 - i * 4, 11 - i * 3, i ? -0.5 : 0.3, 0, 7); x.fill(); x.stroke(); }); x.fillStyle = '#3a2418'; x.fillRect(30, 18, 4, 30); }
     else if (kind === 'flyb') { ['#7ab8e8', '#b8dcf4'].forEach(function (c, i) { x.fillStyle = c; x.beginPath(); x.ellipse(20, 24 + i * 16, 15 - i * 4, 11 - i * 3, i ? 0.5 : -0.3, 0, 7); x.fill(); x.stroke(); x.beginPath(); x.ellipse(44, 24 + i * 16, 15 - i * 4, 11 - i * 3, i ? -0.5 : 0.3, 0, 7); x.fill(); x.stroke(); }); x.fillStyle = '#3a2418'; x.fillRect(30, 18, 4, 30); }
     var t = new T.CanvasTexture(cv); return (C[kind] = t);
@@ -15877,10 +15907,10 @@
   Town.prototype.floatUp = function (kind, x, y, z, o) {
     o = o || {};
     var F = this.floaties || (this.floaties = []);
-    if (F.length > 40) { var old = F.shift(); if (old.sp.parent) old.sp.parent.remove(old.sp); }
+    if (F.length > 90) { var old = F.shift(); if (old.sp.parent) old.sp.parent.remove(old.sp); }
     var sp = this.cuteCard(kind);
     var s0 = o.size || 0.2; sp.scale.set(s0, s0, 1); sp.position.set(x, y, z);
-    F.push({ sp: sp, t: 0, life: o.life || 1.6, vy: o.vy || 0.35, sway: o.sway == null ? 0.08 : o.sway, ph: Math.random() * 6, s0: s0, x0: x, z0: z, grow: o.grow || 0.4 });
+    F.push({ sp: sp, t: 0, life: o.life || 1.6, vy: o.vy || 0.35, sway: o.sway == null ? 0.08 : o.sway, ph: Math.random() * 6, s0: s0, x0: x, z0: z, grow: o.grow || 0.4, vx: o.vx || 0, vz: o.vz || 0, alpha: o.alpha || 1, rot: o.rot || 0 });
   };
   Town.prototype.stepCute = function (dt, now) {
     if (this.soft || !this.world) return;
@@ -15891,9 +15921,10 @@
     (this.floaties || []).slice().forEach(function (f) {
       f.sp.quaternion.copy(cq); f.t += dt; var k = f.t / f.life;
       if (k >= 1) { if (f.sp.parent) f.sp.parent.remove(f.sp); f.sp.material.dispose(); self.floaties.splice(self.floaties.indexOf(f), 1); return; }
+      var drag = 1 / (1 + f.t * 2); f.x0 += f.vx * dt * drag; f.z0 += f.vz * dt * drag; f.sp.position.z = f.z0; if (f.rot) f.sp.rotateZ(f.rot * f.t);
       f.sp.position.y += f.vy * dt; f.sp.position.x = f.x0 + Math.sin(f.t * 3 + f.ph) * f.sway;
       var sc = f.s0 * (1 + k * f.grow) * Math.min(1, f.t * 6); f.sp.scale.set(sc, sc, 1);
-      f.sp.material.opacity = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+      f.sp.material.opacity = f.alpha * (k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4);
     });
     folk.forEach(function (m, i) {
       var g = m.g; if (!g || m.job) return;
@@ -15906,6 +15937,7 @@
       // out the door in the morning: a quick sweep of the step first
       if (m._in && (m.state === 'idle' || m.state === 'walk') && m.home && !m.char && day) { var hr = whitehorseClock().h; if (hr >= 7 && hr < 11 && Math.random() < 0.5) { m.choreNext = m.state; m.state = 'chore'; m.choreT = 6 + Math.random() * 3; } }
       m._in = false;
+      self.stepPhones(m, dt, now);
       if (m.state === 'chore') self.stepChore(m, dt, now);
       // walking out together: the odd heart between them
       if (m.state === 'pal' && m.lead && Math.random() < dt * 0.02) self.floatUp('heart', (p.x + m.lead.g.position.x) / 2, p.y + 0.6, (p.z + m.lead.g.position.z) / 2, { size: 0.16 });
@@ -16004,6 +16036,237 @@
       g.rotation.y = Math.atan2(hp.x - c.x, hp.z - c.z) + Math.sin(t * 3) * 0.6;
       g.rotation.x = hopT > 0.6 ? 0.5 : 0; // pecking
     });
+  };
+  // ---- more life about town: ravens, red squirrels, a duck and her ducklings, ptarmigan in
+  // winter, and mouse kids playing tag on the square ----
+  Town.prototype.lifeBits = function () {
+    var self = this, L = { ravens: [], squirrels: [], ducks: [], ptarm: [], kids: [] };
+    function grp() { var g = new T.Group(); g.visible = false; self.world.add(g); return g; }
+    function P(g, geo, col, sx, sy, sz, x, y, z) { return self.part(g, geo, self.mcm(col), sx, sy, sz, x, y, z); }
+    for (var i = 0; i < 3; i++) {
+      var g = grp(), w = [];
+      P(g, this.geo.blob, '#1c1c22', 0.16, 0.13, 0.26, 0, 0.14, 0);
+      P(g, this.geo.ball, '#1c1c22', 0.1, 0.1, 0.1, 0, 0.24, 0.12);
+      P(g, this.geo.cone, '#3a3a40', 0.035, 0.09, 0.035, 0, 0.23, 0.2).rotation.x = Math.PI / 2;
+      P(g, this.geo.ball, '#d8d0b0', 0.015, 0.015, 0.015, 0.035, 0.26, 0.16); P(g, this.geo.ball, '#d8d0b0', 0.015, 0.015, 0.015, -0.035, 0.26, 0.16);
+      P(g, this.geo.box, '#1c1c22', 0.1, 0.02, 0.16, 0, 0.14, -0.18);
+      [-1, 1].forEach(function (sd) { var wg = new T.Group(); wg.position.set(sd * 0.07, 0.17, 0); g.add(wg); P(wg, self.geo.box, '#24242a', 0.2, 0.02, 0.14, sd * 0.1, 0, 0); w.push(wg); });
+      [-0.03, 0.03].forEach(function (x) { P(g, self.geo.cyl6, '#3a3a40', 0.012, 0.08, 0.012, x, 0.04, 0); });
+      var snack = P(g, this.geo.box, '#e8c070', 0.06, 0.03, 0.05, 0, 0.21, 0.22); snack.visible = false;
+      L.ravens.push({ g: g, wings: w, snack: snack, st: 'walk', t: 0, ph: i * 2.2, x: TOWN_SQ.x + (i - 1) * 3, z: TOWN_SQ.z + (i - 1) * 2 });
+    }
+    for (var j = 0; j < 3; j++) {
+      var sg = grp();
+      P(sg, this.geo.blob, '#a8502a', 0.1, 0.11, 0.14, 0, 0.09, 0);
+      P(sg, this.geo.blob, '#f0e2c8', 0.07, 0.08, 0.06, 0, 0.09, 0.05);
+      P(sg, this.geo.ball, '#a8502a', 0.08, 0.08, 0.08, 0, 0.17, 0.07);
+      P(sg, this.geo.ball, '#1a1210', 0.018, 0.018, 0.018, 0.03, 0.19, 0.1); P(sg, this.geo.ball, '#1a1210', 0.018, 0.018, 0.018, -0.03, 0.19, 0.1);
+      P(sg, this.geo.cone, '#a8502a', 0.025, 0.05, 0.02, 0.025, 0.23, 0.06); P(sg, this.geo.cone, '#a8502a', 0.025, 0.05, 0.02, -0.025, 0.23, 0.06);
+      var tail = new T.Group(); tail.position.set(0, 0.08, -0.07); sg.add(tail);
+      P(tail, this.geo.blob, '#b8603a', 0.08, 0.2, 0.07, 0, 0.1, -0.03);
+      var cone = P(sg, this.geo.cone, '#7a5030', 0.03, 0.05, 0.03, 0, 0.14, 0.12); cone.visible = false;
+      L.squirrels.push({ g: sg, tail: tail, cone: cone, st: 'sit', t: 1 + j, ph: j * 1.7, a: j * 2.1 });
+    }
+    var mom = grp();
+    P(mom, this.geo.blob, '#7a5a3a', 0.16, 0.1, 0.24, 0, 0.06, 0);
+    P(mom, this.geo.ball, '#4a3a2a', 0.09, 0.09, 0.09, 0, 0.16, 0.1);
+    P(mom, this.geo.box, '#e89a30', 0.05, 0.02, 0.06, 0, 0.15, 0.16);
+    P(mom, this.geo.box, '#5a7aa0', 0.08, 0.02, 0.06, 0.07, 0.08, -0.03);
+    L.ducks.push({ g: mom });
+    for (var d = 0; d < 4; d++) { var dg = grp(); P(dg, this.geo.blob, '#f2d660', 0.07, 0.05, 0.09, 0, 0.03, 0); P(dg, this.geo.ball, '#f2d660', 0.05, 0.05, 0.05, 0, 0.07, 0.04); P(dg, this.geo.box, '#e89a30', 0.025, 0.01, 0.03, 0, 0.065, 0.075); L.ducks.push({ g: dg }); }
+    for (var q = 0; q < 4; q++) {
+      var pg = grp();
+      P(pg, this.geo.blob, '#f6f4ee', 0.13, 0.11, 0.16, 0, 0.08, 0);
+      P(pg, this.geo.ball, '#f6f4ee', 0.08, 0.08, 0.08, 0, 0.16, 0.07);
+      P(pg, this.geo.box, '#d8402a', 0.04, 0.012, 0.012, 0.022, 0.19, 0.09); P(pg, this.geo.box, '#d8402a', 0.04, 0.012, 0.012, -0.022, 0.19, 0.09);
+      P(pg, this.geo.ball, '#1a1a1a', 0.015, 0.015, 0.015, 0.03, 0.17, 0.1); P(pg, this.geo.ball, '#1a1a1a', 0.015, 0.015, 0.015, -0.03, 0.17, 0.1);
+      P(pg, this.geo.cone, '#1a1a1a', 0.015, 0.025, 0.015, 0, 0.15, 0.12).rotation.x = Math.PI / 2;
+      L.ptarm.push({ g: pg, ph: q * 1.3, x: 0, z: 0, fly: 0 });
+    }
+    for (var k = 0; k < 3; k++) {
+      var km = this.makeMouse(60 + k * 7, null, true); km.g.scale.setScalar(0.55); km.g.visible = false;
+      L.kids.push({ m: km, x: TOWN_SQ.x + (k - 1), z: TOWN_SQ.z, vx: 0, vz: 0 });
+    }
+    L.it = 0; L.tagAt = 0;
+    return L;
+  };
+  Town.prototype.stepTownLife = function (dt, now) {
+    if (this.soft || !this.world) return;
+    var self = this, L = this.life || (this.life = this.lifeBits()), s = this.st, season = this.season, dark = this.dark || this.mouseNight();
+    var P = this.explore && this.player && !this.player.inRoom ? this.player.g.position : null, wx = this.weatherNow;
+    var folk = s.folk || [];
+    function yaw(g, dx, dz, k) { var w = Math.atan2(dx, dz), d = w - g.rotation.y; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; g.rotation.y += d * Math.min(1, dt * (k || 6)); }
+    function sqPt(m) { return { x: TOWN_SQ.x + (Math.random() * 2 - 1) * (TOWN_SQ.hx + m), z: TOWN_SQ.z + (Math.random() * 2 - 1) * (TOWN_SQ.hz + m) }; }
+    // ravens: strut about the square, croak, hop off from a raccoon, and pinch an unguarded sandwich
+    L.ravens.forEach(function (r, i) {
+      var g = r.g; g.visible = !dark || i === 0;
+      if (!g.visible) return;
+      if (!r.tx) { var q = sqPt(2); r.tx = q.x; r.tz = q.z; }
+      r.t -= dt;
+      if (r.st === 'fly') {
+        r.ft += dt / r.dur; var k = Math.min(1, r.ft);
+        r.x = r.fx + (r.tx - r.fx) * k; r.z = r.fz + (r.tz - r.fz) * k;
+        g.position.set(r.x, self.standY(r.x, r.z) + Math.sin(k * Math.PI) * 2.2, r.z); yaw(g, r.tx - r.fx, r.tz - r.fz, 10);
+        r.wings.forEach(function (w, j) { w.rotation.z = (j ? -1 : 1) * Math.sin(now / 60) * 0.9; });
+        if (k >= 1) { r.st = 'walk'; r.t = 3; r.wings.forEach(function (w) { w.rotation.z = 0; }); if (r.snack.visible && Math.random() < 0.5) r.snack.visible = false; }
+        return;
+      }
+      // a mouse with lunch and nobody looking? worth a try
+      var mark = !dark && folk.filter(function (m) { return m.hasLunch && m.g.visible && (m.state === 'sit' || m.state === 'picnic'); })[0];
+      if (mark && !r.snack.visible && now > (r.thiefAt || 0)) { r.tx = mark.g.position.x + 0.25; r.tz = mark.g.position.z + 0.25; r.mark = mark; }
+      var dx = r.tx - r.x, dz = r.tz - r.z, d = Math.hypot(dx, dz);
+      if (P && Math.hypot(P.x - r.x, P.z - r.z) < 1.1) { var a = Math.random() * 6.28; r.fx = r.x; r.fz = r.z; r.tx = r.x + Math.cos(a) * 4; r.tz = r.z + Math.sin(a) * 4; r.st = 'fly'; r.ft = 0; r.dur = 1.4; self.say('kraa!', g, 0.5, 1); return; }
+      if (d > 0.1) {
+        // the raven's hop-hop walk
+        var hop = (now / 300 + r.ph) % 1; r.x += dx / d * Math.min(d, dt * 0.7); r.z += dz / d * Math.min(d, dt * 0.7);
+        g.position.set(r.x, self.standY(r.x, r.z) + Math.max(0, Math.sin(hop * Math.PI * 2)) * 0.05, r.z); yaw(g, dx, dz); g.rotation.x = 0;
+      } else {
+        g.position.set(r.x, self.standY(r.x, r.z), r.z); g.rotation.x = Math.sin(now / 250 + r.ph) > 0.7 ? 0.5 : 0; // pecking
+        if (r.mark && r.mark.hasLunch) {
+          var vm = r.mark; r.mark = null; r.thiefAt = now + 90000;
+          vm.hasLunch = false; if (vm.lunch) vm.lunch.visible = false; r.snack.visible = true;
+          self.say(pickOne(['hey! my sandwich!', 'oi! you rascal!', 'that was MY lunch!']), vm.g, 0.65, 2.2);
+          r.fx = r.x; r.fz = r.z; var a2 = Math.random() * 6.28; r.tx = r.x + Math.cos(a2) * 7; r.tz = r.z + Math.sin(a2) * 7; r.st = 'fly'; r.ft = 0; r.dur = 2.2;
+          setTimeout(function () { self.say('kraa kraa!', g, 0.5, 1.2); }, 400); return;
+        }
+        if (r.t <= 0) { r.t = 2 + Math.random() * 5; var q2 = sqPt(2); r.tx = q2.x; r.tz = q2.z; if (Math.random() < 0.3) self.say(pickOne(['kraa', 'gronk', '*tok tok*']), g, 0.5, 1); if (Math.random() < 0.15) { r.fx = r.x; r.fz = r.z; r.st = 'fly'; r.ft = 0; r.dur = 2; } }
+      }
+    });
+    // red squirrels: dash, stop, sit up and nibble a cone, chatter at the raccoon
+    L.squirrels.forEach(function (q, i) {
+      var g = q.g; g.visible = !dark && wx !== 'rain';
+      if (!g.visible) return;
+      if (q.x == null) { q.a += 0; q.x = TOWN_SQ.x + Math.cos(q.a) * (TOWN_SQ.hx + 2.5); q.z = TOWN_SQ.z + Math.sin(q.a) * (TOWN_SQ.hz + 2.5); q.tx = q.x; q.tz = q.z; }
+      q.t -= dt;
+      if (P && Math.hypot(P.x - q.x, P.z - q.z) < 1.4 && q.st !== 'dash') { if (now > (q.chatAt || 0)) { q.chatAt = now + 12000; self.say(pickOne(['chk-chk-chk!', '*chitters crossly*', 'tsk tsk tsk!']), g, 0.35, 1.4); } var a = Math.atan2(q.z - P.z, q.x - P.x); q.tx = q.x + Math.cos(a) * 3; q.tz = q.z + Math.sin(a) * 3; q.st = 'dash'; }
+      if (q.st === 'dash') {
+        var dx = q.tx - q.x, dz = q.tz - q.z, d = Math.hypot(dx, dz);
+        if (d < 0.08) { q.st = 'sit'; q.t = 2 + Math.random() * 4; }
+        else { q.x += dx / d * Math.min(d, dt * 3.2); q.z += dz / d * Math.min(d, dt * 3.2); yaw(g, dx, dz, 12); }
+        var b = Math.abs(Math.sin(now / 70 + q.ph)); g.position.set(q.x, self.standY(q.x, q.z) + b * 0.05, q.z); g.rotation.x = 0.2; q.cone.visible = false;
+        q.tail.rotation.x = -0.6 + b * 0.3;
+      } else {
+        g.position.set(q.x, self.standY(q.x, q.z), q.z); g.rotation.x = -0.35; q.cone.visible = true; // sat up, nibbling
+        q.cone.rotation.y = now / 200; q.tail.rotation.x = 0.2 + Math.sin(now / 400 + q.ph) * 0.15;
+        if (q.t <= 0) { q.a += (Math.random() - 0.5) * 1.6; var R = 2 + Math.random() * 2; q.tx = TOWN_SQ.x + Math.cos(q.a) * (TOWN_SQ.hx + R); q.tz = TOWN_SQ.z + Math.sin(q.a) * (TOWN_SQ.hz + R); q.st = 'dash'; }
+      }
+    });
+    // the duck and her ducklings, out on the lake from spring to fall
+    var duckOn = season !== 'winter' && !dark;
+    L.ducks.forEach(function (d, i) {
+      d.g.visible = duckOn; if (!duckOn) return;
+      var lag = i * 0.32, tt = now / 9000 - lag * 0.25, rr = LAKE.R * 0.55 + Math.sin(tt * 2.3) * 0.8;
+      var x = LAKE.c.x + Math.cos(tt) * rr, z = LAKE.c.z + Math.sin(tt) * rr;
+      if (i) { x += Math.sin(now / 400 + i) * 0.04; }
+      d.g.position.set(x, LAKE.y + 0.15 + Math.sin(now / 500 + i) * 0.01, z);
+      d.g.rotation.y = Math.atan2(-Math.sin(tt), Math.cos(tt)) + Math.PI; d.g.rotation.z = Math.sin(now / 600 + i) * 0.06;
+      if (!i && P && Math.hypot(P.x - x, P.z - z) < 4 && now > (L.quackAt || 0)) { L.quackAt = now + 15000; self.say('quack!', d.g, 0.4, 1.2); setTimeout(function () { L.ducks.slice(1, 3).forEach(function (dl, j) { setTimeout(function () { self.say('peep!', dl.g, 0.3, 0.9); }, j * 300); }); }, 700); }
+    });
+    // ptarmigan in their white winter coats, waddling near the lake shore; they freeze, then burst away
+    var ptOn = season === 'winter' && !this.dark;
+    L.ptarm.forEach(function (b, i) {
+      b.g.visible = ptOn; if (!ptOn) return;
+      if (!b.x) { var a0 = 0.6 + i * 0.35, e0 = LAKE.R * 1.5 + 2; b.x = LAKE.c.x + Math.cos(a0) * e0; b.z = LAKE.c.z + Math.sin(a0) * e0; b.hx = b.x; b.hz = b.z; }
+      var dp = P ? Math.hypot(P.x - b.x, P.z - b.z) : 99;
+      if (b.fly > 0) { b.fly -= dt; b.x += b.vx * dt; b.z += b.vz * dt; b.g.position.set(b.x, self.standY(b.x, b.z) + Math.sin((1.6 - b.fly) / 1.6 * Math.PI) * 1.2, b.z); if (b.fly <= 0) { b.hx = b.x; b.hz = b.z; } return; }
+      if (dp < 0.9) { var a = Math.atan2(b.z - P.z, b.x - P.x) + (Math.random() - 0.5); b.vx = Math.cos(a) * 3; b.vz = Math.sin(a) * 3; b.fly = 1.6; b.g.rotation.y = Math.atan2(b.vx, b.vz); if (!i) self.say('*whirr of wings*', b.g, 0.4, 1.2); return; }
+      if (dp < 2.2) { b.g.rotation.x = 0; b.g.position.y = self.standY(b.x, b.z); return; } // freeze, hoping not to be seen
+      var tt = now / 1500 + b.ph, tx = b.hx + Math.cos(tt * 0.5) * 0.6, tz = b.hz + Math.sin(tt * 0.4) * 0.6, dx = tx - b.x, dz = tz - b.z;
+      b.x += dx * dt * 0.8; b.z += dz * dt * 0.8; yaw(b.g, dx, dz);
+      b.g.position.set(b.x, self.standY(b.x, b.z), b.z); b.g.rotation.z = Math.sin(now / 150 + b.ph) * 0.12; // the waddle
+      b.g.rotation.x = Math.sin(now / 700 + b.ph) > 0.8 ? 0.4 : 0;
+    });
+    // mouse kids playing tag on the square
+    var play = !dark && !wx && !this.pubNight();
+    L.kids.forEach(function (c, i) {
+      var m = c.m, g = m.g; g.visible = play; if (!play) return;
+      var it = L.kids[L.it], speed;
+      if (c === it) { var near = null, nd = 1e9; L.kids.forEach(function (o) { if (o === c || now < (o.safe || 0)) return; var dd = Math.hypot(o.x - c.x, o.z - c.z); if (dd < nd) { nd = dd; near = o; } }); if (near) { c.tx = near.x; c.tz = near.z; } speed = 1.7;
+        if (near && nd < 0.25 && now > L.tagAt) { L.tagAt = now + 1500; L.it = L.kids.indexOf(near); near.safe = 0; c.safe = now + 2500; self.say(pickOne(['tag! you’re it!', 'got you!', 'tag!']), g, 0.4, 1.2); setTimeout(function () { self.say(pickOne(['no fair!', 'hee hee!', 'aww!']), near.m.g, 0.4, 1.0); }, 500); } }
+      else { var ax = c.x - it.x, az = c.z - it.z, ad = Math.hypot(ax, az) || 1; c.tx = c.x + ax / ad * 1.5 + Math.sin(now / 700 + i) * 0.8; c.tz = c.z + az / ad * 1.5 + Math.cos(now / 900 + i) * 0.8; speed = ad < 2.5 ? 1.5 : 0.4; }
+      c.tx = Math.max(TOWN_SQ.x - TOWN_SQ.hx + 0.6, Math.min(TOWN_SQ.x + TOWN_SQ.hx - 0.6, c.tx)); c.tz = Math.max(TOWN_SQ.z - TOWN_SQ.hz + 0.6, Math.min(TOWN_SQ.z + TOWN_SQ.hz - 0.6, c.tz));
+      var dx = c.tx - c.x, dz = c.tz - c.z, d = Math.hypot(dx, dz);
+      if (d > 0.05) { c.x += dx / d * Math.min(d, dt * speed); c.z += dz / d * Math.min(d, dt * speed); yaw(g, dx, dz, 10); m.phase += dt * speed * 14; }
+      g.position.set(c.x, self.standY(c.x, c.z), c.z);
+      var sw = d > 0.05 ? Math.sin(m.phase) : 0;
+      m.legs.forEach(function (l, j) { l.rotation.x = (j ? -sw : sw) * 0.9; });
+      m.arms.forEach(function (a, j) { a.rotation.x = (j ? sw : -sw) * 0.8 - (c === it ? 0.6 : 0); });
+      m.body.position.y = 0.13 + Math.abs(sw) * 0.04;
+      if (Math.random() < dt * 0.02 && now > (c.gigAt || 0)) { c.gigAt = now + 9000; self.say(pickOne(['hee hee!', 'can’t catch me!', 'too slow!', '*giggles*']), g, 0.4, 1.0); }
+    });
+  };
+  // ---- keeping up with things: how long since you last worked out, or finished a book ----
+  Town.prototype.idleDays = function () {
+    var s = this.st, t = this.today; if (!t || !s.byDay) return 0;
+    if (this.idleForce != null) return this.idleForce;
+    var days = Object.keys(s.byDay).filter(function (d) { return d <= t && s.byDay[d].some(function (e) { return !NOT_WORKOUTS[e.kind]; }); }).sort();
+    if (!days.length) return 0;
+    return Math.max(0, Math.round((Date.parse(t) - Date.parse(days[days.length - 1])) / 864e5));
+  };
+  Town.prototype.bookDays = function () {
+    var s = this.st, t = this.today; if (this.bookForce != null) return this.bookForce;
+    if (!t || !s.lastBookDate) return 0;
+    return Math.max(0, Math.round((Date.parse(t) - Date.parse(s.lastBookDate)) / 864e5));
+  };
+  var ZOMBIE_LINES = ['is there a Starbucks around here?', 'no signal?! how do you people LIVE', '*scrolling*', 'oat milk latte, extra hot, half sweet…', 'is it always this cold?', 'does this town have an app?', 'brb, posting this', 'I’m only here for the content', 'ugh. gravel.', 'my rain shell was six hundred dollars', 'the sushi is better in Kits', 'wait, it’s not raining? weird', 'where do you even get a matcha here', 'can I expense this trip?', 'sorry, are you in the shot?', 'my Uber says nine hours away', '*holds phone up for one bar*', 'is that, like, a real raccoon?'];
+  var ZOMBIE_FLEE = ['ew, a raccoon!', 'omg it’s feral', 'don’t touch my bag!', 'is it rabid??', 'okay okay I’m going'];
+  Town.prototype.stepZombies = function (dt, now) {
+    if (this.soft || !this.world) return;
+    var self = this, d = this.idleDays(), want = d < 7 ? 0 : Math.min(14, 2 + Math.floor((d - 7) * 1.5));
+    var Z = this.zombies || (this.zombies = []), P = this.explore && this.player && !this.player.inRoom ? this.player.g.position : null;
+    // the first time you see them, a title card says why they're here
+    if (want && P && !this.zombieWarned) { this.zombieWarned = true; if (this.onRegion) this.onRegion('The Vancouverites Have Come', d + ' days since your last workout. Go and sweat them out of town.'); }
+    while (Z.length < want) {
+      var k = Z.length, m = this.makeMouse(200 + k * 3, null, true), g = m.g;
+      // puffer jacket, toque, phone in hand, a fancy coffee in the other
+      var jk = ['#2a2a2e', '#6a7a4a', '#4a8ac0', '#c8402a', '#e8e4dc', '#8a6ab0'][k % 6];
+      this.part(m.body, this.geo.blob, this.mcm(jk), 0.2, 0.19, 0.17, 0, 0.03, -0.005);
+      for (var r = 0; r < 3; r++) this.part(m.body, this.geo.cyl, this.mcm(jk), 0.205 - r * 0.012, 0.01, 0.175 - r * 0.01, 0, -0.04 + r * 0.045, -0.005);
+      this.part(m.body, this.geo.cyl, this.mcm(jk), 0.12, 0.04, 0.11, 0, 0.12, 0); // the collar
+      if (m.head) { if (k % 3 !== 1) this.part(m.head, this.geo.blob, this.mcm(['#1a1a1a', '#8a8a8a', '#c8b8a0'][k % 3]), 0.11, 0.06, 0.11, 0, 0.075, -0.01); if (k % 2) { this.part(m.head, this.geo.box, this.mcm('#111'), 0.05, 0.025, 0.02, 0.03, 0.025, 0.075); this.part(m.head, this.geo.box, this.mcm('#111'), 0.05, 0.025, 0.02, -0.03, 0.025, 0.075); } }
+      var ph = new T.Group(); ph.position.set(0, -0.13, 0.04); m.arms[1].add(ph);
+      this.part(ph, this.geo.box, this.mcm('#111'), 0.05, 0.08, 0.012, 0, 0, 0);
+      var scr = new T.Mesh(this.geo.box, this.zScreen || (this.zScreen = new T.MeshBasicMaterial({ color: '#9ad0ff' }))); scr.scale.set(0.04, 0.065, 0.004); scr.position.z = 0.008; ph.add(scr);
+      if (k % 3 !== 2) { var cup = new T.Group(); cup.position.set(0, -0.14, 0.02); m.arms[0].add(cup); this.part(cup, this.geo.cyl6, this.mcm('#f2ece0'), 0.035, 0.08, 0.035, 0, 0, 0); this.part(cup, this.geo.cyl6, this.mcm('#3a6a4a'), 0.037, 0.025, 0.037, 0, 0, 0); this.part(cup, this.geo.cyl6, this.mcm('#2a2a2a'), 0.033, 0.012, 0.033, 0, 0.045, 0); }
+      var a = Math.random() * 6.28, rr = 3 + Math.random() * 12;
+      Z.push({ m: m, x: TOWN_SQ.x + Math.cos(a) * rr, z: TOWN_SQ.z + Math.sin(a) * rr, t: Math.random() * 3, ph: Math.random() * 6 });
+    }
+    Z.forEach(function (z, i) {
+      var g = z.m.g, m = z.m; g.visible = i < want && !self.dark;
+      if (!g.visible) return;
+      z.t -= dt;
+      if (z.t <= 0 || z.tx == null) { var a = Math.random() * 6.28, rr = 2 + Math.random() * 14; z.tx = TOWN_SQ.x + Math.cos(a) * rr; z.tz = TOWN_SQ.z + Math.sin(a) * rr; if (waterAt(z.tx, z.tz) != null) { z.tx = TOWN_SQ.x; z.tz = TOWN_SQ.z; } z.t = 5 + Math.random() * 8; z.stop = Math.random() < 0.35 ? 2 + Math.random() * 3 : 0; }
+      var flee = P && Math.hypot(P.x - z.x, P.z - z.z) < 1.3;
+      if (flee) { if (now > (z.fleeAt || 0)) { z.fleeAt = now + 8000; self.say(pickOne(ZOMBIE_FLEE), g, 0.65, 1.6); } var fa = Math.atan2(z.z - P.z, z.x - P.x); z.tx = z.x + Math.cos(fa) * 4; z.tz = z.z + Math.sin(fa) * 4; z.stop = 0; }
+      var dx = z.tx - z.x, dz = z.tz - z.z, dd = Math.hypot(dx, dz), sp = flee ? 1.4 : 0.33, moving = dd > 0.1 && !(z.stop > 0);
+      if (z.stop > 0 && !flee) z.stop -= dt;
+      if (moving) { z.x += dx / dd * Math.min(dd, dt * sp); z.z += dz / dd * Math.min(dd, dt * sp); var w = Math.atan2(dx, dz), dr = w - g.rotation.y; while (dr > Math.PI) dr -= Math.PI * 2; while (dr < -Math.PI) dr += Math.PI * 2; g.rotation.y += dr * Math.min(1, dt * 4); m.phase += dt * (flee ? 14 : 6); }
+      g.position.set(z.x, self.standY(z.x, z.z), z.z);
+      var sw = moving ? Math.sin(m.phase) : 0;
+      m.legs.forEach(function (l, j) { l.rotation.x = (j ? -sw : sw) * 0.4; });
+      // the posture: phone up at the face, head bowed to it, a shuffle
+      m.arms[1].rotation.x = flee ? -0.4 : -1.85; m.arms[1].rotation.z = flee ? 0 : 0.35; m.arms[0].rotation.x = -0.7; m.head.rotation.x = flee ? 0 : 0.4 + Math.sin(now / 900 + z.ph) * 0.05;
+      m.body.rotation.z = Math.sin(m.phase * 0.5) * 0.04;
+      if (Math.random() < dt * 0.03 && now > (z.sayAt || 0)) { z.sayAt = now + 15000; self.say(pickOne(ZOMBIE_LINES), g, 0.65, 2.4); }
+    });
+    // the townsfolk give them a wide berth, and grumble
+    if (want && now > (this.zGrumbleAt || 0)) { this.zGrumbleAt = now + 20000; var near = (this.st.folk || []).filter(function (f) { return f.g.visible && f.state === 'walk' && !f.job; }); if (near.length && Math.random() < 0.5) this.say(pickOne(['oh dear, more of them', 'they’ve taken all the benches', 'one asked me for a “flat white”', 'if only the raccoon would train again…', 'they say a good workout scares them off', 'they keep calling Main Street “quaint”']), pickOne(near).g, 0.65, 2.6); }
+  };
+  // mice lost in their phones, the longer it's been since you finished a book
+  Town.prototype.stepPhones = function (m, dt, now) {
+    var bd = this.bookDays(), share = bd < 21 ? 0 : Math.min(0.9, 0.3 + (bd - 21) / 30);
+    if (m.phoneRoll == null || m.phoneDay !== this.today) { m.phoneDay = this.today; m.phoneRoll = Math.random(); }
+    var on = share > 0 && m.phoneRoll < share && !m.job && (m.state === 'walk' || m.state === 'linger' || m.state === 'idle' || m.state === 'sit') && !(m.greet > 0);
+    if (!m.phone && on) {
+      var ph = m.phone = new T.Group(); ph.position.set(0, -0.13, 0.04); m.arms[1].add(ph);
+      this.part(ph, this.geo.box, this.mcm('#111'), 0.05, 0.08, 0.012, 0, 0, 0);
+      var scr = new T.Mesh(this.geo.box, this.zScreen || (this.zScreen = new T.MeshBasicMaterial({ color: '#9ad0ff' }))); scr.scale.set(0.04, 0.065, 0.004); scr.position.z = 0.008; ph.add(scr);
+    }
+    if (m.phone) m.phone.visible = on;
+    if (!on) return;
+    m.arms[1].rotation.x = -1.35; m.head.rotation.x = 0.45;
+    if (m.paper && m.state === 'sit') m.paper.visible = false;
+    if (Math.random() < dt * 0.006 && now > (m.phoneSayAt || 0)) { m.phoneSayAt = now + 40000; this.say(pickOne(['sorry, what? I was reading a thread', 'have you seen this video?', 'hang on, just checking something', 'I used to read books, you know', '*doomscrolling*', 'the library’s so quiet lately']), m.g, 0.65, 2.4); }
   };
   Town.prototype.stepBaby = function (m, dt, now, P) {
     var self = this, b = m.baby;
@@ -16172,6 +16435,12 @@
         // Decide where to next: a neighbour's, a bench on the square, or home (always home by dark).
         var r = Math.random(), dest, route, from = m.at || { si: m.home.si, ti: m.home.ti }, doors, vb;
         var needs = winter && s.snowmen ? s.snowmen.filter(function (sm) { return sm.prog < 1 && !sm.builder; }) : [];
+        // the shape of a mouse's day: coffee and errands in town first thing, lunch out at noon,
+        // a stroll or a call on a neighbour after work (most days, not every day)
+        if (!night && Math.random() < 0.6) { var hr0 = whitehorseClock().h;
+          if (hr0 >= 7 && hr0 < 9.5) r = 0.62 + Math.random() * 0.23;
+          else if (hr0 >= 11.5 && hr0 < 13.5) r = 0.35 + Math.random() * 0.15;
+          else if (hr0 >= 16.5 && hr0 < 19) r = Math.random() < 0.5 ? 0.5 + Math.random() * 0.12 : 0.92 + Math.random() * 0.08; }
         if (pubNow) dest = { kind: 'pub', spot: self.pubSpot(folk.indexOf(m)) };
         else if (night && !m.owl) dest = { kind: 'home' };
         else if (night && r < 0.35) { var nb = (self.seats || []).filter(function (q) { return !q.taken && inTownSquare(q.x, q.z, 1); })[Math.floor(Math.random() * 4)]; dest = nb ? { kind: 'bench', seat: nb } : { kind: 'home' }; }
@@ -17770,7 +18039,7 @@
       }
     }
     if (!this.soft) {
-      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake', 'stepRegion', 'stepBreath', 'stepSpindrift', 'stepCamDrift', 'stepNeighbours', 'stepQuest'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
+      ['stepWind', 'stepClouds', 'stepFluff', 'stepAmbient', 'stepSky', 'stepGarden', 'stepScales', 'stepTangle', 'stepRanges', 'stepMist', 'stepAurora', 'stepIceLake', 'stepRegion', 'stepBreath', 'stepSpindrift', 'stepCamDrift', 'stepNeighbours', 'stepQuest', 'stepTownLife', 'stepZombies'].concat(this.reduced ? [] : ['stepMotes', 'stepEagles', 'stepTravellers', 'stepNorthRiver', 'stepBirds', 'stepFalls', 'stepPlanes', 'stepNoir', 'stepJuneau', 'stepMigrations', 'stepStorm', 'stepBoat']).forEach(function (fn) { self.safe(fn, function () { self[fn](dt, now); }); });
       this.safe('townEdges', function () { self.st.castles.forEach(function (C) { if (C && C.town && !C.edges && C.built >= 6) self.townEdges(C); }); });
     }
     if (this.explore) this.safe('raccoon', function () { if (self.stepPlayer(dt, now)) moved = true; });
@@ -19102,8 +19371,8 @@
         var AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
         var buf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate), d = buf.getChannelData(0);
         for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-        var out = ctx.createGain(); out.gain.value = 0.55; out.connect(ctx.destination);
-        this.audio = { ctx: ctx, noise: buf, out: out };
+        var out = ctx.createGain(); out.gain.value = 0.55; var muff = ctx.createBiquadFilter(); muff.type = 'lowpass'; muff.frequency.value = 18000; out.connect(muff); muff.connect(ctx.destination);
+        this.audio = { ctx: ctx, noise: buf, out: out, muff: muff };
       } catch (e) { this.audio = null; }
     }
     if (on && this.audio && this.audio.ctx.state === 'suspended') this.audio.ctx.resume();
@@ -19115,7 +19384,7 @@
     var board = deck || (inSq && (Math.abs(x - Q.x) > Q.hx - 1.1 || Math.abs(z - Q.z) > Q.hz - 1.1));
     this.sfx(board ? 'wood' : this.season === 'winter' ? 'snow' : inSq || nearPath(x, z, 0.8) ? 'gravel' : 'grass');
   };
-  Town.prototype.sfx = function (kind) {
+  Town.prototype.sfx = function (kind, vol) {
     var A = this.audio;
     if (!this.soundOn || !A) return;
     var ctx = A.ctx, t = ctx.currentTime, echo = /^(loon|bellfar|whistle)$/.test(kind) && this.amb && this.amb.echo;
@@ -19134,8 +19403,17 @@
       if (lp) { var f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; o.connect(f); node = f; }
       env(node, peak, attack, decay, at); o.start(at); o.stop(at + attack + decay + 0.05);
     }
-    var v = 0.85 + Math.random() * 0.3;
+    var v = (0.85 + Math.random() * 0.3) * (vol == null ? 1 : vol);
     switch (kind) {
+      case 'creak': // an old door on its hinges
+        (function () { var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(190, t); o.frequency.linearRampToValueAtTime(260, t + 0.25); o.frequency.linearRampToValueAtTime(170, t + 0.5);
+          var lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 38; lg.gain.value = 40; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(t + 0.6);
+          var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 3; o.connect(f); env(f, 0.05 * v, 0.06, 0.5, t); o.start(t); o.stop(t + 0.62); })();
+        noise('lowpass', 300, 1, 0.12 * v, 0.12, t + 0.55); break;
+      case 'crackle': for (var cr = 0; cr < 3; cr++) noise('highpass', 1800 + Math.random() * 2500, 1.2, (0.03 + Math.random() * 0.05) * v, 0.015 + Math.random() * 0.02, t + Math.random() * 0.35); break;
+      case 'fiddle': // a bar of a reel, somewhere over in the pub
+        (function () { var tunes = [[659, 587, 523, 587, 659, 659, 659], [784, 659, 587, 523, 440, 523, 587], [523, 587, 659, 784, 659, 587, 523], [440, 523, 659, 587, 523, 494, 440]], tn = tunes[Math.floor(Math.random() * tunes.length)];
+          tn.forEach(function (fq, i) { tone('sawtooth', fq, 0, 0.022 * v, 0.02, 0.17, t + i * 0.19, 1700); tone('sawtooth', fq / 2, 0, 0.008 * v, 0.02, 0.17, t + i * 0.19, 900); }); })(); break;
       case 'wood': noise('lowpass', 900, 1, 0.22 * v, 0.07, t); tone('sine', 140, 90, 0.18 * v, 0.003, 0.06, t); break;
       case 'gravel': noise('bandpass', 2600, 0.6, 0.12 * v, 0.06, t); noise('bandpass', 4200, 0.8, 0.06 * v, 0.04, t + 0.02); break;
       case 'snow': noise('lowpass', 1300, 0.5, 0.16 * v, 0.11, t); break;
@@ -21324,6 +21602,14 @@
     B.rain.g.gain.setTargetAtTime(inDen ? 0 : this.weatherNow === 'rain' ? 0.03 : this.weatherNow === 'storm' ? 0.06 : 0, t, 1.5);
     if (now > B.gullAt) { B.gullAt = now + 7000 + Math.random() * 14000; if (coastSd(L.x, L.z) > -28 && !this.dark) this.sfx('gull'); }
     if (now > B.laughAt) { B.laughAt = now + 5000 + Math.random() * 9000; if (pubD < 14 && this.pubNight()) this.sfx('laugh'); }
+    // a fiddle in the pub, louder the closer you get (and right there when you're inside)
+    if (now > (B.fiddleAt || 0)) { B.fiddleAt = now + 1500; var inPub = this.player && this.player.inRoom && this.st.room && this.st.room.kind === 'pub';
+      if ((this.pubNight() || inPub) && (inPub || pubD < 30)) this.sfx('fiddle', inPub ? 1 : Math.max(0, 1 - pubD / 30) * 0.8); }
+    // the woodstove ticking and popping, indoors
+    var rm = this.player && this.player.inRoom && this.st.room;
+    if (rm && rm.flames && rm.flames.length && now > (B.crackAt || 0)) { B.crackAt = now + 600 + Math.random() * 1600; this.sfx('crackle', 0.9); }
+    // falling snow hushes everything
+    if (A.muff) A.muff.frequency.setTargetAtTime(this.weatherNow === 'snow' && !inDen ? 2600 : 18000, t, 1.5);
     var now2 = now;
     // Loons on the lakes, mostly at dawn and dusk (and on summer nights).
     if (now2 > B.loonAt) {
@@ -21869,7 +22155,10 @@
     who.forEach(function (c) {
       if (!c.head) return;
       c.head.getWorldPosition(v); var ry = c.g.rotation.y;
-      self.puff(v.x + Math.sin(ry) * 0.12, v.y + 0.0, v.z + Math.cos(ry) * 0.12, 1, 'steam', 0.03);
+      var small = c !== pl, sc = small ? 0.6 : 1, fx = Math.sin(ry), fz = Math.cos(ry);
+      for (var w = 0; w < 3; w++) (function (w) { setTimeout(function () {
+        self.floatUp('wisp', v.x + fx * 0.1 * sc, v.y - 0.02 * sc, v.z + fz * 0.1 * sc, { size: (0.07 + w * 0.02) * sc, grow: 2.6, life: 1.1 + Math.random() * 0.4, vy: 0.06, sway: 0.02, vx: fx * 0.35 * sc, vz: fz * 0.35 * sc, alpha: 0.5 - w * 0.1, rot: (Math.random() - 0.5) * 0.02 });
+      }, w * 90); })(w);
     });
   };
   // ---- spindrift: in winter's gusts, snow blows low across the open ground ----
@@ -22054,7 +22343,7 @@
   Town.prototype.furnishCabin = function (D, T0) {
     var self = this, R = D.R, F = R.y, P = T0.P, name = this.cabinFor, f = this.st.friends[name], big = R.tier === 'big', MC = function (h) { return self.mcm(h); };
     var people = name.split(/\s*&\s*/);
-    D.cabin = { name: name, n: f.n, hosts: [] };
+    D.cabin = { name: name, n: f.n, hosts: [] }; var PS = D.cabin.persona = this.cabinPersona(name);
     D.light = { hemi: '#e8b07a', ground: '#3a2414', i: 0.95 };
     // the woodstove in the back corner, a stack of wood beside it
     T0.fireplace(R.hx - 0.45, -R.hz + 0.5, -Math.PI / 4, true); T0.block(R.hx - 0.95, R.hx, -R.hz, -R.hz + 1.0);
@@ -22064,7 +22353,7 @@
     P(this.geo.cyl, this.mat('copper'), 0.08, 0.1, 0.08, R.hx - 0.5, F + 0.62, -R.hz + 0.5);
     D.spots.push({ k: 'kettle', x: R.hx - 0.4, z: -R.hz + 1.3, r: 0.5 });
     // a rag rug and the kitchen table, with bannock and mugs, the hosts sat round it
-    P(this.geo.cyl, this.mat('canvas', 1), 1.0, 0.02, 0.75, -0.2, F + 0.01, 0.2);
+    P(this.geo.cyl, MC(PS.rug[0]), 1.0, 0.02, 0.75, -0.2, F + 0.01, 0.2); P(this.geo.cyl, MC(PS.rug[1]), 0.8, 0.022, 0.58, -0.2, F + 0.012, 0.2); P(this.geo.cyl, MC(PS.rug[0]), 0.55, 0.024, 0.4, -0.2, F + 0.014, 0.2);
     var tx = -0.5, tz = -0.1;
     P(this.geo.box, this.mat('wood'), 1.1, 0.06, 0.7, tx, F + 0.62, tz);
     [[-0.48, -0.28], [0.48, -0.28], [-0.48, 0.28], [0.48, 0.28]].forEach(function (l) { P(self.geo.box, self.mat('wood'), 0.06, 0.6, 0.06, tx + l[0], F + 0.3, tz + l[1]); });
@@ -22089,7 +22378,7 @@
     var bx = R.hx - 0.75, bz = R.hz - 1.1;
     P(this.geo.box, this.mat('logwood', 0), 1.0, 0.3, 1.4, bx, F + 0.15, bz);
     P(this.geo.box, this.mat('swan', 0), 0.9, 0.08, 0.35, bx, F + 0.34, bz - 0.5);
-    for (var q = 0; q < 6; q++) P(this.geo.box, this.mat('flag', q % 5), 0.45, 0.06, 0.32, bx - 0.22 + (q % 2) * 0.45, F + 0.33, bz - 0.12 + Math.floor(q / 2) * 0.32);
+    for (var q = 0; q < 6; q++) P(this.geo.box, MC(PS.quilt[(q + Math.floor(q / 2)) % PS.quilt.length]), 0.45, 0.06, 0.32, bx - 0.22 + (q % 2) * 0.45, F + 0.33, bz - 0.12 + Math.floor(q / 2) * 0.32);
     T0.block(bx - 0.55, bx + 0.55, bz - 0.75, bz + 0.75);
     D.spots.push({ k: 'bed', x: bx - 0.8, z: bz, r: 0.6, seat: [bx, bz, -Math.PI / 2] });
     // an armchair by the stove, a shelf of jars and mugs, snowshoes and a lantern on the wall
@@ -22122,6 +22411,7 @@
     D.spots.push({ k: 'photos', x: -R.hx + 0.8, z: 0.6, r: 0.7 });
     D.cabin.mine = mine;
     this.cabinGrowth(D, T0, f.n);
+    this.cabinCharacter(D, T0, PS);
   };
   // The inside grows with the outside: every stage of a friend's cabin brings something in too.
   Town.prototype.cabinGrowth = function (D, T0, n) {
@@ -22251,6 +22541,136 @@
       has('xmas');
     }
   };
+
+  // ---- every friend's place is their own: colours, a hobby, the gear from what you do together,
+  // and sometimes a pet ----
+  var CABIN_PALETTES = [
+    { rug: ['#8a3a2a', '#d8b070'], quilt: ['#a8322a', '#e8d6b0', '#2f5a7a', '#d8a040'], curtain: '#a8322a' },
+    { rug: ['#2f5a6e', '#c8d8d0'], quilt: ['#3f6e8a', '#e8e0d0', '#7a9ab0', '#c8b080'], curtain: '#3f6e8a' },
+    { rug: ['#4f6e3a', '#e0d0a0'], quilt: ['#5a7a3a', '#f0e6c8', '#a06a3a', '#8aa060'], curtain: '#5a7a3a' },
+    { rug: ['#6e3a5a', '#e8c8c0'], quilt: ['#a0506e', '#f2e2d8', '#6e4a7a', '#e8a088'], curtain: '#a0506e' },
+    { rug: ['#7a5a2a', '#e8d8b0'], quilt: ['#c8902a', '#f0e8d0', '#7a4a2a', '#a8b088'], curtain: '#c8902a' },
+    { rug: ['#3a3a4a', '#d8c8a0'], quilt: ['#2a2a3a', '#d8d0c0', '#8a2a2a', '#5a6a7a'], curtain: '#8a2a2a' }
+  ];
+  var CABIN_HOBBIES = ['guitar', 'easel', 'knitting', 'records', 'telescope', 'chess', 'plants', 'maps', 'fiddle', 'quilting'];
+  Town.prototype.cabinPersona = function (name) {
+    var h = 2166136261; for (var i = 0; i < name.length; i++) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    function pick(n, salt) { var x = Math.imul(h ^ salt, 2654435761) >>> 0; x = (x ^ (x >>> 15)) >>> 0; return x % n; }
+    // what you do most together
+    var parts = name.split(/\s*&\s*/).map(function (x) { return x.toLowerCase(); }), tally = {}, bd = this.st.byDay || {};
+    Object.keys(bd).forEach(function (d) { bd[d].forEach(function (ev) {
+      if (!(ev.friends || []).some(function (fr) { fr = fr.toLowerCase(); return parts.indexOf(fr) >= 0 || fr === name.toLowerCase(); })) return;
+      var k = ev.kind === 'sport' ? String(ev.sport || '').toLowerCase() : ev.kind; tally[k] = (tally[k] || 0) + 1;
+    }); });
+    var GEAR = { run: 'run', xcski: 'ski', snowboard: 'board', swim: 'swim', bike: 'bike', mtb: 'bike', commute: 'bike', row: 'row', lift: 'lift', mobility: 'yoga', climbing: 'climb', hockey: 'hockey', basketball: 'ball', futsal: 'ball', spikeball: 'ball', 'disc golf': 'disc' };
+    var top = Object.keys(tally).filter(function (k) { return GEAR[k]; }).sort(function (a, b) { return tally[b] - tally[a]; })[0];
+    var pal = CABIN_PALETTES[pick(CABIN_PALETTES.length, 11)];
+    // too little shared history to say? then whatever they're into themselves
+    if (!top || tally[top] < 3) top = ['run', 'xcski', 'snowboard', 'bike', 'swim', 'climbing', 'hockey', 'row', 'mobility', 'disc golf', 'lift', 'basketball'][pick(12, 29)];
+    return { h: h, pal: pal, rug: pal.rug, quilt: pal.quilt,
+      hobby: CABIN_HOBBIES[pick(CABIN_HOBBIES.length, 47)], pet: ['cat', 'dog', null, 'cat', 'dog'][pick(5, 83)], petCol: ['#e89a4a', '#3a3530', '#d8d0c0', '#8a8078', '#c99552'][pick(5, 97)],
+      gear: GEAR[top], gearKind: top, gearN: tally[top] || 0 };
+  };
+  Town.prototype.cabinCharacter = function (D, T0, PS) {
+    var self = this, R = D.R, F = R.y, P = T0.P, MC = function (h) { return self.mcm(h); };
+    var right = D.walls[3].g, back = D.walls[0].g, front = D.walls[2].g, fz = R.hz - 0.06;
+    // curtains at the window, in their colour
+    if (D.cabin.n >= 3) [-1, 1].forEach(function (sd) { P(self.geo.box, MC(PS.pal.curtain), 0.16, 0.66, 0.03, -1.6 + sd * 0.4, F + 1.36, fz - 0.09, front); });
+    // the hobby, in the corner by the window
+    var hx = -1.55, hz = 0.95, hb = PS.hobby, wallX = R.hx - 0.05, wz = 1.5;
+    if (hb === 'guitar') {
+      var gt = new T.Group(); gt.position.set(wallX, F + 1.45, wz); gt.rotation.x = 0.25; right.add(gt);
+      P(this.geo.blob, MC('#b8743a'), 0.06, 0.26, 0.2, 0, -0.08, 0, gt); P(this.geo.blob, MC('#b8743a'), 0.06, 0.2, 0.16, 0, 0.12, 0, gt);
+      P(this.geo.cyl, MC('#2a1a10'), 0.05, 0.01, 0.05, -0.035, 0.02, 0, gt).rotation.z = Math.PI / 2;
+      P(this.geo.box, MC('#4a2a1a'), 0.03, 0.4, 0.04, -0.01, 0.4, 0, gt);
+    } else if (hb === 'fiddle') {
+      var fd = new T.Group(); fd.position.set(wallX, F + 1.5, wz); fd.rotation.x = -0.3; right.add(fd);
+      P(this.geo.blob, MC('#8a3a1a'), 0.04, 0.2, 0.12, 0, 0, 0, fd); P(this.geo.box, MC('#1a1210'), 0.03, 0.18, 0.025, -0.01, 0.17, 0, fd);
+      P(this.geo.box, MC('#c8b080'), 0.01, 0.45, 0.01, -0.02, 0.05, 0.12, fd).rotation.x = 0.4;
+    } else if (hb === 'easel') {
+      var es = new T.Group(); es.position.set(hx, F, hz); es.rotation.y = 0.6; D.g.add(es);
+      [-0.15, 0.15].forEach(function (x) { P(self.geo.box, MC('#8a5a2a'), 0.03, 1.0, 0.03, x, 0.5, 0, es).rotation.z = -x * 0.5; });
+      P(this.geo.box, MC('#8a5a2a'), 0.03, 0.9, 0.03, 0, 0.45, -0.2, es).rotation.x = -0.25;
+      var cv = document.createElement('canvas'); cv.width = 64; cv.height = 48; var c2 = cv.getContext('2d'), rr = rng(PS.h);
+      c2.fillStyle = '#9fc4d8'; c2.fillRect(0, 0, 64, 48); c2.fillStyle = '#e8eef2'; c2.beginPath(); c2.moveTo(4, 32); c2.lineTo(24, 10); c2.lineTo(40, 30); c2.lineTo(52, 16); c2.lineTo(64, 32); c2.fill();
+      c2.fillStyle = '#4f7a3a'; c2.fillRect(0, 32, 64, 16); c2.fillStyle = '#2f5a3a'; for (var t = 0; t < 6; t++) { var tx = rr() * 64; c2.beginPath(); c2.moveTo(tx, 22 + rr() * 6); c2.lineTo(tx - 4, 38); c2.lineTo(tx + 4, 38); c2.fill(); }
+      var pic = new T.Mesh(this.cutePlane || (this.cutePlane = new T.PlaneGeometry(1, 1)), new T.MeshLambertMaterial({ map: new T.CanvasTexture(cv) })); pic.scale.set(0.44, 0.33, 1); pic.position.set(0, 0.72, 0.03); es.add(pic);
+      P(this.geo.box, MC('#f2ece0'), 0.46, 0.35, 0.02, 0, 0.72, 0.02, es);
+      T0.block(hx - 0.3, hx + 0.3, hz - 0.3, hz + 0.3);
+    } else if (hb === 'knitting' || hb === 'quilting') {
+      P(this.geo.cyl6, MC('#a0784a'), 0.2, 0.18, 0.2, hx, F + 0.09, hz);
+      ['#c8402a', '#3f6e8a', '#e8c040', '#7a9a5a'].forEach(function (c, i) { P(self.geo.ball, MC(c), 0.09, 0.09, 0.09, hx - 0.06 + (i % 2) * 0.12, F + 0.2 + Math.floor(i / 2) * 0.05, hz - 0.05 + Math.floor(i / 2) * 0.08); });
+      [-0.04, 0.04].forEach(function (x) { P(self.geo.cyl6, MC('#d8c8a0'), 0.008, 0.3, 0.008, hx + x, F + 0.3, hz).rotation.z = x * 6; });
+      if (hb === 'quilting') { P(this.geo.box, MC(PS.quilt[2]), 0.5, 0.02, 0.4, hx + 0.1, F + 0.65, hz - 0.9); }
+      T0.block(hx - 0.22, hx + 0.22, hz - 0.22, hz + 0.22);
+    } else if (hb === 'records') {
+      P(this.geo.box, MC('#6a4a2a'), 0.5, 0.45, 0.35, hx, F + 0.225, hz);
+      P(this.geo.box, MC('#3a2a1a'), 0.42, 0.04, 0.3, hx, F + 0.47, hz);
+      P(this.geo.cyl, MC('#141414'), 0.16, 0.01, 0.16, hx - 0.03, F + 0.5, hz);
+      P(this.geo.cyl, MC('#c8402a'), 0.05, 0.012, 0.05, hx - 0.03, F + 0.5, hz);
+      var horn = P(this.geo.cone, MC('#c8a040'), 0.12, 0.25, 0.12, hx + 0.14, F + 0.65, hz - 0.08); horn.rotation.z = -0.9;
+      for (var rc = 0; rc < 5; rc++) P(this.geo.box, MC(['#2a4a6a', '#8a2a2a', '#e8c040', '#3a3a3a', '#5a7a3a'][rc]), 0.02, 0.28, 0.28, hx - 0.22 + rc * 0.025, F + 0.14, hz + 0.32);
+      D.cabin.music = true; T0.block(hx - 0.3, hx + 0.3, hz - 0.2, hz + 0.45);
+    } else if (hb === 'telescope') {
+      var ts = new T.Group(); ts.position.set(hx - 0.1, F, hz + 0.6); ts.rotation.y = Math.PI; D.g.add(ts);
+      [0, 2.1, 4.2].forEach(function (a) { var lg = P(self.geo.box, MC('#5a3a22'), 0.025, 0.85, 0.025, Math.sin(a) * 0.12, 0.4, Math.cos(a) * 0.12, ts); lg.rotation.x = Math.cos(a) * 0.25; lg.rotation.z = -Math.sin(a) * 0.25; });
+      var tube = P(this.geo.cyl, MC('#c8a040'), 0.06, 0.6, 0.06, 0, 0.92, 0.08, ts); tube.rotation.x = 1.0;
+      T0.block(hx - 0.35, hx + 0.15, hz + 0.35, hz + 0.85);
+    } else if (hb === 'chess') {
+      P(this.geo.cyl6, MC('#6a4a2a'), 0.25, 0.5, 0.25, hx, F + 0.25, hz);
+      for (var cq = 0; cq < 16; cq++) P(this.geo.box, MC((cq + Math.floor(cq / 4)) % 2 ? '#2a1a10' : '#e8d8b0'), 0.08, 0.01, 0.08, hx - 0.12 + (cq % 4) * 0.08, F + 0.51, hz - 0.12 + Math.floor(cq / 4) * 0.08);
+      for (var pc = 0; pc < 6; pc++) P(this.geo.cyl6, MC(pc % 2 ? '#f2ece0' : '#1a1210'), 0.02, 0.05 + (pc % 3) * 0.02, 0.02, hx - 0.1 + (pc % 3) * 0.1, F + 0.54, hz + (pc % 2 ? -0.1 : 0.1));
+      T0.block(hx - 0.28, hx + 0.28, hz - 0.28, hz + 0.28);
+    } else if (hb === 'plants') {
+      [[0, 0, 0.3], [0.2, 0.1, 0.22], [-0.18, 0.12, 0.25]].forEach(function (pp, i) { P(self.geo.cyl6, MC('#b0603a'), 0.09, 0.14, 0.09, hx + pp[0], F + 0.07, hz + pp[1]); P(self.geo.blob, MC(['#3f7a34', '#5a8a3a', '#2f6a44'][i]), 0.13, pp[2], 0.13, hx + pp[0], F + 0.14 + pp[2] / 2, hz + pp[1]); });
+      T0.block(hx - 0.3, hx + 0.3, hz - 0.15, hz + 0.3);
+    } else if (hb === 'maps') {
+      var mcv = document.createElement('canvas'); mcv.width = 96; mcv.height = 64; var m2 = mcv.getContext('2d'), mr = rng(PS.h + 3);
+      m2.fillStyle = '#e8dcb8'; m2.fillRect(0, 0, 96, 64); m2.strokeStyle = '#6a8aa0'; m2.lineWidth = 3; m2.beginPath(); m2.moveTo(0, 40); for (var mx = 0; mx <= 96; mx += 12) m2.lineTo(mx, 30 + mr() * 20); m2.stroke();
+      m2.strokeStyle = '#a08a60'; m2.lineWidth = 1; for (var ci = 0; ci < 5; ci++) { m2.beginPath(); m2.ellipse(20 + mr() * 60, 15 + mr() * 30, 8 + ci * 2, 5 + ci, 0, 0, 7); m2.stroke(); }
+      m2.fillStyle = '#c8402a'; for (var pn = 0; pn < 6; pn++) { m2.beginPath(); m2.arc(8 + mr() * 80, 8 + mr() * 48, 2.5, 0, 7); m2.fill(); }
+      var map = new T.Mesh(this.cutePlane || (this.cutePlane = new T.PlaneGeometry(1, 1)), new T.MeshLambertMaterial({ map: new T.CanvasTexture(mcv) })); map.scale.set(0.9, 0.6, 1); map.position.set(wallX - 0.01, F + 1.5, wz); map.rotation.y = -Math.PI / 2; right.add(map);
+    }
+    D.spots.push({ k: 'hobby', x: hb === 'guitar' || hb === 'fiddle' || hb === 'maps' ? R.hx - 0.7 : hx + 0.55, z: hb === 'guitar' || hb === 'fiddle' || hb === 'maps' ? wz - 0.6 : hz, r: 0.45 });
+    // the gear from what you do most together, leaning against the back wall
+    var gx = 0.9, gz = -R.hz + 0.15, gp = back, G = PS.gear;
+    if (G === 'ski') [-0.1, 0.1].forEach(function (x) { var sk = P(self.geo.box, MC(x < 0 ? '#c8402a' : '#2f5a7a'), 0.06, 1.5, 0.02, gx + x, F + 0.75, gz + 0.08, gp); sk.rotation.x = -0.12; P(self.geo.cyl6, MC('#3a3a3a'), 0.012, 1.1, 0.012, gx + 0.35 + x, F + 0.55, gz + 0.08, gp).rotation.x = -0.1; });
+    else if (G === 'board') { var sb = P(this.geo.box, MC('#3a6a8a'), 0.26, 1.2, 0.025, gx, F + 0.6, gz + 0.08, gp); sb.rotation.x = -0.12; P(this.geo.box, MC('#e8c040'), 0.22, 0.3, 0.027, gx, F + 0.75, gz + 0.065, gp).rotation.x = -0.12; }
+    else if (G === 'bike') {
+      var bk = new T.Group(); bk.position.set(gx, F, gz + 0.12); gp.add(bk);
+      [-0.32, 0.32].forEach(function (x) { var wh = P(self.geo.cyl, MC('#1a1a1a'), 0.24, 0.03, 0.24, x, 0.24, 0, bk); wh.rotation.x = Math.PI / 2; });
+      P(this.geo.box, MC('#c8402a'), 0.6, 0.03, 0.03, 0, 0.42, 0, bk); P(this.geo.box, MC('#c8402a'), 0.03, 0.3, 0.03, -0.1, 0.32, 0, bk).rotation.z = 0.5; P(this.geo.box, MC('#c8402a'), 0.03, 0.3, 0.03, 0.22, 0.32, 0, bk).rotation.z = -0.4;
+      P(this.geo.box, MC('#2a2a2a'), 0.12, 0.03, 0.06, -0.15, 0.55, 0, bk); P(this.geo.box, MC('#5a5a5a'), 0.03, 0.03, 0.22, 0.3, 0.58, 0, bk);
+    }
+    else if (G === 'run') { [0, 0.16].forEach(function (x) { P(self.geo.box, MC('#e8604a'), 0.1, 0.07, 0.22, gx + x, F + 0.035, gz + 0.25); P(self.geo.box, MC('#f2ece0'), 0.1, 0.02, 0.22, gx + x, F + 0.01, gz + 0.25); });
+      for (var md = 0; md < Math.min(4, 1 + Math.floor(PS.gearN / 5)); md++) { P(self.geo.box, MC(['#2f5a7a', '#c8402a', '#3f7a3a', '#e8c040'][md]), 0.03, 0.22, 0.012, gx - 0.3 + md * 0.12, F + 1.2, gz + 0.03, gp); P(self.geo.cyl, MC('#d8b040'), 0.04, 0.012, 0.04, gx - 0.3 + md * 0.12, F + 1.06, gz + 0.04, gp).rotation.x = Math.PI / 2; } }
+    else if (G === 'swim') { P(this.geo.box, MC('#4a8ab0'), 0.3, 0.6, 0.02, gx, F + 1.1, gz + 0.04, gp); P(this.geo.box, MC('#f2ece0'), 0.3, 0.05, 0.022, gx, F + 1.2, gz + 0.045, gp); P(this.geo.box, MC('#1a1a1a'), 0.16, 0.04, 0.02, gx + 0.3, F + 1.3, gz + 0.04, gp); }
+    else if (G === 'row') { var oar = P(this.geo.box, MC('#c89a5a'), 0.04, 1.6, 0.04, gx, F + 0.8, gz + 0.1, gp); oar.rotation.z = 0.15; P(this.geo.box, MC('#c89a5a'), 0.15, 0.35, 0.03, gx - 0.1, F + 0.2, gz + 0.1, gp).rotation.z = 0.15; }
+    else if (G === 'lift') { [0, 0.3].forEach(function (x) { P(self.geo.cyl6, MC('#2a2a2a'), 0.08, 0.08, 0.08, gx + x - 0.1, F + 0.06, gz + 0.3).rotation.z = Math.PI / 2; P(self.geo.cyl6, MC('#2a2a2a'), 0.08, 0.08, 0.08, gx + x + 0.1, F + 0.06, gz + 0.3).rotation.z = Math.PI / 2; P(self.geo.cyl6, MC('#8a8a8a'), 0.02, 0.2, 0.02, gx + x, F + 0.06, gz + 0.3).rotation.z = Math.PI / 2; }); P(this.geo.ball, MC('#3a3a3a'), 0.16, 0.16, 0.16, gx + 0.65, F + 0.08, gz + 0.3); }
+    else if (G === 'yoga') { var ym = P(this.geo.cyl, MC('#8a6ab0'), 0.07, 0.6, 0.07, gx, F + 0.3, gz + 0.12); ym.rotation.z = 0.08; }
+    else if (G === 'climb') { P(this.geo.cyl, MC('#c84a2a'), 0.2, 0.08, 0.2, gx, F + 1.2, gz + 0.05, gp).rotation.x = Math.PI / 2; P(this.geo.cyl, MC('#3a6a8a'), 0.14, 0.08, 0.14, gx + 0.35, F + 1.15, gz + 0.05, gp).rotation.x = Math.PI / 2; P(this.geo.cyl6, MC('#e8e0d0'), 0.07, 0.12, 0.07, gx + 0.6, F + 1.0, gz + 0.06, gp); }
+    else if (G === 'hockey') { [-1, 1].forEach(function (sd) { var st = P(self.geo.box, MC('#d8b080'), 0.04, 1.2, 0.03, gx + sd * 0.15, F + 0.95, gz + 0.04, gp); st.rotation.z = sd * 0.45; }); P(this.geo.cyl, MC('#141414'), 0.06, 0.02, 0.06, gx, F + 0.02, gz + 0.3); }
+    else if (G === 'ball') P(this.geo.ball, MC(PS.gearKind === 'basketball' ? '#d8702a' : '#f2ece0'), 0.2, 0.2, 0.2, gx, F + 0.1, gz + 0.3);
+    else if (G === 'disc') [0, 1, 2].forEach(function (i) { P(self.geo.cyl, MC(['#e8c040', '#c8402a', '#3f7a8a'][i]), 0.16, 0.02, 0.16, gx, F + 0.02 + i * 0.022, gz + 0.3); });
+    if (G) { T0.block(gx - 0.45, gx + 0.45, -R.hz, -R.hz + 0.5); D.spots.push({ k: 'gear', x: gx, z: -R.hz + 0.9, r: 0.45 }); }
+    // the pet
+    if (PS.pet) {
+      var pt = new T.Group(); D.g.add(pt); D.cabin.pet = pt;
+      if (PS.pet === 'cat') { // curled up asleep on the quilt
+        var bxp = R.hx - 0.75, bzp = R.hz - 1.1; pt.position.set(bxp + 0.1, F + 0.4, bzp + 0.15);
+        P(this.geo.blob, MC(PS.petCol), 0.26, 0.12, 0.2, 0, 0.05, 0, pt); P(this.geo.ball, MC(PS.petCol), 0.11, 0.1, 0.1, 0.1, 0.07, 0.07, pt);
+        [-0.03, 0.03].forEach(function (z) { P(self.geo.cone, MC(PS.petCol), 0.025, 0.05, 0.025, 0.12, 0.13, 0.07 + z, pt); });
+        P(this.geo.blob, MC(PS.petCol), 0.2, 0.04, 0.04, -0.02, 0.03, -0.09, pt);
+      } else { // a dog asleep on a round bed by the table
+        pt.position.set(0.95, F, 1.1);
+        P(this.geo.cyl, MC('#8a5a3a'), 0.3, 0.08, 0.3, 0, 0.04, 0, pt); P(this.geo.cyl, MC('#d8c8a0'), 0.24, 0.085, 0.24, 0, 0.045, 0, pt);
+        P(this.geo.blob, MC(PS.petCol), 0.2, 0.12, 0.3, 0, 0.13, 0, pt); P(this.geo.ball, MC(PS.petCol), 0.11, 0.1, 0.12, 0.04, 0.14, 0.17, pt);
+        [-0.05, 0.05].forEach(function (x) { P(self.geo.box, MC('#3a2a1a'), 0.04, 0.08, 0.03, x + 0.04, 0.17, 0.12, pt); });
+        T0.block(0.65, 1.25, 0.8, 1.4);
+      }
+      D.spots.push({ k: 'pet', x: pt.position.x - (PS.pet === 'cat' ? 0.85 : 0), z: pt.position.z - (PS.pet === 'cat' ? 0.2 : 0.55), r: 0.5 });
+    }
+  };
   Town.prototype.cabinUse = function (pl, k) {
     var D = this.st.room, C = D.cabin, self = this;
     if (/^host/.test(k)) {
@@ -22262,6 +22682,13 @@
     if (k === 'stove') { this.say(pickOne(['*warms paws*', 'ahh, toasty', 'nothing like a woodstove']), pl.g, 1.0, 1.6); return true; }
     if (k === 'kettle') { var h2 = C.hosts[0]; this.say(h2.name + ': ' + pickOne(['milk? sugar?', 'Labrador tea, picked it myself', 'careful, it’s hot']), h2.m.g, 0.7, 2.6); if (this.carryItem) setTimeout(function () { self.carryItem(pl, 'coffee'); }, 900); return true; }
     if (k === 'photos') { var ph = C.mine.slice(-3).map(function (e) { return (e.day ? e.day + ': ' : '') + String(e.label || e.kind).replace(/\s*(w\/|with).*$/i, ''); }); this.say(ph.length ? ph.join(' · ') : 'lots of empty pins, waiting for photos', pl.g, 1.1, 4); return true; }
+    if (k === 'hobby') { var hb = C.persona.hobby, hh = C.hosts[0];
+      var HL = { guitar: ['*strums a chord*', 'they’re teaching me “Four Strong Winds”'], fiddle: ['*scrapes a squeaky note*', 'there’s a fiddle night at the Slow Pour'], easel: ['the mountains from the porch, half done', 'is that… me?'], knitting: ['a toque, for you, if you’re patient', '*tangles the yarn*'], quilting: ['a new quilt for the loft', 'so many little squares'], records: ['*the needle crackles* ♪', 'Stompin’ Tom, naturally'], telescope: ['you can see Jupiter’s moons from here', '*squints at the stars*'], chess: ['they’re three moves from beating me', 'your move, raccoon'], plants: ['they talk to these every morning', 'this one’s called Gerald'], maps: ['every pin is a trail we’ve done', 'so many places left to go'] }[hb] || ['lovely'];
+      var line = pickOne(HL); if (/^\*|^is |^so many|^every|^this one|^you can|^Stompin/.test(line)) this.say(line, pl.g, 1.0, 2.2); else this.say(hh.name + ': ' + line, hh.m.g, 0.7, 2.6); return true; }
+    if (k === 'gear') { var gk = C.persona.gear, gn = C.persona.gearN, h5 = C.hosts[C.hosts.length - 1];
+      var GL = { ski: 'the skis from all our ski days', board: 'still waxed from last time', bike: 'want to go for a ride?', run: gn + ' runs together. the medals prove it', swim: 'the towel’s still damp from the lake', row: 'the oar from the rowing club', lift: 'don’t look, I’ve been skipping leg day', yoga: 'my knees thank you for the stretching', climb: 'the ropes from the crag', hockey: 'pond hockey Sunday?', ball: 'up for a game later?', disc: 'that red one never flies straight' }[gk] || 'all our adventures';
+      this.say(h5.name + ': ' + GL, h5.m.g, 0.7, 2.8); return true; }
+    if (k === 'pet') { var pp = C.pet; if (!pp) return true; var wp = new T.Vector3(); pp.getWorldPosition(wp); if (this.hearts) this.hearts(wp, true); this.say(C.persona.pet === 'cat' ? pickOne(['*purrrr*', '*the cat stretches and goes back to sleep*', 'mrrp?']) : pickOne(['*thump thump goes the tail*', '*a sleepy lick*', 'who’s a good dog?']), pl.g, 1.0, 2); return true; }
     if (k === 'loft') { this.say(pickOne(['the loft, where the guests sleep', '*peeks up the ladder*', 'that quilt looks very warm']), pl.g, 1.0, 2); return true; }
     if (k === 'bench') { var h3 = C.hosts[C.hosts.length - 1]; this.say(h3.name + ': ' + pickOne(['fixing a snowshoe binding', 'mind the chisel', 'making a new paddle for spring']), h3.m.g, 0.7, 2.6); return true; }
     if (k === 'herbs') { this.say(pickOne(['*sniffs* yarrow and sage', 'Labrador tea, drying for winter', 'smells like summer up here']), pl.g, 1.0, 2); return true; }
