@@ -41,8 +41,8 @@
       snowLine: 0.66, weather: { color: '#e07a2a', size: 6, count: 90, fall: 1.8, sway: 1.6 }
     },
     winter: {
-      day: { grass: '#eef3f6', grassDeep: '#dfe8ee', leaf: ['#e3ecf1', '#e3ecf1', '#d3dee6'], pine: ['#3d6b52', '#46785c'], birchleaf: '#e3ecf1', water: '#cfe6f1', path: '#d6cfc0', cobble: '#c2c6ca', pitch: '#e3ecf1', soil: '#dcd6cc', hedge: '#c9d6d2' },
-      dusk: { grass: '#a7b2c6', grassDeep: '#96a2b8', leaf: ['#b2bdcf', '#b2bdcf', '#a3aec2'], pine: ['#2a4a3a', '#32563f'], birchleaf: '#b2bdcf', water: '#8ea4bd', path: '#8d8984', cobble: '#85878d', pitch: '#a7b2c6', soil: '#8f8a86', hedge: '#7f8b94' },
+      day: { grass: '#eef3f6', grassDeep: '#dfe8ee', leaf: ['#e3ecf1', '#e3ecf1', '#d3dee6'], pine: ['#3d6b52', '#46785c'], birchleaf: '#e3ecf1', water: '#93bcd8', path: '#d6cfc0', cobble: '#c2c6ca', pitch: '#e3ecf1', soil: '#dcd6cc', hedge: '#c9d6d2' },
+      dusk: { grass: '#a7b2c6', grassDeep: '#96a2b8', leaf: ['#b2bdcf', '#b2bdcf', '#a3aec2'], pine: ['#2a4a3a', '#32563f'], birchleaf: '#b2bdcf', water: '#6a87a8', path: '#8d8984', cobble: '#85878d', pitch: '#a7b2c6', soil: '#8f8a86', hedge: '#7f8b94' },
       snowLine: 0.32, weather: { color: '#ffffff', size: 4, count: 420, fall: 2.6, sway: 0.6 }
     }
   };
@@ -12903,12 +12903,16 @@
     } else {
       // Sequoia: tall red trunk, dark crown high up.
       // A giant: thick red trunk standing well clear of the rest of the forest, crown high up.
-      part(this.geo.cyl6, this.mat('redwood'), 0.36, 3.2, 0.36, 0, 1.6, 0);
-      part(this.geo.cyl6, this.mat('redwood'), 0.52, 0.4, 0.52, 0, 0.2, 0);
-      part(this.geo.cone6, this.mat('pine', 1), 1.15, 1.2, 1.15, 0, 3.4, 0);
-      part(this.geo.cone6, this.mat('pine', 1), 0.92, 1.1, 0.92, 0, 4.15, 0);
-      part(this.geo.cone6, this.mat('pine', 1), 0.68, 1.0, 0.68, 0, 4.85, 0);
-      part(this.geo.cone6, this.mat('pine', 1), 0.38, 0.85, 0.38, 0, 5.45, 0);
+      // A sequoia: a fat, fluted cinnamon-red trunk on flared roots, and a crown of soft
+      // blue-green clumps, so it never reads as just another spruce.
+      var bark = this.mcm('#b4502a'), furrow = this.mcm('#7a2e16'), crownC = [this.mcm('#2f6b5c'), this.mcm('#3a7a66'), this.mcm('#28594c')];
+      part(this.geo.cyl6, bark, 0.4, 3.0, 0.4, 0, 1.5, 0);
+      for (var fl = 0; fl < 6; fl++) { var fa = fl / 6 * Math.PI * 2; var fu = part(this.geo.box, furrow, 0.05, 2.7, 0.05, Math.cos(fa) * 0.385, 1.45, Math.sin(fa) * 0.385); fu.rotation.y = -fa; }
+      for (var rt = 0; rt < 5; rt++) { var ra = rt / 5 * Math.PI * 2 + 0.3, root = part(this.geo.box, bark, 0.5, 0.26, 0.2, Math.cos(ra) * 0.42, 0.1, Math.sin(ra) * 0.42); root.rotation.y = -ra; root.rotation.z = 0.25; }
+      [[0, 2.9, 0.95, 0.55], [0.15, 3.5, 0.85, 0.5], [-0.1, 4.05, 0.72, 0.48], [0.05, 4.55, 0.56, 0.44], [0, 5.0, 0.38, 0.4]].forEach(function (c, ci) {
+        for (var k2 = 0; k2 < 5 - Math.floor(ci / 2); k2++) { var ca = k2 / (5 - Math.floor(ci / 2)) * Math.PI * 2 + ci; part(self.geo.blob, crownC[(ci + k2) % 3], c[2] * 0.7, c[3], c[2] * 0.7, c[0] + Math.cos(ca) * c[2] * 0.55, c[1], Math.sin(ca) * c[2] * 0.55); }
+        part(self.geo.blob, crownC[ci % 3], c[2] * 0.8, c[3] * 1.1, c[2] * 0.8, c[0], c[1] + 0.05, 0);
+      });
     }
     this.world.add(g);
     this.boughify(g);
@@ -18490,7 +18494,7 @@
       sh.uniforms.uTime = U.uTime; sh.uniforms.uIce = U.uIce;
       sh.vertexShader = 'attribute vec2 aFlow; varying vec3 vWPos; varying vec2 vFlow;\n' + sh.vertexShader.replace('#include <project_vertex>',
         '#include <project_vertex>\n vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vFlow = aFlow;');
-      sh.fragmentShader = 'uniform float uTime; uniform float uIce; varying vec3 vWPos; varying vec2 vFlow;\n' + sh.fragmentShader.replace('#include <output_fragment>', [
+      sh.fragmentShader = 'uniform float uTime; uniform float uIce; varying vec3 vWPos; varying vec2 vFlow;\n' + sh.fragmentShader.replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, [
         '{',
         '  float t = uTime; vec2 p = vWPos.xz; vec2 g = vec2(0.0);',
         waves,
@@ -18511,7 +18515,18 @@
         '  col += vec3(0.8, 0.95, 1.0) * (caus * 0.09 + streak * 0.16) * lit;',
         '  col = mix(col, mix(col, vec3(0.88, 0.96, 1.0) * max(lit, 0.25), 0.5), fres);',
         '  col += vec3(1.0, 0.97, 0.88) * glint * 0.85 * lit;',
-        '  outgoingLight = mix(col, outgoingLight, uIce);',
+        // ice: glassy blue-grey, with hairline cracks, a cold sheen and drifts of wind-blown snow
+        '  vec3 Vf = normalize(cameraPosition - vWPos); vec3 Hf = normalize(normalize(vec3(0.45, 0.8, 0.35)) + Vf);',
+        '  float sheen = pow(max(Hf.y, 0.0), 24.0); float fr0 = pow(1.0 - max(Vf.y, 0.0), 2.0);',
+        '  float cr1 = abs(sin(p.x * 0.9 + sin(p.y * 0.6) * 2.0) * sin(p.y * 0.8 + sin(p.x * 0.5) * 1.7));',
+        '  float cr2 = abs(sin(p.x * 2.3 - p.y * 1.1 + sin(p.y * 1.9) * 0.8));',
+        '  float crack = (1.0 - smoothstep(0.0, 0.035, cr1)) * 0.8 + (1.0 - smoothstep(0.0, 0.02, cr2)) * 0.35;',
+        '  float drift = smoothstep(0.58, 0.9, 0.5 + 0.5 * sin(p.x * 0.33 + p.y * 0.21 + sin(p.y * 0.47) * 1.6) + sin(p.x * 1.7 + p.y * 1.3) * 0.12);',
+        '  vec3 ice = vec3(0.5, 0.69, 0.86) * max(lit * 1.08, 0.32) + vec3(0.04, 0.06, 0.08) * sin(p.x * 0.11 + p.y * 0.07);',
+        '  ice = mix(ice, ice * 0.55 + vec3(0.02, 0.06, 0.1), clamp(crack, 0.0, 1.0));',
+        '  ice += vec3(0.75, 0.88, 1.0) * fr0 * 0.18 * max(lit, 0.3) + vec3(1.0, 0.98, 0.92) * sheen * 0.22 * lit;',
+        '  ice = mix(ice, vec3(0.95, 0.97, 1.0) * max(lit, 0.3), drift * 0.38);',
+        '  outgoingLight = mix(col, ice, uIce);',
         '}',
         'gl_FragColor = vec4( outgoingLight, diffuseColor.a );'].join('\n'));
     };
@@ -20744,9 +20759,10 @@
     };
     fields.customProgramCacheKey = function () { return 'painted-fields'; };
     fields.needsUpdate = true;
-    var water = this.mat('water');
+    var water = this.mat('water'), WU = this.waterU || (this.waterU = { uTime: { value: 0 }, uIce: { value: 0 } });
     water.onBeforeCompile = function (sh) {
       addWorldPos(sh);
+      sh.uniforms.uIce = WU.uIce; sh.fragmentShader = 'uniform float uIce;\n' + sh.fragmentShader;
       // Water: slow bands of light drifting across it, and darker ripples between.
       sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', [
         '#include <color_fragment>',
@@ -20754,7 +20770,18 @@
         'float band = pNoise(vec2(ww.x * 0.35 + uTime * 0.12, ww.y * 1.4 - uTime * 0.05));',
         'float rip = pNoise(ww * 0.9 + vec2(uTime * 0.2, -uTime * 0.15));',
         'diffuseColor.rgb *= 1.0 + (rip - 0.5) * 0.08 * uDetail;',
-        'diffuseColor.rgb += vec3(0.16, 0.18, 0.17) * smoothstep(0.72, 0.92, band) * uDetail;'
+        'diffuseColor.rgb += vec3(0.16, 0.18, 0.17) * smoothstep(0.72, 0.92, band) * uDetail;',
+        // frozen: clear blue-grey ice, hairline cracks, and drifts of blown snow lying on it
+        'if (uIce > 0.5) {',
+        '  vec3 iceC = vec3(0.5, 0.69, 0.86) * (1.0 + (pNoise(ww * 0.35) - 0.5) * 0.16);',
+        '  float cr1 = abs(sin(ww.x * 0.9 + sin(ww.y * 0.6) * 2.0) * sin(ww.y * 0.8 + sin(ww.x * 0.5) * 1.7));',
+        '  float cr2 = abs(sin(ww.x * 2.3 - ww.y * 1.1 + sin(ww.y * 1.9) * 0.8));',
+        '  float crack = (1.0 - smoothstep(0.0, 0.04, cr1)) * 0.8 + (1.0 - smoothstep(0.0, 0.022, cr2)) * 0.4;',
+        '  iceC = mix(iceC, iceC * 0.58, clamp(crack, 0.0, 1.0));',
+        '  float drift = smoothstep(0.58, 0.82, pNoise(ww * 0.16 + vec2(pNoise(ww * 0.05) * 3.0, 0.0)));',
+        '  iceC = mix(iceC, vec3(0.95, 0.96, 0.98), drift * 0.55);',
+        '  diffuseColor.rgb = iceC;',
+        '}'
       ].join('\n'));
     };
     water.customProgramCacheKey = function () { return 'painted-water'; };
