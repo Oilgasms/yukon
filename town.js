@@ -1842,7 +1842,12 @@
     if (name === 'hare' && this.season === 'winter') m.color.set(['#f4f6f8', '#d8dde2', '#ffffff'][m.userData.idx || 0]);
     if (name === 'glasshouse') m.emissive.set(this.dark ? '#33240a' : '#000000');
     if (name === 'lantern') { m.color.set(p.flag[1]); m.emissive.set(p.windowGlow); }
-    if (name === 'water') { m.opacity = this.season === 'winter' ? 1 : 0.92; if (this.waterU) this.waterU.uIce.value = this.season === 'winter' ? 1 : 0; }
+    if (name === 'water') {
+      var ice = this.frozen();
+      m.opacity = ice ? 1 : 0.92; if (this.waterU) this.waterU.uIce.value = ice ? 1 : 0;
+      // early winter: open water, a deep cold blue under the snowy banks
+      if (this.season === 'winter' && !ice) m.color.set({ day: '#3d7fae', golden: '#4a7ca4', dawn: '#4a6f9a', dusk: '#34557c', night: '#1d3654' }[this.phase] || '#3d7fae');
+    }
     // Snow covers the field patchwork.
     if (name === 'fields' && m.vertexColors !== (this.season !== 'winter')) { m.vertexColors = this.season !== 'winter'; m.needsUpdate = true; }
   };
@@ -8045,7 +8050,8 @@
         a.puff.scale.setScalar(0.08 + pt * 0.3);
         a.puff.material.opacity = 0.5 * Math.sin(pt * Math.PI);
       } else if (a.type === 'sled') {
-        // Back and forth across the frozen lake.
+        // Back and forth across the frozen lake (only once it's frozen).
+        g.visible = self.frozen(); if (!g.visible) return;
         a.t += dt / 14;
         var u = (Math.sin(a.t) + 1) / 2, ax = LAKE.c.x - LAKE.R * 0.75, bx = LAKE.c.x + LAKE.R * 0.75;
         g.position.set(ax + (bx - ax) * u, LAKE.y + 0.12, LAKE.c.z + Math.sin(a.t * 2) * 1.2);
@@ -10369,7 +10375,7 @@
     if (!D.group.parent) this.scene.add(D.group);
     // Forget fountains that were rebuilt away.
     this.fountains = this.fountains.filter(function (f) { var o = f.spout; while (o.parent) o = o.parent; return o === self.scene; });
-    var frozen = this.season === 'winter';
+    var frozen = this.frozen();
     this.fountains.forEach(function (f, i) {
       // Winter: frozen solid. The jet stands still as a spike of ice, and no water falls.
       if (frozen) { if (f.jet && !f.iced) { f.iced = true; f.jet.scale.y = f.jetY * 1.5; f.jet.scale.x *= 0.75; f.jet.scale.z *= 0.75; self.needsRender = true; } return; }
@@ -12592,7 +12598,7 @@
     if (s.yetiArm) s.yetiArm.rotation.z = 0.6 + Math.sin(now / 300) * 0.5;
     if (s.zamboni) { s.zamboni.position.x = Math.sin(now / 3000) * 1.0; s.zamboni.visible = this.season === 'winter'; }
     if (s.swans) {
-      var PR = LAKE.R, winter = this.season === 'winter';
+      var PR = LAKE.R, winter = this.frozen();
       s.swans.forEach(function (sw) {
         var k = sw.userData.k, a2 = -now / 7000 + k * 0.5, r = PR * 0.62 - k * 0.15;
         sw.position.set(Math.cos(a2) * r, 0, Math.sin(a2) * r);
@@ -12897,18 +12903,18 @@
     } else {
       // Sequoia: tall red trunk, dark crown high up.
       // A giant: thick red trunk standing well clear of the rest of the forest, crown high up.
-      part(this.geo.cyl6, this.mat('redwood'), 0.42, 5.6, 0.42, 0, 2.8, 0);
-      part(this.geo.cyl6, this.mat('redwood'), 0.6, 0.5, 0.6, 0, 0.25, 0);
-      part(this.geo.cone6, this.mat('pine', 1), 1.35, 1.8, 1.35, 0, 5.4, 0);
-      part(this.geo.cone6, this.mat('pine', 1), 1.1, 1.6, 1.1, 0, 6.5, 0);
-      part(this.geo.cone6, this.mat('pine', 1), 0.8, 1.4, 0.8, 0, 7.5, 0);
-      part(this.geo.cone6, this.mat('pine', 1), 0.45, 1.1, 0.45, 0, 8.4, 0);
+      part(this.geo.cyl6, this.mat('redwood'), 0.36, 3.2, 0.36, 0, 1.6, 0);
+      part(this.geo.cyl6, this.mat('redwood'), 0.52, 0.4, 0.52, 0, 0.2, 0);
+      part(this.geo.cone6, this.mat('pine', 1), 1.15, 1.2, 1.15, 0, 3.4, 0);
+      part(this.geo.cone6, this.mat('pine', 1), 0.92, 1.1, 0.92, 0, 4.15, 0);
+      part(this.geo.cone6, this.mat('pine', 1), 0.68, 1.0, 0.68, 0, 4.85, 0);
+      part(this.geo.cone6, this.mat('pine', 1), 0.38, 0.85, 0.38, 0, 5.45, 0);
     }
     this.world.add(g);
     this.boughify(g);
     this.paintCrowns(g);
     // Remember where the crown is, so brushing past shakes a few leaves (or snow) loose.
-    var crown = { spruce: 1.6 * s, bigspruce: 2.6, birch: 1.6 * s, maple: 1.4 * s, bigoak: 2.1 }[kind] || 5.6;
+    var crown = { spruce: 1.6 * s, bigspruce: 2.6, birch: 1.6 * s, maple: 1.4 * s, bigoak: 2.1 }[kind] || 4.0;
     (this.st.treeSpots = this.st.treeSpots || []).push({ x: p.x, z: p.z, y: g.position.y + crown * (size || 1), r: (kind === 'bigoak' || kind === 'bigspruce' ? 1.1 : 0.7) * (size || 1), conifer: /spruce|^seq/.test(kind) || !{ birch: 1, maple: 1, bigoak: 1 }[kind], kind: kind, k: k, at: 0 });
     if (size) { g.scale.setScalar(this.instant ? size : 0.01); this.animScale(g, size, delay); }
     else this.pop(g, delay);
@@ -18863,7 +18869,16 @@
     return this.squareY + (edge ? 0.225 : 0.1);
   };
   Town.prototype.standY = function (x, z) { return Math.max(groundY(x, z), this.squareTop(x, z)); };
-  Town.prototype.onIce = function (x, z) { return this.season === 'winter' && lakeDist(x, z) < -0.4; };
+  // The water only freezes in the deep of winter: open and cold-blue through November and into
+  // December, ice from about 10 December until 10 March.
+  Town.prototype.frozen = function () {
+    if (this.season !== 'winter') return false;
+    if (this.freezeForce != null) return this.freezeForce;
+    var t = this.today || '', m = +t.slice(5, 7), d = +t.slice(8, 10);
+    if (!m) return true;
+    return !(m === 11 || (m === 12 && d < 10) || (m === 3 && d > 10) || (m >= 4 && m <= 10));
+  };
+  Town.prototype.onIce = function (x, z) { return this.frozen() && lakeDist(x, z) < -0.4; };
   Town.prototype.floorAt = function (x, z, fromY) {
     var deck = this.deckAt(x, z), ice = !deck && this.onIce(x, z), w = deck || ice || onBridge(x, z) ? null : this.swimAt(x, z);
     var base = ice ? LAKE.y + 0.14 : deck ? deck.y : w != null ? Math.max(w - SWIM_SINK, groundY(x, z)) : Math.max(surfaceY(x, z), this.squareTop(x, z)), C = this.climbGrid;
@@ -22277,7 +22292,7 @@
   // a dog team pulling a sled round the ice, and steam rising off the hot springs ----
   Town.prototype.stepIceLake = function (dt, now) {
     if (this.soft) return;
-    var winter = this.season === 'winter', W = this.iceLife, self = this;
+    var winter = this.frozen(), W = this.iceLife, self = this;
     if (!W && !winter) return;
     if (!W) {
       var g = new T.Group(), y = LAKE.y + 0.14, c = LAKE.c, R = LAKE.R, B = this.geo.box;
@@ -22345,7 +22360,7 @@
     this.needsRender = true;
   };
   Town.prototype.iceHoleNear = function (P) {
-    var W = this.iceLife; if (!W || this.season !== 'winter') return null;
+    var W = this.iceLife; if (!W || !this.frozen()) return null;
     for (var i = 0; i < W.holes.length; i++) if (Math.hypot(W.holes[i].x - P.x, W.holes[i].z - P.z) < 1.0) return W.holes[i];
     return null;
   };
