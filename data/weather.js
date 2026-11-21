@@ -1,1 +1,1 @@
-window.WX_SAVED = {"at":"2026-11-20T21:03:23.475Z","code":2,"temp":1.7,"wind":11.2};
+window.WX_SAVED = {"at":"2026-11-21T08:15:29.812Z","code":45,"temp":-2.3,"wind":9.5};
