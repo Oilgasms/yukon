@@ -1,10 +1,10 @@
 {
-  "ran": "2026-11-24T10:53:48.028Z",
+  "ran": "2026-11-24T19:19:15.464Z",
   "Google Sheets": "workouts.xlsx, bible.xlsx, books.xlsx",
-  "Strava": "54 activities",
+  "Strava": "55 activities",
   "Letterboxd": "57 films (0 new)",
   "Book lines": "10 books (none new)",
   "Covers": "40 saved (0 new)",
-  "Weather": "FAILED - fetch failed",
+  "Weather": "-9.1°C, code 0",
   "Cronometer": "5 days (to 2026-11-13)"
 }
