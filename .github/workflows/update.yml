@@ -49,7 +49,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data state 2>/dev/null || git add data
           git diff --cached --quiet || git commit -m "Update town data"
-          git push
+          # Someone may have pushed while this ran: catch up (keeping the data just fetched) and retry.
+          for i in 1 2 3 4; do
+            git pull --rebase -X theirs origin main && git push && exit 0
+            echo "push failed, trying again in $((i * 5))s"; sleep $((i * 5))
+          done
+          exit 1
       - name: Leave the updater's tools out of the website
         run: rm -rf scripts/node_modules
       - uses: actions/configure-pages@v5
