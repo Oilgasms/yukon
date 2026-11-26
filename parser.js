@@ -470,7 +470,7 @@
         var bm = text.match(/^((?:[1-3]\s*)?[A-Za-z][A-Za-z .]*?)\s+(\d.*)$/);
         if (!bm) return;
         var chapters = chaptersIn(bm[2]);
-        events.push({ kind: 'bible', book: bm[1].trim(), chapters: chapters, count: chapters.length, date: d,
+        events.push({ kind: 'bible', book: bm[1].trim(), chapters: chapters, count: chapters.length, date: d, planDate: d, key: d + '|' + text,
           day: d ? new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : '', label: text,
           note: '', phase: 'Bible', friends: [], dogs: [] });
       });

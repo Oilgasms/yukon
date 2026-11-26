@@ -378,6 +378,49 @@ async function commuteWeather() {
   return `${Object.keys(keep).length} days (${n} refreshed)`;
 }
 
+// Bible ticks: the M'Cheyne plan only has the day each reading was scheduled, so remember when each
+// tick box was first seen ticked. A tick first seen on the morning run was most likely done the
+// evening before; on the evening run, that day. Ticks from before this began keep the plan's date.
+function csvRows(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+async function bibleTicks() {
+  const csv = await fetch(`https://docs.google.com/spreadsheets/d/${SHEETS['bible.xlsx']}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('MCheyne Plan')}`).then((r) => { if (!r.ok) throw new Error('plan tab ' + r.status); return r.text(); });
+  const rows = csvRows(csv), head = rows.findIndex((r) => r.some((c) => /^date$/i.test(c.trim())));
+  if (head < 0) throw new Error('no Date column in the plan tab');
+  const low = rows[head].map((c) => c.trim().toLowerCase()), di = low.indexOf('date');
+  const reads = low.map((c, i) => (/^(family|secret|reading)\b/.test(c) && /^(done|read|✓|✔|tick|check)/.test(low[i + 1] || '') ? i : -1)).filter((i) => i >= 0);
+  const iso = (t) => { const m = String(t).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`; const d = new Date(t); return isNaN(d) ? null : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const path = new URL('bible_ticks.js', DATA);
+  let prev = null;
+  try { const t = await readFile(path, 'utf8'); prev = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch {}
+  const now = new Date(), local = now.toLocaleDateString('en-CA', { timeZone: 'America/Whitehorse' }), hour = +now.toLocaleString('en-CA', { timeZone: 'America/Whitehorse', hour: 'numeric', hour12: false });
+  const stamp = hour < 12 ? new Date(Date.parse(local + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10) : local;
+  const ticks = {}; let start = null, fresh = 0;
+  rows.slice(head + 1).forEach((r) => {
+    const d = iso(r[di]); if (!d) return; if (!start || d < start) start = d;
+    reads.forEach((ci) => {
+      const text = (r[ci] || '').trim(), tick = (r[ci + 1] || '').trim().toLowerCase();
+      if (!text || !/^(true|yes|y|x|✓|✔|1|done)$/.test(tick)) return;
+      const key = d + '|' + text, old = prev && prev.ticks && prev.ticks[key];
+      if (old) ticks[key] = old;
+      else { ticks[key] = prev ? { read: stamp, plan: d } : { read: d, plan: d, guessed: true }; if (prev) fresh++; }
+    });
+  });
+  const out = { since: (prev && prev.since) || local, start, perDay: reads.length, ticks };
+  await writeFile(path, 'window.BIBLE_TICKS = ' + JSON.stringify(out) + ';\n');
+  return `${Object.keys(ticks).length} ticked (${fresh} new, dated ${stamp})`;
+}
+
 await step('Google Sheets', sheets);
 await step('Strava', strava);
 await step('Letterboxd', letterboxd);
@@ -385,6 +428,7 @@ await step('Book lines', bookLines);
 await step('Covers', covers);
 await step('Weather', weather);
 await step('Commute weather', commuteWeather);
+await step('Bible ticks', bibleTicks);
 await step('Cronometer', cronometer);
 await writeFile(new URL('status.json', DATA), JSON.stringify(status, null, 2) + '\n');
 if (['Google Sheets', 'Strava', 'Letterboxd'].every((k) => String(status[k]).startsWith('FAILED'))) process.exit(1);

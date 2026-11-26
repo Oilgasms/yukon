@@ -23171,5 +23171,6 @@
   Town.secrets = SECRETS;
   Town.bible = BIBLE;
   function fmtN(n) { return Math.round(n).toLocaleString('en-CA'); }
+  Town.BIBLE = BIBLE; // the books and their chapter counts, for the almanac
   root.Town = Town;
 })(window);

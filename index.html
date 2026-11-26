@@ -406,7 +406,7 @@ h2 { font-family: var(--display); font-weight: 400; }
 .cm-cold text.l20 { fill: var(--ink); font-style: italic; }
 .cm-cold .dot { fill: var(--card); stroke: var(--muted); stroke-width: 1.5; }
 .cm-cold .dot.c { fill: var(--cold); stroke: var(--card); stroke-width: 2; }
-.al-tabs { display: flex; gap: 4px; margin: 0 0 10px; border-bottom: 1px solid var(--line); }
+.al-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; border-bottom: 1px solid var(--line); }
 .al-tabs button { font: 400 15px var(--caps); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 4px 10px 5px; cursor: pointer; }
 .al-tabs button.on { color: var(--rubric); border-bottom-color: var(--rubric); }
 .al-tabs button:hover { color: var(--ink); }
@@ -430,6 +430,12 @@ h2 { font-family: var(--display); font-weight: 400; }
 .al-chart .hit:hover + .dot, .al-chart .hit:hover + .bar { opacity: 0.75; }
 .al-note { font: italic 400 13.5px/1.45 var(--body); color: var(--muted); margin: 6px 0 0; }
 #al-body { position: relative; }
+.al-books { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+@media (max-width: 520px) { .al-books { grid-template-columns: 1fr; } }
+.al-book { display: grid; grid-template-columns: 118px 1fr auto; align-items: center; gap: 8px; font: 400 13.5px var(--body); color: var(--ink); }
+.al-book i { display: block; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.al-book i b { display: block; height: 100%; background: var(--bar); border-radius: 4px; }
+.al-book small { font: 400 12px var(--body); color: var(--muted); font-variant-numeric: tabular-nums; }
 .al-empty { font: italic 400 14px var(--body); color: var(--muted); padding: 18px 0; text-align: center; }
 /* the ledger as a folio */
 .ledger { width: min(520px, calc(100vw - 24px)); padding: 14px 18px 16px; max-height: calc(100vh - 200px); grid-column: auto; grid-row: auto; }
@@ -621,7 +627,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
   </section>
   <section class="card folio commute" id="almanacF" role="dialog" aria-label="The almanac" hidden>
     <header class="folio-h"><div><div class="eyebrow">Charts kept by the town clerk</div><h2>The Almanac</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
-    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button><button type="button" data-tab="body">Measurements</button></div>
+    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button><button type="button" data-tab="body">Measurements</button><button type="button" data-tab="bible">Bible</button><button type="button" data-tab="books">Books</button></div>
     <div id="al-body"></div>
   </section>
   <section class="card folio" id="settings" role="dialog" aria-label="Settings" hidden>
@@ -737,10 +743,11 @@ document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/covers.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/weather.js?v=' + Date.now() + '"><\/script>');
-document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>');</script>
+document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>');
+document.write('<script src="data/bible_ticks.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v226';
+var BUILD = 'v227';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1195,15 +1202,21 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     for (var g = 0; g <= nc.hi + 1e-9; g += nc.step) svg += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yv(g).toFixed(1) + '" y2="' + yv(g).toFixed(1) + '"/><text x="' + (L - 5) + '" y="' + (yv(g) + 3.5).toFixed(1) + '" text-anchor="end">' + (o.fmt ? o.fmt(g) : g) + '</text>';
     var best = wk.reduce(function (a, w) { return w.v > a.v ? w : a; }, wk[0]);
     wk.forEach(function (w, i) { var x0 = L + cw * i + (cw - bw) / 2, y0 = yv(w.v), h = yv(0) - y0, rr = Math.min(4, h);
-      svg += '<rect class="hit" x="' + (L + cw * i).toFixed(1) + '" y="' + T0 + '" width="' + cw.toFixed(1) + '" height="' + (H - T0 - B0) + '" data-tip="' + alEsc('Week of ' + alDay(w.start) + ' · ' + (o.fmt ? o.fmt(w.v) : w.v) + (o.unit || '') + (o.count ? ' · ' + w.n + ' ' + o.count + (w.n === 1 ? '' : 's') : '')) + '"/>';
+      svg += '<rect class="hit" x="' + (L + cw * i).toFixed(1) + '" y="' + T0 + '" width="' + cw.toFixed(1) + '" height="' + (H - T0 - B0) + '" data-tip="' + alEsc((w.label || 'Week of ' + alDay(w.start)) + ' · ' + (o.fmt ? o.fmt(w.v) : w.v) + (o.unit || '') + (o.count ? ' · ' + w.n + ' ' + o.count + (w.n === 1 ? '' : 's') : '')) + '"/>';
       if (w.v > 0) svg += '<path class="bar" d="M' + x0.toFixed(1) + ' ' + yv(0).toFixed(1) + 'V' + (y0 + rr).toFixed(1) + 'Q' + x0.toFixed(1) + ' ' + y0.toFixed(1) + ' ' + (x0 + rr).toFixed(1) + ' ' + y0.toFixed(1) + 'H' + (x0 + bw - rr).toFixed(1) + 'Q' + (x0 + bw).toFixed(1) + ' ' + y0.toFixed(1) + ' ' + (x0 + bw).toFixed(1) + ' ' + (y0 + rr).toFixed(1) + 'V' + yv(0).toFixed(1) + 'Z"/>';
       if (w === best && w.v > 0) svg += '<text class="val" x="' + (x0 + bw / 2).toFixed(1) + '" y="' + (y0 - 4).toFixed(1) + '" text-anchor="middle">' + (o.fmt ? o.fmt(w.v) : w.v) + '</text>';
-      if (i % 4 === 0) svg += '<text x="' + (x0 + bw / 2).toFixed(1) + '" y="' + (H - 3) + '" text-anchor="middle">' + alDay(w.start) + '</text>'; });
+      if (w.short ? i % 2 === 0 : i % 4 === 0) svg += '<text x="' + (x0 + bw / 2).toFixed(1) + '" y="' + (H - 3) + '" text-anchor="middle">' + (w.short || alDay(w.start)) + '</text>'; });
     return svg + '</svg>';
   }
   // changes worth remembering when reading a chart: a new variation from a given day
   var LIFT_NOTES = { squat: [{ date: '2026-11-18', text: 'switched to sumo' }], 'leg extension': [{ date: '2026-11-18', text: 'switched to single leg' }], 'leg curl': [{ date: '2026-11-18', text: 'switched to single leg' }] };
   function noteTip(key, date) { var n = (LIFT_NOTES[key] || []).filter(function (q) { return q.date === date; })[0]; return n ? ' (' + n.text + ')' : ''; }
+  function alMonths(evs, val, n) {
+    var now = new Date(), out = [];
+    for (var k = n - 1; k >= 0; k--) { var d = new Date(now.getFullYear(), now.getMonth() - k, 1); out.push({ key: d.toLocaleDateString('en-CA').slice(0, 7), short: d.toLocaleDateString('en-CA', { month: 'short' }), label: d.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' }), v: 0, n: 0 }); }
+    evs.forEach(function (e) { var m = out.filter(function (q) { return q.key === e.date.slice(0, 7); })[0]; if (m) { m.v += val(e); m.n++; } });
+    return out;
+  }
   function alCard(title, big, sub, chart) { return '<div class="al-chart"><h4>' + title + (big != null ? '<span>' + big + '</span>' : '') + '</h4>' + (sub ? '<small style="font:italic 400 12px var(--body);color:var(--muted)">' + sub + '</small>' : '') + chart + '</div>'; }
   function alPace(s) { var m = Math.floor(s / 60), r = Math.round(s % 60); if (r === 60) { m++; r = 0; } return m + ':' + (r < 10 ? '0' : '') + r; }
   function renderAlmanac() {
@@ -1257,6 +1270,23 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       html += '<div class="cm-stats"><div><b>' + Math.round(rkm).toLocaleString('en-CA') + '</b><small>km ridden</small></div><div><b>' + nRides + '</b><small>rides (' + nCommDays + ' commute days)</small></div><div><b>' + Math.round(relev).toLocaleString('en-CA') + '</b><small>m climbed</small></div><div><b>' + (sp.length ? Math.max.apply(null, sp.map(function (p) { return p.v; })).toFixed(1) : '–') + '</b><small>fastest km/h</small></div></div>';
       html += '<h3 class="cm-h">Distance, week by week</h3>' + alCard('', null, 'every ride, commutes included', alBars(alWeeks(rides, function (e) { return e.km; }, 16), { label: 'Weekly riding km', fmt: function (v) { return Math.round(v); }, unit: ' km', count: 'ride' }));
       html += '<h3 class="cm-h">Speed, ride by ride</h3>' + alCard('', null, 'average km/h on rides with a time', alLine(sp, { label: 'Average speed per ride', fmt: function (v) { return Math.round(v); }, dotsOnly: true, avg: 5, zero: true }));
+    } else if (alTab === 'bible') {
+      var bib = alEvents(['bible']), chs = bib.reduce(function (a, e) { return a + (e.count || 0); }, 0), BB = Town.BIBLE || [], TOT = BB.reduce(function (a, b) { return a + b[1]; }, 0) || 1189;
+      var byBook = {}; bib.forEach(function (e) { var b = byBook[e.book] = byBook[e.book] || {}; (e.chapters || []).forEach(function (c) { b[c] = 1; }); });
+      var done = BB.filter(function (b) { return byBook[b[0]] && Object.keys(byBook[b[0]]).length >= b[1]; }).length;
+      var T = window.BIBLE_TICKS, plan = '';
+      if (T && T.start) { var days = Math.floor((Date.parse(new Date().toLocaleDateString('en-CA')) - Date.parse(T.start)) / 864e5) + 1, due = Math.max(0, Math.min(365, days)) * (T.perDay || 4), got = Object.keys(T.ticks || {}).length, gap = got - due;
+        plan = '<div><b>' + (gap === 0 ? 'on plan' : (gap > 0 ? '+' : '−') + Math.abs(gap)) + '</b><small>' + (gap === 0 ? 'right on schedule' : gap > 0 ? 'readings ahead of the plan' : 'readings behind the plan') + '</small></div>'; }
+      html += '<div class="cm-stats"><div><b>' + chs + '</b><small>chapters read</small></div><div><b>' + (chs / TOT * 100).toFixed(1) + '%</b><small>of the Bible</small></div><div><b>' + done + '</b><small>books finished</small></div>' + (plan || '<div><b>' + bib.length + '</b><small>readings logged</small></div>') + '</div>';
+      html += '<h3 class="cm-h">Chapters, week by week</h3>' + alCard('', null, T && T.since ? 'dated by when you ticked them since ' + alDay(T.since) + '; earlier weeks use the plan’s dates' : 'by the plan’s dates', alBars(alWeeks(bib, function (e) { return e.count || 0; }, 16), { label: 'Chapters per week', fmt: function (v) { return Math.round(v); }, unit: ' chapters', count: 'reading' }));
+      var started = BB.filter(function (b) { return byBook[b[0]]; });
+      if (started.length) html += '<h3 class="cm-h">Book by book</h3><div class="al-books">' + started.map(function (b) { var n = Object.keys(byBook[b[0]]).length, pc = Math.min(100, n / b[1] * 100); return '<div class="al-book"><span>' + b[0] + '</span><i><b style="width:' + pc.toFixed(1) + '%"></b></i><small>' + n + ' of ' + b[1] + '</small></div>'; }).join('') + '</div>';
+    } else if (alTab === 'books') {
+      var bks = alEvents(['book']), yr = String(new Date().getFullYear()), thisYr = bks.filter(function (e) { return e.date.slice(0, 4) === yr; });
+      var pages = bks.reduce(function (a, e) { return a + (e.pages || 0); }, 0), rated = bks.filter(function (e) { return e.stars; }), avg = rated.length ? rated.reduce(function (a, e) { return a + e.stars; }, 0) / rated.length : 0, longest = bks.reduce(function (a, e) { return (e.pages || 0) > (a.pages || 0) ? e : a; }, bks[0] || {});
+      html += '<div class="cm-stats"><div><b>' + thisYr.length + '</b><small>books in ' + yr + '</small></div><div><b>' + pages.toLocaleString('en-CA') + '</b><small>pages read</small></div><div><b>' + (avg ? avg.toFixed(1) : '–') + '</b><small>average rating</small></div><div><b>' + (longest.pages || '–') + '</b><small>pages, longest' + (longest.title ? ' (' + alEsc(longest.title) + ')' : '') + '</small></div></div>';
+      html += '<h3 class="cm-h">Pages, month by month</h3>' + alCard('', null, 'counted in the month each book was finished', alBars(alMonths(bks, function (e) { return e.pages || 0; }, 12), { label: 'Pages per month', fmt: function (v) { return Math.round(v); }, unit: ' pages', count: 'book' }));
+      html += '<h3 class="cm-h">Every book, rated</h3>' + alCard('', null, 'hover a dot for the book', alLine(rated.map(function (e) { return { date: e.date, v: e.stars, tip: e.title + (e.author ? ', ' + e.author : '') + ': ' + e.stars + ' stars' }; }), { label: 'Rating per book', fmt: function (v) { return v.toFixed(1); }, dotsOnly: true, labelBest: false }));
     } else if (alTab === 'body') {
       // body measurements from the sheet's Neck, Chest, Shoulders, Waist, bicep and leg columns
       var ms = (typeof sheetData !== 'undefined' && sheetData && sheetData.measures) || [], MK = [['chest', 'Chest'], ['shoulders', 'Shoulders'], ['waist', 'Waist'], ['neck', 'Neck'], ['lbicep', 'Left bicep'], ['rbicep', 'Right bicep'], ['lleg', 'Left leg'], ['rleg', 'Right leg'], ['hips', 'Hips']];
@@ -2428,9 +2458,23 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
   // A second spreadsheet: each chapter read builds the church.
   var BIBLE_ID = '18H8UIzPnUcA-tuPPp8i17TbBM9CE_TSY3s4U0hl5XuA', bibleEvents = null, bibleBusy = false, bibleUnwatch = null;
   function setBible(text, state) { $('bstatus').textContent = text; $('bdot').className = 'dot' + (state ? ' ' + state : ''); }
+  // The plan only knows the day a reading was scheduled; the updater remembers the day each tick
+  // first appeared, so use that. A tick newer than the last update was made since then: today.
+  function fixBibleDates(evs) {
+    var T = window.BIBLE_TICKS, today = new Date().toLocaleDateString('en-CA');
+    if (!T || !T.ticks) return evs;
+    return evs.map(function (e) {
+      if (!e.key) return e;
+      var rec = T.ticks[e.key], d = rec ? rec.read : today;
+      if (d === e.date) return e;
+      var c = {}; for (var k in e) c[k] = e[k];
+      c.date = d; c.day = new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+      return c;
+    });
+  }
   function bibleResult(result) {
     try {
-      var evs = FitParser.parseBible(sheetsOf(result));
+      var evs = fixBibleDates(FitParser.parseBible(sheetsOf(result)));
       var changed = JSON.stringify(evs) !== JSON.stringify(bibleEvents);
       bibleEvents = evs;
       var ch = 0; evs.forEach(function (e) { ch += e.count || 0; });
