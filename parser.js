@@ -415,6 +415,8 @@
         e.prLines[k] = (e.prLines[k] || []).concat(extra[k]);
         e.prCount = (e.prCount || 0) + extra[k].length;
       });
+      // keep a slim record of every set's top line for the charts
+      e.sets = e.exercises.filter(function (x) { return x.w > 0; }).map(function (x) { return { n: x.name, w: x.w, r: x.reps }; });
       delete e.exercises;
     });
   }

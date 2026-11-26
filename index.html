@@ -740,7 +740,7 @@ document.write('<script src="data/weather.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v222';
+var BUILD = 'v223';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1214,6 +1214,20 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       }).join('') + '</div>';
       var tn = alWeeks(lifts.filter(function (e) { return e.tonnage; }), function (e) { return e.tonnage; }, 16), tot = tn.reduce(function (a, w) { return a + w.v; }, 0);
       html += '<h3 class="cm-h">Pounds moved, week by week</h3>' + alCard('', null, '', alBars(tn, { label: 'Weekly tonnage', fmt: function (v) { return v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v); }, unit: ' lb', count: 'session' }));
+      // the lifts you come back to: every exercise logged in five or more sessions
+      var BIG4 = /barbell (back )?squat|barbell bench press|barbell deadlift|\bohp\b|overhead press|^deadlift|^squat/;
+      function liftName(n) { return n.replace(/\b(standing|flat|machine)\b/g, '').replace(/flye/g, 'fly').replace(/\b(wide|neutral|close)( grip)?\b/g, '').replace(/^seated leg curl/, 'leg curl').replace(/\s+/g, ' ').trim(); }
+      function liftTitle(n) { return n.split(' ').map(function (w) { return w === 'db' ? 'DB' : w === 'rdl' ? 'RDL' : w.charAt(0).toUpperCase() + w.slice(1); }).join(' '); }
+      var reg = {};
+      lifts.forEach(function (e) { var seen = {}; (e.sets || []).forEach(function (x) { var n = liftName(x.n); if (BIG4.test(n) || !n) return; if (!seen[n] || x.w > seen[n].w) seen[n] = x; }); Object.keys(seen).forEach(function (n) { (reg[n] = reg[n] || []).push({ date: e.date, w: seen[n].w, r: seen[n].r }); }); });
+      var regular = Object.keys(reg).map(function (n) { var L = reg[n], ws = L.map(function (q) { return q.w; }).sort(function (a, b) { return a - b; }), med = ws[Math.floor(ws.length / 2)]; return { n: n, pts: L.filter(function (q) { return q.w >= med * 0.4; }) }; })
+        .filter(function (q) { return q.pts.length >= 5; }).sort(function (a, b) { return b.pts.length - a.pts.length; }).slice(0, 12);
+      if (regular.length) {
+        html += '<h3 class="cm-h">Your regular lifts</h3><p class="al-note" style="margin-top:0">Every exercise you\u2019ve logged in five or more sessions: the heaviest set each time, with the reps in the tooltip.</p><div class="al-grid">' + regular.map(function (q) {
+          var pts = q.pts.map(function (x) { return { date: x.date, v: x.w, tip: alDay(x.date, true) + ': ' + x.w + ' lb \u00d7 ' + x.r }; }), top = Math.max.apply(null, q.pts.map(function (x) { return x.w; }));
+          return alCard(liftTitle(q.n), top + ' lb', q.pts.length + ' sessions', alLine(pts, { W: 270, H: 110, label: liftTitle(q.n), fmt: function (v) { return Math.round(v); }, labelBest: false }));
+        }).join('') + '</div>';
+      }
       var prs = lifts.reduce(function (a, e) { return a + (e.prCount || 0); }, 0);
       html += '<p class="al-note">' + Math.round(tot / 1000).toLocaleString('en-CA') + 'k lb lifted in the last sixteen weeks, ' + lifts.length + ' sessions logged, ' + prs + ' personal records set.</p>';
     } else if (alTab === 'runs') {
@@ -1230,7 +1244,8 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       var rides = alEvents(['bike', 'mtb', 'commute']).filter(function (e) { return e.km; });
       var sp = rides.filter(function (e) { return e.secs && e.km >= 3; }).map(function (e) { var v = (e.exactKm || e.km) / (e.secs / 3600); return { date: e.date, v: v, tip: alDay(e.date, true) + ': ' + (e.exactKm || e.km).toFixed(1) + ' km at ' + v.toFixed(1) + ' km/h' }; });
       var rkm = rides.reduce(function (a, e) { return a + e.km; }, 0), relev = rides.reduce(function (a, e) { return a + (e.elev || 0); }, 0);
-      html += '<div class="cm-stats"><div><b>' + Math.round(rkm).toLocaleString('en-CA') + '</b><small>km ridden</small></div><div><b>' + rides.length + '</b><small>rides (incl. commutes)</small></div><div><b>' + Math.round(relev).toLocaleString('en-CA') + '</b><small>m climbed</small></div><div><b>' + (sp.length ? Math.max.apply(null, sp.map(function (p) { return p.v; })).toFixed(1) : '–') + '</b><small>fastest km/h</small></div></div>';
+      var nRides = rides.reduce(function (a, e) { return a + (e.legs || 1); }, 0), nCommDays = rides.filter(function (e) { return e.kind === 'commute'; }).length;
+      html += '<div class="cm-stats"><div><b>' + Math.round(rkm).toLocaleString('en-CA') + '</b><small>km ridden</small></div><div><b>' + nRides + '</b><small>rides (' + nCommDays + ' commute days)</small></div><div><b>' + Math.round(relev).toLocaleString('en-CA') + '</b><small>m climbed</small></div><div><b>' + (sp.length ? Math.max.apply(null, sp.map(function (p) { return p.v; })).toFixed(1) : '–') + '</b><small>fastest km/h</small></div></div>';
       html += '<h3 class="cm-h">Distance, week by week</h3>' + alCard('', null, 'every ride, commutes included', alBars(alWeeks(rides, function (e) { return e.km; }, 16), { label: 'Weekly riding km', fmt: function (v) { return Math.round(v); }, unit: ' km', count: 'ride' }));
       html += '<h3 class="cm-h">Speed, ride by ride</h3>' + alCard('', null, 'average km/h on rides with a time', alLine(sp, { label: 'Average speed per ride', fmt: function (v) { return Math.round(v); }, dotsOnly: true, avg: 5, zero: true }));
     } else {
@@ -2741,7 +2756,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       if (a.kind !== 'commute') { merged.push(a); return; }
       var first = legs[a.date];
       if (!first) { first = legs[a.date] = Object.assign({}, a); merged.push(first); return; }
-      first.km = (first.km || 0) + (a.km || 0); first.elev = (first.elev || 0) + (a.elev || 0); if (a.when < first.when) first.when = a.when;
+      first.km = (first.km || 0) + (a.km || 0); first.elev = (first.elev || 0) + (a.elev || 0); if (a.when < first.when) first.when = a.when; first.legs = (first.legs || 1) + 1;
     });
     acts = merged;
     // A sheet run, ride, swim or ski is replaced by Strava's only when Strava has one that day
@@ -2774,7 +2789,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     acts.forEach(function (a) {
       if (fromStrava[a.kind]) {
         var ev = { kind: a.kind, km: a.km != null ? Math.round(a.km * 10) / 10 : 5, elev: a.elev, date: a.date, day: dayLabel(a.date),
-          label: a.name, phase: 'Strava', strava: true, friends: [], dogs: [], sub: a.sub, secs: a.secs, exactKm: a.km };
+          label: a.name, phase: 'Strava', strava: true, friends: [], dogs: [], sub: a.sub, secs: a.secs, exactKm: a.km, legs: a.legs || 1 };
         // Keep training partners from the sheet's run or ride on the same day.
         var buddy = dropped.filter(function (d) { return (d.kind === a.kind || d.kind !== 'run' && a.kind !== 'run') && d.date === a.date && d.friends && d.friends.length && !d.used; })[0];
         if (buddy) { buddy.used = true; ev.friends = buddy.friends; ev.dogs = buddy.dogs || []; }
