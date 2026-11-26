@@ -448,8 +448,14 @@ h2 { font-family: var(--display); font-weight: 400; }
 .al-key i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; }
 .al-recs td:nth-child(3), .al-recs td:nth-child(4), .al-recs th:nth-child(3), .al-recs th:nth-child(4) { text-align: right; white-space: nowrap; }
 .al-recs td:nth-child(4) { color: var(--muted); }
-.al-recs td:nth-child(2), .al-recs th:nth-child(2) { text-align: left; }
-.al-recs td:first-child { white-space: nowrap; color: var(--muted); }
+.al-recs td:first-child, .al-recs th:first-child { text-align: left; white-space: normal; color: var(--ink); }
+.al-recs td:nth-child(2) { font-weight: 600; }
+.al-recs td:nth-child(3) { color: var(--muted); font-size: 12.5px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.al-recs td:nth-child(4) small { color: var(--muted); }
+.al-recs tr.old td { opacity: 0.55; }
+.al-one { grid-template-columns: 1fr; }
+.al-one .al-book { grid-template-columns: 130px 1fr auto; }
+
 .al-tag { font: 400 11px var(--caps); color: var(--rubric); border: 1px solid var(--line); border-radius: 8px; padding: 0 5px; margin-right: 4px; }
 .al-empty { font: italic 400 14px var(--body); color: var(--muted); padding: 18px 0; text-align: center; }
 /* the ledger as a folio */
@@ -643,7 +649,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
   </section>
   <section class="card folio commute" id="almanacF" role="dialog" aria-label="The almanac" hidden>
     <header class="folio-h"><div><div class="eyebrow">Charts kept by the town clerk</div><h2>The Almanac</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
-    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button><button type="button" data-tab="body">Measurements</button><button type="button" data-tab="bible">Bible</button><button type="button" data-tab="books">Books</button><button type="button" data-tab="films">Films</button><button type="button" data-tab="calendar">Calendar</button><button type="button" data-tab="records">Records</button></div>
+    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button><button type="button" data-tab="body">Measurements</button><button type="button" data-tab="bible">Bible</button><button type="button" data-tab="books">Books</button><button type="button" data-tab="films">Films</button><button type="button" data-tab="calendar">Calendar</button><button type="button" data-tab="records">Records</button><button type="button" data-tab="balance">Balance</button></div>
     <div id="al-body"></div>
   </section>
   <section class="card folio" id="settings" role="dialog" aria-label="Settings" hidden>
@@ -763,7 +769,7 @@ document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>
 document.write('<script src="data/bible_ticks.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v229';
+var BUILD = 'v230';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1341,17 +1347,44 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       html += '<div class="cm-stats"><div><b>' + act + '</b><small>active days</small></div><div><b>' + cur + '</b><small>day streak now</small></div><div><b>' + longest + '</b><small>longest streak</small></div><div><b>' + Object.keys(byD).filter(function (d) { return d >= new Date(today.getTime() - 27 * 864e5).toLocaleDateString('en-CA'); }).length + '</b><small>active days, last 4 weeks</small></div></div>';
       html += '<div class="al-chart al-cal">' + cal + '<div class="al-key">less <i class="cal l0"></i><i class="cal l1"></i><i class="cal l2"></i><i class="cal l3"></i> more</div></div>';
     } else if (alTab === 'records') {
-      // every personal record, newest first: lifts from the sheet, runs and rides worked out by the town
-      var recs = [];
-      alEvents(['lift']).forEach(function (e) { Object.keys(e.prLines || {}).forEach(function (g) { (e.prLines[g] || []).forEach(function (line) {
-        var nm = line.replace(/\s*\u2014.*$/, '').split(':')[0].replace(/^\s*\d+[a-z]?\s*[.)]\s*/i, '').replace(/\s+\d+\.\d.*$/, '').trim(), t = line.match(/(\d+)\.(\d+)(?:\s*-\s*(\d+))?\.(\d+(?:\.\d+)?)/), beat = (line.match(/beat your best of (.+)$/) || [])[1];
-        recs.push({ date: e.date, what: 'Lift', name: nm || line.slice(0, 40), val: t ? t[4] + ' lb × ' + (t[3] || t[2]) : '', was: beat ? beat.replace(/\s*×\s*/, ' × ') : '' }); }); }); });
-      ((town.st && town.st.endPRs) || []).forEach(function (r) { (r.lines || []).forEach(function (line) { var m = line.match(/^(.*?): (.*?)(?: \(beat (.*)\))?$/); recs.push({ date: r.date || '', what: r.kind === 'run' ? 'Run' : 'Ride', name: m ? m[1] : line, val: m ? m[2] : '', was: m && m[3] ? m[3] : '' }); }); });
-      recs = recs.filter(function (r) { return r.date; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
-      var mo = new Date().toLocaleDateString('en-CA').slice(0, 7);
-      html += '<div class="cm-stats"><div><b>' + recs.length + '</b><small>records set</small></div><div><b>' + recs.filter(function (r) { return r.date.slice(0, 7) === mo; }).length + '</b><small>this month</small></div><div><b>' + recs.filter(function (r) { return r.what === 'Lift'; }).length + '</b><small>lifting</small></div><div><b>' + recs.filter(function (r) { return r.what !== 'Lift'; }).length + '</b><small>runs and rides</small></div></div>';
-      if (!recs.length) html += '<div class="al-empty">No records yet.</div>';
-      else html += '<table class="cm-table al-recs"><thead><tr><th>Date</th><th>Record</th><th>New best</th><th>Was</th></tr></thead><tbody>' + recs.map(function (r) { return '<tr><td>' + alDay(r.date) + '</td><td><span class="al-tag">' + r.what + '</span> ' + alEsc(r.name) + '</td><td>' + alEsc(r.val) + '</td><td>' + alEsc(r.was) + '</td></tr>'; }).join('') + '</tbody></table>';
+      // the key records: your best ever for each, and when you set it
+      function lkey(n) { if (/romanian deadlift|\brdl\b/.test(n)) return /\bdb\b|dumbbell/.test(n) ? null : 'rdl'; if (/glute bridge|hip thrust/.test(n)) return 'hip'; if (/sumo/.test(n)) return 'sumo'; if (/barbell (back )?squat/.test(n)) return 'squat'; if (/barbell (flat )?bench press/.test(n) || n === 'bench') return 'bench'; if (/barbell deadlift/.test(n) || n === 'deadlift') return 'deadlift'; if (/\bohp\b|overhead press/.test(n) && /barbell|standing/.test(n)) return 'ohp'; if (/incline db bench/.test(n)) return 'incline'; if (/single arm db row/.test(n)) return 'dbrow'; if (/lat pulldown/.test(n)) return 'pulldown'; return null; }
+      var LIFTS = [['bench', 'Bench press'], ['squat', 'Back squat'], ['sumo', 'Sumo squat'], ['deadlift', 'Deadlift'], ['ohp', 'Overhead press'], ['rdl', 'Romanian deadlift'], ['hip', 'Hip thrust / glute bridge'], ['incline', 'Incline DB bench'], ['dbrow', 'Single-arm DB row'], ['pulldown', 'Lat pulldown']];
+      var best = {};
+      alEvents(['lift']).forEach(function (e) { (e.sets || []).forEach(function (x) { var k = lkey(x.n); if (!k || !(x.w > 0)) return; var b = best[k], e1 = x.w * (1 + x.r / 30); if (!b || x.w > b.w || (x.w === b.w && x.r > b.r)) best[k] = { w: x.w, r: x.r, date: e.date, e1: Math.round(e1) }; }); });
+      var ago = function (d) { var n = Math.round((Date.parse(new Date().toLocaleDateString('en-CA')) - Date.parse(d)) / 864e5); return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n < 14 ? n + ' days ago' : n < 60 ? Math.round(n / 7) + ' weeks ago' : Math.round(n / 30) + ' months ago'; };
+      var stale = function (d) { return (Date.parse(new Date().toLocaleDateString('en-CA')) - Date.parse(d)) / 864e5 > 28; };
+      var row = function (what, name, val, extra, d) { return '<tr' + (stale(d) ? ' class="old"' : '') + '><td><span class="al-tag">' + what + '</span> ' + name + '</td><td>' + val + '</td><td>' + extra + '</td><td>' + alDay(d) + '<small> · ' + ago(d) + '</small></td></tr>'; };
+      var rows = LIFTS.filter(function (L) { return best[L[0]]; }).map(function (L) { var b = best[L[0]]; return row('Lift', L[1], b.w + ' lb × ' + b.r, '~' + b.e1 + ' lb max', b.date); });
+      // runs and rides, straight from the logs
+      var rn = alEvents(['run']).filter(function (e) { return e.km; }), rd = alEvents(['bike', 'mtb']).filter(function (e) { return e.km; });
+      var top = function (list, f, better) { return list.reduce(function (a, e) { var v = f(e); return v != null && (!a || better(v, a.v)) ? { v: v, e: e } : a; }, null); };
+      var gt = function (a, b) { return a > b; }, lt = function (a, b) { return a < b; };
+      var R = [
+        ['Run', 'Longest run', top(rn, function (e) { return e.exactKm || e.km; }, gt), function (v) { return v.toFixed(1) + ' km'; }],
+        ['Run', 'Fastest pace, 5 km+', top(rn, function (e) { var k = e.exactKm || e.km; return e.secs && k >= 4.9 ? e.secs / k : null; }, lt), function (v) { return alPace(v) + ' /km'; }],
+        ['Run', 'Fastest pace, 10 km+', top(rn, function (e) { var k = e.exactKm || e.km; return e.secs && k >= 9.9 ? e.secs / k : null; }, lt), function (v) { return alPace(v) + ' /km'; }],
+        ['Run', 'Most climbing on a run', top(rn, function (e) { return e.elev || null; }, gt), function (v) { return Math.round(v) + ' m'; }],
+        ['Ride', 'Longest ride', top(rd, function (e) { return e.exactKm || e.km; }, gt), function (v) { return v.toFixed(1) + ' km'; }],
+        ['Ride', 'Fastest ride, 20 km+', top(rd, function (e) { var k = e.exactKm || e.km; return e.secs && k >= 20 ? k / (e.secs / 3600) : null; }, gt), function (v) { return v.toFixed(1) + ' km/h'; }],
+        ['Ride', 'Most climbing on a ride', top(rd, function (e) { return e.elev || null; }, gt), function (v) { return Math.round(v) + ' m'; }]
+      ];
+      R.forEach(function (q) { if (q[2]) rows.push(row(q[0], q[1], q[3](q[2].v), alEsc(q[2].e.label || ''), q[2].e.date)); });
+      var recent = rows.length - rows.filter(function (r) { return / class="old"/.test(r); }).length;
+      html += '<p class="al-note" style="margin-top:0">Your best ever for each, and when you set it. ' + recent + ' of ' + rows.length + ' were set in the last four weeks; the faded ones are older than that, ripe for another go.</p>';
+      html += '<table class="cm-table al-recs"><thead><tr><th>Record</th><th>Best</th><th></th><th>Set on</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+    } else if (alTab === 'balance') {
+      // where the lifting has gone lately, and who you train with
+      var since = new Date(Date.now() - 56 * 864e5).toLocaleDateString('en-CA'), GN = { chest: 'Chest', back: 'Back', legs: 'Legs', shoulders: 'Shoulders', arms: 'Arms', full: 'Full body', core: 'Core', posterior: 'Posterior chain', glutes: 'Glutes', hamstrings: 'Hamstrings' }, gc = {};
+      alEvents(['lift']).filter(function (e) { return e.date >= since; }).forEach(function (e) { (e.groups || []).forEach(function (g) { gc[g] = (gc[g] || 0) + 1; }); });
+      var gmax = Math.max.apply(null, Object.keys(gc).map(function (k) { return gc[k]; }).concat([1]));
+      html += '<h3 class="cm-h" style="border:0;padding-top:0;margin-top:0">Sessions per muscle group, last eight weeks</h3><div class="al-books al-one">' + Object.keys(gc).sort(function (a, b) { return gc[b] - gc[a]; }).map(function (g) { return '<div class="al-book"><span>' + (GN[g] || g.charAt(0).toUpperCase() + g.slice(1)) + '</span><i><b style="width:' + (gc[g] / gmax * 100).toFixed(1) + '%"></b></i><small>' + gc[g] + '</small></div>'; }).join('') + '</div>';
+      var low = Object.keys(gc).sort(function (a, b) { return gc[a] - gc[b]; })[0];
+      if (low) html += '<p class="al-note">Least trained lately: ' + (GN[low] || low) + ', ' + gc[low] + (gc[low] === 1 ? ' session' : ' sessions') + ' in eight weeks.</p>';
+      var fc = {}, fl = {};
+      alEvents(['lift', 'run', 'bike', 'mtb', 'hike', 'walk', 'sport', 'swim', 'row', 'xcski', 'snowboard', 'social']).forEach(function (e) { (e.friends || []).forEach(function (f) { fc[f] = (fc[f] || 0) + 1; if (!fl[f] || e.date > fl[f]) fl[f] = e.date; }); });
+      var fr = Object.keys(fc).sort(function (a, b) { return fc[b] - fc[a]; }).slice(0, 12), fmax = fr.length ? fc[fr[0]] : 1;
+      if (fr.length) html += '<h3 class="cm-h">Training partners</h3><div class="al-books al-one">' + fr.map(function (f) { return '<div class="al-book"><span>' + alEsc(f) + '</span><i><b style="width:' + (fc[f] / fmax * 100).toFixed(1) + '%"></b></i><small>' + fc[f] + ' · last ' + alDay(fl[f]) + '</small></div>'; }).join('') + '</div>';
     } else if (alTab === 'body') {
       // body measurements from the sheet's Neck, Chest, Shoulders, Waist, bicep and leg columns
       var ms = (typeof sheetData !== 'undefined' && sheetData && sheetData.measures) || [], MK = [['chest', 'Chest'], ['shoulders', 'Shoulders'], ['waist', 'Waist'], ['neck', 'Neck'], ['lbicep', 'Left bicep'], ['rbicep', 'Right bicep'], ['lleg', 'Left leg'], ['rleg', 'Right leg'], ['hips', 'Hips']];
