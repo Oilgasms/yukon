@@ -740,7 +740,7 @@ document.write('<script src="data/weather.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v223';
+var BUILD = 'v224';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1216,12 +1216,17 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       html += '<h3 class="cm-h">Pounds moved, week by week</h3>' + alCard('', null, '', alBars(tn, { label: 'Weekly tonnage', fmt: function (v) { return v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v); }, unit: ' lb', count: 'session' }));
       // the lifts you come back to: every exercise logged in five or more sessions
       var BIG4 = /barbell (back )?squat|barbell bench press|barbell deadlift|\bohp\b|overhead press|^deadlift|^squat/;
-      function liftName(n) { return n.replace(/\b(standing|flat|machine)\b/g, '').replace(/flye/g, 'fly').replace(/\b(wide|neutral|close)( grip)?\b/g, '').replace(/^seated leg curl/, 'leg curl').replace(/\s+/g, ' ').trim(); }
+      function liftName(n) {
+        // the same lift written different ways over the months
+        if (/romanian deadlift|\brdl\b/.test(n)) return /\bdb\b|dumbbell/.test(n) ? 'db romanian deadlift' : 'romanian deadlift';
+        if (/glute bridge|hip thrust/.test(n)) return 'hip thrust / glute bridge';
+        return n.replace(/\b(standing|flat|machine)\b/g, '').replace(/flye/g, 'fly').replace(/\b(wide|neutral|close)( grip)?\b/g, '').replace(/^seated leg curl/, 'leg curl').replace(/\bdumbbell\b/g, 'db').replace(/\s+/g, ' ').trim();
+      }
       function liftTitle(n) { return n.split(' ').map(function (w) { return w === 'db' ? 'DB' : w === 'rdl' ? 'RDL' : w.charAt(0).toUpperCase() + w.slice(1); }).join(' '); }
       var reg = {};
       lifts.forEach(function (e) { var seen = {}; (e.sets || []).forEach(function (x) { var n = liftName(x.n); if (BIG4.test(n) || !n) return; if (!seen[n] || x.w > seen[n].w) seen[n] = x; }); Object.keys(seen).forEach(function (n) { (reg[n] = reg[n] || []).push({ date: e.date, w: seen[n].w, r: seen[n].r }); }); });
       var regular = Object.keys(reg).map(function (n) { var L = reg[n], ws = L.map(function (q) { return q.w; }).sort(function (a, b) { return a - b; }), med = ws[Math.floor(ws.length / 2)]; return { n: n, pts: L.filter(function (q) { return q.w >= med * 0.4; }) }; })
-        .filter(function (q) { return q.pts.length >= 5; }).sort(function (a, b) { return b.pts.length - a.pts.length; }).slice(0, 12);
+        .filter(function (q) { return q.pts.length >= 5; }).sort(function (a, b) { return b.pts.length - a.pts.length; });
       if (regular.length) {
         html += '<h3 class="cm-h">Your regular lifts</h3><p class="al-note" style="margin-top:0">Every exercise you\u2019ve logged in five or more sessions: the heaviest set each time, with the reps in the tooltip.</p><div class="al-grid">' + regular.map(function (q) {
           var pts = q.pts.map(function (x) { return { date: x.date, v: x.w, tip: alDay(x.date, true) + ': ' + x.w + ' lb \u00d7 ' + x.r }; }), top = Math.max.apply(null, q.pts.map(function (x) { return x.w; }));
