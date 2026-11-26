@@ -352,12 +352,39 @@ async function weather() {
   return `${wx.temp}°C, code ${wx.code}`;
 }
 
+// Commute weather: the temperature in Whitehorse at about 7:30 am and 5 pm every day (when you'd be
+// riding in and home), from Open-Meteo's archive plus the last couple of weeks from its forecast API.
+async function commuteWeather() {
+  const path = new URL('commute_wx.js', DATA);
+  let have = {};
+  try { const t = await readFile(path, 'utf8'); have = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch {}
+  const day = (d) => d.toISOString().slice(0, 10);
+  const today = new Date(), from = new Date(today.getTime() - 400 * 864e5);
+  const base = 'latitude=60.72&longitude=-135.05&hourly=temperature_2m&timezone=America%2FWhitehorse';
+  const fold = (j) => {
+    const H = j && j.hourly; if (!H) return 0; let n = 0; const by = {};
+    H.time.forEach((t, i) => { const v = H.temperature_2m[i]; if (v == null) return; const d = t.slice(0, 10), h = +t.slice(11, 13); (by[d] = by[d] || {})[h] = v; });
+    Object.keys(by).forEach((d) => { const h = by[d]; if (h[7] == null || h[8] == null) return; const am = Math.round((h[7] + h[8]) / 2 * 10) / 10, pm = h[17] != null ? Math.round(h[17] * 10) / 10 : null; have[d] = pm == null ? [am] : [am, pm]; n++; });
+    return n;
+  };
+  // only ask the archive for what we don't have yet (it lags about five days behind)
+  const missing = Object.keys(have).length ? new Date(Math.max(from.getTime(), Date.parse(Object.keys(have).sort().slice(-1)[0]) - 10 * 864e5)) : from;
+  const end = new Date(today.getTime() - 6 * 864e5);
+  let n = 0;
+  if (missing < end) n += fold(await fetch(`https://archive-api.open-meteo.com/v1/archive?${base}&start_date=${day(missing)}&end_date=${day(end)}`).then((r) => r.json()));
+  n += fold(await fetch(`https://api.open-meteo.com/v1/forecast?${base}&past_days=14&forecast_days=1`).then((r) => r.json()));
+  const keep = {}; Object.keys(have).sort().filter((d) => d >= day(from)).forEach((d) => { keep[d] = have[d]; });
+  await writeFile(path, 'window.COMMUTE_WX = ' + JSON.stringify(keep) + ';\n');
+  return `${Object.keys(keep).length} days (${n} refreshed)`;
+}
+
 await step('Google Sheets', sheets);
 await step('Strava', strava);
 await step('Letterboxd', letterboxd);
 await step('Book lines', bookLines);
 await step('Covers', covers);
 await step('Weather', weather);
+await step('Commute weather', commuteWeather);
 await step('Cronometer', cronometer);
 await writeFile(new URL('status.json', DATA), JSON.stringify(status, null, 2) + '\n');
 if (['Google Sheets', 'Strava', 'Letterboxd'].every((k) => String(status[k]).startsWith('FAILED'))) process.exit(1);

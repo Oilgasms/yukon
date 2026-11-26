@@ -12,7 +12,7 @@
 :root {
   --sky-top: #7ec8ee; --sky-bottom: #d9f1fb;
   --card: #f3e4bf; --card-2: #e8d3a1; --edge: #4a2f17; --ink: #2e1d0e; --muted: #6e5034; --line: rgba(74, 47, 23, 0.3);
-  --accent: #7a2318; --accent-ink: #f8ecc8; --warn: #a3301f; --live: #4f7a3a; --rubric: #8c2a1c; --gold: #a87b22; --bar: #8c2a1c;
+  --accent: #7a2318; --accent-ink: #f8ecc8; --warn: #a3301f; --live: #4f7a3a; --rubric: #8c2a1c; --gold: #a87b22; --bar: #8c2a1c; --cold: #2f6fb4;
   --display: "IM Fell English", "EB Garamond", Georgia, serif;
   --caps: "IM Fell English SC", "IM Fell English", Georgia, serif;
   --body: "EB Garamond", Georgia, "Times New Roman", serif;
@@ -20,12 +20,12 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --sky-top: #1b1838; --sky-bottom: #4b3560;
   --card: #3b2716; --card-2: #4d341d; --edge: #d9a95a; --ink: #f6e6c0; --muted: #c9a77a; --line: rgba(217, 169, 90, 0.3);
-  --accent: #b8452f; --accent-ink: #fbefd0; --warn: #ff9b7a; --live: #8fbf6a; --rubric: #e7967a; --gold: #d9a95a; --bar: #cf6f52; color-scheme: dark;
+  --accent: #b8452f; --accent-ink: #fbefd0; --warn: #ff9b7a; --live: #8fbf6a; --rubric: #e7967a; --gold: #d9a95a; --bar: #cf6f52; --cold: #5a92d0; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --sky-top: #1b1838; --sky-bottom: #4b3560;
   --card: #3b2716; --card-2: #4d341d; --edge: #d9a95a; --ink: #f6e6c0; --muted: #c9a77a; --line: rgba(217, 169, 90, 0.3);
-  --accent: #b8452f; --accent-ink: #fbefd0; --warn: #ff9b7a; --live: #8fbf6a; --rubric: #e7967a; --gold: #d9a95a; --bar: #cf6f52; color-scheme: dark;
+  --accent: #b8452f; --accent-ink: #fbefd0; --warn: #ff9b7a; --live: #8fbf6a; --rubric: #e7967a; --gold: #d9a95a; --bar: #cf6f52; --cold: #5a92d0; color-scheme: dark;
 }
 /* The horizon tint follows the season of the latest log. */
 body[data-season="spring"] { --sky-bottom: #e6f6dc; }
@@ -391,6 +391,21 @@ h2 { font-family: var(--display); font-weight: 400; }
 .cm-table th, .cm-table td { text-align: right; padding: 2px 6px; border-bottom: 1px dotted var(--line); font-variant-numeric: tabular-nums; }
 .cm-table th:first-child, .cm-table td:first-child { text-align: left; }
 .cm-table th { font-family: var(--caps); font-weight: 400; color: var(--muted); }
+.cm-medals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0 4px; }
+.cm-medal { text-align: center; border: 1px solid var(--line); border-radius: 6px; padding: 7px 4px 6px; opacity: 0.45; }
+.cm-medal.won { opacity: 1; border-color: var(--edge); }
+.cm-medal i { display: block; width: 30px; height: 30px; margin: 0 auto 4px; border-radius: 50%; border: 2px solid var(--edge); background: var(--card-2); box-sizing: border-box; }
+.cm-medal.won i { background: var(--mc); }
+.cm-medal b { display: block; font: 400 13px/1.15 var(--caps); color: var(--ink); }
+.cm-medal small { font: 400 12px var(--body); color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .cm-medals { grid-template-columns: repeat(2, 1fr); } }
+.cm-cold svg { width: 100%; height: auto; display: block; }
+.cm-cold .grid { stroke: var(--line); stroke-width: 1; }
+.cm-cold .line20 { stroke: var(--cold); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.cm-cold text { font: 400 10.5px var(--body); fill: var(--muted); font-variant-numeric: tabular-nums; }
+.cm-cold text.l20 { fill: var(--ink); font-style: italic; }
+.cm-cold .dot { fill: var(--card); stroke: var(--muted); stroke-width: 1.5; }
+.cm-cold .dot.c { fill: var(--cold); stroke: var(--card); stroke-width: 2; }
 /* the ledger as a folio */
 .ledger { width: min(520px, calc(100vw - 24px)); padding: 14px 18px 16px; max-height: calc(100vh - 200px); grid-column: auto; grid-row: auto; }
 .ledger .rows { padding: 0 0 10px; gap: 4px; }
@@ -690,10 +705,11 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
 document.write('<script src="data/films.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/booklines.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/covers.js?v=' + Date.now() + '"><\/script>');
-document.write('<script src="data/weather.js?v=' + Date.now() + '"><\/script>');</script>
+document.write('<script src="data/weather.js?v=' + Date.now() + '"><\/script>');
+document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v220';
+var BUILD = 'v221';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -862,6 +878,19 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     } catch (e) { if (!done) { done = true; clearTimeout(timer); applyWhitehorse(); } }
   }
   fetchWhitehorse();
+  // commute-time temperatures for the last fortnight (the updater keeps the long history)
+  (function () {
+    try {
+      fetch('https://api.open-meteo.com/v1/forecast?latitude=' + WHX.lat + '&longitude=' + WHX.lon + '&hourly=temperature_2m&timezone=America%2FWhitehorse&past_days=14&forecast_days=1')
+        .then(function (r) { return r.json(); }).then(function (j) {
+          var H = j && j.hourly; if (!H) return; var W = window.COMMUTE_WX = window.COMMUTE_WX || {}, by = {};
+          H.time.forEach(function (t, i) { var v = H.temperature_2m[i]; if (v == null) return; (by[t.slice(0, 10)] = by[t.slice(0, 10)] || {})[+t.slice(11, 13)] = v; });
+          Object.keys(by).forEach(function (d) { var h = by[d]; if (h[7] == null || h[8] == null) return; W[d] = h[17] != null ? [Math.round((h[7] + h[8]) * 5) / 10, Math.round(h[17] * 10) / 10] : [Math.round((h[7] + h[8]) * 5) / 10]; });
+          if (town.applyCommuteWx) town.applyCommuteWx();
+          if (!$('commuteF').hidden) renderCommute();
+        }).catch(function () {});
+    } catch (e) {}
+  })();
   setInterval(function () { whWeather = null; fetchWhitehorse(); }, 30 * 60000);
   $('clock').addEventListener('click', function () {
     var i = phasePreview ? PHASES.indexOf(phasePreview) + 1 : 0;
@@ -1102,6 +1131,25 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     Object.keys(bd).forEach(function (d) { if (d > today) return; bd[d].forEach(function (e) { if (e.kind === 'commute') out.push({ date: d, km: e.km || 10 }); }); });
     return out.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
   }
+  // the cold record: how badass the rides have been
+  var CM_MEDALS = [[-10, 'Brisk', '#a9c8e4'], [-20, 'Blue Cobble', '#5b8fc8'], [-30, 'Ice Fog Rider', '#2f5f9e'], [-40, 'Forty Below Club', '#2b2f7a']];
+  function coldHtml() {
+    var cr = town.coldRides ? town.coldRides() : [];
+    if (!cr.length) return '<h3 class="cm-h">The cold record</h3><p class="sub">Temperatures arrive with the next update. Every ride at −20°C or colder lays a blue cobble.</p>';
+    var min = cr.reduce(function (a, r) { return r.t < a.t ? r : a; }, cr[0]);
+    var medals = CM_MEDALS.map(function (m) { var n = cr.filter(function (r) { return r.t <= m[0]; }).length; return '<div class="cm-medal' + (n ? ' won' : '') + '" style="--mc:' + m[2] + '"><i></i><b>' + m[1] + '</b><small>' + (n ? n + (n === 1 ? ' ride' : ' rides') : 'at ' + m[0] + '°') + '</small></div>'; }).join('');
+    // each ride on a thermometer line, the last 60
+    var pts = cr.slice(-60), W = 560, H = 140, L = 34, R = 8, T0 = 10, B0 = 20, lo = Math.min(-45, Math.floor(min.t / 5) * 5 - 5), hi = Math.max(10, Math.ceil(pts.reduce(function (a, r) { return Math.max(a, r.t); }, -99) / 5) * 5);
+    var d0 = Date.parse(pts[0].date), d1 = Math.max(d0 + 864e5, Date.parse(pts[pts.length - 1].date)), xv = function (d) { return L + (W - L - R) * (Date.parse(d) - d0) / (d1 - d0); }, yv = function (t) { return T0 + (H - T0 - B0) * (hi - t) / (hi - lo); };
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Temperature on each commute; coldest ' + Math.round(min.t) + ' degrees">';
+    for (var g = Math.ceil(lo / 10) * 10; g <= hi; g += 10) svg += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yv(g).toFixed(1) + '" y2="' + yv(g).toFixed(1) + '"/><text x="' + (L - 5) + '" y="' + (yv(g) + 3.5).toFixed(1) + '" text-anchor="end">' + (g > 0 ? g : g === 0 ? '0' : '−' + (-g)) + '°</text>';
+    svg += '<line class="line20" x1="' + L + '" x2="' + (W - R) + '" y1="' + yv(-20).toFixed(1) + '" y2="' + yv(-20).toFixed(1) + '"/><text class="l20" x="' + (W - R) + '" y="' + (yv(-20) - 4).toFixed(1) + '" text-anchor="end">−20° and colder: a blue cobble</text>';
+    pts.forEach(function (r) { var c = r.t <= -20; svg += '<circle class="dot' + (c ? ' c' : '') + '" cx="' + xv(r.date).toFixed(1) + '" cy="' + yv(r.t).toFixed(1) + '" r="' + (c ? 5 : 4) + '"><title>' + new Date(r.date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) + ': ' + Math.round(r.t) + '°C</title></circle>'; });
+    svg += '<text x="' + L + '" y="' + (H - 4) + '">' + new Date(pts[0].date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) + '</text><text x="' + (W - R) + '" y="' + (H - 4) + '" text-anchor="end">' + new Date(pts[pts.length - 1].date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) + '</text></svg>';
+    var verdict = min.t <= -40 ? 'Forty below on a bicycle. You are the stuff of Yukon legend.' : min.t <= -30 ? 'Thirty below and still pedalling. The ravens are impressed.' : min.t <= -20 ? 'Twenty below and you rode anyway. That’s a Yukoner.' : min.t <= -10 ? 'Properly cold rides already. The real test is coming.' : 'Mild so far. Winter will have something to say about that.';
+    return '<h3 class="cm-h">The cold record</h3><div class="cm-hero" style="margin-top:0"><strong>' + (min.t < 0 ? '−' + Math.round(-min.t) : Math.round(min.t)) + '°C</strong><span>coldest ride, ' + new Date(min.date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }) + '. ' + verdict + '</span></div>'
+      + '<div class="cm-medals">' + medals + '</div><div class="cm-cold">' + svg + '</div>';
+  }
   function renderCommute() {
     var rides = commuteRides(), el = $('cm-body'), total = rides.reduce(function (a, r) { return a + r.km; }, 0);
     if (!rides.length) { el.innerHTML = '<p class="sub">No commutes logged yet. Turn a day green in the bike column of your sheet (or tag a Strava ride as a commute) and the road starts here.</p>'; return; }
@@ -1152,6 +1200,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     var html = '<div class="cm-hero"><strong>' + cmFmt(total) + ' km</strong><span>' + cmFmt(rides.length) + ' rides to work and back since ' + first.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' }) + '</span></div>'
       + '<p class="cm-where">' + where + '</p><h3 class="cm-h" style="border:0;padding-top:0;margin-top:6px">Leg ' + (li + 1) + ' of 3: ' + LEG.name + '</h3>' + svg
       + '<div class="cm-stats"><div><b>' + cmFmt(thisYear) + '</b><small>km in ' + yr + '</small></div><div><b>' + cmFmt(total / rides.length) + '</b><small>km a ride</small></div><div><b>' + cmFmt(allMonths[bestKey]) + '</b><small>best month (' + bestLabel + ')</small></div><div><b>' + fullWeeks + '</b><small>' + (fullWeeks === 1 ? 'gold week' : 'gold weeks') + ', Mon to Fri</small></div></div>'
+      + coldHtml()
       + '<h3 class="cm-h">The last twelve months</h3><div class="cm-bars">' + bars + '</div>'
       + '<p class="cm-saved">Left in the tank: about ' + cmFmt(litres) + ' litres of gas, and ' + cmFmt(co2) + ' kg of CO₂ that never left a tailpipe.' + (far ? ' Next big mark: ' + far[0] + ', ' + cmFmt(far[1] - total) + ' km to go.' : '') + '</p>'
       + '<details class="key-fold"><summary>Month by month</summary><table class="cm-table"><thead><tr><th>Month</th><th>Rides</th><th>km</th></tr></thead><tbody>'

@@ -13062,6 +13062,26 @@
     var d = new Date(date + 'T12:00:00Z'), wd = (d.getUTCDay() + 6) % 7; // Monday 0 ... Sunday 6
     return { key: new Date(d.getTime() - wd * 86400000).toISOString().slice(0, 10), wd: wd };
   }
+  // ---- how cold it was on each ride: the colder leg (7:30 am in, or 5 pm home) ----
+  var COLD_TIERS = [[-40, 'Forty Below Club', '#2b2f7a'], [-30, 'Ice Fog Rider', '#2f5f9e'], [-20, 'Blue Cobble', '#5b8fc8'], [-10, 'Brisk', null]];
+  Town.prototype.commuteTemp = function (date) {
+    var W = root.COMMUTE_WX, v = W && date && W[date]; if (!v || !v.length) return null;
+    return v.length > 1 && v[1] != null ? Math.min(v[0], v[1]) : v[0];
+  };
+  Town.prototype.coldTier = function (t) { if (t == null) return null; for (var i = 0; i < COLD_TIERS.length; i++) if (t <= COLD_TIERS[i][0]) return COLD_TIERS[i]; return null; };
+  Town.prototype.tintCommuteTile = function (tl) {
+    var tier = this.coldTier(this.commuteTemp(tl.date));
+    if (tl.frost) { tl.m.remove(tl.frost); tl.frost = null; }
+    // gold weeks stay gold; otherwise the colder the ride, the bluer the stone
+    tl.m.material = tl.gold || !tier || !tier[2] ? tl.base : this.mcm(tier[2]);
+    if (tier && tier[0] <= -30 && !tl.gold) { tl.frost = this.part(tl.m, this.geo.box, this.mcm('#eef6ff'), 0.7, 0.35, 0.55, 0.05, 0.62, 0.08, 'commute'); tl.frost.rotation.y = 0.3; }
+  };
+  Town.prototype.applyCommuteWx = function () { var self = this; ((this.st.commute || {}).tiles || []).forEach(function (tl) { self.tintCommuteTile(tl); }); this.markBatch(); this.needsRender = true; };
+  Town.prototype.coldRides = function () {
+    var self = this, bd = this.st.byDay || {}, out = [];
+    Object.keys(bd).forEach(function (d) { if (bd[d].some(function (e) { return e.kind === 'commute'; })) { var t = self.commuteTemp(d); if (t != null) out.push({ date: d, t: t }); } });
+    return out.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  };
   Town.prototype.addCommute = function (km, delay, date) {
     var s = this.st.commute, k = s.n, self = this;
     s.n++; s.km += km || 10;
@@ -13078,6 +13098,7 @@
       var pa = LANE[Math.max(0, k - 1)], pb = LANE[Math.min(LANE_STONES - 1, k + 1)];
       var tilt = onBridge ? 0 : Math.atan2(surfaceY(pb.x, pb.z) - surfaceY(pa.x, pa.z), Math.hypot(pb.x - pa.x, pb.z - pa.z) || 1);
       var t = this.part(this.world, this.geo.box, gold ? this.mat('gold') : onBridge ? this.mat('stone', 2) : this.mat('cobble'), LANE.spacing * 1.04, 0.12, onBridge ? 1.7 : 1.15, p.x, 0, p.z, 'commute');
+      (s.tiles = s.tiles || []).push({ m: t, date: date, gold: gold, base: t.material }); this.tintCommuteTile(s.tiles[s.tiles.length - 1]);
       t.rotation.order = 'YZX';
       t.rotation.z = tilt;
       t.rotation.y = p.rot;
@@ -15576,6 +15597,8 @@
   };
   Town.prototype.noticeLine = function () {
     var s = this.st, t = this.today; if (!t || !s.byDay) return null;
+    var yd = new Date(Date.parse(t) - 864e5).toISOString().slice(0, 10), cold = [t, yd].map(function (d) { return (s.byDay[d] || []).some(function (e) { return e.kind === 'commute'; }) ? this.commuteTemp(d) : null; }, this).filter(function (v) { return v != null && v <= -20; })[0];
+    if (cold != null && Math.random() < 0.6) { var c0 = Math.round(cold); return pickOne(['you biked in at ' + c0 + '?! you’re tougher than a sled dog', c0 + ' on a bicycle! the whole town’s talking', 'I saw you ride past at ' + c0 + '. I put the kettle on just thinking about it', 'they’re carving your name on the Forty Below board, I swear', 'frost on your whiskers and still pedalling. legend']); }
     // a cheer when you've had a big week
     var active = 0; for (var i = 0; i < 7; i++) { var dk = new Date(Date.parse(t) - i * 864e5).toISOString().slice(0, 10); if ((s.byDay[dk] || []).some(function (e) { return !NOT_WORKOUTS[e.kind]; })) active++; }
     if (active >= 5 && Math.random() < 0.4) return pickOne([active + ' days this week! the whole town’s talking', 'there goes our champion!', 'three cheers for the raccoon! hip hip!', 'you’re an inspiration, you know. I did a push-up', 'the Vancouverites wouldn’t dare come back now']);
@@ -18090,7 +18113,8 @@
         var c = s.commute;
         return { title: 'The commute to Yukon University', lines: [plural(c.n, 'commute') + ' · ' + km(c.km),
           c.n < LANE_STONES ? 'Lane ' + Math.round(c.n / LANE_STONES * 100) + '% built: ' + (LANE_STONES - c.n) + ' more cobbles to reach Yukon University.' : (c.stage >= OFFICE_STAGES.length ? 'Lane complete and the campus is finished: ' + OFFICE_STAGES.join(', ').toLowerCase() + '.' : 'Lane complete. Yukon University grows: next, ' + OFFICE_STAGES[c.stage].toLowerCase() + ' in ' + (officeStageAt(c.stage) - (c.n - LANE_STONES)) + ' more commutes.'),
-          'One cobble per Strava ride tagged Commute; commute every weekday and Friday\u2019s cobble is gold' + (c.golden ? ' (' + plural(c.golden, 'golden week') + ' so far).' : '.'), tail] };
+          'One cobble per Strava ride tagged Commute; commute every weekday and Friday\u2019s cobble is gold' + (c.golden ? ' (' + plural(c.golden, 'golden week') + ' so far).' : '.'),
+          (function (self) { var cr = self.coldRides(), n20 = cr.filter(function (r) { return r.t <= -20; }).length, min = cr.reduce(function (a, r) { return r.t < a ? r.t : a; }, 99); return cr.length ? 'Coldest ride: ' + Math.round(min) + '\u00b0C. ' + (n20 ? plural(n20, 'ride') + ' at \u221220 or colder laid blue cobbles.' : 'Ride at \u221220 or colder and the cobble turns blue.') : 'Ride at \u221220 or colder and the cobble turns blue.'; })(this), tail] };
       case 'harbour':
       case 'row':
         var RH = s.row, nh = HARBOUR_STEPS.filter(function (x) { return RH.km < x[0]; })[0], hb = HARBOUR_STEPS.filter(function (x) { return RH.km >= x[0]; }).map(function (x) { return x[1].toLowerCase(); });
