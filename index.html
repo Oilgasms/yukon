@@ -454,6 +454,8 @@ h2 { font-family: var(--display); font-weight: 400; }
 .al-recs td:nth-child(4) small { color: var(--muted); }
 .al-recs tr.old td { opacity: 0.55; }
 .al-one { grid-template-columns: 1fr; }
+.al-year { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 520px) { .al-year { grid-template-columns: repeat(2, 1fr); } }
 .al-one .al-book { grid-template-columns: 130px 1fr auto; }
 
 .al-tag { font: 400 11px var(--caps); color: var(--rubric); border: 1px solid var(--line); border-radius: 8px; padding: 0 5px; margin-right: 4px; }
@@ -649,7 +651,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
   </section>
   <section class="card folio commute" id="almanacF" role="dialog" aria-label="The almanac" hidden>
     <header class="folio-h"><div><div class="eyebrow">Charts kept by the town clerk</div><h2>The Almanac</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
-    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button><button type="button" data-tab="body">Measurements</button><button type="button" data-tab="bible">Bible</button><button type="button" data-tab="books">Books</button><button type="button" data-tab="films">Films</button><button type="button" data-tab="calendar">Calendar</button><button type="button" data-tab="records">Records</button><button type="button" data-tab="balance">Balance</button></div>
+    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button><button type="button" data-tab="body">Measurements</button><button type="button" data-tab="bible">Bible</button><button type="button" data-tab="books">Books</button><button type="button" data-tab="films">Films</button><button type="button" data-tab="calendar">Calendar</button><button type="button" data-tab="records">Records</button><button type="button" data-tab="balance">Balance</button><button type="button" data-tab="year">Year</button></div>
     <div id="al-body"></div>
   </section>
   <section class="card folio" id="settings" role="dialog" aria-label="Settings" hidden>
@@ -769,7 +771,7 @@ document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>
 document.write('<script src="data/bible_ticks.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v230';
+var BUILD = 'v231';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1231,13 +1233,24 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     return svg + '</svg>';
   }
   // changes worth remembering when reading a chart: a new variation from a given day
-  var LIFT_NOTES = { squat: [{ date: '2026-11-18', text: 'switched to sumo' }], 'leg extension': [{ date: '2026-11-18', text: 'switched to single leg' }], 'leg curl': [{ date: '2026-11-18', text: 'switched to single leg' }] };
+  var LIFT_NOTES = { squat: [{ date: '2026-11-09', text: 'switched to sumo' }], 'leg extension': [{ date: '2026-11-18', text: 'switched to single leg' }], 'leg curl': [{ date: '2026-11-18', text: 'switched to single leg' }] };
   function noteTip(key, date) { var n = (LIFT_NOTES[key] || []).filter(function (q) { return q.date === date; })[0]; return n ? ' (' + n.text + ')' : ''; }
   function alMonths(evs, val, n) {
     var now = new Date(), out = [];
     for (var k = n - 1; k >= 0; k--) { var d = new Date(now.getFullYear(), now.getMonth() - k, 1); out.push({ key: d.toLocaleDateString('en-CA').slice(0, 7), short: d.toLocaleDateString('en-CA', { month: 'short' }), label: d.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' }), v: 0, n: 0 }); }
     evs.forEach(function (e) { var m = out.filter(function (q) { return q.key === e.date.slice(0, 7); })[0]; if (m) { m.v += val(e); m.n++; } });
     return out;
+  }
+  function alScatter(pts, o) {
+    if (!pts.length) return '<div class="al-empty">Nothing logged yet.</div>';
+    var W = 560, H = 170, L = 40, R = 10, T0 = 12, B0 = 20, xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
+    var nx = alNice(0, Math.max.apply(null, xs), 4), ny = alNice(Math.min.apply(null, ys) - 0.2, Math.max.apply(null, ys) + 0.2, 3);
+    var xv = function (v) { return L + (W - L - R) * (v - nx.lo) / (nx.hi - nx.lo); }, yv = function (v) { var u = (v - ny.lo) / (ny.hi - ny.lo); return T0 + (H - T0 - B0) * (o.invertY ? u : 1 - u); };
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img">';
+    for (var g = ny.lo; g <= ny.hi + 1e-9; g += ny.step) svg += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yv(g).toFixed(1) + '" y2="' + yv(g).toFixed(1) + '"/><text x="' + (L - 5) + '" y="' + (yv(g) + 3.5).toFixed(1) + '" text-anchor="end">' + o.yFmt(g) + '</text>';
+    for (var gx = nx.lo; gx <= nx.hi + 1e-9; gx += nx.step) svg += '<text x="' + xv(gx).toFixed(1) + '" y="' + (H - 4) + '" text-anchor="middle">' + o.xFmt(gx) + '</text>';
+    pts.forEach(function (p) { var x = xv(p.x).toFixed(1), y = yv(p.y).toFixed(1); svg += '<circle class="hit" cx="' + x + '" cy="' + y + '" r="11" data-tip="' + alEsc(p.tip) + '"/><circle class="dot solo" cx="' + x + '" cy="' + y + '" r="4.5"/>'; });
+    return svg + '</svg>';
   }
   function alCard(title, big, sub, chart) { return '<div class="al-chart"><h4>' + title + (big != null ? '<span>' + big + '</span>' : '') + '</h4>' + (sub ? '<small style="font:italic 400 12px var(--body);color:var(--muted)">' + sub + '</small>' : '') + chart + '</div>'; }
   function alPace(s) { var m = Math.floor(s / 60), r = Math.round(s % 60); if (r === 60) { m++; r = 0; } return m + ':' + (r < 10 ? '0' : '') + r; }
@@ -1283,6 +1296,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       html += '<div class="cm-stats"><div><b>' + Math.round(tkm).toLocaleString('en-CA') + '</b><small>km run</small></div><div><b>' + runs.length + '</b><small>runs</small></div><div><b>' + (longest.km ? longest.km.toFixed(1) : '0') + '</b><small>km, longest</small></div><div><b>' + (bestPace ? alPace(bestPace.v * 60) : '–') + '</b><small>best pace /km</small></div></div>';
       html += '<h3 class="cm-h">Pace, run by run</h3>' + alCard('', null, 'minutes per km; faster is higher. The line is the average of the last five runs.', alLine(paced, { label: 'Pace per run', fmt: function (v) { return alPace(v * 60); }, invert: true, dotsOnly: true, avg: 5 }));
       html += '<h3 class="cm-h">Distance, week by week</h3>' + alCard('', null, '', alBars(alWeeks(runs, function (e) { return e.km; }, 16), { label: 'Weekly running km', fmt: function (v) { return Math.round(v); }, unit: ' km', count: 'run' }));
+      html += '<h3 class="cm-h">Pace against distance</h3>' + alCard('', null, 'each run: further to the right is longer, higher is faster', alScatter(runs.filter(function (e) { return e.secs && e.km >= 1; }).map(function (e) { var k = e.exactKm || e.km, pc = e.secs / k / 60; return { x: k, y: pc, tip: alDay(e.date, true) + ': ' + k.toFixed(1) + ' km at ' + alPace(pc * 60) + ' /km' }; }).filter(function (q) { return q.y >= 2.5 && q.y <= 12; }), { xFmt: function (v) { return Math.round(v) + ' km'; }, yFmt: function (v) { return alPace(v * 60); }, invertY: true }));
       html += '<h3 class="cm-h">Every run</h3>' + alCard('', null, 'distance of each run', alLine(runs.map(function (e) { return { date: e.date, v: e.km, tip: alDay(e.date, true) + ': ' + e.km.toFixed(1) + ' km' + (e.elev ? ', ' + Math.round(e.elev) + ' m climbed' : '') }; }), { label: 'Distance per run', fmt: function (v) { return Math.round(v); }, dotsOnly: true, zero: true }));
     } else if (alTab === 'rides') {
       var rides = alEvents(['bike', 'mtb', 'commute']).filter(function (e) { return e.km; });
@@ -1346,6 +1360,10 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       var cur = 0; for (var q = 0; q < 400; q++) { var dk2 = new Date(today.getTime() - q * 864e5).toLocaleDateString('en-CA'); if (byD[dk2]) cur++; else if (q > 0) break; }
       html += '<div class="cm-stats"><div><b>' + act + '</b><small>active days</small></div><div><b>' + cur + '</b><small>day streak now</small></div><div><b>' + longest + '</b><small>longest streak</small></div><div><b>' + Object.keys(byD).filter(function (d) { return d >= new Date(today.getTime() - 27 * 864e5).toLocaleDateString('en-CA'); }).length + '</b><small>active days, last 4 weeks</small></div></div>';
       html += '<div class="al-chart al-cal">' + cal + '<div class="al-key">less <i class="cal l0"></i><i class="cal l1"></i><i class="cal l2"></i><i class="cal l3"></i> more</div></div>';
+      // which days of the week get used most
+      var WD = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], wdc = [0, 0, 0, 0, 0, 0, 0];
+      Object.keys(byD).forEach(function (d) { wdc[(new Date(d + 'T12:00:00').getDay() + 6) % 7]++; });
+      html += '<h3 class="cm-h">Your week</h3>' + alCard('', null, 'active days on each day of the week', alBars(WD.map(function (n, i) { return { short: n.slice(0, 3), label: n + 's', v: wdc[i], n: wdc[i] }; }), { label: 'Active days by weekday', fmt: function (v) { return Math.round(v); }, unit: ' active days', allLabels: true, int: true }));
     } else if (alTab === 'records') {
       // the key records: your best ever for each, and when you set it
       function lkey(n) { if (/romanian deadlift|\brdl\b/.test(n)) return /\bdb\b|dumbbell/.test(n) ? null : 'rdl'; if (/glute bridge|hip thrust/.test(n)) return 'hip'; if (/sumo/.test(n)) return 'sumo'; if (/barbell (back )?squat/.test(n)) return 'squat'; if (/barbell (flat )?bench press/.test(n) || n === 'bench') return 'bench'; if (/barbell deadlift/.test(n) || n === 'deadlift') return 'deadlift'; if (/\bohp\b|overhead press/.test(n) && /barbell|standing/.test(n)) return 'ohp'; if (/incline db bench/.test(n)) return 'incline'; if (/single arm db row/.test(n)) return 'dbrow'; if (/lat pulldown/.test(n)) return 'pulldown'; return null; }
@@ -1373,6 +1391,17 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       var recent = rows.length - rows.filter(function (r) { return / class="old"/.test(r); }).length;
       html += '<p class="al-note" style="margin-top:0">Your best ever for each, and when you set it. ' + recent + ' of ' + rows.length + ' were set in the last four weeks; the faded ones are older than that, ripe for another go.</p>';
       html += '<table class="cm-table al-recs"><thead><tr><th>Record</th><th>Best</th><th></th><th>Set on</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+    } else if (alTab === 'year') {
+      var Y = String(new Date().getFullYear()), inY = function (kinds) { return alEvents(kinds).filter(function (e) { return e.date.slice(0, 4) === Y; }); };
+      var sum = function (l, f) { return l.reduce(function (a, e) { return a + (f(e) || 0); }, 0); };
+      var yr = inY(['run']), yb = inY(['bike', 'mtb', 'commute']), yl = inY(['lift']), yh = inY(['hike']), ybib = inY(['bible']), ybk = inY(['book']), yf = inY(['movie']), ysp = inY(['sport']);
+      var NOTW2 = { drink: 1, weight: 1, social: 1, bible: 1, book: 1, movie: 1, walk: 1 }, act = {}, bd2 = (town.st && town.st.byDay) || {};
+      Object.keys(bd2).forEach(function (d) { if (d.slice(0, 4) === Y && bd2[d].some(function (e) { return !NOTW2[e.kind] && !e.planned; })) act[d] = 1; });
+      var big = [[Object.keys(act).length, 'active days'], [Math.round(sum(yr, function (e) { return e.km; })), 'km run'], [Math.round(sum(yb, function (e) { return e.km; })), 'km ridden'], [Math.round(sum(yl, function (e) { return e.tonnage; }) / 1000) + 'k', 'lb lifted'],
+        [yl.length, 'lifting sessions'], [ysp.length, 'games played'], [yh.length, 'hikes'], [sum(ybib, function (e) { return e.count; }), 'Bible chapters'], [ybk.length, 'books, ' + sum(ybk, function (e) { return e.pages; }).toLocaleString('en-CA') + ' pages'], [yf.length, 'films']];
+      html += '<p class="al-note" style="margin-top:0">' + Y + ' so far.</p><div class="cm-stats al-year">' + big.map(function (b) { return '<div><b>' + (typeof b[0] === 'number' ? b[0].toLocaleString('en-CA') : b[0]) + '</b><small>' + b[1] + '</small></div>'; }).join('') + '</div>';
+      var months = alMonths(Object.keys(act).map(function (d) { return { date: d }; }), function () { return 1; }, 12);
+      html += '<h3 class="cm-h">Active days, month by month</h3>' + alCard('', null, 'days with at least one workout', alBars(months, { label: 'Active days per month', fmt: function (v) { return Math.round(v); }, unit: ' active days', int: true }));
     } else if (alTab === 'balance') {
       // where the lifting has gone lately, and who you train with
       var since = new Date(Date.now() - 56 * 864e5).toLocaleDateString('en-CA'), GN = { chest: 'Chest', back: 'Back', legs: 'Legs', shoulders: 'Shoulders', arms: 'Arms', full: 'Full body', core: 'Core', posterior: 'Posterior chain', glutes: 'Glutes', hamstrings: 'Hamstrings' }, gc = {};
