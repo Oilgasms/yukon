@@ -394,8 +394,13 @@ function csvRows(text) {
   return rows;
 }
 async function bibleTicks() {
-  const csv = await fetch(`https://docs.google.com/spreadsheets/d/${SHEETS['bible.xlsx']}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('MCheyne Plan')}`).then((r) => { if (!r.ok) throw new Error('plan tab ' + r.status); return r.text(); });
-  const rows = csvRows(csv), head = rows.findIndex((r) => r.some((c) => /^date$/i.test(c.trim())));
+  // (an unknown tab name quietly returns the first tab instead, so try the spellings in turn)
+  let rows = [], head = -1;
+  for (const tab of ["M'Cheyne Plan", 'MCheyne Plan', 'M\u2019Cheyne Plan']) {
+    const csv = await fetch(`https://docs.google.com/spreadsheets/d/${SHEETS['bible.xlsx']}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`).then((r) => (r.ok ? r.text() : ''));
+    rows = csvRows(csv); head = rows.findIndex((r) => r.some((c) => /^date$/i.test(c.trim())) && r.some((c) => /^family/i.test(c.trim())));
+    if (head >= 0) break;
+  }
   if (head < 0) throw new Error('no Date column in the plan tab');
   const low = rows[head].map((c) => c.trim().toLowerCase()), di = low.indexOf('date');
   const reads = low.map((c, i) => (/^(family|secret|reading)\b/.test(c) && /^(done|read|✓|✔|tick|check)/.test(low[i + 1] || '') ? i : -1)).filter((i) => i >= 0);
