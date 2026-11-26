@@ -13072,9 +13072,13 @@
   Town.prototype.tintCommuteTile = function (tl) {
     var tier = this.coldTier(this.commuteTemp(tl.date));
     if (tl.frost) { tl.m.remove(tl.frost); tl.frost = null; }
-    // gold weeks stay gold; otherwise the colder the ride, the bluer the stone
-    tl.m.material = tl.gold || !tier || !tier[2] ? tl.base : this.mcm(tier[2]);
-    if (tier && tier[0] <= -30 && !tl.gold) { tl.frost = this.part(tl.m, this.geo.box, this.mcm('#eef6ff'), 0.7, 0.35, 0.55, 0.05, 0.62, 0.08, 'commute'); tl.frost.rotation.y = 0.3; }
+    // the colder the ride, the bluer the stone; a gold week's Friday that was also bitterly cold
+    // keeps both: a blue cobble with a band of gold laid across it
+    var cold = tier && tier[2];
+    if (tl.inlay) { tl.m.remove(tl.inlay); tl.inlay = null; }
+    tl.m.material = cold ? this.mcm(tier[2]) : tl.base;
+    if (cold && tl.gold) tl.inlay = this.part(tl.m, this.geo.box, this.mat('gold'), 1.02, 1.08, 0.32, 0, 0.04, 0, 'commute');
+    if (tier && tier[0] <= -30) { tl.frost = this.part(tl.m, this.geo.box, this.mcm('#eef6ff'), 0.7, 0.35, 0.55, 0.05, 0.62, tl.gold ? 0.3 : 0.08, 'commute'); tl.frost.rotation.y = 0.3; }
   };
   Town.prototype.applyCommuteWx = function () { var self = this; ((this.st.commute || {}).tiles || []).forEach(function (tl) { self.tintCommuteTile(tl); }); this.markBatch(); this.needsRender = true; };
   Town.prototype.coldRides = function () {

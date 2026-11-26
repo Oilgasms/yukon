@@ -406,6 +406,31 @@ h2 { font-family: var(--display); font-weight: 400; }
 .cm-cold text.l20 { fill: var(--ink); font-style: italic; }
 .cm-cold .dot { fill: var(--card); stroke: var(--muted); stroke-width: 1.5; }
 .cm-cold .dot.c { fill: var(--cold); stroke: var(--card); stroke-width: 2; }
+.al-tabs { display: flex; gap: 4px; margin: 0 0 10px; border-bottom: 1px solid var(--line); }
+.al-tabs button { font: 400 15px var(--caps); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 4px 10px 5px; cursor: pointer; }
+.al-tabs button.on { color: var(--rubric); border-bottom-color: var(--rubric); }
+.al-tabs button:hover { color: var(--ink); }
+.al-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+@media (max-width: 520px) { .al-grid { grid-template-columns: 1fr; } }
+.al-chart { position: relative; }
+.al-chart h4 { margin: 0; font: 400 14px var(--caps); color: var(--ink); display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.al-chart h4 span { font: 400 20px var(--display); color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.al-chart h4 small { font: italic 400 12px var(--body); color: var(--muted); }
+.al-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.al-chart .grid { stroke: var(--line); stroke-width: 1; }
+.al-chart .ln { fill: none; stroke: var(--bar); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.al-chart .avg { fill: none; stroke: var(--bar); stroke-width: 2; stroke-dasharray: 1 0; opacity: 1; }
+.al-chart .dot { fill: var(--card); stroke: var(--bar); stroke-width: 2; }
+.al-chart .dot.solo { fill: var(--bar); stroke: var(--card); }
+.al-chart .bar { fill: var(--bar); }
+.al-chart text { font: 400 10.5px var(--body); fill: var(--muted); font-variant-numeric: tabular-nums; }
+.al-chart text.val { fill: var(--ink); font-weight: 600; }
+.al-chart [data-tip] { cursor: default; }
+.al-chart .hit { fill: transparent; }
+.al-chart .hit:hover + .dot, .al-chart .hit:hover + .bar { opacity: 0.75; }
+.al-note { font: italic 400 13.5px/1.45 var(--body); color: var(--muted); margin: 6px 0 0; }
+#al-body { position: relative; }
+.al-empty { font: italic 400 14px var(--body); color: var(--muted); padding: 18px 0; text-align: center; }
 /* the ledger as a folio */
 .ledger { width: min(520px, calc(100vw - 24px)); padding: 14px 18px 16px; max-height: calc(100vh - 200px); grid-column: auto; grid-row: auto; }
 .ledger .rows { padding: 0 0 10px; gap: 4px; }
@@ -520,7 +545,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
 <canvas id="scene" aria-label="Your town, built from your workouts. Walk around as the raccoon with WASD or the arrow keys (Shift runs, E looks, M for the map), or drag to look around and scroll or pinch to zoom."></canvas>
 <div id="vignette" aria-hidden="true"></div>
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-tower" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V9h14v12M5 9V5h2.5v2h2V5h2.5v2h2V5H19v4M10 21v-4a2 2 0 0 1 4 0v4"/></symbol><symbol id="i-paw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15.5" r="3.6"/><circle cx="6" cy="10.5" r="1.7"/><circle cx="9.4" cy="6.6" r="1.7"/><circle cx="14.6" cy="6.6" r="1.7"/><circle cx="18" cy="10.5" r="1.7"/></symbol><symbol id="i-sword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5H20.5V9.5L9.5 20.5 6.5 17.5z"/><path d="M4.5 14.5l5 5M3 21l2.5-2.5M12 12l3-3"/></symbol><symbol id="i-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4h10.5a2 2 0 0 1 0 4H17v10a2 2 0 0 1-2 2H5a2 2 0 0 1 0-4h1.5V6A2 2 0 0 1 7.5 4z"/><path d="M9.5 9.5h5M9.5 12.5h5M9.5 15.5h3"/></symbol><symbol id="i-ledger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h12.5a1.5 1.5 0 0 1 1.5 1.5v14.5H7a2 2 0 0 1-2-2z"/><path d="M5 18.5a2 2 0 0 1 2-2h12M9 8.5h6M9 11.5h4"/></symbol><symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/><path d="M5.5 11.5l1.5 1.5M7 11.5l-1.5 1.5"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5c1-1.2 1.2-3.2 1.2-6.2a4.8 4.8 0 0 1 9.6 0c0 3 .2 5 1.2 6.2z"/><path d="M4.5 16.5h15M10 19.5a2 2 0 0 0 4 0M12 3.5v2"/></symbol><symbol id="i-candle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10.5h6V20H9zM6.5 20h11"/><path d="M12 10.5V8.5"/><path d="M12 3c1.8 1.8 1.8 3.6 0 4.6-1.8-1-1.8-2.8 0-4.6z"/></symbol><symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h4l1.6-2.5h5.8L16.5 8h4v11h-17z"/><circle cx="12" cy="13.3" r="3.6"/><path d="M18 10.5h.01"/></symbol><symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="3.6"/><path d="M10.6 12H21M17.5 12v3M20.5 12v2.2"/></symbol><symbol id="i-quill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 3.5C12.5 4.5 8 9.5 6 16.5"/><path d="M20 3.5c-1 6-5 10-11 11M4 21l2-4.5M10.5 11l3 .5"/></symbol><symbol id="i-strength" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h9v5.5h-9z"/><path d="M12.5 7.2h3.5M8 11v10M6 21h4"/></symbol><symbol id="i-running" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h5v8.5l6 2.8V19h-12l1-7.5z"/><path d="M5.5 16.5h12"/><path d="M12 7c2.2-2 5.3-2.2 7.5-1.2-2 0-3.2.8-4 1.8 2 0 3.2.8 3.5 2-2-.8-4.2-.8-6.5 0"/></symbol><symbol id="i-endurance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8c3.8 3.6 4.8 6.8 2.8 9.6a3.6 3.6 0 0 1-5.6 0c-1-1.8-.2-3.6 1.6-4.6.2 1.6 1 2.4 1.8 2 .9-1.9.4-4.2-.6-7z"/><path d="M10 14.5h4l-1 6.5h-2z"/></symbol><symbol id="i-hiking" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 20l6.3-10.5 3 4 3.4-6.5L21.5 20z"/><path d="M13.6 10.6l1.6 1.2 1.2-1"/></symbol><symbol id="i-cycling" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6"/><path d="M12 3.5v6.9M12 13.6v6.9M3.5 12h6.9M13.6 12h6.9M6 6l4.9 4.9M13.1 13.1L18 18M18 6l-4.9 4.9M10.9 13.1L6 18"/></symbol><symbol id="i-swimming" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2.5 13.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2.5 18.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></symbol><symbol id="i-agility" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 3.5C11.5 5 6.5 10 5 20"/><path d="M19.5 3.5c0 7-4 11.2-11.5 12.4M9.3 15.6l-3.4.8M12.2 12.4l-4.2 1M15.2 9.2l-4.4 1.1M17.6 6.2l-4.2 1.3"/></symbol><symbol id="i-discipline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3h13M5.5 21h13M7 3c0 5.2 5 6.2 5 9s-5 3.8-5 9M17 3c0 5.2-5 6.2-5 9s5 3.8 5 9"/><path d="M9.5 18.5h5"/></symbol><symbol id="i-fellowship" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h6.5l-1 5.2a2.2 2.2 0 0 1-4.4 0zM6.3 11.9v6.6M4 19h4.6"/><path d="M14.5 4.5H21l-1 5.2a2.2 2.2 0 0 1-4.4 0zM17.8 11.9v6.6M15.5 19h4.6"/><path d="M10.5 3l1.5-1.5L13.5 3"/></symbol><symbol id="i-devotion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v19M6.5 8h11"/></symbol><symbol id="i-lore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6c3.2-1.2 6.4-1 9.5 1 3.1-2 6.3-2.2 9.5-1v13c-3.2-1.2-6.4-1-9.5 1-3.1-2-6.3-2.2-9.5-1z"/><path d="M12 7v13M5 9.5c1.5-.4 3-.3 4.5.3M14.5 9.8c1.5-.6 3-.7 4.5-.3"/></symbol></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-tower" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V9h14v12M5 9V5h2.5v2h2V5h2.5v2h2V5H19v4M10 21v-4a2 2 0 0 1 4 0v4"/></symbol><symbol id="i-paw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15.5" r="3.6"/><circle cx="6" cy="10.5" r="1.7"/><circle cx="9.4" cy="6.6" r="1.7"/><circle cx="14.6" cy="6.6" r="1.7"/><circle cx="18" cy="10.5" r="1.7"/></symbol><symbol id="i-sword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5H20.5V9.5L9.5 20.5 6.5 17.5z"/><path d="M4.5 14.5l5 5M3 21l2.5-2.5M12 12l3-3"/></symbol><symbol id="i-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4h10.5a2 2 0 0 1 0 4H17v10a2 2 0 0 1-2 2H5a2 2 0 0 1 0-4h1.5V6A2 2 0 0 1 7.5 4z"/><path d="M9.5 9.5h5M9.5 12.5h5M9.5 15.5h3"/></symbol><symbol id="i-ledger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h12.5a1.5 1.5 0 0 1 1.5 1.5v14.5H7a2 2 0 0 1-2-2z"/><path d="M5 18.5a2 2 0 0 1 2-2h12M9 8.5h6M9 11.5h4"/></symbol><symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/><path d="M5.5 11.5l1.5 1.5M7 11.5l-1.5 1.5"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5c1-1.2 1.2-3.2 1.2-6.2a4.8 4.8 0 0 1 9.6 0c0 3 .2 5 1.2 6.2z"/><path d="M4.5 16.5h15M10 19.5a2 2 0 0 0 4 0M12 3.5v2"/></symbol><symbol id="i-candle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10.5h6V20H9zM6.5 20h11"/><path d="M12 10.5V8.5"/><path d="M12 3c1.8 1.8 1.8 3.6 0 4.6-1.8-1-1.8-2.8 0-4.6z"/></symbol><symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5h17M6 20.5v-6M10.5 20.5V9M15 20.5v-8M19.5 20.5V5"/><path d="M5 11l5-4 4.5 3 5.5-6"/></symbol><symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h4l1.6-2.5h5.8L16.5 8h4v11h-17z"/><circle cx="12" cy="13.3" r="3.6"/><path d="M18 10.5h.01"/></symbol><symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="3.6"/><path d="M10.6 12H21M17.5 12v3M20.5 12v2.2"/></symbol><symbol id="i-quill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 3.5C12.5 4.5 8 9.5 6 16.5"/><path d="M20 3.5c-1 6-5 10-11 11M4 21l2-4.5M10.5 11l3 .5"/></symbol><symbol id="i-strength" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h9v5.5h-9z"/><path d="M12.5 7.2h3.5M8 11v10M6 21h4"/></symbol><symbol id="i-running" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h5v8.5l6 2.8V19h-12l1-7.5z"/><path d="M5.5 16.5h12"/><path d="M12 7c2.2-2 5.3-2.2 7.5-1.2-2 0-3.2.8-4 1.8 2 0 3.2.8 3.5 2-2-.8-4.2-.8-6.5 0"/></symbol><symbol id="i-endurance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8c3.8 3.6 4.8 6.8 2.8 9.6a3.6 3.6 0 0 1-5.6 0c-1-1.8-.2-3.6 1.6-4.6.2 1.6 1 2.4 1.8 2 .9-1.9.4-4.2-.6-7z"/><path d="M10 14.5h4l-1 6.5h-2z"/></symbol><symbol id="i-hiking" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 20l6.3-10.5 3 4 3.4-6.5L21.5 20z"/><path d="M13.6 10.6l1.6 1.2 1.2-1"/></symbol><symbol id="i-cycling" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6"/><path d="M12 3.5v6.9M12 13.6v6.9M3.5 12h6.9M13.6 12h6.9M6 6l4.9 4.9M13.1 13.1L18 18M18 6l-4.9 4.9M10.9 13.1L6 18"/></symbol><symbol id="i-swimming" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2.5 13.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2.5 18.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></symbol><symbol id="i-agility" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 3.5C11.5 5 6.5 10 5 20"/><path d="M19.5 3.5c0 7-4 11.2-11.5 12.4M9.3 15.6l-3.4.8M12.2 12.4l-4.2 1M15.2 9.2l-4.4 1.1M17.6 6.2l-4.2 1.3"/></symbol><symbol id="i-discipline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3h13M5.5 21h13M7 3c0 5.2 5 6.2 5 9s-5 3.8-5 9M17 3c0 5.2-5 6.2-5 9s5 3.8 5 9"/><path d="M9.5 18.5h5"/></symbol><symbol id="i-fellowship" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h6.5l-1 5.2a2.2 2.2 0 0 1-4.4 0zM6.3 11.9v6.6M4 19h4.6"/><path d="M14.5 4.5H21l-1 5.2a2.2 2.2 0 0 1-4.4 0zM17.8 11.9v6.6M15.5 19h4.6"/><path d="M10.5 3l1.5-1.5L13.5 3"/></symbol><symbol id="i-devotion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v19M6.5 8h11"/></symbol><symbol id="i-lore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6c3.2-1.2 6.4-1 9.5 1 3.1-2 6.3-2.2 9.5-1v13c-3.2-1.2-6.4-1-9.5 1-3.1-2-6.3-2.2-9.5-1z"/><path d="M12 7v13M5 9.5c1.5-.4 3-.3 4.5.3M14.5 9.8c1.5-.6 3-.7 4.5-.3"/></symbol></svg>
 <div class="hud">
   <section class="card title" id="title-card">
     <button class="min-btn" type="button" id="title-min" aria-expanded="true" aria-label="Minimize this panel">&ndash;</button>
@@ -594,6 +619,11 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
     <header class="folio-h"><div><div class="eyebrow">Every ride to Yukon University and back</div><h2>The Commute</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
     <div id="cm-body"></div>
   </section>
+  <section class="card folio commute" id="almanacF" role="dialog" aria-label="The almanac" hidden>
+    <header class="folio-h"><div><div class="eyebrow">Charts kept by the town clerk</div><h2>The Almanac</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
+    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button></div>
+    <div id="al-body"></div>
+  </section>
   <section class="card folio" id="settings" role="dialog" aria-label="Settings" hidden>
     <header class="folio-h"><div><div class="eyebrow">How you see the town</div><h2>Settings</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
     <div class="set-list">
@@ -649,6 +679,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
       <button class="tb" id="quests-btn" type="button" title="Favours asked by the townsfolk (J)"><svg class="ico" aria-hidden="true"><use href="#i-scroll"/></svg><span class="lbl">Quests</span></button>
       <button class="tb" id="ledger-btn" type="button" title="The town ledger: everything you’ve built (L)"><svg class="ico" aria-hidden="true"><use href="#i-ledger"/></svg><span class="lbl">Ledger</span></button>
       <button class="tb" id="commute-btn" type="button" title="Your commuting kilometres (C)"><svg class="ico" aria-hidden="true"><use href="#i-cycling"/></svg><span class="lbl">Commute</span></button>
+      <button class="tb" id="almanac-btn" type="button" title="The almanac: charts of your lifts, runs, rides and weight (Y)"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg><span class="lbl">Almanac</span></button>
       <button class="tb" id="inkmap-btn" type="button" title="The inked map of everywhere you’ve walked (N)"><svg class="ico" aria-hidden="true"><use href="#i-map"/></svg><span class="lbl">Map</span></button>
       <button class="tb" id="crierbtn" type="button" title="This week’s Town Crier"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg><span class="lbl">Crier</span></button>
       <button class="tb" id="recentbtn" type="button" title="The last 25 things logged"><svg class="ico" aria-hidden="true"><use href="#i-candle"/></svg><span class="lbl">Latest</span></button>
@@ -709,7 +740,7 @@ document.write('<script src="data/weather.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v221';
+var BUILD = 'v222';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1105,7 +1136,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     $('skills').hidden = false;
   }
   // ---- folios: one book open at a time, from the toolbar ----
-  var FOLIOS = ['skills', 'questsF', 'ledger', 'commuteF', 'records', 'settings'];
+  var FOLIOS = ['skills', 'questsF', 'ledger', 'commuteF', 'almanacF', 'records', 'settings'];
   function closeFolios(except) { FOLIOS.forEach(function (id) { if (id !== except) $(id).hidden = true; }); ['recent', 'crier', 'shelf'].forEach(function (id) { if (id !== except && $(id)) $(id).hidden = true; }); syncBar(); }
   function openFolio(id) {
     var was = !$(id).hidden; closeFolios(id);
@@ -1113,11 +1144,109 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     if (id === 'skills') openSkills(); else $(id).hidden = false;
     if (id === 'ledger') renderLedger();
     if (id === 'commuteF') renderCommute();
+    if (id === 'almanacF') renderAlmanac();
     if (id === 'questsF') { claimGreatQuests(); renderGreatQuests(); }
     syncBar();
   }
-  function syncBar() { [['skills-btn', 'skills'], ['quests-btn', 'questsF'], ['ledger-btn', 'ledger'], ['commute-btn', 'commuteF'], ['settings-btn', 'settings']].forEach(function (b) { $(b[0]).classList.toggle('on', !$(b[1]).hidden || (b[1] === 'settings' && !$('records').hidden)); }); }
+  function syncBar() { [['skills-btn', 'skills'], ['quests-btn', 'questsF'], ['ledger-btn', 'ledger'], ['commute-btn', 'commuteF'], ['almanac-btn', 'almanacF'], ['settings-btn', 'settings']].forEach(function (b) { $(b[0]).classList.toggle('on', !$(b[1]).hidden || (b[1] === 'settings' && !$('records').hidden)); }); }
   $('commute-btn').addEventListener('click', function () { openFolio('commuteF'); });
+  $('almanac-btn').addEventListener('click', function () { openFolio('almanacF'); });
+  // ---- the almanac: charts of the lifts, runs, rides and weigh-ins ----
+  var alTab = 'lifts';
+  Array.prototype.forEach.call(document.querySelectorAll('.al-tabs button'), function (b) {
+    b.addEventListener('click', function () { alTab = b.getAttribute('data-tab'); renderAlmanac(); });
+  });
+  function alEvents(kinds) {
+    var bd = (town.st && town.st.byDay) || {}, today = new Date().toLocaleDateString('en-CA'), out = [];
+    Object.keys(bd).sort().forEach(function (d) { if (d > today) return; bd[d].forEach(function (e) { if (kinds.indexOf(e.kind) >= 0) out.push(Object.assign({ date: d }, e)); }); });
+    return out;
+  }
+  function alDay(d, long) { return new Date(d + 'T12:00:00').toLocaleDateString('en-CA', long ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric' }); }
+  function alNice(lo, hi, n) { var span = hi - lo || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), st = [1, 2, 2.5, 5, 10].map(function (k) { return k * mag; }).filter(function (k) { return k >= raw; })[0]; return { lo: Math.floor(lo / st) * st, hi: Math.ceil(hi / st) * st, step: st }; }
+  function alEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  // a line (or dots) over time; one series, its best point labelled, a tooltip on every point
+  function alLine(pts, o) {
+    o = o || {}; var W = o.W || 560, H = o.H || 150, L = 38, R = 10, T0 = 14, B0 = 18;
+    if (!pts.length) return '<div class="al-empty">Nothing logged yet.</div>';
+    var vs = pts.map(function (p) { return p.v; }), mn = Math.min.apply(null, vs), mx = Math.max.apply(null, vs), pad = (mx - mn) * 0.12 || Math.abs(mx) * 0.05 || 1;
+    var nc = alNice(o.zero ? Math.max(0, mn - pad) : mn - pad, mx + pad, 3), d0 = Date.parse(pts[0].date), d1 = Math.max(d0 + 864e5 * 7, Date.parse(pts[pts.length - 1].date));
+    var xv = function (d) { return L + (W - L - R) * (Date.parse(d) - d0) / (d1 - d0); }, yv = function (v) { var u = (v - nc.lo) / (nc.hi - nc.lo); return T0 + (H - T0 - B0) * (o.invert ? u : 1 - u); };
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + alEsc(o.label || '') + '">';
+    for (var g = nc.lo; g <= nc.hi + 1e-9; g += nc.step) svg += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yv(g).toFixed(1) + '" y2="' + yv(g).toFixed(1) + '"/><text x="' + (L - 5) + '" y="' + (yv(g) + 3.5).toFixed(1) + '" text-anchor="end">' + (o.fmt ? o.fmt(g) : g) + '</text>';
+    if (!o.dotsOnly && pts.length > 1) svg += '<path class="ln" d="' + pts.map(function (p, i) { return (i ? 'L' : 'M') + xv(p.date).toFixed(1) + ' ' + yv(p.v).toFixed(1); }).join('') + '"/>';
+    if (o.avg && pts.length > 4) { var k = o.avg, av = pts.map(function (p, i) { var w = pts.slice(Math.max(0, i - k + 1), i + 1); return { date: p.date, v: w.reduce(function (a, q) { return a + q.v; }, 0) / w.length }; }); svg += '<path class="avg" d="' + av.map(function (p, i) { return (i ? 'L' : 'M') + xv(p.date).toFixed(1) + ' ' + yv(p.v).toFixed(1); }).join('') + '"/>'; }
+    var best = pts.reduce(function (a, p) { return (o.invert ? p.v < a.v : p.v > a.v) ? p : a; }, pts[0]);
+    pts.forEach(function (p) { var x = xv(p.date).toFixed(1), y = yv(p.v).toFixed(1); svg += '<circle class="hit" cx="' + x + '" cy="' + y + '" r="11" data-tip="' + alEsc(p.tip) + '"/><circle class="dot' + (o.dotsOnly ? ' solo' : '') + '" cx="' + x + '" cy="' + y + '" r="' + (o.dotsOnly ? 4.5 : 3.5) + '"/>'; });
+    if (o.labelBest !== false) svg += '<text class="val" x="' + xv(best.date).toFixed(1) + '" y="' + (yv(best.v) - 8).toFixed(1) + '" text-anchor="' + (xv(best.date) > W - 60 ? 'end' : xv(best.date) < L + 30 ? 'start' : 'middle') + '">' + (o.fmt ? o.fmt(best.v) : best.v) + '</text>';
+    svg += '<text x="' + L + '" y="' + (H - 3) + '">' + alDay(pts[0].date) + '</text><text x="' + (W - R) + '" y="' + (H - 3) + '" text-anchor="end">' + alDay(pts[pts.length - 1].date) + '</text></svg>';
+    return svg;
+  }
+  // bars by week (Monday to Sunday), the last n weeks
+  function alWeeks(evs, val, n) {
+    var now = new Date(), mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7)), wk = [];
+    for (var i = n - 1; i >= 0; i--) { var a = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() - i * 7); wk.push({ start: a.toLocaleDateString('en-CA'), end: new Date(a.getFullYear(), a.getMonth(), a.getDate() + 6).toLocaleDateString('en-CA'), v: 0, n: 0 }); }
+    evs.forEach(function (e) { var w = wk.filter(function (q) { return e.date >= q.start && e.date <= q.end; })[0]; if (w) { w.v += val(e); w.n++; } });
+    return wk;
+  }
+  function alBars(wk, o) {
+    var W = o.W || 560, H = o.H || 140, L = 38, R = 6, T0 = 14, B0 = 18, mx = Math.max.apply(null, wk.map(function (w) { return w.v; }).concat([1])), nc = alNice(0, mx, 3), cw = (W - L - R) / wk.length, bw = Math.max(5, cw - 6), yv = function (v) { return T0 + (H - T0 - B0) * (1 - v / nc.hi); };
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + alEsc(o.label || '') + '">';
+    for (var g = 0; g <= nc.hi + 1e-9; g += nc.step) svg += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yv(g).toFixed(1) + '" y2="' + yv(g).toFixed(1) + '"/><text x="' + (L - 5) + '" y="' + (yv(g) + 3.5).toFixed(1) + '" text-anchor="end">' + (o.fmt ? o.fmt(g) : g) + '</text>';
+    var best = wk.reduce(function (a, w) { return w.v > a.v ? w : a; }, wk[0]);
+    wk.forEach(function (w, i) { var x0 = L + cw * i + (cw - bw) / 2, y0 = yv(w.v), h = yv(0) - y0, rr = Math.min(4, h);
+      svg += '<rect class="hit" x="' + (L + cw * i).toFixed(1) + '" y="' + T0 + '" width="' + cw.toFixed(1) + '" height="' + (H - T0 - B0) + '" data-tip="' + alEsc('Week of ' + alDay(w.start) + ' · ' + (o.fmt ? o.fmt(w.v) : w.v) + (o.unit || '') + (o.count ? ' · ' + w.n + ' ' + o.count + (w.n === 1 ? '' : 's') : '')) + '"/>';
+      if (w.v > 0) svg += '<path class="bar" d="M' + x0.toFixed(1) + ' ' + yv(0).toFixed(1) + 'V' + (y0 + rr).toFixed(1) + 'Q' + x0.toFixed(1) + ' ' + y0.toFixed(1) + ' ' + (x0 + rr).toFixed(1) + ' ' + y0.toFixed(1) + 'H' + (x0 + bw - rr).toFixed(1) + 'Q' + (x0 + bw).toFixed(1) + ' ' + y0.toFixed(1) + ' ' + (x0 + bw).toFixed(1) + ' ' + (y0 + rr).toFixed(1) + 'V' + yv(0).toFixed(1) + 'Z"/>';
+      if (w === best && w.v > 0) svg += '<text class="val" x="' + (x0 + bw / 2).toFixed(1) + '" y="' + (y0 - 4).toFixed(1) + '" text-anchor="middle">' + (o.fmt ? o.fmt(w.v) : w.v) + '</text>';
+      if (i % 4 === 0) svg += '<text x="' + (x0 + bw / 2).toFixed(1) + '" y="' + (H - 3) + '" text-anchor="middle">' + alDay(w.start) + '</text>'; });
+    return svg + '</svg>';
+  }
+  function alCard(title, big, sub, chart) { return '<div class="al-chart"><h4>' + title + (big != null ? '<span>' + big + '</span>' : '') + '</h4>' + (sub ? '<small style="font:italic 400 12px var(--body);color:var(--muted)">' + sub + '</small>' : '') + chart + '</div>'; }
+  function alPace(s) { var m = Math.floor(s / 60), r = Math.round(s % 60); if (r === 60) { m++; r = 0; } return m + ':' + (r < 10 ? '0' : '') + r; }
+  function renderAlmanac() {
+    Array.prototype.forEach.call(document.querySelectorAll('.al-tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === alTab); });
+    var el = $('al-body'), html = '';
+    if (alTab === 'lifts') {
+      var lifts = alEvents(['lift']), BIG = [['bench', 'Bench press'], ['squat', 'Squat'], ['deadlift', 'Deadlift'], ['ohp', 'Overhead press']];
+      html += '<div class="al-grid">' + BIG.map(function (b) {
+        var pts = lifts.filter(function (e) { return e.bests && e.bests[b[0]]; }).map(function (e) { return { date: e.date, v: e.bests[b[0]], tip: alDay(e.date, true) + ': top set ' + e.bests[b[0]] + ' lb' }; });
+        var top = pts.length ? Math.max.apply(null, pts.map(function (p) { return p.v; })) : null;
+        return alCard(b[1], top != null ? top + ' lb' : null, pts.length ? 'heaviest set each session' : '', alLine(pts, { W: 270, H: 120, label: b[1] + ' top sets', fmt: function (v) { return Math.round(v); }, labelBest: false }));
+      }).join('') + '</div>';
+      var tn = alWeeks(lifts.filter(function (e) { return e.tonnage; }), function (e) { return e.tonnage; }, 16), tot = tn.reduce(function (a, w) { return a + w.v; }, 0);
+      html += '<h3 class="cm-h">Pounds moved, week by week</h3>' + alCard('', null, '', alBars(tn, { label: 'Weekly tonnage', fmt: function (v) { return v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v); }, unit: ' lb', count: 'session' }));
+      var prs = lifts.reduce(function (a, e) { return a + (e.prCount || 0); }, 0);
+      html += '<p class="al-note">' + Math.round(tot / 1000).toLocaleString('en-CA') + 'k lb lifted in the last sixteen weeks, ' + lifts.length + ' sessions logged, ' + prs + ' personal records set.</p>';
+    } else if (alTab === 'runs') {
+      var runs = alEvents(['run']).filter(function (e) { return e.km; });
+      // pace in minutes per km (leaving out GPS glitches and walks logged as runs)
+      var paced = runs.filter(function (e) { return e.secs && e.km >= 1; }).map(function (e) { var p = e.secs / (e.exactKm || e.km) / 60; return { date: e.date, v: p, tip: alDay(e.date, true) + ': ' + (e.exactKm || e.km).toFixed(1) + ' km at ' + alPace(p * 60) + ' /km' }; }).filter(function (q) { return q.v >= 2.5 && q.v <= 12; });
+      var tkm = runs.reduce(function (a, e) { return a + e.km; }, 0), longest = runs.reduce(function (a, e) { return e.km > a.km ? e : a; }, runs[0] || { km: 0 });
+      var bestPace = paced.length ? paced.reduce(function (a, p) { return p.v < a.v ? p : a; }, paced[0]) : null;
+      html += '<div class="cm-stats"><div><b>' + Math.round(tkm).toLocaleString('en-CA') + '</b><small>km run</small></div><div><b>' + runs.length + '</b><small>runs</small></div><div><b>' + (longest.km ? longest.km.toFixed(1) : '0') + '</b><small>km, longest</small></div><div><b>' + (bestPace ? alPace(bestPace.v * 60) : '–') + '</b><small>best pace /km</small></div></div>';
+      html += '<h3 class="cm-h">Pace, run by run</h3>' + alCard('', null, 'minutes per km; faster is higher. The line is the average of the last five runs.', alLine(paced, { label: 'Pace per run', fmt: function (v) { return alPace(v * 60); }, invert: true, dotsOnly: true, avg: 5 }));
+      html += '<h3 class="cm-h">Distance, week by week</h3>' + alCard('', null, '', alBars(alWeeks(runs, function (e) { return e.km; }, 16), { label: 'Weekly running km', fmt: function (v) { return Math.round(v); }, unit: ' km', count: 'run' }));
+      html += '<h3 class="cm-h">Every run</h3>' + alCard('', null, 'distance of each run', alLine(runs.map(function (e) { return { date: e.date, v: e.km, tip: alDay(e.date, true) + ': ' + e.km.toFixed(1) + ' km' + (e.elev ? ', ' + Math.round(e.elev) + ' m climbed' : '') }; }), { label: 'Distance per run', fmt: function (v) { return Math.round(v); }, dotsOnly: true, zero: true }));
+    } else if (alTab === 'rides') {
+      var rides = alEvents(['bike', 'mtb', 'commute']).filter(function (e) { return e.km; });
+      var sp = rides.filter(function (e) { return e.secs && e.km >= 3; }).map(function (e) { var v = (e.exactKm || e.km) / (e.secs / 3600); return { date: e.date, v: v, tip: alDay(e.date, true) + ': ' + (e.exactKm || e.km).toFixed(1) + ' km at ' + v.toFixed(1) + ' km/h' }; });
+      var rkm = rides.reduce(function (a, e) { return a + e.km; }, 0), relev = rides.reduce(function (a, e) { return a + (e.elev || 0); }, 0);
+      html += '<div class="cm-stats"><div><b>' + Math.round(rkm).toLocaleString('en-CA') + '</b><small>km ridden</small></div><div><b>' + rides.length + '</b><small>rides (incl. commutes)</small></div><div><b>' + Math.round(relev).toLocaleString('en-CA') + '</b><small>m climbed</small></div><div><b>' + (sp.length ? Math.max.apply(null, sp.map(function (p) { return p.v; })).toFixed(1) : '–') + '</b><small>fastest km/h</small></div></div>';
+      html += '<h3 class="cm-h">Distance, week by week</h3>' + alCard('', null, 'every ride, commutes included', alBars(alWeeks(rides, function (e) { return e.km; }, 16), { label: 'Weekly riding km', fmt: function (v) { return Math.round(v); }, unit: ' km', count: 'ride' }));
+      html += '<h3 class="cm-h">Speed, ride by ride</h3>' + alCard('', null, 'average km/h on rides with a time', alLine(sp, { label: 'Average speed per ride', fmt: function (v) { return Math.round(v); }, dotsOnly: true, avg: 5, zero: true }));
+    } else {
+      var ws = alEvents(['weight']).filter(function (e) { return e.value; }).map(function (e) { return { date: e.date, v: e.value, tip: alDay(e.date, true) + ': ' + e.value + ' lb' }; });
+      if (ws.length) { var first = ws[0], last = ws[ws.length - 1], ch = last.v - first.v;
+        html += '<div class="cm-stats"><div><b>' + last.v + '</b><small>lb, latest</small></div><div><b>' + (ch > 0 ? '+' : ch < 0 ? '−' : '') + Math.abs(ch).toFixed(1) + '</b><small>lb since ' + alDay(first.date) + '</small></div><div><b>' + Math.min.apply(null, ws.map(function (w) { return w.v; })) + '</b><small>lb, lowest</small></div><div><b>' + ws.length + '</b><small>weigh-ins</small></div></div>'; }
+      html += '<h3 class="cm-h">Every weigh-in</h3>' + alCard('', null, 'the line is the average of the last five', alLine(ws, { label: 'Body weight', fmt: function (v) { return v.toFixed(0); }, dotsOnly: true, avg: 5, labelBest: false }));
+    }
+    el.innerHTML = html + '<div class="cm-tip" hidden></div>';
+    // one tooltip for everything on the page
+    var tip = el.querySelector('.cm-tip');
+    Array.prototype.forEach.call(el.querySelectorAll('[data-tip]'), function (h) {
+      h.addEventListener('mouseenter', function () { var r = h.getBoundingClientRect(), wr = el.getBoundingClientRect(); tip.textContent = h.getAttribute('data-tip'); tip.hidden = false; var tw = tip.offsetWidth; tip.style.left = Math.max(tw / 2, Math.min(wr.width - tw / 2, r.left - wr.left + r.width / 2)) + 'px'; tip.style.top = (r.top - wr.top + (h.tagName === 'rect' ? r.height * 0.45 : 0) - 6) + 'px'; });
+      h.addEventListener('mouseleave', function () { tip.hidden = true; });
+    });
+  }
   // ---- the commute: total kilometres, traced up the road from Whitehorse to the Arctic Ocean ----
   var CM_LEGS = [
     { name: 'The Klondike Highway', from: 'Whitehorse', stops: [['Whitehorse', 0], ['Lake Laberge', 40], ['Braeburn', 98], ['Carmacks', 177], ['Five Finger Rapids', 200], ['Pelly Crossing', 285], ['Stewart Crossing', 356], ['Dempster Corner', 494], ['Dawson City', 534]] },
@@ -1264,6 +1393,7 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
     if (e.key === 'j' || e.key === 'J') openFolio('questsF');
     if (e.key === 'l' || e.key === 'L') openFolio('ledger');
     if (e.key === 'c' || e.key === 'C') openFolio('commuteF');
+    if (e.key === 'y' || e.key === 'Y') openFolio('almanacF');
     if (e.key === 'Escape') closeFolios();
   });
   // One line in the banner for all the records: fine, or which need a look.
