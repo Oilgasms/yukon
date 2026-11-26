@@ -12667,7 +12667,7 @@
     }
     if (!got.length || !anchor) return;
     var list = s.endPRs || (s.endPRs = []), i = list.length, pick = 'endpr:' + i, self = this, g = new T.Group();
-    list.push({ kind: kind, day: ev.day, label: ev.label, lines: got });
+    list.push({ kind: kind, day: ev.day, date: ev.date, label: ev.label, lines: got });
     function P(geo, mat, sx, sy, sz, x, y, z) { return self.part(g, geo, mat, sx, sy, sz, x, y, z, pick); }
     var top = kind === 'run' ? new T.Box3().setFromObject(anchor).max.y - anchor.position.y : 0.4;
     var sc = anchor.scale.x || 1;
