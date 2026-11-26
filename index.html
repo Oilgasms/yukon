@@ -545,6 +545,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
 .tb.on { background: var(--edge); color: var(--card); }
 .tb:active { transform: translateY(1px); }
 .tb + .tb { position: relative; }
+.tb[hidden] { display: none; }
 @media (max-width: 560px) {
   .timeline .tl-top { flex-wrap: wrap; justify-content: center; }
   .tb { min-width: 0; flex: 1 0 22%; padding: 4px 2px 3px; font-size: 12px; }
@@ -696,15 +697,15 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
       <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Scrub through your workouts">
       <button class="btn" id="future5" type="button" aria-pressed="false">+5 years</button>
       <button class="tb" id="explore" type="button" title="Switch between walking about and the map view (M)" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-tower"/></svg><span class="lbl">Overview</span></button>
-      <button class="tb" id="skills-btn" type="button" title="Your skills and levels (K)"><svg class="ico" aria-hidden="true"><use href="#i-sword"/></svg><span class="lbl">Skills</span></button>
+      <button class="tb" id="skills-btn" type="button" hidden title="Your skills and levels (K)"><svg class="ico" aria-hidden="true"><use href="#i-sword"/></svg><span class="lbl">Skills</span></button>
       <button class="tb" id="quests-btn" type="button" title="Favours asked by the townsfolk (J)"><svg class="ico" aria-hidden="true"><use href="#i-scroll"/></svg><span class="lbl">Quests</span></button>
       <button class="tb" id="ledger-btn" type="button" title="The town ledger: everything you’ve built (L)"><svg class="ico" aria-hidden="true"><use href="#i-ledger"/></svg><span class="lbl">Ledger</span></button>
       <button class="tb" id="commute-btn" type="button" title="Your commuting kilometres (C)"><svg class="ico" aria-hidden="true"><use href="#i-cycling"/></svg><span class="lbl">Commute</span></button>
       <button class="tb" id="almanac-btn" type="button" title="The almanac: charts of your lifts, runs, rides and weight (Y)"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg><span class="lbl">Almanac</span></button>
       <button class="tb" id="inkmap-btn" type="button" title="The inked map of everywhere you’ve walked (N)"><svg class="ico" aria-hidden="true"><use href="#i-map"/></svg><span class="lbl">Map</span></button>
-      <button class="tb" id="crierbtn" type="button" title="This week’s Town Crier"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg><span class="lbl">Crier</span></button>
+      <button class="tb" id="crierbtn" type="button" hidden title="This week’s Town Crier"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg><span class="lbl">Crier</span></button>
       <button class="tb" id="recentbtn" type="button" title="The last 25 things logged"><svg class="ico" aria-hidden="true"><use href="#i-candle"/></svg><span class="lbl">Latest</span></button>
-      <button class="tb" id="photo-btn" type="button" title="Photo mode: hide everything and frame a shot (P)"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="lbl">Photo</span></button>
+      <button class="tb" id="photo-btn" type="button" hidden title="Photo mode: hide everything and frame a shot (P)"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="lbl">Photo</span></button>
       <button class="tb" id="settings-btn" type="button" title="Art style, motion, sound and your records"><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg><span class="lbl">Settings</span></button>
     </div>
     <div class="caption" id="caption">&nbsp;</div>
@@ -762,7 +763,7 @@ document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>
 document.write('<script src="data/bible_ticks.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v228';
+var BUILD = 'v229';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
