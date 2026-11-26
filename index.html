@@ -621,7 +621,7 @@ body.photo .photo-hint { opacity: 0.85; pointer-events: auto; }
   </section>
   <section class="card folio commute" id="almanacF" role="dialog" aria-label="The almanac" hidden>
     <header class="folio-h"><div><div class="eyebrow">Charts kept by the town clerk</div><h2>The Almanac</h2></div><button class="folio-x" type="button" aria-label="Close">&times;</button></header>
-    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button></div>
+    <div class="al-tabs" role="tablist"><button type="button" data-tab="lifts" class="on">Lifts</button><button type="button" data-tab="runs">Runs</button><button type="button" data-tab="rides">Rides</button><button type="button" data-tab="weight">Weight</button><button type="button" data-tab="body">Measurements</button></div>
     <div id="al-body"></div>
   </section>
   <section class="card folio" id="settings" role="dialog" aria-label="Settings" hidden>
@@ -740,7 +740,7 @@ document.write('<script src="data/weather.js?v=' + Date.now() + '"><\/script>');
 document.write('<script src="data/commute_wx.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="site.js"></script>
 <script>// The game's code, tagged with the build so a browser never runs a stale copy after an update.
-var BUILD = 'v225';
+var BUILD = 'v226';
 document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="town.js?v=' + BUILD + '"><\/script>');</script>
 <script>
 (function () {
@@ -1257,6 +1257,19 @@ document.write('<script src="parser.js?v=' + BUILD + '"><\/script><script src="t
       html += '<div class="cm-stats"><div><b>' + Math.round(rkm).toLocaleString('en-CA') + '</b><small>km ridden</small></div><div><b>' + nRides + '</b><small>rides (' + nCommDays + ' commute days)</small></div><div><b>' + Math.round(relev).toLocaleString('en-CA') + '</b><small>m climbed</small></div><div><b>' + (sp.length ? Math.max.apply(null, sp.map(function (p) { return p.v; })).toFixed(1) : '–') + '</b><small>fastest km/h</small></div></div>';
       html += '<h3 class="cm-h">Distance, week by week</h3>' + alCard('', null, 'every ride, commutes included', alBars(alWeeks(rides, function (e) { return e.km; }, 16), { label: 'Weekly riding km', fmt: function (v) { return Math.round(v); }, unit: ' km', count: 'ride' }));
       html += '<h3 class="cm-h">Speed, ride by ride</h3>' + alCard('', null, 'average km/h on rides with a time', alLine(sp, { label: 'Average speed per ride', fmt: function (v) { return Math.round(v); }, dotsOnly: true, avg: 5, zero: true }));
+    } else if (alTab === 'body') {
+      // body measurements from the sheet's Neck, Chest, Shoulders, Waist, bicep and leg columns
+      var ms = (typeof sheetData !== 'undefined' && sheetData && sheetData.measures) || [], MK = [['chest', 'Chest'], ['shoulders', 'Shoulders'], ['waist', 'Waist'], ['neck', 'Neck'], ['lbicep', 'Left bicep'], ['rbicep', 'Right bicep'], ['lleg', 'Left leg'], ['rleg', 'Right leg'], ['hips', 'Hips']];
+      var shown = MK.filter(function (k) { return ms.some(function (m) { return m.v[k[0]]; }); });
+      if (!shown.length) html += '<div class="al-empty">No measurements yet. Fill in the Neck, Waist, Chest, bicep, leg and Shoulders columns in your sheet and they\u2019ll chart here.</div>';
+      else {
+        var last = ms.filter(function (m) { return Object.keys(m.v).length; }).slice(-1)[0];
+        html += '<p class="al-note" style="margin-top:0">In inches. ' + ms.length + (ms.length === 1 ? ' set of measurements' : ' sets of measurements') + ', the latest on ' + alDay(last.date) + '.</p><div class="al-grid">' + shown.map(function (k) {
+          var pts = ms.filter(function (m) { return m.v[k[0]]; }).map(function (m) { return { date: m.date, v: m.v[k[0]], tip: alDay(m.date, true) + ': ' + m.v[k[0]] + ' in' }; });
+          var first = pts[0].v, now = pts[pts.length - 1].v, ch = Math.round((now - first) * 100) / 100;
+          return alCard(k[1], now + '\u2033', pts.length > 1 ? (ch > 0 ? '+' : ch < 0 ? '\u2212' : '\u00b1') + Math.abs(ch) + '\u2033 since ' + alDay(pts[0].date) : 'first measurement', alLine(pts, { W: 270, H: 110, label: k[1], fmt: function (v) { return v.toFixed(1); }, labelBest: false }));
+        }).join('') + '</div>';
+      }
     } else {
       var ws = alEvents(['weight']).filter(function (e) { return e.value; }).map(function (e) { return { date: e.date, v: e.value, tip: alDay(e.date, true) + ': ' + e.value + ' lb' }; });
       if (ws.length) { var first = ws[0], last = ws[ws.length - 1], ch = last.v - first.v;

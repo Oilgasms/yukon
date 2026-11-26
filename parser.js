@@ -234,6 +234,12 @@
   }
   // Exercise lines in the notes, like "3B. Narrow Grip Lat Pulldown: 3.10.140": the exercise, its
   // weight and its top rep count, so each session can be checked against your best so far.
+  // Measurement headers: "Neck", "Waist", "LBicep" (or "L Bicep"), "RLeg", "Shoulders"...
+  function measureKey(c) {
+    var t = String(c || '').toLowerCase().replace(/[^a-z]/g, '');
+    var M = { neck: 'neck', waist: 'waist', chest: 'chest', hips: 'hips', hip: 'hips', shoulders: 'shoulders', lbicep: 'lbicep', rbicep: 'rbicep', lbicp: 'lbicep', leftbicep: 'lbicep', rightbicep: 'rbicep', lleg: 'lleg', rleg: 'rleg', leftleg: 'lleg', rightleg: 'rleg', lthigh: 'lleg', rthigh: 'rleg', lcalf: 'lcalf', rcalf: 'rcalf', forearm: 'forearm' };
+    return M[t] || null;
+  }
   function exercisesIn(notes) {
     var out = [];
     String(notes || '').split(/\n|\s\|\s/).forEach(function (line) {
@@ -245,7 +251,7 @@
     });
     return out;
   }
-  function parseSheet(name, rows, fills, today, events, planned) {
+  function parseSheet(name, rows, fills, today, events, planned, measures) {
     // This week (Monday to Sunday): uncoloured workouts here are still to do.
     var wk0 = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (today.getDay() + 6) % 7), wk1 = new Date(wk0.getFullYear(), wk0.getMonth(), wk0.getDate() + 7);
     var cols = null, weekDate = null, found = false;
@@ -271,7 +277,10 @@
           notes: r.findIndex(function (c) { return /^notes/i.test(c); }),
           drinks: r.findIndex(function (c) { return /drinks|beers/i.test(c); }),
           commute: r.findIndex(function (c) { return /^(bike|commute)$/i.test(c); }),
-          weight: r.findIndex(function (c) { return /^weight$/i.test(c); })
+          weight: r.findIndex(function (c) { return /^weight$/i.test(c); }),
+          lunch: r.findIndex(function (c) { return /^lunch\s*$/i.test(c); }),
+          // body measurements (inches), kept apart from the workouts: they only feed the almanac
+          meas: r.map(function (c, i) { var k = measureKey(c); return k ? { k: k, i: i } : null; }).filter(Boolean)
         };
         found = true;
       }
@@ -295,7 +304,12 @@
         ? date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
         : DAYS[day].charAt(0).toUpperCase() + DAYS[day].slice(1);
       var dayEvents = [];
-      [['AM', cols.am], ['PM', cols.pm]].forEach(function (slot) {
+      if (cols.meas && cols.meas.length && date && date <= today && measures) {
+        var mv = {}, any = false;
+        cols.meas.forEach(function (m) { var v = parseFloat(String(r[m.i] || '').replace(/[^0-9.]/g, '')); if (v > 0 && v < 100) { mv[m.k] = v; any = true; } });
+        if (any) measures.push({ date: isoDay(date), v: mv });
+      }
+      [['AM', cols.am], ['MID', cols.lunch], ['PM', cols.pm]].forEach(function (slot) {
         if (slot[1] < 0) return;
         var text = r[slot[1]] || '';
         // Green is done; yellow (rest) and red (missed) never count. This week, uncoloured workouts
@@ -381,16 +395,16 @@
   }
 
   function parseWorkbook(sheets, today) {
-    var events = [], phases = [], planned = [];
+    var events = [], phases = [], planned = [], measures = [];
     today = today || new Date();
     sheets.forEach(function (s) {
       if (EXCLUDE.test(s.name)) return;
       var before = events.length;
-      if (parseSheet(s.name, s.rows, s.fills, today, events, planned) && events.length > before) phases.push(s.name);
+      if (parseSheet(s.name, s.rows, s.fills, today, events, planned, measures) && events.length > before) phases.push(s.name);
     });
     markHistoryPRs(events);
     events.forEach(function (e, i) { e.i = i; });
-    return { events: events, phases: phases, planned: planned };
+    return { events: events, phases: phases, planned: planned, measures: measures };
   }
   // PRs from history: an exercise beats your best so far with more weight, or the same weight for
   // more reps. (The first time an exercise shows up sets the bar.) These join the "+" PRs from notes.
